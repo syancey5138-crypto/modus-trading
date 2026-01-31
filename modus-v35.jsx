@@ -10,7 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, TrendingUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, Info, Flame, Pencil, Save, Newspaper } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, Info, Flame, Pencil, Save, Newspaper } from "lucide-react";
 
 // Company Names Lookup - Maps ticker symbols to full company names
 const COMPANY_NAMES = {
@@ -310,7 +310,6 @@ const COMPANY_NAMES = {
   'BB': 'BlackBerry Limited',
   'BBBY': 'Bed Bath & Beyond Inc.',
   'SPCE': 'Virgin Galactic Holdings',
-  'PLTR': 'Palantir Technologies',
   'WISH': 'ContextLogic Inc.',
   'CLOV': 'Clover Health Investments',
 
@@ -9653,7 +9652,7 @@ OUTPUT JSON:
               }`}
               title={sidebarCollapsed ? "Backtesting" : ""}
             >
-              <TrendingUpDown className="w-5 h-5 flex-shrink-0" />
+              <ArrowUpDown className="w-5 h-5 flex-shrink-0" />
               {!sidebarCollapsed && <span className="font-medium">Backtest</span>}
             </button>
 
@@ -9831,7 +9830,7 @@ OUTPUT JSON:
               }`}
               title={sidebarCollapsed ? "Alert Performance" : ""}
             >
-              <TrendingUpDown className="w-5 h-5 flex-shrink-0" />
+              <ArrowUpDown className="w-5 h-5 flex-shrink-0" />
               {!sidebarCollapsed && <span className="font-medium">Alert Performance</span>}
             </button>
           </nav>
@@ -19297,7 +19296,7 @@ OUTPUT JSON:
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-3xl font-bold flex items-center gap-3">
-                  <TrendingUpDown className="w-8 h-8 text-violet-400" />
+                  <ArrowUpDown className="w-8 h-8 text-violet-400" />
                   Alert Performance Tracking
                 </h2>
                 <p className="text-slate-400 mt-2">Track how profitable your alerts have been</p>
