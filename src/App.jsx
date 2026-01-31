@@ -1077,70 +1077,70 @@ function App() {
       // Only ring if this is a NEW trigger (wasn't triggered before, now is)
       // This prevents continuous ringing while condition remains true
       if (triggered && !wasTriggered) {
-        // Use ref to get current ring count (avoids closure issues)
-        const currentRingCount = alertRingCountsRef.current[alert.id] || 0;
-        
-        if (currentRingCount < 3) {
-          console.log(`🔔 ALERT TRIGGERED (ring ${currentRingCount + 1}/3): ${alert.symbol} ${alert.condition} $${targetPrice}`);
-          
-          // Update ref IMMEDIATELY to prevent race conditions
-          alertRingCountsRef.current = {
-            ...alertRingCountsRef.current,
-            [alert.id]: currentRingCount + 1
-          };
-          
-          // Show notification
-          if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
-            new Notification(`🔔 ${alert.symbol} Alert! (${currentRingCount + 1}/3)`, {
-              body: `Price ${alert.condition} $${targetPrice.toFixed(2)}. Current: $${currentPrice.toFixed(2)}`,
-              icon: "/favicon.ico",
-              tag: `alert-${alert.id}`,
-              requireInteraction: false
-            });
-          }
+        console.log(`🔔 ALERT TRIGGERED: ${alert.symbol} ${alert.condition} $${targetPrice}`);
 
-          // Send SMS alert (only on first ring to avoid spam)
-          if (currentRingCount === 0 && smsSettings.enabled) {
-            const smsMessage = `${alert.symbol} ${alert.condition} $${targetPrice.toFixed(2)}! Now: $${currentPrice.toFixed(2)}`;
-            sendSmsAlert(smsMessage, 'price');
-          }
+        // Increment trigger count for UI display
+        const currentTriggerCount = (alertRingCountsRef.current[alert.id] || 0) + 1;
+        alertRingCountsRef.current = {
+          ...alertRingCountsRef.current,
+          [alert.id]: currentTriggerCount
+        };
 
-          // Play sound - single beep
+        // Update state for UI
+        setAlertRingCounts(prev => ({
+          ...prev,
+          [alert.id]: currentTriggerCount
+        }));
+
+        // Show notification
+        if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+          new Notification(`🔔 ${alert.symbol} Alert!`, {
+            body: `Price ${alert.condition} $${targetPrice.toFixed(2)}. Current: $${currentPrice.toFixed(2)}`,
+            icon: "/favicon.ico",
+            tag: `alert-${alert.id}`,
+            requireInteraction: false
+          });
+        }
+
+        // Send SMS alert
+        if (smsSettings.enabled) {
+          const smsMessage = `${alert.symbol} ${alert.condition} $${targetPrice.toFixed(2)}! Now: $${currentPrice.toFixed(2)}`;
+          sendSmsAlert(smsMessage, 'price');
+        }
+
+        // Play 3 rapid beeps (1 second apart)
+        const playBeep = (frequency = 800, duration = 0.3) => {
           try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
-            
+
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.value = 800;
+
+            oscillator.frequency.value = frequency;
             oscillator.type = 'sine';
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-            
+            gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
             oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
+            oscillator.stop(audioContext.currentTime + duration);
           } catch (e) {
             console.log('Audio not available');
           }
-          
-          // Update state to sync with ref (for UI display)
-          setAlertRingCounts(prev => ({
-            ...prev,
-            [alert.id]: currentRingCount + 1
-          }));
-          
-          // After 3 rings, disable the alert
-          if (currentRingCount + 1 >= 3) {
-            console.log(`[Alert] ${alert.symbol} alert disabled after 3 rings`);
-            setAlerts(prev => prev.map(a => 
-              a.id === alert.id 
-                ? { ...a, enabled: false, triggered: true, triggeredAt: Date.now(), triggeredPrice: currentPrice }
-                : a
-            ));
-          }
-        }
+        };
+
+        // Play 3 beeps immediately with 1-second intervals
+        playBeep(800, 0.3); // First beep immediately
+        setTimeout(() => playBeep(900, 0.3), 1000); // Second beep at 1s
+        setTimeout(() => playBeep(1000, 0.3), 2000); // Third beep at 2s (rising pitch)
+
+        // Mark alert as triggered (but don't disable - allow re-trigger on next crossing)
+        setAlerts(prev => prev.map(a =>
+          a.id === alert.id
+            ? { ...a, triggered: true, triggeredAt: Date.now(), triggeredPrice: currentPrice }
+            : a
+        ));
       }
     });
   };
@@ -14082,8 +14082,8 @@ OUTPUT JSON:
                       <li><strong>Auto-Check:</strong> All alerts checked every 10 seconds in background</li>
                       <li><strong>Any Symbol:</strong> Alerts work for ANY stock, not just current ticker</li>
                       <li><strong>Smart Ringing:</strong> Only rings when price CROSSES threshold (not continuous)</li>
-                      <li><strong>Ring Limit:</strong> Max 3 rings per alert, then auto-disables</li>
-                      <li><strong>Re-enable:</strong> Toggle alert off/on to reset ring count</li>
+                      <li><strong>Triple Beep:</strong> 3 rapid beeps when alert triggers (1 second apart)</li>
+                      <li><strong>Re-triggers:</strong> Alert fires again when price crosses threshold again</li>
                     </ul>
                     <p className="mt-2 text-emerald-400">
                       Monitoring: <strong>{Object.keys(watchlistPrices).length}</strong> symbols | 
@@ -14126,7 +14126,7 @@ OUTPUT JSON:
                             <span className="font-mono text-lg">${alert.price}</span>
                             {alertRingCounts[alert.id] > 0 && (
                               <span className="px-2 py-0.5 bg-orange-600/20 text-orange-400 rounded text-xs font-semibold">
-                                🔔 {alertRingCounts[alert.id]}/3
+                                🔔 {alertRingCounts[alert.id]}x
                               </span>
                             )}
                             {alert.triggered && (

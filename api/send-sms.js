@@ -1,5 +1,5 @@
 // Vercel Serverless Function - SMS Alerts via Email-to-SMS Gateway
-// 100% FREE - Uses carrier email gateways to send SMS
+// Uses Brevo (Sendinblue) - 300 FREE emails/day, can send to ANY address
 
 // Carrier email-to-SMS gateways (US carriers)
 const CARRIER_GATEWAYS = {
@@ -59,16 +59,15 @@ export default async function handler(req, res) {
     const phoneNumber = cleanPhone.length === 11 ? cleanPhone.slice(1) : cleanPhone;
     const smsEmail = `${phoneNumber}@${gateway}`;
 
-    // Get Resend API key from environment
-    const resendApiKey = process.env.RESEND_API_KEY;
+    // Get Brevo API key from environment
+    const brevoApiKey = process.env.BREVO_API_KEY;
 
-    if (!resendApiKey) {
-      // Fallback: Return the email address so user can use their own email client
+    if (!brevoApiKey) {
       return res.status(200).json({
         success: false,
         fallback: true,
         smsEmail: smsEmail,
-        message: 'RESEND_API_KEY not configured. Send email manually to: ' + smsEmail
+        message: 'BREVO_API_KEY not configured. Send email manually to: ' + smsEmail
       });
     }
 
@@ -86,31 +85,34 @@ export default async function handler(req, res) {
     const emoji = alertEmojis[alertType] || '🔔';
     const formattedMessage = `${emoji} MODUS Alert\n${message}`;
 
-    // Send via Resend (free tier: 100 emails/day, 3000/month)
-    const response = await fetch('https://api.resend.com/emails', {
+    // Send via Brevo (free tier: 300 emails/day)
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${resendApiKey}`,
+        'api-key': brevoApiKey,
       },
       body: JSON.stringify({
-        from: 'MODUS Alerts <alerts@resend.dev>', // Use Resend's default domain (free)
-        to: smsEmail,
-        subject: 'MODUS', // Subject becomes part of SMS
-        text: formattedMessage,
+        sender: {
+          name: 'MODUS Alerts',
+          email: process.env.BREVO_SENDER_EMAIL || 'alerts@modus-trading.vercel.app'
+        },
+        to: [{ email: smsEmail }],
+        subject: 'MODUS',
+        textContent: formattedMessage,
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Resend API error: ${error}`);
+      throw new Error(`Brevo API error: ${error}`);
     }
 
     const data = await response.json();
 
     return res.status(200).json({
       success: true,
-      messageId: data.id,
+      messageId: data.messageId,
       sentTo: smsEmail,
       alertType,
     });
