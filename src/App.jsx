@@ -528,9 +528,13 @@ function App() {
       tradeSignals: true,
       dailyPick: false,
       newsAlerts: false,
-    }
+    },
+    // EmailJS credentials (each user provides their own)
+    emailjsServiceId: "",
+    emailjsTemplateId: "",
+    emailjsPublicKey: "",
   });
-  const [smsQuotaRemaining, setSmsQuotaRemaining] = useState(100);
+  const [smsQuotaRemaining, setSmsQuotaRemaining] = useState(200);
   const [showSmsSetup, setShowSmsSetup] = useState(false);
 
   // Carrier options for Email-to-SMS
@@ -2121,10 +2125,15 @@ function App() {
     }
 
     try {
-      // EmailJS credentials (public keys - safe for frontend)
-      const EMAILJS_SERVICE_ID = 'service_wka2oph';
-      const EMAILJS_TEMPLATE_ID = 'template_1bn2e5y';
-      const EMAILJS_PUBLIC_KEY = 'P3MjxM_aqWY9csXhF';
+      // EmailJS credentials (each user provides their own)
+      const EMAILJS_SERVICE_ID = smsSettings.emailjsServiceId;
+      const EMAILJS_TEMPLATE_ID = smsSettings.emailjsTemplateId;
+      const EMAILJS_PUBLIC_KEY = smsSettings.emailjsPublicKey;
+
+      if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
+        console.log("[SMS] EmailJS credentials not configured");
+        return false;
+      }
 
       // Build SMS email address
       const cleanPhone = smsSettings.phone.replace(/\D/g, '');
@@ -8784,6 +8793,46 @@ OUTPUT JSON:
                     </div>
                   </div>
 
+                  {/* EmailJS Credentials Section */}
+                  <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                    <p className="text-xs text-violet-400 font-semibold mb-3">📧 EmailJS Setup (Free - 200/month)</p>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Get free credentials at <a href="https://www.emailjs.com" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:underline">emailjs.com</a>
+                    </p>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">Service ID</label>
+                        <input
+                          type="text"
+                          value={smsSettings.emailjsServiceId}
+                          onChange={(e) => setSmsSettings(prev => ({ ...prev, emailjsServiceId: e.target.value }))}
+                          placeholder="service_xxxxxxx"
+                          className="w-full bg-slate-900/80 border border-slate-600/50 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/50 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">Template ID</label>
+                        <input
+                          type="text"
+                          value={smsSettings.emailjsTemplateId}
+                          onChange={(e) => setSmsSettings(prev => ({ ...prev, emailjsTemplateId: e.target.value }))}
+                          placeholder="template_xxxxxxx"
+                          className="w-full bg-slate-900/80 border border-slate-600/50 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/50 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">Public Key</label>
+                        <input
+                          type="text"
+                          value={smsSettings.emailjsPublicKey}
+                          onChange={(e) => setSmsSettings(prev => ({ ...prev, emailjsPublicKey: e.target.value }))}
+                          placeholder="your_public_key"
+                          className="w-full bg-slate-900/80 border border-slate-600/50 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/50 font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs text-slate-400 mb-2">Alert Types</label>
                     <div className="grid grid-cols-2 gap-2">
@@ -8814,19 +8863,19 @@ OUTPUT JSON:
 
                   <div className="p-3 bg-slate-800/50 rounded-lg">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Daily SMS Quota</span>
+                      <span className="text-slate-400">Monthly SMS Quota</span>
                       <span className={smsQuotaRemaining > 20 ? 'text-emerald-400' : 'text-amber-400'}>
-                        {smsQuotaRemaining}/100 remaining
+                        {smsQuotaRemaining}/200 remaining
                       </span>
                     </div>
                     <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${smsQuotaRemaining > 20 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                        style={{ width: `${smsQuotaRemaining}%` }}
+                        style={{ width: `${(smsQuotaRemaining / 200) * 100}%` }}
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-2">
-                      100 free SMS/day via Resend. Resets at midnight UTC.
+                      200 free SMS/month via EmailJS. Get your own free account above.
                     </p>
                   </div>
                 </div>
