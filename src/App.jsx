@@ -9899,7 +9899,31 @@ OUTPUT JSON:
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
               <span className="font-mono text-sm text-emerald-400 tabular-nums">{formatTime(currentTime)}</span>
             </div>
-            
+
+            {/* Background Status Indicator */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs">
+              {(loadingAnalysis || loadingPick || loadingAnswer || loadingTicker) ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                  <span className="text-amber-400">
+                    {loadingAnalysis ? 'Analyzing...' :
+                     loadingPick ? 'Finding pick...' :
+                     loadingAnswer ? 'AI thinking...' :
+                     loadingTicker ? 'Loading chart...' : 'Working...'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                  <span className="text-slate-400">
+                    {alerts.filter(a => a.enabled).length > 0
+                      ? `${alerts.filter(a => a.enabled).length} alert${alerts.filter(a => a.enabled).length > 1 ? 's' : ''} active`
+                      : 'Ready'}
+                  </span>
+                </>
+              )}
+            </div>
+
             {/* Position Sizer */}
             <button
               onClick={() => setShowPositionSizer(true)}
@@ -15517,6 +15541,22 @@ OUTPUT JSON:
                   </button>
                 </div>
               </div>
+
+              {/* Enhanced Loading State */}
+              {loadingAnswer && (
+                <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+                      <div className="absolute inset-0 w-8 h-8 border-2 border-violet-500/20 rounded-full animate-ping" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-violet-300">AI is analyzing your question...</p>
+                      <p className="text-xs text-slate-400 mt-1">This typically takes 3-8 seconds depending on complexity</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {answer && (
                 <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-6 mb-6">
