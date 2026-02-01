@@ -1,5 +1,5 @@
 // Vercel Serverless Function - SMS Alerts via Email-to-SMS Gateway
-// Uses Brevo (Sendinblue) - 300 FREE emails/day, can send to ANY address
+// Uses EmailJS - 200 FREE emails/month, works immediately
 
 // Carrier email-to-SMS gateways (US carriers)
 const CARRIER_GATEWAYS = {
@@ -59,15 +59,17 @@ export default async function handler(req, res) {
     const phoneNumber = cleanPhone.length === 11 ? cleanPhone.slice(1) : cleanPhone;
     const smsEmail = `${phoneNumber}@${gateway}`;
 
-    // Get Brevo API key from environment
-    const brevoApiKey = process.env.BREVO_API_KEY;
+    // Get EmailJS credentials from environment
+    const serviceId = process.env.EMAILJS_SERVICE_ID;
+    const templateId = process.env.EMAILJS_TEMPLATE_ID;
+    const publicKey = process.env.EMAILJS_PUBLIC_KEY;
 
-    if (!brevoApiKey) {
+    if (!serviceId || !templateId || !publicKey) {
       return res.status(200).json({
         success: false,
         fallback: true,
         smsEmail: smsEmail,
-        message: 'BREVO_API_KEY not configured. Send email manually to: ' + smsEmail
+        message: 'EmailJS not configured. Send email manually to: ' + smsEmail
       });
     }
 
@@ -85,34 +87,31 @@ export default async function handler(req, res) {
     const emoji = alertEmojis[alertType] || '🔔';
     const formattedMessage = `${emoji} MODUS Alert\n${message}`;
 
-    // Send via Brevo (free tier: 300 emails/day)
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    // Send via EmailJS REST API (200 free/month)
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': brevoApiKey,
       },
       body: JSON.stringify({
-        sender: {
-          name: 'MODUS Alerts',
-          email: process.env.BREVO_SENDER_EMAIL || 'alerts@modus-trading.vercel.app'
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: publicKey,
+        template_params: {
+          to_email: smsEmail,
+          subject: 'MODUS',
+          message: formattedMessage,
         },
-        to: [{ email: smsEmail }],
-        subject: 'MODUS',
-        textContent: formattedMessage,
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Brevo API error: ${error}`);
+      throw new Error(`EmailJS API error: ${error}`);
     }
-
-    const data = await response.json();
 
     return res.status(200).json({
       success: true,
-      messageId: data.messageId,
       sentTo: smsEmail,
       alertType,
     });
