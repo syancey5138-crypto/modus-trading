@@ -2078,8 +2078,26 @@ function App() {
   };
 
   // ============================================
-  // SMS ALERT FUNCTION - Sends SMS via Email-to-SMS gateway
+  // SMS ALERT FUNCTION - Sends SMS via EmailJS (browser-side)
   // ============================================
+
+  // Carrier email-to-SMS gateways
+  const CARRIER_GATEWAYS = {
+    'att': 'txt.att.net',
+    'verizon': 'vtext.com',
+    'tmobile': 'tmomail.net',
+    'sprint': 'messaging.sprintpcs.com',
+    'uscellular': 'email.uscc.net',
+    'metropcs': 'mymetropcs.net',
+    'cricket': 'sms.cricketwireless.net',
+    'boost': 'sms.myboostmobile.com',
+    'virgin': 'vmobl.com',
+    'republic': 'text.republicwireless.com',
+    'googlefi': 'msg.fi.google.com',
+    'mint': 'tmomail.net',
+    'visible': 'vtext.com',
+  };
+
   const sendSmsAlert = async (message, alertType = 'price') => {
     if (!smsSettings.enabled || !smsSettings.phone || !smsSettings.carrier) {
       console.log("[SMS] SMS not configured or disabled");
@@ -2103,35 +2121,51 @@ function App() {
     }
 
     try {
-      // Determine API base URL
-      const apiBase = backendUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+      // EmailJS credentials (public keys - safe for frontend)
+      const EMAILJS_SERVICE_ID = 'service_wka2oph';
+      const EMAILJS_TEMPLATE_ID = 'template_1bn2e5y';
+      const EMAILJS_PUBLIC_KEY = 'P3MjxM_aqWY9csXhF';
 
-      const response = await fetch(`${apiBase}/api/send-sms`, {
+      // Build SMS email address
+      const cleanPhone = smsSettings.phone.replace(/\D/g, '');
+      const phoneNumber = cleanPhone.length === 11 ? cleanPhone.slice(1) : cleanPhone;
+      const gateway = CARRIER_GATEWAYS[smsSettings.carrier.toLowerCase()];
+      const smsEmail = `${phoneNumber}@${gateway}`;
+
+      // Format message
+      const alertEmojis = {
+        'price': '📊',
+        'entry': '🎯',
+        'stop': '🛑',
+        'target': '💰',
+        'news': '📰',
+      };
+      const emoji = alertEmojis[alertType] || '🔔';
+      const formattedMessage = `${emoji} MODUS Alert\n${message.slice(0, 140)}`;
+
+      // Send via EmailJS (browser-side API)
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: smsSettings.phone,
-          carrier: smsSettings.carrier,
-          message: message.slice(0, 140), // SMS character limit
-          alertType,
+          service_id: EMAILJS_SERVICE_ID,
+          template_id: EMAILJS_TEMPLATE_ID,
+          user_id: EMAILJS_PUBLIC_KEY,
+          template_params: {
+            to_email: smsEmail,
+            subject: 'MODUS',
+            message: formattedMessage,
+          },
         }),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        console.log(`[SMS] Alert sent successfully: ${message.slice(0, 50)}...`);
-        // Update quota if returned
-        if (data.remaining !== undefined) {
-          setSmsQuotaRemaining(data.remaining);
-        }
+      if (response.ok) {
+        console.log(`[SMS] ✅ Alert sent to ${smsEmail}`);
+        setSmsQuotaRemaining(prev => Math.max(0, prev - 1));
         return true;
-      } else if (data.fallback) {
-        // Backend not configured - show manual instructions
-        console.log(`[SMS] Fallback mode - send to: ${data.smsEmail}`);
-        return false;
       } else {
-        console.error("[SMS] Failed to send:", data.error);
+        const error = await response.text();
+        console.error("[SMS] Failed to send:", error);
         return false;
       }
     } catch (error) {
