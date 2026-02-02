@@ -4849,177 +4849,214 @@ OUTPUT JSON:
 
   // ========================================
   // STOCK CATALYSTS & EVENTS DATABASE
-  // Real-world factors that affect stock prices
+  // Dynamic, date-aware catalysts that auto-update
   // ========================================
   const getStockCatalysts = (symbol) => {
-    const currentMonth = new Date().getMonth(); // 0-11
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
     const currentQuarter = Math.floor(currentMonth / 3) + 1; // Q1-Q4
+    const currentYear = now.getFullYear();
 
-    // Comprehensive catalyst database
+    // Helper: Get next earnings quarter description
+    const getEarningsDesc = (fiscalOffset = 0) => {
+      const q = ((currentQuarter + fiscalOffset - 1) % 4) + 1;
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const earningsMonth = months[((q - 1) * 3 + 1) % 12];
+      return `Q${q} earnings ${earningsMonth} - key metrics in focus`;
+    };
+
+    // Dynamic catalyst database - evergreen descriptions
     const catalystDB = {
       // === MEGA-CAP TECH ===
       'AAPL': {
-        upcomingEvents: ['iPhone 17 announcement expected', 'Apple Intelligence AI rollout', 'Services revenue growth'],
-        earnings: currentQuarter === 1 ? 'Q1 earnings late Jan - holiday sales reveal' : currentQuarter === 4 ? 'Q4 earnings - new iPhone sales' : null,
-        catalysts: ['AI features driving upgrade cycle', 'Vision Pro expansion', 'India manufacturing growth'],
-        risks: ['China sales slowdown', 'EU regulatory pressure', 'Smartphone market saturation'],
-        seasonality: currentMonth >= 8 && currentMonth <= 11 ? 'bullish' : 'neutral', // Strong Sep-Nov (iPhone launch)
-        sectorTrend: 'Consumer tech spending resilient'
+        upcomingEvents: [
+          currentMonth >= 6 && currentMonth <= 8 ? 'iPhone launch event approaching' : 'Next iPhone cycle anticipated',
+          'AI features expansion ongoing',
+          'Services revenue growth continues'
+        ],
+        earnings: getEarningsDesc(),
+        catalysts: ['Device upgrade cycle momentum', 'Wearables ecosystem growth', 'Emerging market expansion'],
+        risks: ['China market headwinds', 'Regulatory pressure globally', 'Hardware market saturation'],
+        seasonality: currentMonth >= 8 && currentMonth <= 11 ? 'bullish' : 'neutral',
+        sectorTrend: 'Consumer tech ecosystem strengthening'
       },
       'MSFT': {
-        upcomingEvents: ['Azure AI expansion', 'Copilot enterprise adoption', 'Gaming division growth'],
-        earnings: currentQuarter === 1 ? 'Q2 FY earnings - cloud growth key' : null,
-        catalysts: ['AI integration across products', 'Enterprise cloud migration', 'GitHub Copilot momentum'],
-        risks: ['Cloud competition from AWS/GCP', 'Enterprise spending slowdown', 'Regulatory scrutiny'],
+        upcomingEvents: ['Azure AI capacity expansion', 'Copilot adoption acceleration', 'Cloud market share gains'],
+        earnings: getEarningsDesc(1), // MSFT fiscal year offset
+        catalysts: ['Enterprise AI integration', 'Cloud migration tailwinds', 'Gaming subscription growth'],
+        risks: ['Cloud competition intensifying', 'Enterprise spending cycles', 'Antitrust scrutiny'],
         seasonality: 'neutral',
-        sectorTrend: 'Enterprise AI adoption accelerating'
+        sectorTrend: 'Enterprise AI spending accelerating'
       },
       'NVDA': {
-        upcomingEvents: ['Blackwell GPU ramp', 'Data center demand surge', 'AI inference growth'],
-        earnings: currentQuarter === 1 ? 'Q4 earnings Feb - data center revenue key' : currentQuarter === 4 ? 'Q3 earnings Nov' : null,
-        catalysts: ['AI training demand insatiable', 'Hyperscaler capex increasing', 'Automotive/robotics growth'],
-        risks: ['China export restrictions', 'Competition from AMD/custom chips', 'Valuation concerns'],
-        seasonality: 'bullish', // Strong year-round due to AI
-        sectorTrend: 'AI infrastructure spending explosive'
+        upcomingEvents: ['Next-gen GPU architecture rollout', 'Data center demand surge', 'AI inference scaling'],
+        earnings: getEarningsDesc(),
+        catalysts: ['AI infrastructure bottleneck', 'Hyperscaler capex growth', 'Automotive AI expansion'],
+        risks: ['Export restrictions impact', 'Custom chip competition', 'Supply chain constraints'],
+        seasonality: 'bullish',
+        sectorTrend: 'AI compute demand unprecedented'
       },
       'GOOGL': {
-        upcomingEvents: ['Gemini AI updates', 'Search AI integration', 'Cloud growth acceleration'],
-        earnings: currentQuarter === 1 ? 'Q4 earnings late Jan - ad revenue focus' : null,
-        catalysts: ['AI search maintaining dominance', 'YouTube profitability', 'Waymo progress'],
-        risks: ['DOJ antitrust case', 'AI competition from OpenAI', 'Ad market sensitivity'],
-        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : 'neutral', // Strong Q4 ad season
-        sectorTrend: 'Digital advertising recovering'
+        upcomingEvents: ['AI model improvements', 'Search integration updates', 'Cloud growth initiatives'],
+        earnings: getEarningsDesc(),
+        catalysts: ['AI search leadership', 'YouTube monetization', 'Autonomous driving progress'],
+        risks: ['Antitrust proceedings', 'AI competition', 'Ad market cyclicality'],
+        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : 'neutral',
+        sectorTrend: 'Digital advertising resilient'
       },
       'AMZN': {
-        upcomingEvents: ['AWS re:Invent announcements', 'Prime membership growth', 'Logistics efficiency gains'],
-        earnings: currentQuarter === 1 ? 'Q4 earnings Feb - holiday retail crucial' : null,
-        catalysts: ['AWS AI services growth', 'Retail margin improvement', 'Advertising business scaling'],
-        risks: ['Retail competition', 'Labor costs', 'Regulatory pressure'],
-        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : currentMonth === 6 ? 'bullish' : 'neutral', // Q4 + Prime Day
-        sectorTrend: 'E-commerce growth normalizing but AWS strong'
+        upcomingEvents: [
+          currentMonth >= 6 && currentMonth <= 7 ? 'Prime Day approaching' : 'Prime membership growth',
+          'AWS AI services expansion',
+          'Logistics efficiency gains'
+        ],
+        earnings: getEarningsDesc(),
+        catalysts: ['Cloud AI leadership', 'Retail margin improvement', 'Advertising scaling'],
+        risks: ['Retail competition', 'Labor cost pressure', 'Regulatory challenges'],
+        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : currentMonth === 6 ? 'bullish' : 'neutral',
+        sectorTrend: 'E-commerce and cloud synergies'
       },
       'META': {
-        upcomingEvents: ['Llama AI model updates', 'Metaverse progress', 'Reels monetization'],
-        earnings: currentQuarter === 1 ? 'Q4 earnings late Jan - ad efficiency gains' : null,
-        catalysts: ['AI ad targeting improvements', 'Reality Labs progress', 'Threads growth'],
-        risks: ['Teen engagement decline', 'Metaverse losses', 'Competition from TikTok'],
-        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : 'neutral', // Q4 ad season
-        sectorTrend: 'Social media ad spend recovering'
+        upcomingEvents: ['AI model releases', 'AR/VR platform updates', 'Ad tech improvements'],
+        earnings: getEarningsDesc(),
+        catalysts: ['AI-driven ad efficiency', 'Reality Labs monetization', 'User engagement growth'],
+        risks: ['Youth engagement trends', 'Hardware investment returns', 'Competitive pressure'],
+        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : 'neutral',
+        sectorTrend: 'Social media monetization improving'
       },
       'TSLA': {
-        upcomingEvents: ['Robotaxi service launch', 'Model refresh updates', 'FSD subscription growth', 'Megapack expansion'],
-        earnings: currentQuarter === 1 ? 'Q4 earnings late Jan - delivery numbers key' : null,
-        catalysts: ['Robotaxi monetization potential', 'Energy storage growth', 'FSD take rate increasing'],
-        risks: ['EV competition intensifying', 'Margin pressure', 'Macro headwinds'],
-        seasonality: currentMonth === 0 || currentMonth === 3 || currentMonth === 6 || currentMonth === 9 ? 'volatile' : 'neutral', // Delivery quarters
-        sectorTrend: 'EV market maturing, Tesla diversifying'
+        upcomingEvents: [
+          currentMonth === 0 || currentMonth === 3 || currentMonth === 6 || currentMonth === 9 ? 'Delivery numbers imminent' : 'Production scaling updates',
+          'Autonomous driving expansion',
+          'Energy business growth'
+        ],
+        earnings: getEarningsDesc(),
+        catalysts: ['Autonomy monetization', 'Energy storage demand', 'Manufacturing efficiency'],
+        risks: ['EV competition', 'Margin pressure', 'Execution risks'],
+        seasonality: currentMonth === 0 || currentMonth === 3 || currentMonth === 6 || currentMonth === 9 ? 'volatile' : 'neutral',
+        sectorTrend: 'EV leader diversifying revenue'
       },
       // === SEMICONDUCTORS ===
       'AMD': {
-        upcomingEvents: ['MI300X AI chip ramp', 'Data center GPU gains', 'EPYC server growth'],
-        earnings: currentQuarter === 1 ? 'Q4 earnings late Jan' : null,
-        catalysts: ['Taking AI market share from NVDA', 'Console refresh cycle', 'Embedded growth'],
-        risks: ['NVDA dominance in AI', 'PC market weakness', 'Execution risk'],
+        upcomingEvents: ['AI accelerator momentum', 'Data center share gains', 'Server CPU growth'],
+        earnings: getEarningsDesc(),
+        catalysts: ['AI market expansion', 'Enterprise wins', 'Product cycle strength'],
+        risks: ['Competitive dynamics', 'PC market trends', 'Execution challenges'],
         seasonality: 'neutral',
-        sectorTrend: 'AI chip demand exceeding supply'
+        sectorTrend: 'AI chip demand robust'
       },
       'AVGO': {
-        upcomingEvents: ['VMware integration', 'Custom AI chip orders', 'Networking demand'],
-        catalysts: ['Apple modem deal', 'AI networking boom', 'Enterprise software growth'],
-        risks: ['Concentration in few customers', 'Cyclical exposure'],
+        upcomingEvents: ['Custom AI chip demand', 'Networking growth', 'Software integration'],
+        earnings: getEarningsDesc(),
+        catalysts: ['AI networking boom', 'Enterprise software', 'Diversified revenue'],
+        risks: ['Customer concentration', 'Cyclical exposure', 'Integration execution'],
         seasonality: 'neutral',
-        sectorTrend: 'Semiconductor diversification paying off'
+        sectorTrend: 'Semiconductor diversification'
       },
       // === FINANCIALS ===
       'JPM': {
-        upcomingEvents: ['Fed rate decision impact', 'Investment banking recovery'],
-        earnings: currentQuarter === 1 ? 'Q4 earnings mid-Jan - NII focus' : null,
-        catalysts: ['Higher for longer rates = NII', 'Trading revenue strong', 'Credit card growth'],
-        risks: ['Commercial real estate exposure', 'Consumer credit stress', 'Regulatory capital requirements'],
+        upcomingEvents: ['Fed policy impact', 'Investment banking trends', 'Credit quality updates'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Net interest income', 'Trading strength', 'Consumer banking growth'],
+        risks: ['Credit deterioration', 'CRE exposure', 'Capital requirements'],
         seasonality: 'neutral',
-        sectorTrend: 'Bank earnings benefiting from rates'
+        sectorTrend: 'Banking fundamentals solid'
       },
       'V': {
-        upcomingEvents: ['Cross-border travel recovery', 'New payment flows'],
-        catalysts: ['Consumer spending resilient', 'International expansion', 'B2B payments growth'],
-        risks: ['Recession impact on spending', 'Competition from fintechs'],
-        seasonality: currentMonth >= 10 || currentMonth <= 1 ? 'bullish' : 'neutral', // Holiday spending
+        upcomingEvents: ['Payment volume trends', 'Cross-border recovery', 'New flow expansion'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Consumer spending', 'International growth', 'B2B payments'],
+        risks: ['Economic slowdown', 'Fintech competition', 'Regulatory changes'],
+        seasonality: currentMonth >= 10 || currentMonth <= 1 ? 'bullish' : 'neutral',
         sectorTrend: 'Digital payments secular growth'
       },
       'COIN': {
-        upcomingEvents: ['Bitcoin ETF flows', 'Crypto regulatory clarity', 'Base L2 growth'],
-        catalysts: ['Bitcoin halving tailwind', 'Institutional adoption', 'Staking revenue'],
-        risks: ['Crypto volatility', 'SEC enforcement', 'Competition'],
+        upcomingEvents: ['Crypto market developments', 'Regulatory updates', 'Product expansion'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Institutional adoption', 'Trading volume growth', 'Revenue diversification'],
+        risks: ['Crypto volatility', 'Regulatory actions', 'Competition'],
         seasonality: 'volatile',
-        sectorTrend: 'Crypto institutional adoption increasing'
+        sectorTrend: 'Crypto infrastructure maturing'
       },
       // === HEALTHCARE ===
       'LLY': {
-        upcomingEvents: ['GLP-1 supply expansion', 'Alzheimer drug progress', 'Pipeline updates'],
-        catalysts: ['Mounjaro/Zepbound demand insane', "Obesity drug market $100B+", 'Pricing power'],
-        risks: ['Manufacturing constraints', 'Competition from Novo', 'Political pricing pressure'],
-        seasonality: 'bullish', // Consistent demand
-        sectorTrend: 'GLP-1 demand exceeding all forecasts'
+        upcomingEvents: ['Drug supply expansion', 'Pipeline readouts', 'Market expansion'],
+        earnings: getEarningsDesc(),
+        catalysts: ['GLP-1 demand growth', 'Obesity market expansion', 'Pricing power'],
+        risks: ['Manufacturing scale', 'Competition', 'Political pricing pressure'],
+        seasonality: 'bullish',
+        sectorTrend: 'Weight loss drug demand surging'
       },
       'UNH': {
-        upcomingEvents: ['Medicare Advantage enrollment', 'Optum growth'],
-        catalysts: ['Aging population', 'Healthcare cost management', 'Tech-enabled care'],
-        risks: ['Political healthcare reform', 'Medical cost trends', 'Regulatory pressure'],
-        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : 'neutral', // Open enrollment
-        sectorTrend: 'Managed care consolidating'
+        upcomingEvents: [
+          currentMonth >= 9 && currentMonth <= 11 ? 'Open enrollment period active' : 'Enrollment trends update',
+          'Healthcare services growth'
+        ],
+        earnings: getEarningsDesc(),
+        catalysts: ['Aging demographics', 'Cost management', 'Tech-enabled care'],
+        risks: ['Healthcare policy changes', 'Medical cost trends', 'Regulatory pressure'],
+        seasonality: currentMonth >= 9 && currentMonth <= 11 ? 'bullish' : 'neutral',
+        sectorTrend: 'Managed care resilient'
       },
       // === ENERGY ===
       'XOM': {
-        upcomingEvents: ['Pioneer acquisition synergies', 'Permian production growth'],
-        catalysts: ['Oil demand resilient', 'Shareholder returns', 'Low-cost production'],
-        risks: ['Oil price volatility', 'Energy transition pressure', 'Geopolitical risks'],
-        seasonality: currentMonth >= 4 && currentMonth <= 8 ? 'bullish' : 'neutral', // Summer driving season
-        sectorTrend: 'Oil majors prioritizing returns'
+        upcomingEvents: ['Production updates', 'Capital allocation', 'Shareholder returns'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Oil demand stability', 'Dividend growth', 'Low-cost assets'],
+        risks: ['Commodity price swings', 'Energy transition', 'Geopolitical factors'],
+        seasonality: currentMonth >= 4 && currentMonth <= 8 ? 'bullish' : 'neutral',
+        sectorTrend: 'Energy capital discipline'
       },
       // === CONSUMER ===
       'COST': {
-        upcomingEvents: ['Membership fee increase potential', 'E-commerce growth'],
-        catalysts: ['Membership loyalty', 'Value proposition in inflation', 'Gold bar sales!'],
-        risks: ['Consumer spending slowdown', 'Competition'],
-        seasonality: currentMonth >= 10 || currentMonth <= 1 ? 'bullish' : 'neutral', // Holiday
-        sectorTrend: 'Value retail outperforming'
+        upcomingEvents: ['Membership trends', 'E-commerce growth', 'Store expansion'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Member loyalty', 'Value proposition', 'Traffic growth'],
+        risks: ['Consumer spending', 'Competition', 'Inflation impact'],
+        seasonality: currentMonth >= 10 || currentMonth <= 1 ? 'bullish' : 'neutral',
+        sectorTrend: 'Value retail strength'
       },
       'NKE': {
-        upcomingEvents: ['New product launches', 'DTC channel growth', 'Olympics momentum'],
-        catalysts: ['Innovation cycle', 'China recovery potential', 'Running category growth'],
-        risks: ['Inventory issues', 'Competition from HOKA/On', 'China weakness'],
-        seasonality: currentMonth >= 7 && currentMonth <= 9 ? 'bullish' : 'neutral', // Back to school
-        sectorTrend: 'Athletic wear demand normalizing'
+        upcomingEvents: ['Product launches', 'DTC progress', 'Innovation pipeline'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Brand momentum', 'China trends', 'Category leadership'],
+        risks: ['Inventory levels', 'Competition', 'Macro sensitivity'],
+        seasonality: currentMonth >= 7 && currentMonth <= 9 ? 'bullish' : 'neutral',
+        sectorTrend: 'Athletic wear normalizing'
       },
       // === CLOUD/SOFTWARE ===
       'CRM': {
-        upcomingEvents: ['Dreamforce announcements', 'AI agent adoption', 'Slack integration'],
-        catalysts: ['Enterprise AI spending', 'Margin expansion', 'Data Cloud growth'],
-        risks: ['Enterprise spending caution', 'Competition', 'Integration challenges'],
+        upcomingEvents: ['AI platform adoption', 'Product innovation', 'Enterprise deals'],
+        earnings: getEarningsDesc(),
+        catalysts: ['AI spending', 'Margin expansion', 'Platform growth'],
+        risks: ['Enterprise budgets', 'Competition', 'Execution'],
         seasonality: 'neutral',
-        sectorTrend: 'Enterprise software AI transformation'
+        sectorTrend: 'Enterprise AI transformation'
       },
       'PLTR': {
-        upcomingEvents: ['AIP platform expansion', 'Government contract wins', 'Commercial acceleration'],
-        catalysts: ['AI platform differentiation', 'US government spending', 'NATO expansion'],
-        risks: ['Valuation', 'Customer concentration', 'Profitability consistency'],
+        upcomingEvents: ['Platform expansion', 'Contract wins', 'Commercial growth'],
+        earnings: getEarningsDesc(),
+        catalysts: ['AI differentiation', 'Government spending', 'International expansion'],
+        risks: ['Valuation', 'Concentration', 'Profitability'],
         seasonality: 'neutral',
-        sectorTrend: 'Defense/AI spending increasing'
+        sectorTrend: 'Defense and AI convergence'
       },
       // === EVs & CLEAN ENERGY ===
       'RIVN': {
-        upcomingEvents: ['R2 production start', 'VW partnership milestones', 'Cost reduction targets'],
-        catalysts: ['VW investment validation', 'Amazon van deliveries', 'New platform efficiency'],
-        risks: ['Cash burn', 'Production scaling', 'Competition'],
+        upcomingEvents: ['Production milestones', 'Partnership updates', 'Cost improvements'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Platform efficiency', 'Delivery growth', 'Strategic partnerships'],
+        risks: ['Cash management', 'Scaling challenges', 'Competition'],
         seasonality: 'neutral',
-        sectorTrend: 'EV startups facing consolidation'
+        sectorTrend: 'EV market consolidation'
       },
       'ENPH': {
-        upcomingEvents: ['IRA incentive clarity', 'Battery attach rate growth'],
-        catalysts: ['Solar demand recovery', 'Energy storage growth', 'International expansion'],
-        risks: ['Interest rate sensitivity', 'NEM 3.0 California impact', 'Competition'],
-        seasonality: currentMonth >= 2 && currentMonth <= 5 ? 'bullish' : 'neutral', // Spring solar season
-        sectorTrend: 'Solar facing near-term headwinds'
+        upcomingEvents: ['Policy clarity', 'Storage attach rates', 'International growth'],
+        earnings: getEarningsDesc(),
+        catalysts: ['Solar recovery', 'Storage expansion', 'Market share'],
+        risks: ['Interest rates', 'Policy changes', 'Competition'],
+        seasonality: currentMonth >= 2 && currentMonth <= 5 ? 'bullish' : 'neutral',
+        sectorTrend: 'Solar demand recovering'
       }
     };
 
