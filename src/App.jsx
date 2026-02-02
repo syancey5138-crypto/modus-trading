@@ -4907,12 +4907,12 @@ OUTPUT JSON:
         sectorTrend: 'Social media ad spend recovering'
       },
       'TSLA': {
-        upcomingEvents: ['Robotaxi reveal', 'Cybertruck ramp', 'FSD v13 release', '4680 battery production'],
+        upcomingEvents: ['Robotaxi service launch', 'Model refresh updates', 'FSD subscription growth', 'Megapack expansion'],
         earnings: currentQuarter === 1 ? 'Q4 earnings late Jan - delivery numbers key' : null,
-        catalysts: ['Robotaxi potential massive', 'Energy storage growth', 'FSD revenue recognition'],
-        risks: ['EV competition intensifying', 'Margin pressure', 'Elon distraction risk'],
+        catalysts: ['Robotaxi monetization potential', 'Energy storage growth', 'FSD take rate increasing'],
+        risks: ['EV competition intensifying', 'Margin pressure', 'Macro headwinds'],
         seasonality: currentMonth === 0 || currentMonth === 3 || currentMonth === 6 || currentMonth === 9 ? 'volatile' : 'neutral', // Delivery quarters
-        sectorTrend: 'EV adoption slowing but Tesla leading'
+        sectorTrend: 'EV market maturing, Tesla diversifying'
       },
       // === SEMICONDUCTORS ===
       'AMD': {
