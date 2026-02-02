@@ -2875,6 +2875,20 @@ function App() {
     const avgVol = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
     const volumeRatio = avgVol > 0 ? recentVol / avgVol : 1;
 
+    // ATR/Volatility calculation
+    const atrPeriod = Math.min(14, bars.length - 1);
+    const trueRanges = [];
+    for (let i = bars.length - atrPeriod; i < bars.length; i++) {
+      const high = bars[i].high;
+      const low = bars[i].low;
+      const prevClose = bars[i - 1]?.close || bars[i].close;
+      const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+      trueRanges.push(tr);
+    }
+    const atr = trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length;
+    const atrPercent = (atr / currentPrice) * 100;
+    const volatilityCategory = atrPercent > 3 ? 'High' : atrPercent < 1.5 ? 'Low' : 'Medium';
+
     // Trend
     const trendSlope = (closes[closes.length - 1] - closes[closes.length - 20]) / closes[closes.length - 20] * 100;
     const trend = trendSlope > 1 ? 'UPTREND' : trendSlope < -1 ? 'DOWNTREND' : 'SIDEWAYS';
@@ -3051,7 +3065,10 @@ function App() {
       upcomingEvents: catalystData.upcomingEvents || [],
       earnings: catalystData.earnings,
       sectorTrend: catalystData.sectorTrend,
-      catalystBonus
+      catalystBonus,
+      // Volatility data
+      atrPercent,
+      volatilityCategory
     };
   };
 
@@ -7146,6 +7163,10 @@ OUTPUT JSON:
             earnings: stock.earnings,
             sectorTrend: stock.sectorTrend,
             catalystBonus: stock.catalystBonus || 0
+          },
+          volatility: {
+            atrPercent: stock.atrPercent?.toFixed(2) || '2.0',
+            category: stock.volatilityCategory || 'Medium'
           }
         };
       });
@@ -7431,11 +7452,15 @@ OUTPUT JSON:
             earnings: stock.earnings,
             sectorTrend: stock.sectorTrend
           },
+          volatility: {
+            atrPercent: stock.atrPercent?.toFixed(2) || '2.0',
+            category: stock.volatilityCategory || 'Medium'
+          },
           usedLiveData: true,
           dataFreshness: new Date().toISOString()
         };
       });
-      
+
       console.log(`[Trade Ideas] ✅ Found ${formattedIdeas.length} trade opportunities with clear signals`);
       formattedIdeas.forEach(idea => {
         console.log(`  ${idea.recommendation} ${idea.symbol} @ $${idea.entry} | Score:${idea.normalizedScore?.toFixed(0)}/100 RSI:${idea.technicalData.rsi} Trend:${idea.technicalData.trend}`);
@@ -17565,20 +17590,64 @@ OUTPUT JSON:
                         <div>
                           <h3 className="text-2xl font-bold mb-1">{idea.symbol}</h3>
                           <p className="text-slate-400">{idea.analysis || idea.signal || 'Technical Setup'}</p>
-                          {idea.usedLiveData && (
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                              <span className="text-xs text-green-400">Live Data</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-3 mt-1">
+                            {idea.usedLiveData && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                <span className="text-xs text-green-400">Live Data</span>
+                              </div>
+                            )}
+                            {/* Volatility Indicator */}
+                            {idea.volatility && (
+                              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
+                                idea.volatility.category === 'High' ? 'bg-red-500/20 text-red-300' :
+                                idea.volatility.category === 'Low' ? 'bg-emerald-500/20 text-emerald-300' :
+                                'bg-amber-500/20 text-amber-300'
+                              }`}>
+                                <Activity className="w-3 h-3" />
+                                {idea.volatility.category} Vol ({idea.volatility.atrPercent}%)
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className={`px-4 py-2 rounded-lg font-bold text-lg ${
-                        (idea.confidence || 70) >= 75 ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-600/30' :
-                        (idea.confidence || 70) >= 65 ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30' :
-                        'bg-yellow-600/20 text-yellow-400 border border-yellow-600/30'
-                      }`}>
-                        {idea.confidence || 75}%
+                      {/* Confidence Score with Tooltip */}
+                      <div className="relative group">
+                        <div className={`px-4 py-2 rounded-lg font-bold text-lg cursor-help flex items-center gap-1 ${
+                          (idea.confidence || 70) >= 75 ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-600/30' :
+                          (idea.confidence || 70) >= 65 ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30' :
+                          'bg-yellow-600/20 text-yellow-400 border border-yellow-600/30'
+                        }`}>
+                          {idea.confidence || 75}%
+                          <HelpCircle className="w-3 h-3 opacity-50" />
+                        </div>
+                        {/* Confidence Tooltip */}
+                        <div className="absolute right-0 top-full mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-xl z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                          <div className="text-xs text-slate-200 font-semibold mb-2">Confidence Score Breakdown:</div>
+                          <ul className="text-xs text-slate-300 space-y-1">
+                            <li className="flex items-start gap-1">
+                              <span className="text-emerald-400">•</span>
+                              <span>Technical indicator alignment (RSI, MACD, trend)</span>
+                            </li>
+                            <li className="flex items-start gap-1">
+                              <span className="text-blue-400">•</span>
+                              <span>Number of confirming signals</span>
+                            </li>
+                            <li className="flex items-start gap-1">
+                              <span className="text-amber-400">•</span>
+                              <span>Volume confirmation strength</span>
+                            </li>
+                            <li className="flex items-start gap-1">
+                              <span className="text-violet-400">•</span>
+                              <span>Catalyst & event bonuses</span>
+                            </li>
+                          </ul>
+                          <div className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-700">
+                            <div className="flex justify-between"><span>75%+ =</span><span className="text-emerald-400">High confidence</span></div>
+                            <div className="flex justify-between"><span>65-74% =</span><span className="text-blue-400">Moderate confidence</span></div>
+                            <div className="flex justify-between"><span>&lt;65% =</span><span className="text-yellow-400">Lower confidence</span></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
