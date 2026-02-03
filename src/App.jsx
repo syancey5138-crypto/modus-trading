@@ -1186,7 +1186,13 @@ function App() {
     positions: [],
     trades: []
   });
-  
+
+  // NEW: Portfolio Position Calculator
+  const [portfolioSettings, setPortfolioSettings] = useState({
+    totalCapital: 10000,
+    riskPercent: 2 // Risk 2% per trade by default
+  });
+
   // NEW: Economic Calendar State
   const [economicEvents, setEconomicEvents] = useState([]);
   const [loadingEconomicEvents, setLoadingEconomicEvents] = useState(false);
@@ -1990,6 +1996,19 @@ function App() {
 
     const savedTradePlans = localStorage.getItem("modus_trade_plans");
     if (savedTradePlans) setTradePlans(JSON.parse(savedTradePlans));
+
+    // Load paper trading account
+    const savedPaperTrading = localStorage.getItem("modus_paper_trading");
+    if (savedPaperTrading) {
+      const parsed = JSON.parse(savedPaperTrading);
+      setPaperTradingAccount(parsed);
+    }
+
+    // Load portfolio settings
+    const savedPortfolioSettings = localStorage.getItem("modus_portfolio_settings");
+    if (savedPortfolioSettings) {
+      setPortfolioSettings(JSON.parse(savedPortfolioSettings));
+    }
   }, []);
   
   // Save watchlist
@@ -2051,6 +2070,17 @@ function App() {
       localStorage.setItem("modus_trade_plans", JSON.stringify(tradePlans));
     }
   }, [tradePlans]);
+
+  // Save paper trading account
+  useEffect(() => {
+    // Always save paper trading state (even if balance is default)
+    localStorage.setItem("modus_paper_trading", JSON.stringify(paperTradingAccount));
+  }, [paperTradingAccount]);
+
+  // Save portfolio settings
+  useEffect(() => {
+    localStorage.setItem("modus_portfolio_settings", JSON.stringify(portfolioSettings));
+  }, [portfolioSettings]);
 
   // Save API key
   const saveApiKey = () => {
@@ -6983,6 +7013,33 @@ OUTPUT JSON:
         impact: "High impact. Precursor to consumer inflation.",
         generateForecast: () => `${(Math.random() * 0.5 + 0.2).toFixed(1)}%`,
         generatePrevious: () => `${(Math.random() * 0.5 + 0.2).toFixed(1)}%`
+      },
+      {
+        event: "Government Funding Deadline",
+        time: "11:59 PM",
+        importance: "high",
+        description: "Deadline for Congress to pass funding bill. Failure triggers partial government shutdown.",
+        impact: "HIGH impact. Shutdown affects federal workers, government services, and market sentiment.",
+        generateForecast: () => "Pending",
+        generatePrevious: () => "Passed"
+      },
+      {
+        event: "Debt Ceiling Deadline",
+        time: "All Day",
+        importance: "high",
+        description: "Treasury Department deadline for raising the debt limit. Failure could lead to default.",
+        impact: "EXTREME impact. Potential default would cause major market volatility and credit downgrades.",
+        generateForecast: () => "TBD",
+        generatePrevious: () => "Raised"
+      },
+      {
+        event: "Treasury Auction (10-Year)",
+        time: "1:00 PM",
+        importance: "medium",
+        description: "Treasury Department auction of 10-year bonds. Key indicator of borrowing costs.",
+        impact: "Medium impact. Weak demand increases yields, pressures growth stocks.",
+        generateForecast: () => `${(Math.random() * 0.5 + 4.0).toFixed(2)}%`,
+        generatePrevious: () => `${(Math.random() * 0.5 + 4.0).toFixed(2)}%`
       }
     ];
     
@@ -12679,6 +12736,112 @@ OUTPUT JSON:
                     </div>
                   )}
 
+                  {/* Position Size Calculator for Analysis */}
+                  {analysis.final?.tradeInstruction && (
+                    <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-5 mb-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-semibold text-emerald-300 flex items-center gap-2">
+                          <Calculator className="w-5 h-5" />
+                          Position Size Calculator
+                        </h4>
+                        <div className="text-xs text-slate-400">Calculate your position based on risk</div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="text-xs text-slate-400 mb-1 block">Your Portfolio Value</label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400">$</span>
+                            <input
+                              type="number"
+                              value={portfolioSettings.totalCapital}
+                              onChange={(e) => setPortfolioSettings(prev => ({
+                                ...prev,
+                                totalCapital: parseInt(e.target.value) || 0
+                              }))}
+                              className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-right font-mono"
+                              placeholder="10000"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 mb-1 block">Risk Per Trade</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={portfolioSettings.riskPercent}
+                              onChange={(e) => setPortfolioSettings(prev => ({
+                                ...prev,
+                                riskPercent: Math.min(10, Math.max(0.5, parseFloat(e.target.value) || 2))
+                              }))}
+                              className="w-20 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-right font-mono"
+                              min="0.5"
+                              max="10"
+                              step="0.5"
+                            />
+                            <span className="text-slate-400">%</span>
+                            <div className="flex gap-1 ml-2">
+                              {[1, 2, 5].map(pct => (
+                                <button
+                                  key={pct}
+                                  onClick={() => setPortfolioSettings(prev => ({ ...prev, riskPercent: pct }))}
+                                  className={`px-2 py-1 rounded text-xs font-semibold ${
+                                    portfolioSettings.riskPercent === pct
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                  }`}
+                                >
+                                  {pct}%
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Calculated Results */}
+                      {(() => {
+                        // Parse entry and stop from the analysis
+                        const entryStr = analysis.final.tradeInstruction.action || '';
+                        const stopStr = analysis.final.tradeInstruction.stop || '';
+                        const entryMatch = entryStr.match(/\$?([\d.]+)/);
+                        const stopMatch = stopStr.match(/\$?([\d.]+)/);
+                        const entry = entryMatch ? parseFloat(entryMatch[1]) : (tickerData.price || 0);
+                        const stopLoss = stopMatch ? parseFloat(stopMatch[1]) : entry * 0.97;
+                        const riskPerShare = Math.abs(entry - stopLoss);
+                        const maxRiskAmount = (portfolioSettings.totalCapital * portfolioSettings.riskPercent) / 100;
+                        const recommendedShares = riskPerShare > 0 ? Math.floor(maxRiskAmount / riskPerShare) : 0;
+                        const positionValue = recommendedShares * entry;
+                        const portfolioAllocation = portfolioSettings.totalCapital > 0 ? (positionValue / portfolioSettings.totalCapital) * 100 : 0;
+
+                        return (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-emerald-500/20">
+                            <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                              <div className="text-xs text-slate-500 mb-1">Max Risk Amount</div>
+                              <div className="text-lg font-bold text-amber-400">${maxRiskAmount.toFixed(0)}</div>
+                            </div>
+                            <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                              <div className="text-xs text-slate-500 mb-1">Recommended Shares</div>
+                              <div className="text-lg font-bold text-emerald-400">{recommendedShares}</div>
+                            </div>
+                            <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                              <div className="text-xs text-slate-500 mb-1">Position Value</div>
+                              <div className="text-lg font-bold text-blue-400">${positionValue.toLocaleString()}</div>
+                            </div>
+                            <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                              <div className="text-xs text-slate-500 mb-1">Portfolio %</div>
+                              <div className={`text-lg font-bold ${portfolioAllocation > 25 ? 'text-red-400' : 'text-violet-400'}`}>
+                                {portfolioAllocation.toFixed(1)}%
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      <div className="text-xs text-slate-500 mt-3 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Position sized to risk ${((portfolioSettings.totalCapital * portfolioSettings.riskPercent) / 100).toFixed(0)} if stop loss is hit
+                      </div>
+                    </div>
+                  )}
+
                   {/* If You Must Trade - Shown for lower confidence setups */}
                   {analysis.final.ifYouMustTrade && (
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 mb-6">
@@ -15229,6 +15392,106 @@ OUTPUT JSON:
                     </div>
                   </div>
 
+                  {/* Position Size Calculator */}
+                  <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold text-emerald-300 flex items-center gap-2">
+                        <Calculator className="w-5 h-5" />
+                        Position Size Calculator
+                      </h4>
+                      <div className="text-xs text-slate-400">Based on your risk tolerance</div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Your Portfolio Value</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400">$</span>
+                          <input
+                            type="number"
+                            value={portfolioSettings.totalCapital}
+                            onChange={(e) => setPortfolioSettings(prev => ({
+                              ...prev,
+                              totalCapital: parseInt(e.target.value) || 0
+                            }))}
+                            className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-right font-mono"
+                            placeholder="10000"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Risk Per Trade</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={portfolioSettings.riskPercent}
+                            onChange={(e) => setPortfolioSettings(prev => ({
+                              ...prev,
+                              riskPercent: Math.min(10, Math.max(0.5, parseFloat(e.target.value) || 2))
+                            }))}
+                            className="w-20 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-right font-mono"
+                            placeholder="2"
+                            min="0.5"
+                            max="10"
+                            step="0.5"
+                          />
+                          <span className="text-slate-400">%</span>
+                          <div className="flex gap-1 ml-2">
+                            {[1, 2, 5].map(pct => (
+                              <button
+                                key={pct}
+                                onClick={() => setPortfolioSettings(prev => ({ ...prev, riskPercent: pct }))}
+                                className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  portfolioSettings.riskPercent === pct
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                }`}
+                              >
+                                {pct}%
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Calculated Results */}
+                    {(() => {
+                      const entry = parseFloat(dailyPick.entry);
+                      const stopLoss = parseFloat(dailyPick.stopLoss);
+                      const riskPerShare = Math.abs(entry - stopLoss);
+                      const maxRiskAmount = (portfolioSettings.totalCapital * portfolioSettings.riskPercent) / 100;
+                      const recommendedShares = riskPerShare > 0 ? Math.floor(maxRiskAmount / riskPerShare) : 0;
+                      const positionValue = recommendedShares * entry;
+                      const portfolioAllocation = (positionValue / portfolioSettings.totalCapital) * 100;
+
+                      return (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-emerald-500/20">
+                          <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">Max Risk Amount</div>
+                            <div className="text-lg font-bold text-amber-400">${maxRiskAmount.toFixed(0)}</div>
+                          </div>
+                          <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">Recommended Shares</div>
+                            <div className="text-lg font-bold text-emerald-400">{recommendedShares}</div>
+                          </div>
+                          <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">Position Value</div>
+                            <div className="text-lg font-bold text-blue-400">${positionValue.toLocaleString()}</div>
+                          </div>
+                          <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">Portfolio %</div>
+                            <div className={`text-lg font-bold ${portfolioAllocation > 25 ? 'text-red-400' : 'text-violet-400'}`}>
+                              {portfolioAllocation.toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <div className="text-xs text-slate-500 mt-3 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Position sized to risk ${((portfolioSettings.totalCapital * portfolioSettings.riskPercent) / 100).toFixed(0)} if stop loss is hit
+                    </div>
+                  </div>
+
                   <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-5">
                     <h4 className="font-semibold mb-3 text-violet-300">Technical Justification</h4>
                     <p className="text-sm text-slate-200 mb-4">{dailyPick.keyReason}</p>
@@ -16775,14 +17038,16 @@ OUTPUT JSON:
               </div>
               <button
                 onClick={() => {
-                  setConfirmMessage("Reset paper trading account to $100,000? All paper trades will be deleted.");
+                  setConfirmMessage(`Reset paper trading account to $${paperTradingAccount.initialBalance.toLocaleString()}? All paper trades will be deleted.`);
                   setConfirmAction(() => () => {
-                    setPaperTradingAccount({
-                      balance: 100000,
-                      initialBalance: 100000,
+                    setPaperTradingAccount(prev => ({
+                      balance: prev.initialBalance,
+                      initialBalance: prev.initialBalance,
                       positions: [],
                       trades: []
-                    });
+                    }));
+                    // Also clear paper trades from trades array
+                    setTrades(prev => prev.filter(t => !t.isPaperTrade));
                     setShowConfirmModal(false);
                   });
                   setShowConfirmModal(true);
@@ -16849,6 +17114,61 @@ OUTPUT JSON:
               </div>
             </div>
 
+            {/* Starting Balance Configuration - Only show if no trades yet */}
+            {trades.filter(t => t.isPaperTrade).length === 0 && paperTradingAccount.trades.length === 0 && (
+              <div className="bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/30 rounded-lg p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-3">
+                    <Settings className="w-5 h-5 text-violet-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-violet-200 mb-1">Set Your Starting Balance</p>
+                      <p className="text-sm text-slate-400">Customize how much virtual money you want to practice with</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400">$</span>
+                      <input
+                        type="number"
+                        value={paperTradingAccount.initialBalance}
+                        onChange={(e) => {
+                          const newBalance = parseInt(e.target.value) || 100000;
+                          setPaperTradingAccount(prev => ({
+                            ...prev,
+                            balance: newBalance,
+                            initialBalance: newBalance
+                          }));
+                        }}
+                        className="w-32 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-right font-mono"
+                        placeholder="100000"
+                        min="1000"
+                        step="1000"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      {[10000, 50000, 100000, 500000].map(amount => (
+                        <button
+                          key={amount}
+                          onClick={() => setPaperTradingAccount(prev => ({
+                            ...prev,
+                            balance: amount,
+                            initialBalance: amount
+                          }))}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            paperTradingAccount.initialBalance === amount
+                              ? 'bg-violet-600 text-white'
+                              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                          }`}
+                        >
+                          ${(amount / 1000)}k
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Info Box */}
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
               <div className="flex items-start gap-3">
@@ -16856,7 +17176,7 @@ OUTPUT JSON:
                 <div className="text-sm text-blue-200">
                   <p className="font-semibold mb-1">How Paper Trading Works:</p>
                   <ul className="list-disc list-inside space-y-1 text-blue-300">
-                    <li>Practice trading with $100,000 virtual money</li>
+                    <li>Practice trading with ${paperTradingAccount.initialBalance.toLocaleString()} virtual money</li>
                     <li>Add trades in the Journal with "Paper Trade" selected</li>
                     <li>Track your performance without risking real capital</li>
                     <li>Compare paper trading results vs real trades</li>
