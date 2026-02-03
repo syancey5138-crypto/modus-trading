@@ -17114,60 +17114,98 @@ OUTPUT JSON:
               </div>
             </div>
 
-            {/* Starting Balance Configuration - Only show if no trades yet */}
-            {trades.filter(t => t.isPaperTrade).length === 0 && paperTradingAccount.trades.length === 0 && (
-              <div className="bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/30 rounded-lg p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-start gap-3">
-                    <Settings className="w-5 h-5 text-violet-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-violet-200 mb-1">Set Your Starting Balance</p>
-                      <p className="text-sm text-slate-400">Customize how much virtual money you want to practice with</p>
-                    </div>
+            {/* Starting Balance Configuration - Always visible, changing resets account */}
+            <div className="bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/30 rounded-lg p-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <Settings className="w-5 h-5 text-violet-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-violet-200 mb-1">Starting Balance</p>
+                    <p className="text-sm text-slate-400">
+                      {trades.filter(t => t.isPaperTrade).length > 0 || paperTradingAccount.trades.length > 0
+                        ? '⚠️ Changing this will reset all paper trades'
+                        : 'Set how much virtual money you want to practice with'}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400">$</span>
-                      <input
-                        type="number"
-                        value={paperTradingAccount.initialBalance}
-                        onChange={(e) => {
-                          const newBalance = parseInt(e.target.value) || 100000;
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400">$</span>
+                    <input
+                      type="number"
+                      value={paperTradingAccount.initialBalance}
+                      onChange={(e) => {
+                        const newBalance = parseInt(e.target.value) || 100000;
+                        const hasTrades = trades.filter(t => t.isPaperTrade).length > 0 || paperTradingAccount.trades.length > 0;
+
+                        if (hasTrades) {
+                          setConfirmMessage(`Change starting balance to $${newBalance.toLocaleString()}? This will reset your paper trading account and delete all paper trades.`);
+                          setConfirmAction(() => () => {
+                            setPaperTradingAccount({
+                              balance: newBalance,
+                              initialBalance: newBalance,
+                              positions: [],
+                              trades: []
+                            });
+                            setTrades(prev => prev.filter(t => !t.isPaperTrade));
+                            setShowConfirmModal(false);
+                          });
+                          setShowConfirmModal(true);
+                        } else {
                           setPaperTradingAccount(prev => ({
                             ...prev,
                             balance: newBalance,
                             initialBalance: newBalance
                           }));
+                        }
+                      }}
+                      className="w-32 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-right font-mono"
+                      placeholder="100000"
+                      min="1000"
+                      step="1000"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    {[10000, 50000, 100000, 500000].map(amount => (
+                      <button
+                        key={amount}
+                        onClick={() => {
+                          const hasTrades = trades.filter(t => t.isPaperTrade).length > 0 || paperTradingAccount.trades.length > 0;
+
+                          if (hasTrades && amount !== paperTradingAccount.initialBalance) {
+                            setConfirmMessage(`Change starting balance to $${amount.toLocaleString()}? This will reset your paper trading account and delete all paper trades.`);
+                            setConfirmAction(() => () => {
+                              setPaperTradingAccount({
+                                balance: amount,
+                                initialBalance: amount,
+                                positions: [],
+                                trades: []
+                              });
+                              setTrades(prev => prev.filter(t => !t.isPaperTrade));
+                              setShowConfirmModal(false);
+                            });
+                            setShowConfirmModal(true);
+                          } else {
+                            setPaperTradingAccount(prev => ({
+                              ...prev,
+                              balance: amount,
+                              initialBalance: amount
+                            }));
+                          }
                         }}
-                        className="w-32 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-right font-mono"
-                        placeholder="100000"
-                        min="1000"
-                        step="1000"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      {[10000, 50000, 100000, 500000].map(amount => (
-                        <button
-                          key={amount}
-                          onClick={() => setPaperTradingAccount(prev => ({
-                            ...prev,
-                            balance: amount,
-                            initialBalance: amount
-                          }))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            paperTradingAccount.initialBalance === amount
-                              ? 'bg-violet-600 text-white'
-                              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                          }`}
-                        >
-                          ${(amount / 1000)}k
-                        </button>
-                      ))}
-                    </div>
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          paperTradingAccount.initialBalance === amount
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        ${(amount / 1000)}k
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Info Box */}
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
