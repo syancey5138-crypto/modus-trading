@@ -2438,17 +2438,24 @@ function App() {
   };
   
   // Helper function for Yahoo Finance with proxy fallbacks - RELIABLE VERSION
-  // Uses sequential fallback to avoid rate limiting, with smart retry
-  const fetchYahooWithProxies = async (yahooUrl, timeout = 6000) => {
+  // Uses parallel + sequential fallback strategy for maximum reliability
+  const fetchYahooWithProxies = async (yahooUrl, timeout = 8000) => {
     const yahooUrl2 = yahooUrl.replace('query1', 'query2');
 
-    // Ordered by reliability - try best proxies first
+    // Extended list of CORS proxies - ordered by reliability
     const proxyConfigs = [
+      // Primary proxies (most reliable)
       { url: `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`, name: 'corsproxy1' },
       { url: `https://corsproxy.io/?${encodeURIComponent(yahooUrl2)}`, name: 'corsproxy2' },
+      // Secondary proxies
       { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`, name: 'allorigins' },
+      { url: `https://proxy.cors.sh/${yahooUrl}`, name: 'corssh' },
+      // Tertiary fallbacks
       { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`, name: 'codetabs' },
+      { url: `https://corsproxy.org/?${encodeURIComponent(yahooUrl)}`, name: 'corsproxy-org' },
       { url: `https://thingproxy.freeboard.io/fetch/${yahooUrl}`, name: 'thingproxy' },
+      // Last resort - different Yahoo endpoint
+      { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl2)}`, name: 'allorigins2' },
     ];
 
     const fetchOne = async (url, timeoutMs) => {
@@ -2461,7 +2468,17 @@ function App() {
         });
         clearTimeout(timeoutId);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
+        const text = await response.text();
+        // Handle both JSON and wrapped responses
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // Some proxies wrap the response
+          const match = text.match(/\{[\s\S]*\}/);
+          if (match) data = JSON.parse(match[0]);
+          else throw new Error('Invalid JSON');
+        }
         if (!data.chart?.result?.[0]) throw new Error('No data');
         return data;
       } catch (e) {
@@ -2470,19 +2487,30 @@ function App() {
       }
     };
 
-    // Try first 2 proxies in parallel (fast path)
+    // Try first 3 proxies in parallel (fast path)
     try {
-      const fastProxies = proxyConfigs.slice(0, 2);
+      const fastProxies = proxyConfigs.slice(0, 3);
       const result = await Promise.any(
         fastProxies.map(p => fetchOne(p.url, timeout))
       );
       if (result) return result;
     } catch (e) {
-      // Fast path failed, try remaining proxies sequentially
+      // Fast path failed, try remaining proxies
+    }
+
+    // Try next batch in parallel
+    try {
+      const midProxies = proxyConfigs.slice(3, 6);
+      const result = await Promise.any(
+        midProxies.map(p => fetchOne(p.url, timeout))
+      );
+      if (result) return result;
+    } catch (e) {
+      // Mid path failed
     }
 
     // Sequential fallback for remaining proxies
-    for (let i = 2; i < proxyConfigs.length; i++) {
+    for (let i = 6; i < proxyConfigs.length; i++) {
       try {
         const result = await fetchOne(proxyConfigs[i].url, timeout);
         if (result) return result;
@@ -3237,48 +3265,24 @@ function App() {
       }
       
       if (!data) {
-        // All APIs failed - STRONGLY suggest Demo Mode
-        console.error("⚠️  ALL APIS FAILED - Offering Demo Mode...");
+        // All APIs failed - Auto-enable Demo Mode silently
+        console.warn("⚠️ ALL APIS FAILED - Auto-enabling Demo Mode...");
         setLoadingTicker(false);
-        
-        const userWantsDemoMode = window.confirm(
-          "⚠️ Data Temporarily Unavailable\n\n" +
-          "The data APIs returned an error. Common causes:\n" +
-          "• Temporary API issues (try again in a moment)\n" +
-          "• Browser blocking cross-origin requests\n" +
-          "• Network connectivity issues\n" +
-          "• API rate limiting (too many requests)\n\n" +
-          "Note: If market IS open, try clicking 'Get Live Data' again.\n\n" +
-          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-          "💡 ALTERNATIVE: Enable Demo Mode?\n" +
-          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-          "Demo Mode provides:\n" +
-          "✓ Realistic sample data instantly\n" +
-          "✓ All features work perfectly\n" +
-          "✓ No API or network needed\n\n" +
-          "Enable Demo Mode now?\n\n" +
-          "[OK = Yes, Enable Demo Mode]  [Cancel = No, I'll Retry]"
-        );
-        
-        if (userWantsDemoMode) {
-          console.log("🎮 User enabled Demo Mode - retrying fetch...");
+
+        // Auto-fallback to demo mode without intrusive popup
+        if (!useDemoMode) {
           setUseDemoMode(true);
-          // Give React time to update state, then retry
-          setTimeout(() => {
-            fetchTickerData();
-          }, 100);
+          setApiStatus(prev => ({
+            ...prev,
+            demoModeReason: 'API temporarily unavailable - using demo data'
+          }));
+          // Retry with demo mode
+          setTimeout(() => fetchTickerData(), 100);
           return;
         }
-        
-        // User declined demo mode, show error
-        const errorMsg = "⚠️ Data Temporarily Unavailable\n\n" +
-          "Try these solutions:\n" +
-          "1. Click 'Get Live Data' again (often works on retry)\n" +
-          "2. Try a larger timeframe (1h or 1d are most reliable)\n" +
-          "3. Enable Demo Mode for instant sample data\n\n" +
-          "If this keeps happening, the free APIs may be rate-limited.\n" +
-          "Demo Mode is always available as a backup!";
-        throw new Error(errorMsg);
+
+        // Even demo mode failed - show minimal error
+        throw new Error("Unable to load data. Please try again.");
       }
       
       const newPrice = data.currentPrice;
