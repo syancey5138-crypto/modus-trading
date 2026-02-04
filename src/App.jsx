@@ -16140,13 +16140,90 @@ OUTPUT JSON:
               )}
 
               {answer && (
-                <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-6 mb-6">
-                  <h4 className="font-semibold mb-4 flex items-center gap-2 text-violet-300">
-                    <HelpCircle className="w-5 h-5" />
-                    AI Response
-                  </h4>
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    <p className="text-slate-200 whitespace-pre-wrap leading-relaxed text-sm">{answer}</p>
+                <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-violet-500/20 rounded-xl overflow-hidden mb-6">
+                  <div className="bg-violet-600/20 px-6 py-3 border-b border-violet-500/20">
+                    <h4 className="font-semibold flex items-center gap-2 text-violet-200">
+                      <Sparkles className="w-5 h-5 text-violet-400" />
+                      AI Response
+                    </h4>
+                  </div>
+                  <div className="p-6">
+                    {/* Formatted response with markdown parsing */}
+                    <div className="space-y-4">
+                      {answer.split('\n\n').map((block, blockIdx) => {
+                        // Handle headers (lines starting with **)
+                        if (block.startsWith('**') && block.endsWith('**')) {
+                          const headerText = block.replace(/\*\*/g, '');
+                          return (
+                            <h3 key={blockIdx} className="text-lg font-bold text-white flex items-center gap-2 mt-2">
+                              <div className="w-1 h-5 bg-violet-500 rounded-full" />
+                              {headerText}
+                            </h3>
+                          );
+                        }
+
+                        // Handle bullet lists
+                        if (block.includes('\n•') || block.includes('\n-') || block.startsWith('•') || block.startsWith('-')) {
+                          const lines = block.split('\n');
+                          return (
+                            <div key={blockIdx} className="space-y-2">
+                              {lines.map((line, lineIdx) => {
+                                const trimmed = line.trim();
+                                if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+                                  const bulletText = trimmed.replace(/^[•-]\s*/, '');
+                                  // Handle bold within bullet
+                                  const formatted = bulletText.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                                    if (part.startsWith('**') && part.endsWith('**')) {
+                                      return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                                    }
+                                    return part;
+                                  });
+                                  return (
+                                    <div key={lineIdx} className="flex items-start gap-3 pl-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-2 flex-shrink-0" />
+                                      <span className="text-slate-300 text-sm leading-relaxed">{formatted}</span>
+                                    </div>
+                                  );
+                                } else if (trimmed) {
+                                  // Non-bullet line in the block (like a header)
+                                  const formatted = trimmed.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                                    if (part.startsWith('**') && part.endsWith('**')) {
+                                      return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                                    }
+                                    return part;
+                                  });
+                                  return <p key={lineIdx} className="text-slate-200 font-medium">{formatted}</p>;
+                                }
+                                return null;
+                              })}
+                            </div>
+                          );
+                        }
+
+                        // Regular paragraph - handle inline bold
+                        const formatted = block.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                          if (part.startsWith('**') && part.endsWith('**')) {
+                            return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                          }
+                          return part;
+                        });
+
+                        return (
+                          <p key={blockIdx} className="text-slate-300 text-sm leading-relaxed">
+                            {formatted}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/30 px-6 py-3 border-t border-violet-500/10 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Response from AI Assistant</span>
+                    <button
+                      onClick={() => setAnswer(null)}
+                      className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      Clear
+                    </button>
                   </div>
                 </div>
               )}
