@@ -3271,11 +3271,8 @@ function App() {
 
         // Auto-fallback to demo mode without intrusive popup
         if (!useDemoMode) {
+          console.log("🎮 Auto-enabling Demo Mode for seamless experience...");
           setUseDemoMode(true);
-          setApiStatus(prev => ({
-            ...prev,
-            demoModeReason: 'API temporarily unavailable - using demo data'
-          }));
           // Retry with demo mode
           setTimeout(() => fetchTickerData(), 100);
           return;
