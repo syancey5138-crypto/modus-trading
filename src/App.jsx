@@ -5986,28 +5986,64 @@ OUTPUT JSON:
     }
   };
 
-  // Q&A Functions
+  // Q&A Functions with offline fallback for common questions
+  const getOfflineAnswer = (q) => {
+    const lowerQ = q.toLowerCase();
+    const answers = {
+      'position size': `**Position Sizing Formula:**\n\nPosition Size = (Account Risk $) / (Trade Risk per Share)\n\n**Example:**\n- Account: $10,000\n- Risk: 2% = $200\n- Entry: $100, Stop Loss: $95\n- Risk per share: $5\n- Position Size: $200 / $5 = 40 shares\n\n**Key Rules:**\n• Never risk more than 1-2% per trade\n• Adjust size based on volatility\n• Smaller positions for uncertain setups`,
+      'rsi': `**RSI (Relative Strength Index)**\n\nMeasures momentum on a 0-100 scale.\n\n**Key Levels:**\n• Above 70 = Overbought (potential sell)\n• Below 30 = Oversold (potential buy)\n• 50 = Neutral\n\n**RSI Divergence:**\n• Bullish: Price makes lower low, RSI makes higher low\n• Bearish: Price makes higher high, RSI makes lower high\n\n**Best Practices:**\n• Use with trend direction\n• Don't trade RSI alone\n• Works best in ranging markets`,
+      'macd': `**MACD (Moving Average Convergence Divergence)**\n\n**Components:**\n• MACD Line = 12 EMA - 26 EMA\n• Signal Line = 9 EMA of MACD\n• Histogram = MACD - Signal\n\n**Signals:**\n• Bullish: MACD crosses above Signal\n• Bearish: MACD crosses below Signal\n• Histogram growing = momentum increasing\n\n**Tips:**\n• Best for trending markets\n• Use histogram for early signals\n• Combine with price action`,
+      'stop loss': `**Stop Loss Strategies**\n\n**Types:**\n• Fixed % (1-2% of account)\n• ATR-based (1.5-2x ATR)\n• Support/Resistance based\n• Moving average based\n\n**Placement Tips:**\n• Below recent swing low (longs)\n• Above recent swing high (shorts)\n• Give room for normal volatility\n• Never move stop further from entry\n\n**Risk Management:**\n• Set before entering trade\n• Calculate position size from stop\n• Accept the loss if hit`,
+      'head and shoulders': `**Head and Shoulders Pattern**\n\n**Structure:**\n• Left Shoulder: First peak\n• Head: Higher peak\n• Right Shoulder: Lower peak (similar to left)\n• Neckline: Support connecting the lows\n\n**Trading:**\n• Entry: Break below neckline\n• Stop: Above right shoulder\n• Target: Distance from head to neckline\n\n**Confirmation:**\n• Volume decreases on right shoulder\n• Volume increases on breakdown\n• Wait for neckline retest`,
+      'support resistance': `**Support & Resistance**\n\n**Support:** Price level where buying pressure exceeds selling\n**Resistance:** Price level where selling pressure exceeds buying\n\n**How to Identify:**\n• Previous highs/lows\n• Round numbers ($100, $50)\n• Moving averages\n• Volume clusters\n\n**Trading Tips:**\n• More touches = stronger level\n• Broken support becomes resistance\n• Look for confluence of levels\n• Use for entries and stops`,
+      'risk reward': `**Risk/Reward Ratio**\n\n**Formula:** Potential Profit / Potential Loss\n\n**Example:**\n• Entry: $100\n• Stop Loss: $95 (risk $5)\n• Target: $115 (reward $15)\n• R:R = 15/5 = 3:1\n\n**Guidelines:**\n• Minimum 2:1 for swing trades\n• 3:1 or better is ideal\n• Even 1:1 works with 60%+ win rate\n\n**Reality Check:**\n• Higher R:R = lower win rate\n• Balance R:R with probability\n• Account for slippage/fees`
+    };
+
+    for (const [key, answer] of Object.entries(answers)) {
+      if (lowerQ.includes(key)) return answer;
+    }
+    return null;
+  };
+
   const askQuestion = async () => {
     if (question.length < 10) return;
-    
+
     setLoadingAnswer(true);
+    setAnalysisError(null); // Clear previous errors
+
     try {
+      // First try offline answers for common questions
+      const offlineAnswer = getOfflineAnswer(question);
+
+      if (offlineAnswer) {
+        setAnswer(offlineAnswer);
+        const newQA = { q: question, a: offlineAnswer, time: new Date().toISOString() };
+        const updatedHistory = [...qaHistory, newQA];
+        setQaHistory(updatedHistory);
+        sessionStorage.setItem("modus_qa_history", JSON.stringify(updatedHistory));
+        setQuestion("");
+        return;
+      }
+
+      // Try API call
       const data = await callAPI([{
         role: "user",
         content: `You are a trading education assistant. Answer this question clearly and educationally:\n\n${question}\n\nProvide a comprehensive, accurate answer focused on helping the user learn.`
       }], 2000);
-      
+
       const answerText = data.content[0].text;
       setAnswer(answerText);
-      
+
       const newQA = { q: question, a: answerText, time: new Date().toISOString() };
       const updatedHistory = [...qaHistory, newQA];
       setQaHistory(updatedHistory);
       sessionStorage.setItem("modus_qa_history", JSON.stringify(updatedHistory));
-      
+
       setQuestion("");
     } catch (err) {
-      setAnalysisError(`Q&A failed: ${err.message}`);
+      console.error("Q&A Error:", err);
+      // Provide helpful fallback message
+      setAnalysisError(`Q&A failed: ${err.message}. Try asking about position sizing, RSI, MACD, stop losses, or chart patterns - these work offline!`);
     } finally {
       setLoadingAnswer(false);
     }
@@ -13511,16 +13547,74 @@ OUTPUT JSON:
                           <div className="space-y-3">
                             {analysis.patterns.reversalPatterns && Object.entries(analysis.patterns.reversalPatterns).map(([key, value]) => {
                               if (value === "NONE" || !value) return null;
+
+                              // Pattern-specific details
+                              const patternInfo = {
+                                'doubleTop': {
+                                  bias: 'BEARISH',
+                                  description: 'Two peaks at similar price level indicating sellers are defending resistance',
+                                  tradeTip: 'Wait for neckline break, target = distance from peaks to neckline',
+                                  stopHint: 'Above the double top peaks'
+                                },
+                                'doubleBottom': {
+                                  bias: 'BULLISH',
+                                  description: 'Two troughs at similar price level indicating buyers are defending support',
+                                  tradeTip: 'Wait for neckline break, target = distance from troughs to neckline',
+                                  stopHint: 'Below the double bottom troughs'
+                                },
+                                'headAndShoulders': {
+                                  bias: 'BEARISH',
+                                  description: 'Three peaks with middle peak (head) highest - classic reversal pattern',
+                                  tradeTip: 'Enter on neckline break, target = head to neckline distance',
+                                  stopHint: 'Above the right shoulder'
+                                },
+                                'inverseHeadAndShoulders': {
+                                  bias: 'BULLISH',
+                                  description: 'Three troughs with middle trough (head) lowest - bullish reversal',
+                                  tradeTip: 'Enter on neckline break, target = head to neckline distance',
+                                  stopHint: 'Below the right shoulder'
+                                }
+                              };
+
+                              const info = patternInfo[key] || {
+                                bias: 'NEUTRAL',
+                                description: 'Chart pattern detected',
+                                tradeTip: 'Wait for confirmation before trading',
+                                stopHint: 'Beyond pattern boundaries'
+                              };
+
                               return (
                                 <div key={key} className="bg-violet-500/10 border border-violet-500/20 rounded-lg p-4">
-                                  <div className="flex items-center justify-between">
+                                  <div className="flex items-start justify-between mb-3">
                                     <div>
-                                      <div className="font-semibold capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                                      <div className="font-semibold text-lg capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
                                       <div className="text-sm text-slate-400 mt-1">{value}</div>
                                     </div>
-                                    <span className="px-3 py-1 bg-violet-600/20 rounded-lg text-xs font-semibold">
-                                      Reversal Pattern
-                                    </span>
+                                    <div className="flex gap-2">
+                                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                        info.bias === 'BEARISH' ? 'bg-red-500/20 text-red-300' :
+                                        info.bias === 'BULLISH' ? 'bg-green-500/20 text-green-300' :
+                                        'bg-slate-500/20 text-slate-300'
+                                      }`}>
+                                        {info.bias}
+                                      </span>
+                                      <span className="px-2 py-1 bg-violet-600/20 rounded text-xs font-semibold">
+                                        Reversal Pattern
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="bg-slate-800/50 rounded-lg p-3 space-y-2 text-sm">
+                                    <p className="text-slate-300">{info.description}</p>
+                                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-700">
+                                      <div>
+                                        <span className="text-xs text-slate-500">Trade Setup:</span>
+                                        <p className="text-xs text-slate-400 mt-1">{info.tradeTip}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-xs text-slate-500">Stop Loss:</span>
+                                        <p className="text-xs text-slate-400 mt-1">{info.stopHint}</p>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -13528,22 +13622,89 @@ OUTPUT JSON:
 
                             {analysis.patterns.continuationPatterns?.triangleType && analysis.patterns.continuationPatterns.triangleType !== "NONE" && (
                               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-start justify-between mb-3">
                                   <div>
-                                    <div className="font-semibold">{analysis.patterns.continuationPatterns.triangleType.replace(/_/g, ' ')}</div>
+                                    <div className="font-semibold text-lg">{analysis.patterns.continuationPatterns.triangleType.replace(/_/g, ' ')}</div>
                                     <div className="text-sm text-slate-400 mt-1">
-                                      Breakout direction: {analysis.patterns.continuationPatterns.breakoutDirection}
+                                      Breakout direction: <span className={analysis.patterns.continuationPatterns.breakoutDirection === 'UP' ? 'text-green-400' : 'text-red-400'}>{analysis.patterns.continuationPatterns.breakoutDirection}</span>
                                     </div>
                                   </div>
-                                  <span className="px-3 py-1 bg-blue-600/20 rounded-lg text-xs font-semibold">
+                                  <span className="px-2 py-1 bg-blue-600/20 rounded text-xs font-semibold">
                                     Continuation Pattern
                                   </span>
                                 </div>
+                                <div className="bg-slate-800/50 rounded-lg p-3 text-sm">
+                                  <p className="text-slate-300 mb-2">Price consolidating in a triangle - typically breaks in the direction of the prior trend.</p>
+                                  <div className="text-xs text-slate-400">
+                                    <span className="text-slate-500">Trade Tip:</span> Wait for breakout with volume confirmation, then enter in breakout direction.
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* No patterns detected message */}
+                            {(!analysis.patterns.reversalPatterns || Object.values(analysis.patterns.reversalPatterns).every(v => v === "NONE" || !v)) &&
+                             (!analysis.patterns.continuationPatterns?.triangleType || analysis.patterns.continuationPatterns.triangleType === "NONE") && (
+                              <div className="bg-slate-800/30 rounded-lg p-4 text-center">
+                                <p className="text-slate-400 text-sm">No significant chart patterns detected at this time.</p>
+                                <p className="text-xs text-slate-500 mt-1">Patterns may form as price action develops.</p>
                               </div>
                             )}
                           </div>
                         </div>
                       )}
+
+                      {/* Price Position Analysis */}
+                      <div>
+                        <h4 className="font-semibold mb-4">Price Position Analysis</h4>
+                        <div className="bg-slate-800/30 rounded-lg p-4">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {analysis.patterns.keyLevels.resistance?.[0] && (
+                              <div>
+                                <div className="text-xs text-slate-500 mb-1">Nearest Resistance</div>
+                                <div className="font-mono font-semibold text-red-400">{formatPrice(analysis.patterns.keyLevels.resistance[0].price)}</div>
+                                <div className="text-xs text-slate-500 mt-1">
+                                  {analysis.context.priceRange?.current && (
+                                    <>Distance: {((parseFloat(String(analysis.patterns.keyLevels.resistance[0].price).replace(/[^0-9.]/g, '')) / parseFloat(String(analysis.context.priceRange.current).replace(/[^0-9.]/g, '')) - 1) * 100).toFixed(2)}%</>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            {analysis.patterns.keyLevels.support?.[0] && (
+                              <div>
+                                <div className="text-xs text-slate-500 mb-1">Nearest Support</div>
+                                <div className="font-mono font-semibold text-green-400">{formatPrice(analysis.patterns.keyLevels.support[0].price)}</div>
+                                <div className="text-xs text-slate-500 mt-1">
+                                  {analysis.context.priceRange?.current && (
+                                    <>Distance: {((1 - parseFloat(String(analysis.patterns.keyLevels.support[0].price).replace(/[^0-9.]/g, '')) / parseFloat(String(analysis.context.priceRange.current).replace(/[^0-9.]/g, ''))) * 100).toFixed(2)}%</>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            <div>
+                              <div className="text-xs text-slate-500 mb-1">Trend Direction</div>
+                              <div className={`font-semibold ${
+                                analysis.patterns.trendAnalysis.trend === 'UPTREND' ? 'text-green-400' :
+                                analysis.patterns.trendAnalysis.trend === 'DOWNTREND' ? 'text-red-400' :
+                                'text-yellow-400'
+                              }`}>{analysis.patterns.trendAnalysis.trend}</div>
+                              <div className="text-xs text-slate-500 mt-1">Strength: {analysis.patterns.trendAnalysis.trendStrength}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-500 mb-1">Market Phase</div>
+                              <div className="font-semibold text-slate-300">
+                                {analysis.patterns.trendAnalysis.trend === 'SIDEWAYS' ? 'Consolidation' :
+                                 analysis.patterns.trendAnalysis.trendStrength === 'STRONG' ? 'Trending' :
+                                 'Transitioning'}
+                              </div>
+                              <div className="text-xs text-slate-500 mt-1">
+                                {analysis.patterns.trendAnalysis.trend === 'SIDEWAYS' ? 'Wait for breakout' :
+                                 'Trade with trend'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -15941,6 +16102,26 @@ OUTPUT JSON:
                   </button>
                 </div>
               </div>
+
+              {/* Error State for Q&A */}
+              {analysisError && analysisError.includes('Q&A') && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-red-300">Unable to get AI response</p>
+                      <p className="text-xs text-slate-400 mt-1">{analysisError}</p>
+                      <p className="text-xs text-slate-500 mt-2">Make sure you have an API key configured in Settings, or try again later.</p>
+                      <button
+                        onClick={() => setAnalysisError(null)}
+                        className="mt-2 text-xs text-red-400 hover:text-red-300"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Enhanced Loading State */}
               {loadingAnswer && (
