@@ -1176,7 +1176,8 @@ function App() {
     exitDate: "",
     notes: "",
     linkedAnalysisId: null,
-    isPaperTrade: false // NEW: Paper trading toggle
+    isPaperTrade: false, // Paper trading toggle
+    confidence: "" // Optional confidence score
   });
   
   // NEW: Paper Trading Account
@@ -6710,13 +6711,16 @@ OUTPUT JSON:
       side: "long",
       entry: "",
       exit: "",
+      avgPrice: "",
       stopLoss: "",
       target: "",
       quantity: "",
       entryDate: new Date().toISOString().split('T')[0],
       exitDate: "",
       notes: "",
-      linkedAnalysisId: analysis ? Date.now() : null
+      linkedAnalysisId: analysis ? Date.now() : null,
+      isPaperTrade: false,
+      confidence: ""
     });
     setShowAddTrade(true);
   };
@@ -16023,6 +16027,7 @@ OUTPUT JSON:
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Entry</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Exit</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">P&L</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Conf.</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Status</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Date</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Actions</th>
@@ -16066,6 +16071,19 @@ OUTPUT JSON:
                                 </span>
                               ) : (
                                 "-"
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {trade.confidence ? (
+                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  parseFloat(trade.confidence) >= 75 ? "bg-green-900/30 text-green-400" :
+                                  parseFloat(trade.confidence) >= 60 ? "bg-yellow-900/30 text-yellow-400" :
+                                  "bg-slate-700 text-slate-300"
+                                }`}>
+                                  {trade.confidence}%
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">-</span>
                               )}
                             </td>
                             <td className="px-4 py-3">
@@ -18203,13 +18221,23 @@ OUTPUT JSON:
                         <LineChart className="w-4 h-4" />
                         View Chart
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           setNewTrade({
-                            ...newTrade,
                             symbol: idea.symbol,
                             side: idea.direction === 'LONG' ? "long" : "short",
-                            entry: idea.entry.toString()
+                            entry: idea.entry?.toString() || "",
+                            exit: "",
+                            avgPrice: "",
+                            stopLoss: idea.stopLoss?.toString() || "",
+                            target: idea.target?.toString() || "",
+                            quantity: "",
+                            entryDate: new Date().toISOString().split('T')[0],
+                            exitDate: "",
+                            notes: `Trade idea: ${idea.recommendation?.replace(/_/g, ' ')} - ${idea.analysis || idea.signal || ''}`,
+                            linkedAnalysisId: null,
+                            isPaperTrade: false,
+                            confidence: idea.confidence?.toString() || ""
                           });
                           setActiveTab("journal");
                         }}
@@ -20469,7 +20497,46 @@ OUTPUT JSON:
                   />
                 </div>
               </div>
-              
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">
+                    Confidence <span className="text-slate-500">(Optional)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={newTrade.confidence}
+                      onChange={(e) => setNewTrade({...newTrade, confidence: e.target.value})}
+                      placeholder="75"
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-2"
+                    />
+                    <span className="text-slate-400">%</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Your confidence level in this trade</p>
+                </div>
+                <div className="flex items-end pb-6">
+                  <div className="flex gap-1">
+                    {[50, 65, 75, 85].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setNewTrade({...newTrade, confidence: pct.toString()})}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${
+                          newTrade.confidence === pct.toString()
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-2">Entry Date</label>
@@ -20660,6 +20727,44 @@ OUTPUT JSON:
                     placeholder="10"
                     className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">
+                    Confidence <span className="text-slate-500">(Optional)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={editingTrade.confidence || ""}
+                      onChange={(e) => setEditingTrade({...editingTrade, confidence: e.target.value})}
+                      placeholder="75"
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-2"
+                    />
+                    <span className="text-slate-400">%</span>
+                  </div>
+                </div>
+                <div className="flex items-end pb-2">
+                  <div className="flex gap-1">
+                    {[50, 65, 75, 85].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setEditingTrade({...editingTrade, confidence: pct.toString()})}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${
+                          editingTrade.confidence === pct.toString()
+                            ? 'bg-violet-600 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
