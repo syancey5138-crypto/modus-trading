@@ -12267,13 +12267,26 @@ OUTPUT JSON:
                       const techNorm = normalizeRec(techSignal);
                       const finalNorm = normalizeRec(finalRec);
 
-                      // Show if there's any meaningful difference
+                      // Check if intensity differs (STRONG vs LEAN vs regular)
+                      const getIntensity = (rec) => {
+                        if (!rec) return 'normal';
+                        if (rec.includes('STRONG')) return 'strong';
+                        if (rec.includes('LEAN')) return 'lean';
+                        if (rec.includes('MODERATE')) return 'moderate';
+                        return 'normal';
+                      };
+                      const techIntensity = getIntensity(techSignal);
+                      const finalIntensity = getIntensity(finalRec);
+                      const intensityDiffers = techIntensity !== finalIntensity;
+
+                      // Show if there's any meaningful difference (direction OR intensity)
                       const isDifferent = techSignal && finalRec && (
                         (techNorm.includes('BUY') && !finalNorm.includes('BUY')) ||
                         (techNorm.includes('SELL') && !finalNorm.includes('SELL')) ||
                         (finalNorm.includes('WAIT') && !techNorm.includes('WAIT')) ||
                         (finalNorm.includes('HOLD') && !techNorm.includes('HOLD')) ||
-                        (techNorm !== finalNorm)
+                        (techNorm !== finalNorm) ||
+                        intensityDiffers
                       );
 
                       if (!isDifferent) return null;
@@ -12316,6 +12329,17 @@ OUTPUT JSON:
                       }
                       if (finalRec?.includes('SELL') && techSignal?.includes('BUY')) {
                         reasons.push('Overbought condition despite bullish technicals');
+                      }
+
+                      // Add reason for intensity difference
+                      if (intensityDiffers && techNorm === finalNorm) {
+                        const intensityDesc = {
+                          'strong': 'strong conviction',
+                          'lean': 'weak/cautious',
+                          'moderate': 'moderate conviction',
+                          'normal': 'standard'
+                        };
+                        reasons.push(`Signal strength adjusted from ${intensityDesc[techIntensity]} to ${intensityDesc[finalIntensity]} based on setup quality`);
                       }
 
                       // Add default if no specific reasons
