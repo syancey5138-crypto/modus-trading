@@ -754,7 +754,7 @@ function App() {
   const getRecommendedTradeStyle = (detectedTimeframe) => {
     if (!detectedTimeframe || detectedTimeframe === 'NOT_VISIBLE') return null;
 
-    const tf = detectedTimeframe.toLowerCase().trim();
+    const tf = String(detectedTimeframe).toLowerCase().trim();
 
     // Scalping: 1m, 2m, 3m, 5m
     if (tf.includes('1m') || tf.includes('2m') || tf.includes('3m') || tf.includes('5m') ||
@@ -12804,9 +12804,9 @@ OUTPUT JSON:
                       </div>
                       {/* Calculated Results */}
                       {(() => {
-                        // Parse entry and stop from the analysis
-                        const entryStr = analysis.final.tradeInstruction.action || '';
-                        const stopStr = analysis.final.tradeInstruction.stop || '';
+                        // Parse entry and stop from the analysis - ensure strings
+                        const entryStr = String(analysis.final.tradeInstruction.action || '');
+                        const stopStr = String(analysis.final.tradeInstruction.stop || '');
                         const entryMatch = entryStr.match(/\$?([\d.]+)/);
                         const stopMatch = stopStr.match(/\$?([\d.]+)/);
                         const entry = entryMatch ? parseFloat(entryMatch[1]) : (tickerData.price || 0);
