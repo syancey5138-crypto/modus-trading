@@ -6798,7 +6798,8 @@ OUTPUT JSON:
       avgPrice: trade.avgPrice?.toString() || "",
       stopLoss: trade.stopLoss?.toString() || "",
       target: trade.target?.toString() || "",
-      quantity: trade.quantity?.toString() || ""
+      quantity: trade.quantity?.toString() || "",
+      confidence: trade.confidence?.toString() || ""
     });
     setShowEditTrade(true);
   };
@@ -16074,10 +16075,10 @@ OUTPUT JSON:
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              {trade.confidence ? (
+                              {trade.confidence && trade.confidence !== "" ? (
                                 <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                                  parseFloat(trade.confidence) >= 75 ? "bg-green-900/30 text-green-400" :
-                                  parseFloat(trade.confidence) >= 60 ? "bg-yellow-900/30 text-yellow-400" :
+                                  (parseFloat(trade.confidence) || 0) >= 75 ? "bg-green-900/30 text-green-400" :
+                                  (parseFloat(trade.confidence) || 0) >= 60 ? "bg-yellow-900/30 text-yellow-400" :
                                   "bg-slate-700 text-slate-300"
                                 }`}>
                                   {trade.confidence}%
