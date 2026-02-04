@@ -12117,100 +12117,144 @@ OUTPUT JSON:
                   </div>
                 )}
 
-                {/* NEW: Real Calculated Indicators Panel */}
-                {analysis.realIndicators && (
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5">
-                    <h4 className="font-semibold mb-3 text-blue-300 flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5" />
-                      Live Technical Data ({analysis.realIndicators.ticker})
-                      <span className="ml-2 text-xs bg-blue-500/20 px-2 py-0.5 rounded text-blue-300">
-                        {analysis.realIndicators.dataSource}
-                      </span>
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-                      <div className="bg-slate-800/50 rounded-lg p-3">
-                        <div className="text-xs text-slate-500 mb-1">RSI (14)</div>
-                        <div className={`font-bold text-xl ${
-                          parseFloat(analysis.realIndicators.rsi) > 70 ? 'text-red-400' :
-                          parseFloat(analysis.realIndicators.rsi) < 30 ? 'text-emerald-400' :
-                          'text-violet-400'
-                        }`}>
-                          {analysis.realIndicators.rsi || 'N/A'}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {parseFloat(analysis.realIndicators.rsi) > 70 ? 'Overbought' :
-                           parseFloat(analysis.realIndicators.rsi) < 30 ? 'Oversold' : 'Neutral'}
-                        </div>
-                      </div>
-                      <div className="bg-slate-800/50 rounded-lg p-3">
-                        <div className="text-xs text-slate-500 mb-1">MACD</div>
-                        <div className={`font-bold text-xl ${
-                          parseFloat(analysis.realIndicators.macdHistogram) > 0 ? 'text-emerald-400' : 'text-red-400'
-                        }`}>
-                          {parseFloat(analysis.realIndicators.macdHistogram) > 0 ? '▲' : '▼'} {analysis.realIndicators.macdHistogram}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {parseFloat(analysis.realIndicators.macdHistogram) > 0 ? 'Bullish' : 'Bearish'}
-                        </div>
-                      </div>
-                      <div className="bg-slate-800/50 rounded-lg p-3">
-                        <div className="text-xs text-slate-500 mb-1">Trend</div>
-                        <div className={`font-bold text-lg ${
-                          analysis.realIndicators.trend === 'UPTREND' ? 'text-emerald-400' :
-                          analysis.realIndicators.trend === 'DOWNTREND' ? 'text-red-400' :
-                          'text-yellow-400'
-                        }`}>
-                          {analysis.realIndicators.trend}
-                        </div>
-                      </div>
-                      <div className="bg-slate-800/50 rounded-lg p-3">
-                        <div className="text-xs text-slate-500 mb-1">Score</div>
-                        <div className="font-bold text-lg">
-                          <span className="text-emerald-400">{analysis.realIndicators.bullishScore}</span>
-                          <span className="text-slate-500 mx-1">/</span>
-                          <span className="text-red-400">{analysis.realIndicators.bearishScore}</span>
-                        </div>
-                        <div className="text-xs text-slate-500">Bull / Bear</div>
-                      </div>
-                      <div className="bg-slate-800/50 rounded-lg p-3 relative group">
-                        <div className="text-xs text-slate-500 mb-1 flex items-center gap-1">
-                          Technical Signal
-                          <HelpCircle className="w-3 h-3 text-slate-600 cursor-help" />
-                        </div>
-                        <div className={`font-bold text-lg ${
-                          analysis.realIndicators.calculatedRecommendation?.includes('BUY') ? 'text-emerald-400' :
-                          analysis.realIndicators.calculatedRecommendation?.includes('SELL') ? 'text-red-400' :
-                          'text-yellow-400'
-                        }`}>
-                          {analysis.realIndicators.calculatedRecommendation?.replace(/_/g, ' ')}
-                        </div>
-                        <div className="text-xs text-slate-500">{analysis.realIndicators.direction}</div>
-                        {/* Tooltip explaining technical signal */}
-                        <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 z-50 w-64 p-3 bg-slate-900 border border-slate-600 rounded-lg shadow-xl text-xs">
-                          <div className="font-semibold text-slate-200 mb-1">Raw Indicator Reading</div>
-                          <p className="text-slate-400">This shows what the technical indicators suggest. The final recommendation above may differ based on trend, risk/reward, and other factors.</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className={`px-2 py-1 rounded ${analysis.realIndicators.aboveSMA20 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
-                        {analysis.realIndicators.aboveSMA20 ? '✓' : '✗'} Above SMA20
-                      </span>
-                      {analysis.realIndicators.aboveSMA50 !== null && (
-                        <span className={`px-2 py-1 rounded ${analysis.realIndicators.aboveSMA50 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
-                          {analysis.realIndicators.aboveSMA50 ? '✓' : '✗'} Above SMA50
+                {/* Technical Indicators Panel - Always Shows */}
+                {(() => {
+                  // Get data from realIndicators (live) or fallback to AI analysis
+                  const live = analysis.realIndicators;
+                  const aiIndicators = analysis.indicators?.indicatorScores;
+                  const aiTrend = analysis.patterns?.trendAnalysis;
+                  const hasLiveData = !!live;
+
+                  // Merged indicator data with fallbacks
+                  const ind = {
+                    rsi: live?.rsi || null,
+                    macdHistogram: live?.macdHistogram || null,
+                    trend: live?.trend || aiTrend?.trend || 'N/A',
+                    bullishScore: live?.bullishScore ?? aiIndicators?.bullishScore ?? '—',
+                    bearishScore: live?.bearishScore ?? aiIndicators?.bearishScore ?? '—',
+                    netScore: live?.netScore ?? aiIndicators?.netScore ?? 0,
+                    calculatedRecommendation: live?.calculatedRecommendation ||
+                      (aiIndicators?.interpretation?.replace('STRONG_', 'STRONG ').replace('_', ' ')) || null,
+                    direction: live?.direction || (aiIndicators?.netScore > 0 ? 'LONG' : aiIndicators?.netScore < 0 ? 'SHORT' : 'NEUTRAL'),
+                    aboveSMA20: live?.aboveSMA20,
+                    aboveSMA50: live?.aboveSMA50,
+                    currentPrice: live?.currentPrice || analysis.context?.priceRange?.current?.replace('$', ''),
+                    changePercent: live?.changePercent,
+                    barsAnalyzed: live?.barsAnalyzed,
+                    ticker: live?.ticker || analysis.context?.ticker,
+                    dataSource: hasLiveData ? live.dataSource : 'AI Analysis'
+                  };
+
+                  const rsiValue = parseFloat(ind.rsi) || 0;
+                  const macdValue = parseFloat(ind.macdHistogram) || 0;
+
+                  return (
+                    <div className={`${hasLiveData ? 'bg-blue-500/10 border-blue-500/20' : 'bg-violet-500/10 border-violet-500/20'} border rounded-xl p-5`}>
+                      <h4 className={`font-semibold mb-3 ${hasLiveData ? 'text-blue-300' : 'text-violet-300'} flex items-center gap-2`}>
+                        <BarChart3 className="w-5 h-5" />
+                        Technical Indicator Analysis {ind.ticker ? `(${ind.ticker})` : ''}
+                        <span className={`ml-2 text-xs ${hasLiveData ? 'bg-blue-500/20 text-blue-300' : 'bg-violet-500/20 text-violet-300'} px-2 py-0.5 rounded`}>
+                          {ind.dataSource}
                         </span>
-                      )}
-                      <span className="px-2 py-1 rounded bg-slate-700 text-slate-300">
-                        Price: ${analysis.realIndicators.currentPrice} ({analysis.realIndicators.changePercent > 0 ? '+' : ''}{analysis.realIndicators.changePercent}%)
-                      </span>
-                      <span className="px-2 py-1 rounded bg-slate-700 text-slate-300">
-                        {analysis.realIndicators.barsAnalyzed} bars analyzed
-                      </span>
-                    </div>
+                        {!hasLiveData && (
+                          <span className="ml-auto text-xs text-amber-400 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Live data unavailable
+                          </span>
+                        )}
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                        <div className="bg-slate-800/50 rounded-lg p-3">
+                          <div className="text-xs text-slate-500 mb-1">RSI (14)</div>
+                          <div className={`font-bold text-xl ${
+                            ind.rsi ? (rsiValue > 70 ? 'text-red-400' : rsiValue < 30 ? 'text-emerald-400' : 'text-violet-400') : 'text-slate-500'
+                          }`}>
+                            {ind.rsi || '—'}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {ind.rsi ? (rsiValue > 70 ? 'Overbought' : rsiValue < 30 ? 'Oversold' : 'Neutral') : 'No data'}
+                          </div>
+                        </div>
+                        <div className="bg-slate-800/50 rounded-lg p-3">
+                          <div className="text-xs text-slate-500 mb-1">MACD</div>
+                          <div className={`font-bold text-xl ${
+                            ind.macdHistogram ? (macdValue > 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-500'
+                          }`}>
+                            {ind.macdHistogram ? `${macdValue > 0 ? '▲' : '▼'} ${ind.macdHistogram}` : '—'}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {ind.macdHistogram ? (macdValue > 0 ? 'Bullish' : 'Bearish') : 'No data'}
+                          </div>
+                        </div>
+                        <div className="bg-slate-800/50 rounded-lg p-3">
+                          <div className="text-xs text-slate-500 mb-1">Trend</div>
+                          <div className={`font-bold text-lg ${
+                            ind.trend === 'UPTREND' ? 'text-emerald-400' :
+                            ind.trend === 'DOWNTREND' ? 'text-red-400' :
+                            ind.trend === 'SIDEWAYS' ? 'text-yellow-400' : 'text-slate-500'
+                          }`}>
+                            {ind.trend}
+                          </div>
+                          {aiTrend?.trendStrength && (
+                            <div className="text-xs text-slate-500">{aiTrend.trendStrength}</div>
+                          )}
+                        </div>
+                        <div className="bg-slate-800/50 rounded-lg p-3">
+                          <div className="text-xs text-slate-500 mb-1">Score</div>
+                          <div className="font-bold text-lg">
+                            <span className="text-emerald-400">{ind.bullishScore}</span>
+                            <span className="text-slate-500 mx-1">/</span>
+                            <span className="text-red-400">{ind.bearishScore}</span>
+                          </div>
+                          <div className="text-xs text-slate-500">Bull / Bear</div>
+                        </div>
+                        <div className="bg-slate-800/50 rounded-lg p-3 relative group">
+                          <div className="text-xs text-slate-500 mb-1 flex items-center gap-1">
+                            Technical Signal
+                            <HelpCircle className="w-3 h-3 text-slate-600 cursor-help" />
+                          </div>
+                          <div className={`font-bold text-lg ${
+                            ind.calculatedRecommendation?.includes('BUY') ? 'text-emerald-400' :
+                            ind.calculatedRecommendation?.includes('SELL') ? 'text-red-400' :
+                            ind.calculatedRecommendation?.includes('BULLISH') ? 'text-emerald-400' :
+                            ind.calculatedRecommendation?.includes('BEARISH') ? 'text-red-400' :
+                            'text-yellow-400'
+                          }`}>
+                            {ind.calculatedRecommendation?.replace(/_/g, ' ') || '—'}
+                          </div>
+                          <div className="text-xs text-slate-500">{ind.direction}</div>
+                          {/* Tooltip explaining technical signal */}
+                          <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 z-50 w-64 p-3 bg-slate-900 border border-slate-600 rounded-lg shadow-xl text-xs">
+                            <div className="font-semibold text-slate-200 mb-1">Raw Indicator Reading</div>
+                            <p className="text-slate-400">This shows what the technical indicators suggest. The final recommendation may differ based on trend, risk/reward, and setup quality.</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {ind.aboveSMA20 !== undefined && (
+                          <span className={`px-2 py-1 rounded ${ind.aboveSMA20 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
+                            {ind.aboveSMA20 ? '✓' : '✗'} Above SMA20
+                          </span>
+                        )}
+                        {ind.aboveSMA50 !== undefined && ind.aboveSMA50 !== null && (
+                          <span className={`px-2 py-1 rounded ${ind.aboveSMA50 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
+                            {ind.aboveSMA50 ? '✓' : '✗'} Above SMA50
+                          </span>
+                        )}
+                        {ind.currentPrice && (
+                          <span className="px-2 py-1 rounded bg-slate-700 text-slate-300">
+                            Price: ${ind.currentPrice}{ind.changePercent ? ` (${parseFloat(ind.changePercent) > 0 ? '+' : ''}${ind.changePercent}%)` : ''}
+                          </span>
+                        )}
+                        {ind.barsAnalyzed && (
+                          <span className="px-2 py-1 rounded bg-slate-700 text-slate-300">
+                            {ind.barsAnalyzed} bars analyzed
+                          </span>
+                        )}
+                      </div>
                     {/* Signal vs Recommendation discrepancy notice - ALWAYS show when there's a difference */}
                     {(() => {
-                      const techSignal = analysis.realIndicators?.calculatedRecommendation?.replace(/_/g, ' ');
+                      const techSignal = ind.calculatedRecommendation?.replace(/_/g, ' ');
                       const finalRec = analysis.final?.recommendation?.replace(/_/g, ' ');
 
                       // Normalize for comparison (remove STRONG_, MODERATE_, LEAN_ prefixes)
@@ -12258,8 +12302,8 @@ OUTPUT JSON:
                           reasons.push(`Risk/reward ratio is suboptimal (${analysis.tradeSetup.immediateEntry.riskRewardRatio})`);
                         }
                       }
-                      if (analysis.realIndicators?.netScore !== undefined) {
-                        if (Math.abs(analysis.realIndicators.netScore) < 15) {
+                      if (ind.netScore !== undefined && ind.netScore !== 0) {
+                        if (Math.abs(ind.netScore) < 15) {
                           reasons.push('Mixed signals - indicator readings are conflicting');
                         }
                       }
@@ -12303,7 +12347,8 @@ OUTPUT JSON:
                       );
                     })()}
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* Recommendation Card */}
                 <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700/50 p-8 shadow-2xl">
