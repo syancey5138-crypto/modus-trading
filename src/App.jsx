@@ -10,8 +10,10 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
+import { useAuth } from "./contexts/AuthContext";
+import { loadAllUserData, saveAllUserData, saveTrades, saveWatchlist, saveAlerts, savePaperTradingAccount, saveAnalysisHistory } from "./services/firestoreService";
 
 function App() {
   // Inject global CSS for smooth animations and polished UI
@@ -620,6 +622,21 @@ function App() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
+  // =====================
+  // AUTHENTICATION STATE
+  // =====================
+  const { currentUser, userProfile, login, signup, loginWithGoogle, logout, resetPassword } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'reset'
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState('idle'); // 'idle', 'syncing', 'synced', 'error'
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+
   // NEW: Analytics Tracking State & Functions
   const [analytics, setAnalytics] = useState(() => {
     const saved = localStorage.getItem('modus_analytics');
@@ -728,7 +745,159 @@ function App() {
     phone: "",
     enableBrowser: true
   });
-  
+
+  // =====================
+  // AUTHENTICATION HANDLERS
+  // =====================
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+
+    try {
+      if (authMode === 'login') {
+        await login(authEmail, authPassword);
+        setShowAuthModal(false);
+        setCloudSyncStatus('syncing');
+      } else if (authMode === 'signup') {
+        await signup(authEmail, authPassword, authName);
+        setShowAuthModal(false);
+        setCloudSyncStatus('syncing');
+      } else if (authMode === 'reset') {
+        await resetPassword(authEmail);
+        setAuthError('Password reset email sent! Check your inbox.');
+        setAuthMode('login');
+      }
+      // Clear form
+      setAuthEmail('');
+      setAuthPassword('');
+      setAuthName('');
+    } catch (error) {
+      console.error('Auth error:', error);
+      if (error.code === 'auth/email-already-in-use') {
+        setAuthError('This email is already registered. Try logging in.');
+      } else if (error.code === 'auth/invalid-email') {
+        setAuthError('Please enter a valid email address.');
+      } else if (error.code === 'auth/weak-password') {
+        setAuthError('Password should be at least 6 characters.');
+      } else if (error.code === 'auth/user-not-found') {
+        setAuthError('No account found with this email.');
+      } else if (error.code === 'auth/wrong-password') {
+        setAuthError('Incorrect password. Try again.');
+      } else {
+        setAuthError(error.message || 'Authentication failed. Please try again.');
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      await loginWithGoogle();
+      setShowAuthModal(false);
+      setCloudSyncStatus('syncing');
+    } catch (error) {
+      console.error('Google auth error:', error);
+      setAuthError('Google sign-in failed. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Save data to cloud before logout
+      if (currentUser) {
+        setCloudSyncStatus('syncing');
+        await saveAllUserData(currentUser.uid, {
+          watchlist,
+          alerts,
+          trades,
+          paperTradingAccount,
+          analysisHistory,
+          settings: alertSettings
+        });
+      }
+      await logout();
+      setShowUserMenu(false);
+      setCloudSyncStatus('idle');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // =====================
+  // CLOUD SYNC FUNCTIONS
+  // =====================
+  // Load data from cloud when user logs in
+  useEffect(() => {
+    const loadCloudData = async () => {
+      if (currentUser && cloudSyncStatus === 'syncing') {
+        try {
+          console.log('[Cloud Sync] Loading user data...');
+          const cloudData = await loadAllUserData(currentUser.uid);
+
+          // Merge cloud data with local data (cloud takes precedence)
+          if (cloudData.watchlist?.length > 0) {
+            setWatchlist(cloudData.watchlist);
+          }
+          if (cloudData.alerts?.length > 0) {
+            setAlerts(cloudData.alerts);
+          }
+          if (cloudData.trades?.length > 0) {
+            setTrades(cloudData.trades);
+          }
+          if (cloudData.paperTradingAccount) {
+            setPaperTradingAccount(cloudData.paperTradingAccount);
+          }
+          if (cloudData.analysisHistory?.length > 0) {
+            setAnalysisHistory(cloudData.analysisHistory);
+          }
+          if (cloudData.settings) {
+            setAlertSettings(prev => ({ ...prev, ...cloudData.settings }));
+          }
+
+          setCloudSyncStatus('synced');
+          setLastSyncTime(new Date());
+          console.log('[Cloud Sync] Data loaded successfully!');
+        } catch (error) {
+          console.error('[Cloud Sync] Error loading data:', error);
+          setCloudSyncStatus('error');
+        }
+      }
+    };
+
+    loadCloudData();
+  }, [currentUser, cloudSyncStatus]);
+
+  // Auto-save to cloud when data changes (debounced)
+  useEffect(() => {
+    if (!currentUser || cloudSyncStatus !== 'synced') return;
+
+    const saveTimeout = setTimeout(async () => {
+      try {
+        console.log('[Cloud Sync] Auto-saving...');
+        await saveAllUserData(currentUser.uid, {
+          watchlist,
+          alerts,
+          trades,
+          paperTradingAccount,
+          analysisHistory: analysisHistory.slice(0, 50), // Limit to 50
+          settings: alertSettings
+        });
+        setLastSyncTime(new Date());
+        console.log('[Cloud Sync] Auto-saved!');
+      } catch (error) {
+        console.error('[Cloud Sync] Auto-save error:', error);
+      }
+    }, 5000); // Debounce 5 seconds
+
+    return () => clearTimeout(saveTimeout);
+  }, [watchlist, alerts, trades, paperTradingAccount, currentUser, cloudSyncStatus]);
+
   // Check landing page, disclaimer, and onboarding on mount
   useEffect(() => {
     const hasVisited = localStorage.getItem('modus_has_visited');
@@ -8801,6 +8970,201 @@ OUTPUT JSON:
         </div>
       )}
 
+      {/* AUTH MODAL - Login / Signup / Password Reset */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border border-violet-500/30 p-6 max-w-md w-full shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-violet-500/20 rounded-xl">
+                  {authMode === 'login' ? <LogIn className="w-5 h-5 text-violet-400" /> :
+                   authMode === 'signup' ? <User className="w-5 h-5 text-violet-400" /> :
+                   <Mail className="w-5 h-5 text-violet-400" />}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                    {authMode === 'login' ? 'Welcome Back' :
+                     authMode === 'signup' ? 'Create Account' :
+                     'Reset Password'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {authMode === 'login' ? 'Sign in to sync your data' :
+                     authMode === 'signup' ? 'Start your trading journey' :
+                     'Enter your email to reset'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowAuthModal(false); setAuthError(''); }}
+                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Auth Form */}
+            <form onSubmit={handleAuth} className="space-y-4">
+              {/* Name field for signup */}
+              {authMode === 'signup' && (
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">Display Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                      type="text"
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      placeholder="Your name"
+                      className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Email field */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Password field (not for reset) */}
+              {authMode !== 'reset' && (
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                      type="password"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {authError && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  authError.includes('sent') ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' :
+                  'bg-red-500/10 border border-red-500/30 text-red-400'
+                }`}>
+                  {authError}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-700 rounded-xl py-3 font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                {authLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    {authMode === 'login' ? 'Sign In' :
+                     authMode === 'signup' ? 'Create Account' :
+                     'Send Reset Email'}
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Divider */}
+            {authMode !== 'reset' && (
+              <>
+                <div className="flex items-center gap-3 my-4">
+                  <div className="flex-1 h-px bg-slate-700"></div>
+                  <span className="text-xs text-slate-500">or continue with</span>
+                  <div className="flex-1 h-px bg-slate-700"></div>
+                </div>
+
+                {/* Google Sign In */}
+                <button
+                  onClick={handleGoogleLogin}
+                  disabled={authLoading}
+                  className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl py-3 font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  Continue with Google
+                </button>
+              </>
+            )}
+
+            {/* Mode Switcher */}
+            <div className="mt-4 text-center text-sm">
+              {authMode === 'login' ? (
+                <>
+                  <button
+                    onClick={() => { setAuthMode('reset'); setAuthError(''); }}
+                    className="text-slate-400 hover:text-violet-400 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                  <span className="text-slate-600 mx-2">•</span>
+                  <button
+                    onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                    className="text-violet-400 hover:text-violet-300 transition-colors"
+                  >
+                    Create account
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                  className="text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  Back to sign in
+                </button>
+              )}
+            </div>
+
+            {/* Benefits */}
+            <div className="mt-6 pt-4 border-t border-slate-800">
+              <p className="text-xs text-slate-500 mb-2">Why create an account?</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <Cloud className="w-3.5 h-3.5 text-violet-400" />
+                  Sync across devices
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Save className="w-3.5 h-3.5 text-emerald-400" />
+                  Save your trades
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Bell className="w-3.5 h-3.5 text-amber-400" />
+                  Custom alerts
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-blue-400" />
+                  Premium features
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* NEW: Create Alert Modal */}
       {showCreateAlert && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -10256,6 +10620,76 @@ OUTPUT JSON:
             >
               <Settings className="w-4 h-4 text-slate-400" />
             </button>
+
+            {/* Cloud Sync Status */}
+            {currentUser && (
+              <div className={`hidden md:flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs ${
+                cloudSyncStatus === 'synced' ? 'bg-emerald-500/10 text-emerald-400' :
+                cloudSyncStatus === 'syncing' ? 'bg-amber-500/10 text-amber-400' :
+                cloudSyncStatus === 'error' ? 'bg-red-500/10 text-red-400' :
+                'bg-slate-800/50 text-slate-400'
+              }`}>
+                {cloudSyncStatus === 'synced' ? <Cloud className="w-3.5 h-3.5" /> :
+                 cloudSyncStatus === 'syncing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
+                 cloudSyncStatus === 'error' ? <CloudOff className="w-3.5 h-3.5" /> :
+                 <Cloud className="w-3.5 h-3.5" />}
+                <span className="hidden lg:inline">
+                  {cloudSyncStatus === 'synced' ? 'Synced' :
+                   cloudSyncStatus === 'syncing' ? 'Syncing...' :
+                   cloudSyncStatus === 'error' ? 'Sync Error' : 'Local'}
+                </span>
+              </div>
+            )}
+
+            {/* User Auth Button */}
+            {currentUser ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-600/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-500 rounded-lg transition-all duration-200 border border-violet-500/30"
+                >
+                  <div className="w-6 h-6 rounded-full bg-violet-400 flex items-center justify-center text-xs font-bold text-slate-900">
+                    {userProfile?.displayName?.[0]?.toUpperCase() || currentUser.email?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <span className="hidden md:inline text-sm font-medium max-w-[100px] truncate">
+                    {userProfile?.displayName || currentUser.email?.split('@')[0]}
+                  </span>
+                </button>
+
+                {/* User Dropdown Menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-3 border-b border-slate-700">
+                      <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
+                      <p className="text-xs text-slate-400 truncate">{currentUser.email}</p>
+                      {lastSyncTime && (
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                          <Cloud className="w-3 h-3" />
+                          Last sync: {lastSyncTime.toLocaleTimeString()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => { setShowAuthModal(true); setAuthMode('login'); }}
+                className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-lg transition-all duration-200 font-medium text-sm"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden md:inline">Sign In</span>
+              </button>
+            )}
             </div>
           </div>
         </div>
