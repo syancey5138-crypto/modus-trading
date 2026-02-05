@@ -5217,8 +5217,8 @@ OUTPUT JSON:
           const { pick, timestamp, date } = JSON.parse(cached);
           const cacheAge = Date.now() - timestamp;
           const sameDay = date === new Date().toDateString();
-          // Cache valid for 30 minutes on same day
-          if (sameDay && cacheAge < 30 * 60 * 1000) {
+          // Cache valid for 15 minutes on same day
+          if (sameDay && cacheAge < 15 * 60 * 1000) {
             console.log('[Daily Pick] ⚡ Using cached pick (age: ' + Math.round(cacheAge/60000) + 'min)');
             setDailyPick(pick);
             setDailyPickProgress({ phase: 'complete', current: pick.scannedCount || 200, total: pick.scannedCount || 200, scanTime: 0 });
