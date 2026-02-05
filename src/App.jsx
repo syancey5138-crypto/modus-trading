@@ -763,36 +763,14 @@ function App() {
     try {
       if (authMode === 'login') {
         await login(authEmail, authPassword);
-        setShowAuthModal(false);
-        setCloudSyncStatus('syncing');
       } else if (authMode === 'signup') {
         await signup(authEmail, authPassword, authName);
-        setShowAuthModal(false);
-        setCloudSyncStatus('syncing');
       } else if (authMode === 'reset') {
         await resetPassword(authEmail);
-        setAuthError('Password reset email sent! Check your inbox.');
-        setAuthMode('login');
       }
-      // Clear form
-      setAuthEmail('');
-      setAuthPassword('');
-      setAuthName('');
     } catch (error) {
       console.error('Auth error:', error);
-      if (error.code === 'auth/email-already-in-use') {
-        setAuthError('This email is already registered. Try logging in.');
-      } else if (error.code === 'auth/invalid-email') {
-        setAuthError('Please enter a valid email address.');
-      } else if (error.code === 'auth/weak-password') {
-        setAuthError('Password should be at least 6 characters.');
-      } else if (error.code === 'auth/user-not-found') {
-        setAuthError('No account found with this email.');
-      } else if (error.code === 'auth/wrong-password') {
-        setAuthError('Incorrect password. Try again.');
-      } else {
-        setAuthError(error.message || 'Authentication failed. Please try again.');
-      }
+      setAuthError(error.message || 'Authentication failed. Please try again.');
     } finally {
       setAuthLoading(false);
     }
@@ -803,8 +781,6 @@ function App() {
     setAuthLoading(true);
     try {
       await loginWithGoogle();
-      setShowAuthModal(false);
-      setCloudSyncStatus('syncing');
     } catch (error) {
       console.error('Google auth error:', error);
       setAuthError('Google sign-in failed. Please try again.');
