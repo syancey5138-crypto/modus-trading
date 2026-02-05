@@ -8445,26 +8445,65 @@ OUTPUT JSON:
       alert("Symbol, Quantity, and Average Price are required!");
       return;
     }
-    
-    const position = {
-      id: Date.now(),
-      symbol: newPosition.symbol.toUpperCase(),
-      quantity: parseFloat(newPosition.quantity),
-      avgPrice: parseFloat(newPosition.avgPrice),
-      currentPrice: parseFloat(newPosition.currentPrice || newPosition.avgPrice),
-      notes: newPosition.notes,
-      addedAt: new Date().toISOString()
-    };
-    
-    position.totalValue = position.quantity * position.currentPrice;
-    position.totalCost = position.quantity * position.avgPrice;
-    position.pnl = position.totalValue - position.totalCost;
-    position.pnlPercent = ((position.currentPrice - position.avgPrice) / position.avgPrice) * 100;
-    
-    setPortfolio([...portfolio, position]);
-    setShowAddPosition(false);
-    setNewPosition({ symbol: "", quantity: "", avgPrice: "", currentPrice: "", notes: "" });
-    alert("✅ Position added to portfolio!");
+
+    const symbol = newPosition.symbol.toUpperCase();
+    const newQty = parseFloat(newPosition.quantity);
+    const newAvgPrice = parseFloat(newPosition.avgPrice);
+    const newCurrentPrice = parseFloat(newPosition.currentPrice || newPosition.avgPrice);
+
+    // Check if stock already exists in portfolio
+    const existingIndex = portfolio.findIndex(p => p.symbol === symbol);
+
+    if (existingIndex !== -1) {
+      // Combine with existing position - calculate weighted average price
+      const existing = portfolio[existingIndex];
+      const totalOldCost = existing.quantity * existing.avgPrice;
+      const totalNewCost = newQty * newAvgPrice;
+      const combinedQty = existing.quantity + newQty;
+      const weightedAvgPrice = (totalOldCost + totalNewCost) / combinedQty;
+
+      const updatedPosition = {
+        ...existing,
+        quantity: combinedQty,
+        avgPrice: weightedAvgPrice,
+        currentPrice: newCurrentPrice,
+        totalValue: combinedQty * newCurrentPrice,
+        totalCost: combinedQty * weightedAvgPrice,
+        notes: existing.notes ? `${existing.notes} | Added ${newQty} @ $${newAvgPrice.toFixed(2)}` : `Added ${newQty} @ $${newAvgPrice.toFixed(2)}`,
+        lastAddedAt: new Date().toISOString()
+      };
+      updatedPosition.pnl = updatedPosition.totalValue - updatedPosition.totalCost;
+      updatedPosition.pnlPercent = ((updatedPosition.currentPrice - updatedPosition.avgPrice) / updatedPosition.avgPrice) * 100;
+
+      const newPortfolio = [...portfolio];
+      newPortfolio[existingIndex] = updatedPosition;
+      setPortfolio(newPortfolio);
+
+      setShowAddPosition(false);
+      setNewPosition({ symbol: "", quantity: "", avgPrice: "", currentPrice: "", notes: "" });
+      alert(`✅ Position combined! Now holding ${combinedQty} shares of ${symbol} at avg price $${weightedAvgPrice.toFixed(2)}`);
+    } else {
+      // New position
+      const position = {
+        id: Date.now(),
+        symbol: symbol,
+        quantity: newQty,
+        avgPrice: newAvgPrice,
+        currentPrice: newCurrentPrice,
+        notes: newPosition.notes,
+        addedAt: new Date().toISOString()
+      };
+
+      position.totalValue = position.quantity * position.currentPrice;
+      position.totalCost = position.quantity * position.avgPrice;
+      position.pnl = position.totalValue - position.totalCost;
+      position.pnlPercent = ((position.currentPrice - position.avgPrice) / position.avgPrice) * 100;
+
+      setPortfolio([...portfolio, position]);
+      setShowAddPosition(false);
+      setNewPosition({ symbol: "", quantity: "", avgPrice: "", currentPrice: "", notes: "" });
+      alert("✅ Position added to portfolio!");
+    }
   };
   
   const deletePosition = (id) => {
@@ -13273,12 +13312,17 @@ OUTPUT JSON:
                       </div>
                       <div className="text-xs text-slate-500 mt-1">Setup Quality: {analysis.final.setupQuality}</div>
                       {analysis.final.directionalBias && (
-                        <div className={`text-xs mt-1 px-2 py-0.5 rounded inline-block ${
-                          analysis.final.directionalBias === 'LONG'
-                            ? 'text-emerald-400 bg-emerald-500/20'
-                            : 'text-red-400 bg-red-500/20'
-                        }`}>
-                          Bias: {analysis.final.directionalBias} ({analysis.final.biasStrength || 'MODERATE'})
+                        <div
+                          className={`text-xs mt-1 px-2 py-0.5 rounded inline-block cursor-help ${
+                            analysis.final.directionalBias === 'LONG'
+                              ? 'text-emerald-400 bg-emerald-500/20'
+                              : 'text-red-400 bg-red-500/20'
+                          }`}
+                          title={analysis.final.directionalBias === 'LONG'
+                            ? "LONG = Buy position. You profit when the price goes UP."
+                            : "SHORT = Sell position. You profit when the price goes DOWN."}
+                        >
+                          Bias: {analysis.final.directionalBias} ({analysis.final.biasStrength || 'MODERATE'}) ⓘ
                         </div>
                       )}
                       {analysis.final.dataValidated && (
@@ -13750,10 +13794,15 @@ OUTPUT JSON:
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                           <div className="text-xs text-slate-500 mb-1">Direction</div>
-                          <div className={`font-bold text-lg ${
-                            analysis.final.ifYouMustTrade.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'
-                          }`}>
-                            {analysis.final.ifYouMustTrade.direction}
+                          <div
+                            className={`font-bold text-lg cursor-help ${
+                              analysis.final.ifYouMustTrade.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'
+                            }`}
+                            title={analysis.final.ifYouMustTrade.direction === 'LONG'
+                              ? "LONG = Buy position. You profit when the price goes UP."
+                              : "SHORT = Sell position. You profit when the price goes DOWN."}
+                          >
+                            {analysis.final.ifYouMustTrade.direction} <span className="text-xs opacity-60">ⓘ</span>
                           </div>
                         </div>
                         <div>
@@ -16322,10 +16371,15 @@ OUTPUT JSON:
                             {dailyPick.recommendation.replace(/_/g, ' ')}
                           </div>
                         )}
-                        <div className={`px-4 py-2 rounded-xl font-bold text-lg ${
-                          dailyPick.direction === "LONG" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
-                        }`}>
-                          {dailyPick.direction}
+                        <div
+                          className={`px-4 py-2 rounded-xl font-bold text-lg cursor-help ${
+                            dailyPick.direction === "LONG" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
+                          }`}
+                          title={dailyPick.direction === "LONG"
+                            ? "LONG = Buy position. You profit when the price goes UP. Buy low, sell high."
+                            : "SHORT = Sell position. You profit when the price goes DOWN. Sell high, buy back lower."}
+                        >
+                          {dailyPick.direction} <span className="text-xs opacity-60">ⓘ</span>
                         </div>
                         {/* Holding Period Badge */}
                         <div className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300">
@@ -16827,9 +16881,14 @@ OUTPUT JSON:
                         {dailyPick.otherCandidates.map((candidate, i) => (
                           <div key={i} className="bg-slate-800/50 rounded-lg px-3 py-2 text-sm">
                             <span className="font-medium text-slate-200">{candidate.symbol}</span>
-                            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
-                              candidate.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                            }`}>
+                            <span
+                              className={`ml-2 px-1.5 py-0.5 rounded text-xs cursor-help ${
+                                candidate.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                              }`}
+                              title={candidate.direction === 'LONG'
+                                ? "LONG = Buy position (profit when price rises)"
+                                : "SHORT = Sell position (profit when price falls)"}
+                            >
                               {candidate.direction}
                             </span>
                             <span className="ml-2 text-slate-500">Score: {candidate.score}</span>
@@ -17152,6 +17211,7 @@ OUTPUT JSON:
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Symbol</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Side</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Shares</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Entry</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Exit</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">P&L</th>
@@ -17175,11 +17235,19 @@ OUTPUT JSON:
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                trade.side === "long" ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
-                              }`}>
+                              <span
+                                className={`px-2 py-1 rounded text-xs cursor-help ${
+                                  trade.side === "long" ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
+                                }`}
+                                title={trade.side === "long"
+                                  ? "LONG = Buy position. Profit when price rises."
+                                  : "SHORT = Sell position. Profit when price falls."}
+                              >
                                 {trade.side.toUpperCase()}
                               </span>
+                            </td>
+                            <td className="px-4 py-3 font-medium">
+                              {trade.quantity || 1}
                             </td>
                             <td className="px-4 py-3">
                               <div>
@@ -17434,10 +17502,14 @@ OUTPUT JSON:
             ) : (
               <>
                 {/* Portfolio Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                   <div className="bg-slate-800/30 rounded-lg p-4">
                     <div className="text-xs text-slate-500 mb-1">Total Positions</div>
                     <div className="text-2xl font-bold">{portfolio.length}</div>
+                  </div>
+                  <div className="bg-slate-800/30 rounded-lg p-4">
+                    <div className="text-xs text-slate-500 mb-1">Total Shares</div>
+                    <div className="text-2xl font-bold">{portfolio.reduce((sum, p) => sum + (p.quantity || 0), 0).toLocaleString()}</div>
                   </div>
                   <div className="bg-slate-800/30 rounded-lg p-4">
                     <div className="text-xs text-slate-500 mb-1">Total Value</div>
@@ -17469,8 +17541,8 @@ OUTPUT JSON:
                       <thead className="bg-slate-900/50">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Symbol</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Quantity</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Avg Price</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Shares</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Avg Cost</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Current Price</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Value</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">P&L</th>
@@ -17482,7 +17554,7 @@ OUTPUT JSON:
                         {portfolio.map((position) => (
                           <tr key={position.id} className="hover:bg-slate-800/50">
                             <td className="px-4 py-3 font-semibold">{position.symbol}</td>
-                            <td className="px-4 py-3">{position.quantity}</td>
+                            <td className="px-4 py-3 font-medium">{position.quantity} <span className="text-slate-500 text-xs">shares</span></td>
                             <td className="px-4 py-3">${(position.avgPrice || 0).toFixed(2)}</td>
                             <td className="px-4 py-3">
                               <input
