@@ -9805,7 +9805,7 @@ OUTPUT JSON:
       {/* ONBOARDING TUTORIAL */}
       {showOnboarding && disclaimerAccepted && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl border border-violet-500/30 p-6 max-w-lg w-full shadow-2xl">
+          <div className="bg-slate-900 rounded-2xl border border-violet-500/30 p-6 max-w-lg w-full shadow-2xl relative">
             {(() => {
               const tourSteps = [
                 {
@@ -9843,45 +9843,77 @@ OUTPUT JSON:
               const totalSteps = tourSteps.length;
 
               return currentStep && (
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    {currentStep.icon}
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3">{currentStep.title}</h3>
-                  <p className="text-slate-400 mb-8">{currentStep.desc}</p>
+                <>
+                  {/* Skip Tour - Top Right */}
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('modus_onboarding_complete', 'true');
+                      setShowOnboarding(false);
+                    }}
+                    className="absolute top-4 right-4 text-sm text-slate-500 hover:text-white transition-colors"
+                  >
+                    Skip Tour ×
+                  </button>
 
-                  {/* Progress dots */}
-                  <div className="flex items-center justify-center gap-2 mb-6">
-                    {tourSteps.map((_, i) => (
-                      <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === onboardingStep ? 'w-6 bg-violet-500' : 'bg-slate-700'}`} />
-                    ))}
-                  </div>
+                  <div className="text-center pt-4">
+                    <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                      {currentStep.icon}
+                    </div>
+                    <h3 className="text-2xl font-bold mb-3">{currentStep.title}</h3>
+                    <p className="text-slate-400 mb-8">{currentStep.desc}</p>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        localStorage.setItem('modus_onboarding_complete', 'true');
-                        setShowOnboarding(false);
-                      }}
-                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-medium transition-all"
-                    >
-                      Skip Tour
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (onboardingStep < totalSteps - 1) {
-                          setOnboardingStep(onboardingStep + 1);
-                        } else {
-                          localStorage.setItem('modus_onboarding_complete', 'true');
-                          setShowOnboarding(false);
-                        }
-                      }}
-                      className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
-                    >
-                      {onboardingStep < totalSteps - 1 ? "Next" : "Get Started"}
-                    </button>
+                    {/* Progress dots */}
+                    <div className="flex items-center justify-center gap-2 mb-6">
+                      {tourSteps.map((_, i) => (
+                        <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === onboardingStep ? 'w-6 bg-violet-500' : 'bg-slate-700'}`} />
+                      ))}
+                    </div>
+
+                    {/* Navigation: Left Arrow | Next/Get Started | Right Arrow */}
+                    <div className="flex items-center justify-center gap-4">
+                      {/* Left Arrow */}
+                      <button
+                        onClick={() => setOnboardingStep(Math.max(0, onboardingStep - 1))}
+                        disabled={onboardingStep === 0}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                          onboardingStep === 0
+                            ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                            : 'bg-slate-800 hover:bg-slate-700 text-white'
+                        }`}
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+
+                      {/* Center Button */}
+                      <button
+                        onClick={() => {
+                          if (onboardingStep < totalSteps - 1) {
+                            setOnboardingStep(onboardingStep + 1);
+                          } else {
+                            localStorage.setItem('modus_onboarding_complete', 'true');
+                            setShowOnboarding(false);
+                          }
+                        }}
+                        className="px-8 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
+                      >
+                        {onboardingStep < totalSteps - 1 ? "Next" : "Get Started"}
+                      </button>
+
+                      {/* Right Arrow */}
+                      <button
+                        onClick={() => setOnboardingStep(Math.min(totalSteps - 1, onboardingStep + 1))}
+                        disabled={onboardingStep === totalSteps - 1}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                          onboardingStep === totalSteps - 1
+                            ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                            : 'bg-slate-800 hover:bg-slate-700 text-white'
+                        }`}
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </>
               );
             })()}
           </div>
