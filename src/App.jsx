@@ -2267,7 +2267,7 @@ function App() {
   // ============================================
   // API HELPER - Supports both Backend and Direct modes
   // ============================================
-  const callAPI = async (messages, maxTokens = 2000) => {
+  const callAPI = async (messages, maxTokens = 1500) => {
     // If using backend API mode, route through Vercel serverless function
     if (useBackendApi) {
       const apiBase = backendUrl || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -2290,14 +2290,16 @@ function App() {
         promptText = userMessage.content;
       }
 
-      const response = await fetch(`${apiBase}/api/analyze`, {
+      // Use /api/chat for text-only, /api/analyze for images
+      const endpoint = imageData ? '/api/analyze' : '/api/chat';
+      const body = imageData
+        ? { image: imageData, prompt: promptText, provider: 'anthropic', maxTokens }
+        : { prompt: promptText, maxTokens };
+
+      const response = await fetch(`${apiBase}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: imageData,
-          prompt: promptText,
-          provider: 'anthropic', // or 'openai'
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -3298,13 +3300,71 @@ function App() {
         setPreviousPrice(oldPrice);
       }
 
-      setTickerData({
-        ...data,
-        source,
-        lastUpdate: new Date(),
-        isLive: true,
-        lastRealUpdate: Date.now()
-      });
+      // On auto-refresh, intelligently merge chart data to keep it stable but updated
+      if (isAutoRefresh && tickerData?.timeSeries?.length > 0 && data.timeSeries?.length > 0) {
+        setTickerData(prev => {
+          // Smart merge: update latest candle + append any genuinely new candles
+          const existingCandles = [...prev.timeSeries];
+          const newCandles = data.timeSeries;
+
+          // Update the most recent candle with latest price data
+          if (existingCandles.length > 0) {
+            const lastCandle = existingCandles[existingCandles.length - 1];
+            const latestNewCandle = newCandles[newCandles.length - 1];
+
+            // Update the last candle's close and adjust high/low
+            lastCandle.close = data.currentPrice;
+            lastCandle.high = Math.max(lastCandle.high, data.currentPrice);
+            lastCandle.low = Math.min(lastCandle.low, data.currentPrice);
+            if (latestNewCandle?.volume) {
+              lastCandle.volume = latestNewCandle.volume;
+            }
+          }
+
+          // Check if there are genuinely new candles (new time period started)
+          const lastExistingTime = new Date(existingCandles[existingCandles.length - 1]?.time).getTime();
+          const newCandlesToAdd = newCandles.filter(c =>
+            new Date(c.time).getTime() > lastExistingTime
+          );
+
+          // Append any new candles
+          let mergedCandles = existingCandles;
+          if (newCandlesToAdd.length > 0) {
+            mergedCandles = [...existingCandles, ...newCandlesToAdd];
+            // Keep only the latest N candles to prevent memory growth
+            const maxCandles = prev.timeSeries.length;
+            if (mergedCandles.length > maxCandles) {
+              mergedCandles = mergedCandles.slice(-maxCandles);
+            }
+            console.log(`[Auto-Refresh] Added ${newCandlesToAdd.length} new candle(s)`);
+          }
+
+          return {
+            ...prev,
+            currentPrice: data.currentPrice,
+            change: data.change,
+            changePercent: data.changePercent,
+            high: Math.max(prev.high || 0, data.high || data.currentPrice),
+            low: Math.min(prev.low || Infinity, data.low || data.currentPrice),
+            volume: data.volume || prev.volume,
+            timeSeries: mergedCandles,
+            source,
+            lastUpdate: new Date(),
+            isLive: true,
+            lastRealUpdate: Date.now()
+          };
+        });
+        console.log('[Auto-Refresh] Chart updated smoothly');
+      } else {
+        // Full refresh - update everything including chart
+        setTickerData({
+          ...data,
+          source,
+          lastUpdate: new Date(),
+          isLive: true,
+          lastRealUpdate: Date.now()
+        });
+      }
       setLastPriceUpdate(Date.now());
 
     } catch (err) {
@@ -5141,13 +5201,32 @@ OUTPUT JSON:
 
   // Daily Pick Generation
   // Daily Pick - FETCHES LIVE DATA AND CALCULATES REAL TECHNICAL INDICATORS
-  const fetchDailyPick = async () => {
+  const fetchDailyPick = async (forceRefresh = false) => {
     setLoadingPick(true);
     setAnalysisError(null);
-    
+
     try {
       const today = currentTime.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
       const timeNow = currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
+      // CHECK CACHE FIRST - avoid regenerating same pick (30 min cache)
+      const cacheKey = `modus_daily_pick_${pickTimeframe}_${pickVolatility}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached && !forceRefresh) {
+        try {
+          const { pick, timestamp, date } = JSON.parse(cached);
+          const cacheAge = Date.now() - timestamp;
+          const sameDay = date === new Date().toDateString();
+          // Cache valid for 30 minutes on same day
+          if (sameDay && cacheAge < 30 * 60 * 1000) {
+            console.log('[Daily Pick] ⚡ Using cached pick (age: ' + Math.round(cacheAge/60000) + 'min)');
+            setDailyPick(pick);
+            setDailyPickProgress({ phase: 'complete', current: pick.scannedCount || 200, total: pick.scannedCount || 200, scanTime: 0 });
+            setLoadingPick(false);
+            return;
+          }
+        } catch (e) { /* Invalid cache, regenerate */ }
+      }
 
       // TIMEFRAME CONFIG - adjusts stops/targets based on holding period
       const timeframeConfig = {
@@ -5316,6 +5395,14 @@ OUTPUT JSON:
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`[Daily Pick] ✅ FAST: ${pick.direction} ${pick.asset} @ $${entry.toFixed(2)} in ${elapsed}s`);
+
+        // Save to cache
+        const cacheKey = `modus_daily_pick_${pickTimeframe}_${pickVolatility}`;
+        localStorage.setItem(cacheKey, JSON.stringify({
+          pick,
+          timestamp: Date.now(),
+          date: new Date().toDateString()
+        }));
 
         setDailyPick(pick);
         setLastPickTime(new Date());
@@ -16116,17 +16203,29 @@ OUTPUT JSON:
                 </div>
               </div>
 
-              <button
-                onClick={fetchDailyPick}
-                disabled={loadingPick}
-                className="w-full py-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:from-slate-700 disabled:to-slate-700 rounded-xl font-semibold text-lg shadow-lg transition-all flex items-center justify-center gap-3 mb-6"
-              >
-                {loadingPick ? (
-                  <><Loader2 className="w-6 h-6 animate-spin" />⚡ Fast Scanning...</>
-                ) : (
-                  <><Sparkles className="w-6 h-6" />⚡ Generate Today's Pick</>
+              <div className="flex gap-2 mb-6">
+                <button
+                  onClick={() => fetchDailyPick(false)}
+                  disabled={loadingPick}
+                  className="flex-1 py-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:from-slate-700 disabled:to-slate-700 rounded-xl font-semibold text-lg shadow-lg transition-all flex items-center justify-center gap-3"
+                >
+                  {loadingPick ? (
+                    <><Loader2 className="w-6 h-6 animate-spin" />⚡ Scanning...</>
+                  ) : (
+                    <><Sparkles className="w-6 h-6" />⚡ Get Today's Pick</>
+                  )}
+                </button>
+                {dailyPick && (
+                  <button
+                    onClick={() => fetchDailyPick(true)}
+                    disabled={loadingPick}
+                    className="px-4 py-4 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 rounded-xl font-medium transition-all flex items-center justify-center"
+                    title="Force refresh - scan for new pick"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${loadingPick ? 'animate-spin' : ''}`} />
+                  </button>
                 )}
-              </button>
+              </div>
 
               {/* Daily Pick Progress Indicator */}
               {loadingPick && dailyPickProgress.total > 0 && (

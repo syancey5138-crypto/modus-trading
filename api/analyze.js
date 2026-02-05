@@ -2,7 +2,7 @@
 // This securely stores your API key and proxies requests to OpenAI/Anthropic
 
 export const config = {
-  maxDuration: 60, // Allow up to 60 seconds for AI responses
+  maxDuration: 45, // Reduced for faster timeout
 };
 
 export default async function handler(req, res) {
@@ -20,11 +20,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, prompt, provider = 'openai' } = req.body;
+    const { image, prompt, provider = 'openai', maxTokens = 4000 } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: 'Image is required' });
     }
+
+    // Cap tokens for faster responses
+    const tokenLimit = Math.min(maxTokens, 4000);
 
     // Get API key from environment variables (securely stored in Vercel)
     const apiKey = provider === 'anthropic'
@@ -50,7 +53,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 8000,
+          max_tokens: tokenLimit,
           messages: [
             {
               role: 'user',
@@ -95,7 +98,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model: 'gpt-4o',
-          max_tokens: 8000,
+          max_tokens: tokenLimit,
           messages: [
             {
               role: 'user',
