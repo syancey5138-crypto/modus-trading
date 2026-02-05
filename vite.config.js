@@ -7,6 +7,10 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
   },
+  // Fix Firebase + Vite compatibility
+  optimizeDeps: {
+    include: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+  },
   server: {
     port: 3000,
     proxy: {
