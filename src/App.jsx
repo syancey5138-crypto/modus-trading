@@ -9715,11 +9715,11 @@ OUTPUT JSON:
         </div>
       )}
 
-      {/* FEEDBACK BUTTON - Fixed position */}
+      {/* FEEDBACK BUTTON - Fixed position (moved up to avoid watchlist overlap) */}
       {disclaimerAccepted && !showFeedback && (
         <button
           onClick={() => setShowFeedback(true)}
-          className="fixed bottom-6 right-6 z-50 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105"
+          className="fixed bottom-24 right-6 z-50 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105"
         >
           <MessageCircle className="w-4 h-4 text-violet-400" />
           Feedback
@@ -9774,12 +9774,34 @@ OUTPUT JSON:
                 />
 
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (feedbackText.length > 10) {
+                      // Save locally
                       const feedback = JSON.parse(localStorage.getItem('modus_feedback') || '[]');
                       feedback.push({ type: feedbackType, text: feedbackText, date: new Date().toISOString() });
                       localStorage.setItem('modus_feedback', JSON.stringify(feedback));
                       trackEvent('feedback', 'submit', feedbackType);
+
+                      // Send via EmailJS to owner
+                      try {
+                        await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            service_id: 'service_wka2oph',
+                            template_id: 'template_1bn2e5y',
+                            user_id: 'P3MjxM_aqWY9csXhF',
+                            template_params: {
+                              to_email: 'steventox5138@gmail.com',
+                              subject: `📬 MODUS Feedback: ${feedbackType.toUpperCase()}`,
+                              message: `Type: ${feedbackType}\n\nFeedback:\n${feedbackText}\n\nDate: ${new Date().toLocaleString()}`,
+                            },
+                          }),
+                        });
+                      } catch (e) {
+                        console.log('Feedback email skipped');
+                      }
+
                       setFeedbackSubmitted(true);
                     }
                   }}
