@@ -624,7 +624,7 @@ function App() {
   // =====================
   // AUTHENTICATION STATE
   // =====================
-  const { currentUser, userProfile, login, signup, loginWithGoogle, logout, resetPassword } = useAuth();
+  const { currentUser, userProfile, login, signup, loginWithGoogle, logout, resetPassword, loadUserData, syncWatchlist, syncSettings, cloudSyncEnabled } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [authEmail, setAuthEmail] = useState('');
@@ -633,8 +633,9 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const cloudSyncStatus = currentUser ? 'synced' : 'idle';
+  const [cloudSyncStatus, setCloudSyncStatus] = useState('idle');
   const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [isLoadingCloudData, setIsLoadingCloudData] = useState(false);
 
   // NEW: Analytics Tracking State & Functions
   const [analytics, setAnalytics] = useState(() => {
@@ -1915,13 +1916,68 @@ function App() {
       setPortfolioSettings(JSON.parse(savedPortfolioSettings));
     }
   }, []);
-  
-  // Save watchlist
+
+  // =================================================================
+  // CLOUD SYNC - Load user data when logged in
+  // =================================================================
+  useEffect(() => {
+    async function loadCloudData() {
+      if (currentUser && cloudSyncEnabled) {
+        setIsLoadingCloudData(true);
+        setCloudSyncStatus('syncing');
+        try {
+          const cloudData = await loadUserData();
+          if (cloudData) {
+            // Load watchlist from cloud (override local)
+            if (cloudData.watchlist && cloudData.watchlist.length > 0) {
+              setWatchlist(cloudData.watchlist);
+              localStorage.setItem("modus_watchlist", JSON.stringify(cloudData.watchlist));
+            }
+            // Load settings from cloud
+            if (cloudData.settings) {
+              // Apply any saved settings here
+              console.log('Cloud settings loaded:', cloudData.settings);
+            }
+            setLastSyncTime(new Date());
+            setCloudSyncStatus('synced');
+            console.log('Cloud data loaded successfully');
+          } else {
+            // No cloud data yet, upload current local data
+            const localWatchlist = JSON.parse(localStorage.getItem("modus_watchlist") || '[]');
+            if (localWatchlist.length > 0) {
+              await syncWatchlist(localWatchlist);
+              setLastSyncTime(new Date());
+            }
+            setCloudSyncStatus('synced');
+          }
+        } catch (error) {
+          console.error('Error loading cloud data:', error);
+          setCloudSyncStatus('error');
+        }
+        setIsLoadingCloudData(false);
+      } else if (!currentUser) {
+        setCloudSyncStatus('idle');
+      }
+    }
+    loadCloudData();
+  }, [currentUser, cloudSyncEnabled]);
+
+  // Save watchlist (local + cloud)
   useEffect(() => {
     if (watchlist.length > 0) {
       localStorage.setItem("modus_watchlist", JSON.stringify(watchlist));
+      // Sync to cloud if logged in (debounced)
+      if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+        const syncTimeout = setTimeout(async () => {
+          setCloudSyncStatus('syncing');
+          const success = await syncWatchlist(watchlist);
+          setCloudSyncStatus(success ? 'synced' : 'error');
+          if (success) setLastSyncTime(new Date());
+        }, 1000); // Debounce 1 second
+        return () => clearTimeout(syncTimeout);
+      }
     }
-  }, [watchlist]);
+  }, [watchlist, currentUser, cloudSyncEnabled, isLoadingCloudData]);
   
   // Save analysis history (with size limit and error handling)
   useEffect(() => {
@@ -9773,7 +9829,7 @@ OUTPUT JSON:
 
                 <button
                   onClick={async () => {
-                    if (feedbackText.length > 10) {
+                    if (feedbackText.length >= 10) {
                       // Save locally
                       const feedback = JSON.parse(localStorage.getItem('modus_feedback') || '[]');
                       feedback.push({ type: feedbackType, text: feedbackText, date: new Date().toISOString() });
