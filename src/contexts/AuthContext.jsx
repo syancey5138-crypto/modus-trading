@@ -12,34 +12,53 @@ import {
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 
-const AuthContext = createContext();
+// Default context value to prevent undefined errors
+const defaultContextValue = {
+  currentUser: null,
+  userProfile: null,
+  loading: true,
+  signup: async () => {},
+  login: async () => {},
+  loginWithGoogle: async () => {},
+  logout: async () => {},
+  resetPassword: async () => {},
+  updateUserProfile: async () => {}
+};
+
+const AuthContext = createContext(defaultContextValue);
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  // Return default values if context is not available
+  if (!context) {
+    console.warn('useAuth must be used within an AuthProvider');
+    return defaultContextValue;
+  }
+  return context;
 }
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
 
   // Create user profile in Firestore
   async function createUserProfile(user, additionalData = {}) {
     if (!user) return;
 
-    const userRef = doc(db, 'users', user.uid);
-    const snapshot = await getDoc(userRef);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const snapshot = await getDoc(userRef);
 
-    if (!snapshot.exists()) {
-      const { email, displayName, photoURL } = user;
-      try {
+      if (!snapshot.exists()) {
+        const { email, displayName, photoURL } = user;
         await setDoc(userRef, {
           email,
-          displayName: displayName || additionalData.displayName || email.split('@')[0],
+          displayName: displayName || additionalData.displayName || email?.split('@')[0] || 'User',
           photoURL: photoURL || null,
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
-          // Default user data
           settings: {
             theme: 'dark',
             notifications: true,
@@ -52,17 +71,15 @@ export function AuthProvider({ children }) {
           },
           ...additionalData
         });
-      } catch (error) {
-        console.error('Error creating user profile:', error);
+      } else {
+        await updateDoc(userRef, { lastLogin: serverTimestamp() });
       }
-    } else {
-      // Update last login
-      await updateDoc(userRef, { lastLogin: serverTimestamp() });
-    }
 
-    // Fetch and set user profile
-    const updatedSnapshot = await getDoc(userRef);
-    setUserProfile({ id: updatedSnapshot.id, ...updatedSnapshot.data() });
+      const updatedSnapshot = await getDoc(userRef);
+      setUserProfile({ id: updatedSnapshot.id, ...updatedSnapshot.data() });
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+    }
   }
 
   // Sign up with email/password
@@ -107,7 +124,6 @@ export function AuthProvider({ children }) {
     const userRef = doc(db, 'users', currentUser.uid);
     await updateDoc(userRef, data);
 
-    // Refresh profile
     const snapshot = await getDoc(userRef);
     setUserProfile({ id: snapshot.id, ...snapshot.data() });
   }
@@ -118,21 +134,24 @@ export function AuthProvider({ children }) {
       setCurrentUser(user);
 
       if (user) {
-        // Fetch user profile from Firestore
-        const userRef = doc(db, 'users', user.uid);
-        const snapshot = await getDoc(userRef);
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const snapshot = await getDoc(userRef);
 
-        if (snapshot.exists()) {
-          setUserProfile({ id: snapshot.id, ...snapshot.data() });
-        } else {
-          // Create profile if it doesn't exist
-          await createUserProfile(user);
+          if (snapshot.exists()) {
+            setUserProfile({ id: snapshot.id, ...snapshot.data() });
+          } else {
+            await createUserProfile(user);
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
         }
       } else {
         setUserProfile(null);
       }
 
       setLoading(false);
+      setAuthReady(true);
     });
 
     return unsubscribe;
@@ -142,6 +161,7 @@ export function AuthProvider({ children }) {
     currentUser,
     userProfile,
     loading,
+    authReady,
     signup,
     login,
     loginWithGoogle,
@@ -152,7 +172,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
