@@ -3302,20 +3302,42 @@ function App() {
 
       // On auto-refresh, intelligently merge chart data to keep it stable but updated
       if (isAutoRefresh && tickerData?.timeSeries?.length > 0 && data.timeSeries?.length > 0) {
+        // VALIDATION: Reject update if price change is too extreme (likely bad data)
+        const prevPrice = tickerData.currentPrice;
+        const newPrice = data.currentPrice;
+        const priceChange = Math.abs(newPrice - prevPrice) / prevPrice;
+
+        if (priceChange > 0.15) { // 15% change in single update is suspicious
+          console.log(`[Auto-Refresh] ⚠️ Rejected suspicious price: $${prevPrice.toFixed(2)} → $${newPrice.toFixed(2)} (${(priceChange*100).toFixed(1)}% change)`);
+          // Keep existing data, just mark as updated
+          setTickerData(prev => ({
+            ...prev,
+            lastUpdate: new Date(),
+            lastRealUpdate: Date.now()
+          }));
+          return;
+        }
+
         setTickerData(prev => {
           // Smart merge: update latest candle + append any genuinely new candles
           const existingCandles = [...prev.timeSeries];
           const newCandles = data.timeSeries;
 
-          // Update the most recent candle with latest price data
-          if (existingCandles.length > 0) {
-            const lastCandle = existingCandles[existingCandles.length - 1];
-            const latestNewCandle = newCandles[newCandles.length - 1];
+          // VALIDATION: Filter new candles for outliers
+          const chartMedian = existingCandles.map(c => c.close).sort((a,b) => a-b)[Math.floor(existingCandles.length/2)];
+          const validNewCandles = newCandles.filter(c => Math.abs(c.close - chartMedian) / chartMedian < 0.20);
 
-            // Update the last candle's close and adjust high/low
-            lastCandle.close = data.currentPrice;
-            lastCandle.high = Math.max(lastCandle.high, data.currentPrice);
-            lastCandle.low = Math.min(lastCandle.low, data.currentPrice);
+          // Update the most recent candle with latest price data
+          if (existingCandles.length > 0 && validNewCandles.length > 0) {
+            const lastCandle = existingCandles[existingCandles.length - 1];
+            const latestNewCandle = validNewCandles[validNewCandles.length - 1];
+
+            // Only update if new price is reasonable
+            if (Math.abs(data.currentPrice - lastCandle.close) / lastCandle.close < 0.10) {
+              lastCandle.close = data.currentPrice;
+              lastCandle.high = Math.max(lastCandle.high, data.currentPrice);
+              lastCandle.low = Math.min(lastCandle.low, data.currentPrice);
+            }
             if (latestNewCandle?.volume) {
               lastCandle.volume = latestNewCandle.volume;
             }
@@ -3323,7 +3345,7 @@ function App() {
 
           // Check if there are genuinely new candles (new time period started)
           const lastExistingTime = new Date(existingCandles[existingCandles.length - 1]?.time).getTime();
-          const newCandlesToAdd = newCandles.filter(c =>
+          const newCandlesToAdd = validNewCandles.filter(c =>
             new Date(c.time).getTime() > lastExistingTime
           );
 
@@ -3339,13 +3361,18 @@ function App() {
             console.log(`[Auto-Refresh] Added ${newCandlesToAdd.length} new candle(s)`);
           }
 
+          // Only update price if it's reasonable
+          const validPrice = Math.abs(data.currentPrice - prev.currentPrice) / prev.currentPrice < 0.10
+            ? data.currentPrice
+            : prev.currentPrice;
+
           return {
             ...prev,
-            currentPrice: data.currentPrice,
-            change: data.change,
-            changePercent: data.changePercent,
-            high: Math.max(prev.high || 0, data.high || data.currentPrice),
-            low: Math.min(prev.low || Infinity, data.low || data.currentPrice),
+            currentPrice: validPrice,
+            change: validPrice - prev.open,
+            changePercent: ((validPrice - prev.open) / prev.open) * 100,
+            high: Math.min(Math.max(prev.high || validPrice, validPrice), prev.currentPrice * 1.15),
+            low: Math.max(Math.min(prev.low || validPrice, validPrice), prev.currentPrice * 0.85),
             volume: data.volume || prev.volume,
             timeSeries: mergedCandles,
             source,
@@ -3515,21 +3542,47 @@ function App() {
 
         if (!timestamps || timestamps.length === 0) throw new Error('No timestamps');
 
-        const timeSeries = [];
+        // Build raw time series first
+        const rawSeries = [];
         for (let j = 0; j < timestamps.length; j++) {
-          if (quote.close?.[j] != null && !isNaN(quote.close[j])) {
-            timeSeries.push({
+          if (quote.close?.[j] != null && !isNaN(quote.close[j]) && quote.close[j] > 0) {
+            rawSeries.push({
               time: new Date(timestamps[j] * 1000).toLocaleString(),
-              open: quote.open?.[j],
-              high: quote.high?.[j],
-              low: quote.low?.[j],
+              open: quote.open?.[j] || quote.close[j],
+              high: quote.high?.[j] || quote.close[j],
+              low: quote.low?.[j] || quote.close[j],
               close: quote.close[j],
-              volume: quote.volume?.[j]
+              volume: quote.volume?.[j] || 0
             });
           }
         }
 
-        if (timeSeries.length === 0) throw new Error('No series data');
+        if (rawSeries.length === 0) throw new Error('No series data');
+
+        // DATA VALIDATION: Filter out erroneous price spikes
+        // Calculate median price to detect outliers
+        const allCloses = rawSeries.map(b => b.close).sort((a, b) => a - b);
+        const medianPrice = allCloses[Math.floor(allCloses.length / 2)];
+        const maxDeviation = 0.25; // Allow max 25% deviation from median
+
+        const timeSeries = rawSeries.filter(bar => {
+          const deviation = Math.abs(bar.close - medianPrice) / medianPrice;
+          const highDeviation = Math.abs(bar.high - medianPrice) / medianPrice;
+          const lowDeviation = Math.abs(bar.low - medianPrice) / medianPrice;
+
+          // Filter out bars with extreme deviations (likely bad data)
+          if (deviation > maxDeviation || highDeviation > maxDeviation * 1.5) {
+            console.log(`[Data Validation] Filtered outlier: close=${bar.close}, median=${medianPrice}, dev=${(deviation*100).toFixed(1)}%`);
+            return false;
+          }
+          return true;
+        });
+
+        // Ensure we didn't filter everything
+        if (timeSeries.length < rawSeries.length * 0.5) {
+          console.log('[Data Validation] Too many outliers, using raw data');
+          return { result, meta: result.meta, timeSeries: rawSeries, quote };
+        }
 
         return { result, meta: result.meta, timeSeries, quote };
       } catch (e) {
@@ -3618,15 +3671,43 @@ function App() {
             console.log(`[Yahoo Finance] ⚠️ Used fallback: ${requestedInterval} → ${interval}`);
           }
 
-          const currentPrice = meta.regularMarketPrice || meta.previousClose || timeSeries[timeSeries.length - 1].close;
-          const previousClose = meta.chartPreviousClose || meta.previousClose || timeSeries[0].open;
+          // PRICE VALIDATION: Use chart data as source of truth
+          const lastCandle = timeSeries[timeSeries.length - 1];
+          const chartMedian = timeSeries.map(b => b.close).sort((a,b) => a-b)[Math.floor(timeSeries.length/2)];
+
+          // Validate meta price against chart data (must be within 20% of chart median)
+          let currentPrice = meta.regularMarketPrice || meta.previousClose || lastCandle.close;
+          const priceDeviation = Math.abs(currentPrice - chartMedian) / chartMedian;
+
+          if (priceDeviation > 0.20) {
+            console.log(`[Price Validation] Meta price $${currentPrice} deviates ${(priceDeviation*100).toFixed(1)}% from chart median $${chartMedian}, using last candle`);
+            currentPrice = lastCandle.close;
+          }
+
+          // Validate previousClose similarly
+          let previousClose = meta.chartPreviousClose || meta.previousClose || timeSeries[0].open;
+          const prevDeviation = Math.abs(previousClose - chartMedian) / chartMedian;
+          if (prevDeviation > 0.25) {
+            console.log(`[Price Validation] Previous close $${previousClose} invalid, using first candle open`);
+            previousClose = timeSeries[0].open;
+          }
+
+          // Validate high/low against chart data
+          const chartHigh = Math.max(...timeSeries.map(b => b.high));
+          const chartLow = Math.min(...timeSeries.map(b => b.low));
+          let dayHigh = meta.regularMarketDayHigh || currentPrice;
+          let dayLow = meta.regularMarketDayLow || currentPrice;
+
+          // If meta high/low are unreasonable, use chart data
+          if (dayHigh > chartMedian * 1.25 || dayHigh < chartLow) dayHigh = chartHigh;
+          if (dayLow < chartMedian * 0.75 || dayLow > chartHigh) dayLow = chartLow;
 
           return {
             symbol,
             currentPrice,
             open: previousClose,
-            high: meta.regularMarketDayHigh || currentPrice,
-            low: meta.regularMarketDayLow || currentPrice,
+            high: dayHigh,
+            low: dayLow,
             change: currentPrice - previousClose,
             changePercent: ((currentPrice - previousClose) / previousClose) * 100,
             volume: meta.regularMarketVolume || 0,
