@@ -1,22 +1,13 @@
 // Authentication Context for MODUS Trading
 import { createContext, useContext, useState, useEffect } from 'react';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-  sendPasswordResetEmail,
-  updateProfile
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, googleProvider } from '../firebase';
+import { initFirebase } from '../firebase';
 
 // Default context value to prevent undefined errors
 const defaultContextValue = {
   currentUser: null,
   userProfile: null,
   loading: true,
+  authReady: false,
   signup: async () => {},
   login: async () => {},
   loginWithGoogle: async () => {},
@@ -29,7 +20,6 @@ const AuthContext = createContext(defaultContextValue);
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  // Return default values if context is not available
   if (!context) {
     console.warn('useAuth must be used within an AuthProvider');
     return defaultContextValue;
@@ -42,120 +32,134 @@ export function AuthProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
+  const [firebaseServices, setFirebaseServices] = useState(null);
 
-  // Create user profile in Firestore
-  async function createUserProfile(user, additionalData = {}) {
-    if (!user) return;
+  // Initialize Firebase on mount
+  useEffect(() => {
+    let unsubscribe = () => {};
 
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      const snapshot = await getDoc(userRef);
+    async function initialize() {
+      try {
+        const services = await initFirebase();
+        setFirebaseServices(services);
 
-      if (!snapshot.exists()) {
-        const { email, displayName, photoURL } = user;
-        await setDoc(userRef, {
-          email,
-          displayName: displayName || additionalData.displayName || email?.split('@')[0] || 'User',
-          photoURL: photoURL || null,
-          createdAt: serverTimestamp(),
-          lastLogin: serverTimestamp(),
-          settings: {
-            theme: 'dark',
-            notifications: true,
-            defaultTradeType: 'swing'
-          },
-          subscription: {
-            plan: 'free',
-            startDate: serverTimestamp(),
-            endDate: null
-          },
-          ...additionalData
+        // Dynamic imports for Firebase auth functions
+        const { onAuthStateChanged } = await import('firebase/auth');
+        const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+
+        unsubscribe = onAuthStateChanged(services.auth, async (user) => {
+          setCurrentUser(user);
+
+          if (user) {
+            try {
+              const userRef = doc(services.db, 'users', user.uid);
+              const snapshot = await getDoc(userRef);
+
+              if (snapshot.exists()) {
+                setUserProfile({ id: snapshot.id, ...snapshot.data() });
+              } else {
+                // Create new user profile
+                const { email, displayName, photoURL } = user;
+                await setDoc(userRef, {
+                  email,
+                  displayName: displayName || email?.split('@')[0] || 'User',
+                  photoURL: photoURL || null,
+                  createdAt: serverTimestamp(),
+                  lastLogin: serverTimestamp(),
+                  settings: {
+                    theme: 'dark',
+                    notifications: true,
+                    defaultTradeType: 'swing'
+                  },
+                  subscription: {
+                    plan: 'free',
+                    startDate: serverTimestamp(),
+                    endDate: null
+                  }
+                });
+                const newSnapshot = await getDoc(userRef);
+                setUserProfile({ id: newSnapshot.id, ...newSnapshot.data() });
+              }
+            } catch (error) {
+              console.error('Error loading user profile:', error);
+            }
+          } else {
+            setUserProfile(null);
+          }
+
+          setLoading(false);
+          setAuthReady(true);
         });
-      } else {
-        await updateDoc(userRef, { lastLogin: serverTimestamp() });
+      } catch (error) {
+        console.error('Firebase initialization error:', error);
+        setLoading(false);
+        setAuthReady(true);
       }
-
-      const updatedSnapshot = await getDoc(userRef);
-      setUserProfile({ id: updatedSnapshot.id, ...updatedSnapshot.data() });
-    } catch (error) {
-      console.error('Error creating user profile:', error);
     }
-  }
+
+    initialize();
+
+    return () => unsubscribe();
+  }, []);
 
   // Sign up with email/password
   async function signup(email, password, displayName) {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
+    if (!firebaseServices) throw new Error('Firebase not ready');
+
+    const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+    const result = await createUserWithEmailAndPassword(firebaseServices.auth, email, password);
+
     if (displayName) {
       await updateProfile(result.user, { displayName });
     }
-    await createUserProfile(result.user, { displayName });
+
     return result;
   }
 
   // Login with email/password
   async function login(email, password) {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    await createUserProfile(result.user);
-    return result;
+    if (!firebaseServices) throw new Error('Firebase not ready');
+
+    const { signInWithEmailAndPassword } = await import('firebase/auth');
+    return signInWithEmailAndPassword(firebaseServices.auth, email, password);
   }
 
   // Login with Google
   async function loginWithGoogle() {
-    const result = await signInWithPopup(auth, googleProvider);
-    await createUserProfile(result.user);
-    return result;
+    if (!firebaseServices) throw new Error('Firebase not ready');
+
+    const { signInWithPopup } = await import('firebase/auth');
+    return signInWithPopup(firebaseServices.auth, firebaseServices.googleProvider);
   }
 
   // Logout
-  function logout() {
+  async function logout() {
+    if (!firebaseServices) throw new Error('Firebase not ready');
+
+    const { signOut } = await import('firebase/auth');
     setUserProfile(null);
-    return signOut(auth);
+    return signOut(firebaseServices.auth);
   }
 
   // Password reset
-  function resetPassword(email) {
-    return sendPasswordResetEmail(auth, email);
+  async function resetPassword(email) {
+    if (!firebaseServices) throw new Error('Firebase not ready');
+
+    const { sendPasswordResetEmail } = await import('firebase/auth');
+    return sendPasswordResetEmail(firebaseServices.auth, email);
   }
 
   // Update user profile
   async function updateUserProfile(data) {
-    if (!currentUser) return;
+    if (!firebaseServices || !currentUser) return;
 
-    const userRef = doc(db, 'users', currentUser.uid);
+    const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+    const userRef = doc(firebaseServices.db, 'users', currentUser.uid);
     await updateDoc(userRef, data);
 
     const snapshot = await getDoc(userRef);
     setUserProfile({ id: snapshot.id, ...snapshot.data() });
   }
-
-  // Listen for auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-
-      if (user) {
-        try {
-          const userRef = doc(db, 'users', user.uid);
-          const snapshot = await getDoc(userRef);
-
-          if (snapshot.exists()) {
-            setUserProfile({ id: snapshot.id, ...snapshot.data() });
-          } else {
-            await createUserProfile(user);
-          }
-        } catch (error) {
-          console.error('Error loading user profile:', error);
-        }
-      } else {
-        setUserProfile(null);
-      }
-
-      setLoading(false);
-      setAuthReady(true);
-    });
-
-    return unsubscribe;
-  }, []);
 
   const value = {
     currentUser,

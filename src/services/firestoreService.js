@@ -1,20 +1,21 @@
 // Firestore Service for MODUS Trading - Cloud Data Sync
-import {
-  doc,
-  collection,
-  setDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp,
-  writeBatch
-} from 'firebase/firestore';
-import { db } from '../firebase';
+// Uses lazy initialization to prevent module loading issues
+import { initFirebase } from '../firebase';
+
+// Get Firestore instance lazily
+async function getDb() {
+  const { db } = await initFirebase();
+  return db;
+}
+
+// Get Firestore utilities
+async function getFirestoreUtils() {
+  const [{ db }, firestore] = await Promise.all([
+    initFirebase(),
+    import('firebase/firestore')
+  ]);
+  return { db, ...firestore };
+}
 
 // =====================
 // USER DATA SYNC
@@ -22,12 +23,14 @@ import { db } from '../firebase';
 
 // Save user's watchlist
 export async function saveWatchlist(userId, watchlist) {
+  const { db, doc, setDoc, serverTimestamp } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   await setDoc(userDataRef, { watchlist, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 // Get user's watchlist
 export async function getWatchlist(userId) {
+  const { db, doc, getDoc } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   const snapshot = await getDoc(userDataRef);
   return snapshot.exists() ? snapshot.data().watchlist || [] : [];
@@ -35,12 +38,14 @@ export async function getWatchlist(userId) {
 
 // Save user's alerts
 export async function saveAlerts(userId, alerts) {
+  const { db, doc, setDoc, serverTimestamp } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   await setDoc(userDataRef, { alerts, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 // Get user's alerts
 export async function getAlerts(userId) {
+  const { db, doc, getDoc } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   const snapshot = await getDoc(userDataRef);
   return snapshot.exists() ? snapshot.data().alerts || [] : [];
@@ -48,12 +53,14 @@ export async function getAlerts(userId) {
 
 // Save user settings
 export async function saveSettings(userId, settings) {
+  const { db, doc, setDoc, serverTimestamp } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   await setDoc(userDataRef, { settings, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 // Get user settings
 export async function getSettings(userId) {
+  const { db, doc, getDoc } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   const snapshot = await getDoc(userDataRef);
   return snapshot.exists() ? snapshot.data().settings || {} : {};
@@ -65,12 +72,14 @@ export async function getSettings(userId) {
 
 // Save all trades (batch update)
 export async function saveTrades(userId, trades) {
+  const { db, doc, setDoc, serverTimestamp } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   await setDoc(userDataRef, { trades, tradesUpdatedAt: serverTimestamp() }, { merge: true });
 }
 
 // Get all trades
 export async function getTrades(userId) {
+  const { db, doc, getDoc } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   const snapshot = await getDoc(userDataRef);
   return snapshot.exists() ? snapshot.data().trades || [] : [];
@@ -109,12 +118,14 @@ export async function deleteTrade(userId, tradeId) {
 
 // Save paper trading account
 export async function savePaperTradingAccount(userId, account) {
+  const { db, doc, setDoc, serverTimestamp } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   await setDoc(userDataRef, { paperTradingAccount: account, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 // Get paper trading account
 export async function getPaperTradingAccount(userId) {
+  const { db, doc, getDoc } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   const snapshot = await getDoc(userDataRef);
   return snapshot.exists() ? snapshot.data().paperTradingAccount || null : null;
@@ -126,6 +137,7 @@ export async function getPaperTradingAccount(userId) {
 
 // Save analysis history (limited to last 50 for performance)
 export async function saveAnalysisHistory(userId, history) {
+  const { db, doc, setDoc, serverTimestamp } = await getFirestoreUtils();
   const limitedHistory = history.slice(0, 50); // Keep only last 50
   const userDataRef = doc(db, 'userData', userId);
   await setDoc(userDataRef, { analysisHistory: limitedHistory, updatedAt: serverTimestamp() }, { merge: true });
@@ -133,6 +145,7 @@ export async function saveAnalysisHistory(userId, history) {
 
 // Get analysis history
 export async function getAnalysisHistory(userId) {
+  const { db, doc, getDoc } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   const snapshot = await getDoc(userDataRef);
   return snapshot.exists() ? snapshot.data().analysisHistory || [] : [];
@@ -144,6 +157,7 @@ export async function getAnalysisHistory(userId) {
 
 // Load all user data at once (for initial load)
 export async function loadAllUserData(userId) {
+  const { db, doc, getDoc } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   const snapshot = await getDoc(userDataRef);
 
@@ -171,6 +185,7 @@ export async function loadAllUserData(userId) {
 
 // Save all user data at once (for logout/close sync)
 export async function saveAllUserData(userId, data) {
+  const { db, doc, setDoc, serverTimestamp } = await getFirestoreUtils();
   const userDataRef = doc(db, 'userData', userId);
   await setDoc(userDataRef, {
     ...data,

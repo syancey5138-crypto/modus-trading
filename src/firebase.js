@@ -1,9 +1,12 @@
 // Firebase Configuration for MODUS Trading
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+// Lazy initialization to prevent module loading issues
 
-// Your web app's Firebase configuration
+let app = null;
+let auth = null;
+let db = null;
+let googleProvider = null;
+let initialized = false;
+
 const firebaseConfig = {
   apiKey: "AIzaSyA4ksU15ugGpW0QmW8aYsZkN5__0u0NT_8",
   authDomain: "modus-trading.firebaseapp.com",
@@ -13,12 +16,49 @@ const firebaseConfig = {
   appId: "1:463668228895:web:861081df478f57cb30762a"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase lazily
+async function initFirebase() {
+  if (initialized) return { app, auth, db, googleProvider };
 
-// Initialize services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
+  try {
+    const { initializeApp } = await import('firebase/app');
+    const { getAuth, GoogleAuthProvider } = await import('firebase/auth');
+    const { getFirestore } = await import('firebase/firestore');
 
-export default app;
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    googleProvider = new GoogleAuthProvider();
+    initialized = true;
+
+    return { app, auth, db, googleProvider };
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+    throw error;
+  }
+}
+
+// Export getters that ensure Firebase is initialized
+export function getFirebaseAuth() {
+  if (!auth) {
+    throw new Error('Firebase not initialized. Call initFirebase() first.');
+  }
+  return auth;
+}
+
+export function getFirebaseDb() {
+  if (!db) {
+    throw new Error('Firebase not initialized. Call initFirebase() first.');
+  }
+  return db;
+}
+
+export function getGoogleProvider() {
+  if (!googleProvider) {
+    throw new Error('Firebase not initialized. Call initFirebase() first.');
+  }
+  return googleProvider;
+}
+
+export { initFirebase, firebaseConfig };
+export { app, auth, db, googleProvider };
