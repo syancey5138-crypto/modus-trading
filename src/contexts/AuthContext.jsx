@@ -18,7 +18,6 @@ import {
   doc,
   setDoc,
   getDoc,
-  updateDoc,
   serverTimestamp
 } from 'firebase/firestore';
 
@@ -56,8 +55,7 @@ export function useAuth() {
       resetPassword: async () => {},
       saveUserData: async () => {},
       loadUserData: async () => null,
-      syncWatchlist: async () => {},
-      syncSettings: async () => {}
+      syncData: async () => {}
     };
   }
   return context;
@@ -69,7 +67,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
 
-  // Save user data to Firestore
+  // Save any user data to Firestore (generic)
   async function saveUserData(data) {
     if (!currentUser) return false;
     try {
@@ -86,7 +84,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Load user data from Firestore
+  // Load all user data from Firestore
   async function loadUserData() {
     if (!currentUser) return null;
     try {
@@ -102,36 +100,31 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Sync watchlist to cloud
-  async function syncWatchlist(watchlist) {
+  // Sync specific data type to cloud
+  async function syncData(dataType, data) {
     if (!currentUser) return false;
     try {
       const userRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userRef, {
-        watchlist: watchlist,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      console.log('Watchlist synced to cloud');
-      return true;
-    } catch (error) {
-      console.error('Error syncing watchlist:', error);
-      return false;
-    }
-  }
 
-  // Sync settings to cloud
-  async function syncSettings(settings) {
-    if (!currentUser) return false;
-    try {
-      const userRef = doc(db, 'users', currentUser.uid);
+      // For analysis history, limit size to prevent large writes
+      let dataToSync = data;
+      if (dataType === 'analysisHistory' && Array.isArray(data)) {
+        // Keep only last 50 entries and remove large image data
+        dataToSync = data.slice(-50).map(entry => ({
+          ...entry,
+          imageData: entry.imageData ? { mediaType: entry.imageData.mediaType, hasImage: true } : null
+        }));
+      }
+
       await setDoc(userRef, {
-        settings: settings,
+        [dataType]: dataToSync,
         updatedAt: serverTimestamp()
       }, { merge: true });
-      console.log('Settings synced to cloud');
+
+      console.log(`${dataType} synced to cloud`);
       return true;
     } catch (error) {
-      console.error('Error syncing settings:', error);
+      console.error(`Error syncing ${dataType}:`, error);
       return false;
     }
   }
@@ -150,12 +143,27 @@ export function AuthProvider({ children }) {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           watchlist: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'],
+          paperTrading: {
+            balance: 100000,
+            positions: [],
+            history: [],
+            startingBalance: 100000
+          },
+          portfolio: [],
+          trades: [],
+          tradePlans: [],
+          analysisHistory: [],
+          portfolioSettings: {
+            initialCapital: 10000,
+            riskPerTrade: 2,
+            maxPositions: 5
+          },
           settings: {
             theme: 'dark',
             notifications: true
           }
         });
-        console.log('Created new user document');
+        console.log('Created new user document with all data fields');
       }
       setCloudSyncEnabled(true);
     } catch (error) {
@@ -234,8 +242,7 @@ export function AuthProvider({ children }) {
     resetPassword,
     saveUserData,
     loadUserData,
-    syncWatchlist,
-    syncSettings
+    syncData
   };
 
   return (

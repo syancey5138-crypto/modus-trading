@@ -624,7 +624,7 @@ function App() {
   // =====================
   // AUTHENTICATION STATE
   // =====================
-  const { currentUser, userProfile, login, signup, loginWithGoogle, logout, resetPassword, loadUserData, syncWatchlist, syncSettings, cloudSyncEnabled } = useAuth();
+  const { currentUser, userProfile, login, signup, loginWithGoogle, logout, resetPassword, loadUserData, syncData, cloudSyncEnabled } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [authEmail, setAuthEmail] = useState('');
@@ -1918,7 +1918,7 @@ function App() {
   }, []);
 
   // =================================================================
-  // CLOUD SYNC - Load user data when logged in
+  // CLOUD SYNC - Load ALL user data when logged in
   // =================================================================
   useEffect(() => {
     async function loadCloudData() {
@@ -1928,27 +1928,66 @@ function App() {
         try {
           const cloudData = await loadUserData();
           if (cloudData) {
-            // Load watchlist from cloud (override local)
+            // Load watchlist from cloud
             if (cloudData.watchlist && cloudData.watchlist.length > 0) {
               setWatchlist(cloudData.watchlist);
               localStorage.setItem("modus_watchlist", JSON.stringify(cloudData.watchlist));
             }
-            // Load settings from cloud
-            if (cloudData.settings) {
-              // Apply any saved settings here
-              console.log('Cloud settings loaded:', cloudData.settings);
+            // Load paper trading from cloud
+            if (cloudData.paperTrading) {
+              setPaperTradingAccount(cloudData.paperTrading);
+              localStorage.setItem("modus_paper_trading", JSON.stringify(cloudData.paperTrading));
+            }
+            // Load portfolio from cloud
+            if (cloudData.portfolio && cloudData.portfolio.length > 0) {
+              setPortfolio(cloudData.portfolio);
+              localStorage.setItem("modus_portfolio", JSON.stringify(cloudData.portfolio));
+            }
+            // Load trades (journal) from cloud
+            if (cloudData.trades && cloudData.trades.length > 0) {
+              setTrades(cloudData.trades);
+              localStorage.setItem("modus_trades", JSON.stringify(cloudData.trades));
+            }
+            // Load trade plans from cloud
+            if (cloudData.tradePlans && cloudData.tradePlans.length > 0) {
+              setTradePlans(cloudData.tradePlans);
+              localStorage.setItem("modus_trade_plans", JSON.stringify(cloudData.tradePlans));
+            }
+            // Load analysis history from cloud
+            if (cloudData.analysisHistory && cloudData.analysisHistory.length > 0) {
+              setAnalysisHistory(cloudData.analysisHistory);
+              localStorage.setItem("modus_history", JSON.stringify(cloudData.analysisHistory));
+            }
+            // Load portfolio settings from cloud
+            if (cloudData.portfolioSettings) {
+              setPortfolioSettings(cloudData.portfolioSettings);
+              localStorage.setItem("modus_portfolio_settings", JSON.stringify(cloudData.portfolioSettings));
             }
             setLastSyncTime(new Date());
             setCloudSyncStatus('synced');
-            console.log('Cloud data loaded successfully');
+            console.log('All cloud data loaded successfully');
           } else {
             // No cloud data yet, upload current local data
             const localWatchlist = JSON.parse(localStorage.getItem("modus_watchlist") || '[]');
-            if (localWatchlist.length > 0) {
-              await syncWatchlist(localWatchlist);
-              setLastSyncTime(new Date());
-            }
+            const localPaperTrading = JSON.parse(localStorage.getItem("modus_paper_trading") || 'null');
+            const localPortfolio = JSON.parse(localStorage.getItem("modus_portfolio") || '[]');
+            const localTrades = JSON.parse(localStorage.getItem("modus_trades") || '[]');
+            const localTradePlans = JSON.parse(localStorage.getItem("modus_trade_plans") || '[]');
+            const localHistory = JSON.parse(localStorage.getItem("modus_history") || '[]');
+            const localPortfolioSettings = JSON.parse(localStorage.getItem("modus_portfolio_settings") || 'null');
+
+            // Upload all local data to cloud
+            if (localWatchlist.length > 0) await syncData('watchlist', localWatchlist);
+            if (localPaperTrading) await syncData('paperTrading', localPaperTrading);
+            if (localPortfolio.length > 0) await syncData('portfolio', localPortfolio);
+            if (localTrades.length > 0) await syncData('trades', localTrades);
+            if (localTradePlans.length > 0) await syncData('tradePlans', localTradePlans);
+            if (localHistory.length > 0) await syncData('analysisHistory', localHistory);
+            if (localPortfolioSettings) await syncData('portfolioSettings', localPortfolioSettings);
+
+            setLastSyncTime(new Date());
             setCloudSyncStatus('synced');
+            console.log('Local data uploaded to cloud');
           }
         } catch (error) {
           console.error('Error loading cloud data:', error);
@@ -1970,7 +2009,7 @@ function App() {
       if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
         const syncTimeout = setTimeout(async () => {
           setCloudSyncStatus('syncing');
-          const success = await syncWatchlist(watchlist);
+          const success = await syncData('watchlist', watchlist);
           setCloudSyncStatus(success ? 'synced' : 'error');
           if (success) setLastSyncTime(new Date());
         }, 1000); // Debounce 1 second
@@ -1979,7 +2018,7 @@ function App() {
     }
   }, [watchlist, currentUser, cloudSyncEnabled, isLoadingCloudData]);
   
-  // Save analysis history (with size limit and error handling)
+  // Save analysis history (with size limit and error handling) + CLOUD SYNC
   useEffect(() => {
     if (analysisHistory.length > 0) {
       try {
@@ -1994,14 +2033,21 @@ function App() {
         }));
 
         localStorage.setItem("modus_history", JSON.stringify(compactHistory));
+
+        // Cloud sync (debounced)
+        if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+          const syncTimeout = setTimeout(async () => {
+            await syncData('analysisHistory', compactHistory);
+          }, 2000);
+          return () => clearTimeout(syncTimeout);
+        }
       } catch (e) {
         console.warn("[Storage] localStorage quota exceeded, clearing old history");
-        // If quota exceeded, clear and save only latest 10
         try {
           localStorage.removeItem("modus_history");
           const minimalHistory = analysisHistory.slice(-10).map(entry => ({
             ...entry,
-            imageData: null // Remove all image data
+            imageData: null
           }));
           localStorage.setItem("modus_history", JSON.stringify(minimalHistory));
         } catch (e2) {
@@ -2009,39 +2055,73 @@ function App() {
         }
       }
     }
-  }, [analysisHistory]);
-  
-  // Save trades
+  }, [analysisHistory, currentUser, cloudSyncEnabled, isLoadingCloudData]);
+
+  // Save trades (journal) + CLOUD SYNC
   useEffect(() => {
     if (trades.length > 0) {
       localStorage.setItem("modus_trades", JSON.stringify(trades));
+      // Cloud sync (debounced)
+      if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+        const syncTimeout = setTimeout(async () => {
+          await syncData('trades', trades);
+        }, 1500);
+        return () => clearTimeout(syncTimeout);
+      }
     }
-  }, [trades]);
-  
-  // Save portfolio
+  }, [trades, currentUser, cloudSyncEnabled, isLoadingCloudData]);
+
+  // Save portfolio + CLOUD SYNC
   useEffect(() => {
     if (portfolio.length > 0) {
       localStorage.setItem("modus_portfolio", JSON.stringify(portfolio));
+      // Cloud sync (debounced)
+      if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+        const syncTimeout = setTimeout(async () => {
+          await syncData('portfolio', portfolio);
+        }, 1500);
+        return () => clearTimeout(syncTimeout);
+      }
     }
-  }, [portfolio]);
+  }, [portfolio, currentUser, cloudSyncEnabled, isLoadingCloudData]);
 
-  // Save trade plans
+  // Save trade plans + CLOUD SYNC
   useEffect(() => {
     if (tradePlans.length > 0) {
       localStorage.setItem("modus_trade_plans", JSON.stringify(tradePlans));
+      // Cloud sync (debounced)
+      if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+        const syncTimeout = setTimeout(async () => {
+          await syncData('tradePlans', tradePlans);
+        }, 1500);
+        return () => clearTimeout(syncTimeout);
+      }
     }
-  }, [tradePlans]);
+  }, [tradePlans, currentUser, cloudSyncEnabled, isLoadingCloudData]);
 
-  // Save paper trading account
+  // Save paper trading account + CLOUD SYNC
   useEffect(() => {
-    // Always save paper trading state (even if balance is default)
     localStorage.setItem("modus_paper_trading", JSON.stringify(paperTradingAccount));
-  }, [paperTradingAccount]);
+    // Cloud sync (debounced)
+    if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+      const syncTimeout = setTimeout(async () => {
+        await syncData('paperTrading', paperTradingAccount);
+      }, 1500);
+      return () => clearTimeout(syncTimeout);
+    }
+  }, [paperTradingAccount, currentUser, cloudSyncEnabled, isLoadingCloudData]);
 
-  // Save portfolio settings
+  // Save portfolio settings + CLOUD SYNC
   useEffect(() => {
     localStorage.setItem("modus_portfolio_settings", JSON.stringify(portfolioSettings));
-  }, [portfolioSettings]);
+    // Cloud sync (debounced)
+    if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+      const syncTimeout = setTimeout(async () => {
+        await syncData('portfolioSettings', portfolioSettings);
+      }, 1500);
+      return () => clearTimeout(syncTimeout);
+    }
+  }, [portfolioSettings, currentUser, cloudSyncEnabled, isLoadingCloudData]);
 
   // Save API key
   const saveApiKey = () => {
