@@ -12,6 +12,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
+import { useAuth } from "./contexts/AuthContext";
 
 function App() {
   // Inject global CSS for smooth animations and polished UI
@@ -621,10 +622,9 @@ function App() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   // =====================
-  // AUTHENTICATION STATE (Firebase disabled - coming soon)
+  // AUTHENTICATION STATE
   // =====================
-  const currentUser = null;
-  const userProfile = null;
+  const { currentUser, userProfile, login, signup, loginWithGoogle, logout, resetPassword } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [authEmail, setAuthEmail] = useState('');
@@ -633,15 +633,8 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const cloudSyncStatus = 'idle';
+  const cloudSyncStatus = currentUser ? 'synced' : 'idle';
   const [lastSyncTime, setLastSyncTime] = useState(null);
-
-  // Stub auth functions (Firebase coming soon)
-  const login = async () => { setAuthError('Authentication coming soon!'); };
-  const signup = async () => { setAuthError('Authentication coming soon!'); };
-  const loginWithGoogle = async () => { setAuthError('Authentication coming soon!'); };
-  const logout = async () => {};
-  const resetPassword = async () => { setAuthError('Password reset coming soon!'); };
 
   // NEW: Analytics Tracking State & Functions
   const [analytics, setAnalytics] = useState(() => {
@@ -763,14 +756,36 @@ function App() {
     try {
       if (authMode === 'login') {
         await login(authEmail, authPassword);
+        setShowAuthModal(false);
+        setAuthEmail('');
+        setAuthPassword('');
       } else if (authMode === 'signup') {
         await signup(authEmail, authPassword, authName);
+        setShowAuthModal(false);
+        setAuthEmail('');
+        setAuthPassword('');
+        setAuthName('');
       } else if (authMode === 'reset') {
         await resetPassword(authEmail);
+        setAuthError('Password reset email sent! Check your inbox.');
+        setAuthMode('login');
       }
     } catch (error) {
       console.error('Auth error:', error);
-      setAuthError(error.message || 'Authentication failed. Please try again.');
+      // Handle Firebase error codes
+      if (error.code === 'auth/email-already-in-use') {
+        setAuthError('This email is already registered. Try logging in.');
+      } else if (error.code === 'auth/invalid-email') {
+        setAuthError('Please enter a valid email address.');
+      } else if (error.code === 'auth/weak-password') {
+        setAuthError('Password should be at least 6 characters.');
+      } else if (error.code === 'auth/user-not-found') {
+        setAuthError('No account found with this email.');
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        setAuthError('Incorrect password. Try again.');
+      } else {
+        setAuthError(error.message || 'Authentication failed. Please try again.');
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -781,9 +796,16 @@ function App() {
     setAuthLoading(true);
     try {
       await loginWithGoogle();
+      setShowAuthModal(false);
     } catch (error) {
       console.error('Google auth error:', error);
-      setAuthError('Google sign-in failed. Please try again.');
+      if (error.code === 'auth/popup-closed-by-user') {
+        setAuthError('Sign-in cancelled.');
+      } else if (error.code === 'auth/unauthorized-domain') {
+        setAuthError('This domain is not authorized for Google sign-in.');
+      } else {
+        setAuthError('Google sign-in failed. Please try again.');
+      }
     } finally {
       setAuthLoading(false);
     }
