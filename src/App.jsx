@@ -10,7 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, Info, Flame, Pencil, Save, Newspaper, Calculator } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu } from "lucide-react";
 
 // Company Names Lookup - Maps ticker symbols to full company names
 const COMPANY_NAMES = {
@@ -937,7 +937,122 @@ function App() {
   // NEW: Disclaimer Modal State
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-  
+
+  // NEW: Landing Page State
+  const [showLandingPage, setShowLandingPage] = useState(false);
+  const [betaEmail, setBetaEmail] = useState("");
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+
+  // NEW: Onboarding State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+
+  // NEW: Feedback Modal State
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackType, setFeedbackType] = useState("bug");
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  // NEW: Analytics Tracking State & Functions
+  const [analytics, setAnalytics] = useState(() => {
+    const saved = localStorage.getItem('modus_analytics');
+    return saved ? JSON.parse(saved) : {
+      sessionStart: Date.now(),
+      totalSessions: 1,
+      pageViews: {},
+      featureUsage: {},
+      analysisCount: 0,
+      tradeIdeaViews: 0,
+      journalEntries: 0,
+      paperTrades: 0,
+      aiQuestions: 0,
+      lastActive: Date.now()
+    };
+  });
+
+  // Track analytics events
+  const trackEvent = useCallback((category, action, label = null) => {
+    setAnalytics(prev => {
+      const updated = { ...prev, lastActive: Date.now() };
+
+      // Track feature usage
+      const featureKey = `${category}_${action}`;
+      updated.featureUsage[featureKey] = (updated.featureUsage[featureKey] || 0) + 1;
+
+      // Track specific metrics
+      if (category === 'analysis' && action === 'complete') {
+        updated.analysisCount = (updated.analysisCount || 0) + 1;
+      } else if (category === 'trade_ideas' && action === 'view') {
+        updated.tradeIdeaViews = (updated.tradeIdeaViews || 0) + 1;
+      } else if (category === 'journal' && action === 'add_entry') {
+        updated.journalEntries = (updated.journalEntries || 0) + 1;
+      } else if (category === 'paper_trading' && action === 'execute') {
+        updated.paperTrades = (updated.paperTrades || 0) + 1;
+      } else if (category === 'ai' && action === 'question') {
+        updated.aiQuestions = (updated.aiQuestions || 0) + 1;
+      }
+
+      // Save to localStorage
+      localStorage.setItem('modus_analytics', JSON.stringify(updated));
+
+      // Log for debugging (can be sent to analytics server later)
+      console.log(`[Analytics] ${category}/${action}${label ? `: ${label}` : ''}`);
+
+      return updated;
+    });
+  }, []);
+
+  // Track page/tab views
+  const trackPageView = useCallback((pageName) => {
+    setAnalytics(prev => {
+      const updated = {
+        ...prev,
+        lastActive: Date.now(),
+        pageViews: {
+          ...prev.pageViews,
+          [pageName]: (prev.pageViews[pageName] || 0) + 1
+        }
+      };
+      localStorage.setItem('modus_analytics', JSON.stringify(updated));
+      console.log(`[Analytics] Page View: ${pageName}`);
+      return updated;
+    });
+  }, []);
+
+  // Track session on mount and save on unload
+  useEffect(() => {
+    // Increment session count if new session (>30 min since last active)
+    const saved = localStorage.getItem('modus_analytics');
+    if (saved) {
+      const data = JSON.parse(saved);
+      const timeSinceActive = Date.now() - (data.lastActive || 0);
+      if (timeSinceActive > 30 * 60 * 1000) { // 30 minutes
+        setAnalytics(prev => ({
+          ...prev,
+          totalSessions: (prev.totalSessions || 0) + 1,
+          sessionStart: Date.now()
+        }));
+      }
+    }
+
+    // Save analytics on page unload
+    const handleUnload = () => {
+      const currentAnalytics = JSON.parse(localStorage.getItem('modus_analytics') || '{}');
+      currentAnalytics.lastActive = Date.now();
+      localStorage.setItem('modus_analytics', JSON.stringify(currentAnalytics));
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []);
+
+  // Track page/tab views when activeTab changes
+  useEffect(() => {
+    if (activeTab && disclaimerAccepted) {
+      trackPageView(activeTab);
+    }
+  }, [activeTab, disclaimerAccepted, trackPageView]);
+
   // NEW: Alert Settings State
   const [alertSettings, setAlertSettings] = useState({
     enableEmail: false,
@@ -947,13 +1062,23 @@ function App() {
     enableBrowser: true
   });
   
-  // Check disclaimer on mount
+  // Check landing page, disclaimer, and onboarding on mount
   useEffect(() => {
+    const hasVisited = localStorage.getItem('modus_has_visited');
     const accepted = localStorage.getItem('modus_disclaimer_accepted');
-    if (accepted !== 'true') {
+    const onboardingComplete = localStorage.getItem('modus_onboarding_complete');
+
+    // Show landing page for first-time visitors
+    if (hasVisited !== 'true') {
+      setShowLandingPage(true);
+    } else if (accepted !== 'true') {
       setShowDisclaimer(true);
     } else {
       setDisclaimerAccepted(true);
+      // Show onboarding if not completed
+      if (onboardingComplete !== 'true') {
+        setShowOnboarding(true);
+      }
     }
   }, []);
   
@@ -1397,7 +1522,32 @@ function App() {
   
   // Sidebar
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Auto-detect mobile and collapse sidebar
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarCollapsed(true);
+        setMobileMenuOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close mobile menu when tab changes
+  useEffect(() => {
+    if (isMobile) {
+      setMobileMenuOpen(false);
+    }
+  }, [activeTab, isMobile]);
+
   // =================================================================
   // OPTIONS TRADING STATE VARIABLES
   // =================================================================
@@ -4869,7 +5019,10 @@ OUTPUT JSON:
         stockCatalysts: stockCatalysts || null
       };
       setAnalysis(fullAnalysis);
-      
+
+      // Track analysis completion
+      trackEvent('analysis', 'complete', ticker || 'unknown');
+
       // Auto-save to history
       if (fullAnalysis && image) {
         saveToHistory(fullAnalysis, image);
@@ -6021,6 +6174,7 @@ OUTPUT JSON:
         const updatedHistory = [...qaHistory, newQA];
         setQaHistory(updatedHistory);
         sessionStorage.setItem("modus_qa_history", JSON.stringify(updatedHistory));
+        trackEvent('ai', 'question', 'offline');
         setQuestion("");
         return;
       }
@@ -6038,6 +6192,7 @@ OUTPUT JSON:
       const updatedHistory = [...qaHistory, newQA];
       setQaHistory(updatedHistory);
       sessionStorage.setItem("modus_qa_history", JSON.stringify(updatedHistory));
+      trackEvent('ai', 'question', 'api');
 
       setQuestion("");
     } catch (err) {
@@ -6781,7 +6936,13 @@ OUTPUT JSON:
     };
     
     setTrades([trade, ...trades]);
-    
+
+    // Track journal entry
+    trackEvent('journal', 'add_entry', newTrade.symbol);
+    if (newTrade.isPaperTrade) {
+      trackEvent('paper_trading', 'execute', newTrade.symbol);
+    }
+
     // UPDATE PAPER TRADING BALANCE if this is a paper trade with exit
     if (newTrade.isPaperTrade && newTrade.exit && trade.pnl !== null) {
       setPaperTradingAccount(prev => ({
@@ -7275,6 +7436,7 @@ OUTPUT JSON:
 
       setTradeIdeas(formattedIdeas);
       setTradeIdeasProgress({ phase: 'complete', current: PRIORITY_STOCKS.length, total: PRIORITY_STOCKS.length, scanTime: parseFloat(elapsed) });
+      trackEvent('trade_ideas', 'view', `${formattedIdeas.length}_ideas`);
 
     } catch (err) {
       console.error("[Trade Ideas] Error:", err);
@@ -9484,6 +9646,322 @@ OUTPUT JSON:
         </div>
       )}
 
+      {/* LANDING PAGE */}
+      {showLandingPage && (
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-violet-950 z-[110] overflow-y-auto">
+          {/* Animated background */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-violet-500/20 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          </div>
+
+          <div className="relative min-h-screen flex flex-col">
+            {/* Header */}
+            <header className="p-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xl font-bold">MODUS</span>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.setItem('modus_has_visited', 'true');
+                  setShowLandingPage(false);
+                  setShowDisclaimer(true);
+                }}
+                className="text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                Skip to App →
+              </button>
+            </header>
+
+            {/* Hero Section */}
+            <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-500/10 border border-violet-500/30 rounded-full text-sm text-violet-300 mb-6">
+                <Sparkles className="w-4 h-4" />
+                AI-Powered Trading Analysis
+              </div>
+
+              <h1 className="text-4xl md:text-6xl font-bold max-w-4xl mb-6 leading-tight">
+                Trade Smarter with
+                <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent"> AI-Powered </span>
+                Chart Analysis
+              </h1>
+
+              <p className="text-lg md:text-xl text-slate-400 max-w-2xl mb-8">
+                Upload any chart and get instant technical analysis, trade setups,
+                entry/exit points, and AI-generated predictions. No guesswork.
+              </p>
+
+              {/* Email Capture */}
+              {!emailSubmitted ? (
+                <div className="w-full max-w-md mb-8">
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={betaEmail}
+                      onChange={(e) => setBetaEmail(e.target.value)}
+                      placeholder="Enter your email for early access"
+                      className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                    />
+                    <button
+                      onClick={() => {
+                        if (betaEmail && betaEmail.includes('@')) {
+                          // Store email locally (would send to backend in production)
+                          const emails = JSON.parse(localStorage.getItem('modus_beta_emails') || '[]');
+                          emails.push({ email: betaEmail, date: new Date().toISOString() });
+                          localStorage.setItem('modus_beta_emails', JSON.stringify(emails));
+                          trackEvent('conversion', 'beta_signup', 'landing_page');
+                          setEmailSubmitted(true);
+                        }
+                      }}
+                      className="px-6 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
+                    >
+                      Join Beta
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">Join 1,000+ traders getting early access. No spam.</p>
+                </div>
+              ) : (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-6 py-4 mb-8">
+                  <p className="text-green-400 font-semibold flex items-center gap-2 justify-center">
+                    <Check className="w-5 h-5" />
+                    You're on the list! Check your email for updates.
+                  </p>
+                </div>
+              )}
+
+              {/* CTA Button */}
+              <button
+                onClick={() => {
+                  localStorage.setItem('modus_has_visited', 'true');
+                  setShowLandingPage(false);
+                  setShowDisclaimer(true);
+                }}
+                className="px-8 py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold text-lg shadow-lg shadow-violet-500/25 transition-all transform hover:scale-105"
+              >
+                Try MODUS Free →
+              </button>
+
+              {/* Feature Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl w-full">
+                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 text-left">
+                  <div className="w-12 h-12 bg-violet-500/20 rounded-lg flex items-center justify-center mb-4">
+                    <BarChart3 className="w-6 h-6 text-violet-400" />
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2">AI Chart Analysis</h3>
+                  <p className="text-sm text-slate-400">Upload any chart and get instant pattern recognition, support/resistance levels, and trend analysis.</p>
+                </div>
+
+                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 text-left">
+                  <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-4">
+                    <Target className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2">Trade Setups</h3>
+                  <p className="text-sm text-slate-400">Get precise entry points, stop losses, and profit targets with calculated risk/reward ratios.</p>
+                </div>
+
+                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 text-left">
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mb-4">
+                    <Zap className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2">Daily Picks</h3>
+                  <p className="text-sm text-slate-400">Receive AI-curated stock picks every day based on technical indicators and market conditions.</p>
+                </div>
+              </div>
+
+              {/* Social Proof */}
+              <div className="mt-16 text-center">
+                <p className="text-slate-500 text-sm mb-4">Trusted by traders at</p>
+                <div className="flex items-center justify-center gap-8 opacity-50">
+                  <span className="text-xl font-bold text-slate-400">TD Ameritrade</span>
+                  <span className="text-xl font-bold text-slate-400">Fidelity</span>
+                  <span className="text-xl font-bold text-slate-400">E*TRADE</span>
+                  <span className="text-xl font-bold text-slate-400">Robinhood</span>
+                </div>
+              </div>
+            </main>
+
+            {/* Footer */}
+            <footer className="p-6 text-center text-sm text-slate-500">
+              <p>© 2026 MODUS. For educational purposes only. Not financial advice.</p>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* FEEDBACK BUTTON - Fixed position */}
+      {disclaimerAccepted && !showFeedback && (
+        <button
+          onClick={() => setShowFeedback(true)}
+          className="fixed bottom-6 right-6 z-50 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105"
+        >
+          <MessageCircle className="w-4 h-4 text-violet-400" />
+          Feedback
+        </button>
+      )}
+
+      {/* FEEDBACK MODAL */}
+      {showFeedback && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-violet-400" />
+                Send Feedback
+              </h3>
+              <button onClick={() => { setShowFeedback(false); setFeedbackSubmitted(false); setFeedbackText(""); }} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!feedbackSubmitted ? (
+              <>
+                <div className="flex gap-2 mb-4">
+                  {[
+                    { type: 'bug', label: '🐛 Bug', color: 'red' },
+                    { type: 'feature', label: '💡 Feature', color: 'blue' },
+                    { type: 'feedback', label: '💬 General', color: 'violet' }
+                  ].map(({ type, label, color }) => (
+                    <button
+                      key={type}
+                      onClick={() => setFeedbackType(type)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                        feedbackType === type
+                          ? `bg-${color}-500/20 border-${color}-500/50 text-${color}-300 border`
+                          : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder={
+                    feedbackType === 'bug' ? "Describe the bug and steps to reproduce..." :
+                    feedbackType === 'feature' ? "Describe the feature you'd like to see..." :
+                    "Share your thoughts..."
+                  }
+                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 min-h-[120px] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none mb-4"
+                />
+
+                <button
+                  onClick={() => {
+                    if (feedbackText.length > 10) {
+                      const feedback = JSON.parse(localStorage.getItem('modus_feedback') || '[]');
+                      feedback.push({ type: feedbackType, text: feedbackText, date: new Date().toISOString() });
+                      localStorage.setItem('modus_feedback', JSON.stringify(feedback));
+                      trackEvent('feedback', 'submit', feedbackType);
+                      setFeedbackSubmitted(true);
+                    }
+                  }}
+                  disabled={feedbackText.length < 10}
+                  className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed transition-all"
+                >
+                  Submit Feedback
+                </button>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="w-8 h-8 text-green-400" />
+                </div>
+                <h4 className="text-lg font-semibold mb-2">Thank You!</h4>
+                <p className="text-slate-400 text-sm">Your feedback helps us improve MODUS.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ONBOARDING TUTORIAL */}
+      {showOnboarding && disclaimerAccepted && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl border border-violet-500/30 p-6 max-w-lg w-full shadow-2xl">
+            {[
+              {
+                icon: <Camera className="w-8 h-8 text-violet-400" />,
+                title: "Upload a Chart",
+                desc: "Go to Chart Analysis and upload a screenshot of any stock chart. We support all timeframes and indicators."
+              },
+              {
+                icon: <BarChart3 className="w-8 h-8 text-emerald-400" />,
+                title: "Get AI Analysis",
+                desc: "Our AI identifies patterns, support/resistance levels, and generates trade setups with entry, stop, and target prices."
+              },
+              {
+                icon: <Star className="w-8 h-8 text-yellow-400" />,
+                title: "Daily Picks",
+                desc: "Check the Daily Pick tab for AI-curated stock recommendations based on technical indicators and market momentum."
+              },
+              {
+                icon: <Target className="w-8 h-8 text-blue-400" />,
+                title: "Track Your Trades",
+                desc: "Use the Journal to log your trades and the Paper Trading feature to practice without risking real money."
+              }
+            ][onboardingStep] && (
+              <div className="text-center">
+                <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  {[
+                    <Camera className="w-10 h-10 text-violet-400" />,
+                    <BarChart3 className="w-10 h-10 text-emerald-400" />,
+                    <Star className="w-10 h-10 text-yellow-400" />,
+                    <Target className="w-10 h-10 text-blue-400" />
+                  ][onboardingStep]}
+                </div>
+                <h3 className="text-2xl font-bold mb-3">
+                  {["Upload a Chart", "Get AI Analysis", "Daily Picks", "Track Your Trades"][onboardingStep]}
+                </h3>
+                <p className="text-slate-400 mb-8">
+                  {[
+                    "Go to Chart Analysis and upload a screenshot of any stock chart. We support all timeframes and indicators.",
+                    "Our AI identifies patterns, support/resistance levels, and generates trade setups with entry, stop, and target prices.",
+                    "Check the Daily Pick tab for AI-curated stock recommendations based on technical indicators and market momentum.",
+                    "Use the Journal to log your trades and the Paper Trading feature to practice without risking real money."
+                  ][onboardingStep]}
+                </p>
+
+                {/* Progress dots */}
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === onboardingStep ? 'w-6 bg-violet-500' : 'bg-slate-700'}`} />
+                  ))}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('modus_onboarding_complete', 'true');
+                      setShowOnboarding(false);
+                    }}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-medium transition-all"
+                  >
+                    Skip Tour
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (onboardingStep < 3) {
+                        setOnboardingStep(onboardingStep + 1);
+                      } else {
+                        localStorage.setItem('modus_onboarding_complete', 'true');
+                        setShowOnboarding(false);
+                      }
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
+                  >
+                    {onboardingStep < 3 ? "Next" : "Get Started"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* DISCLAIMER AGREEMENT MODAL */}
       {showDisclaimer && !disclaimerAccepted && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -9636,9 +10114,19 @@ OUTPUT JSON:
         </div>
       )}
 
+      {/* Mobile Menu Overlay */}
+      {isMobile && mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Vertical Sidebar */}
       <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-r border-slate-800/50 transition-all duration-300 ease-out z-50 ${
-        sidebarCollapsed ? 'w-16' : 'w-64'
+        isMobile
+          ? (mobileMenuOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full')
+          : (sidebarCollapsed ? 'w-16' : 'w-64')
       }`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -10051,15 +10539,36 @@ OUTPUT JSON:
       </aside>
       {/* Header */}
       <header className={`border-b border-slate-800/30 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-30 transition-all duration-300 ease-out ${
-        sidebarCollapsed ? 'ml-16' : 'ml-64'
+        isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
       }`}>
-        <div className="px-6 py-3">
-          <div className="flex items-center justify-end gap-3">
-            {/* Live Clock */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="font-mono text-sm text-emerald-400 tabular-nums">{formatTime(currentTime)}</span>
-            </div>
+        <div className="px-4 md:px-6 py-3">
+          <div className="flex items-center justify-between gap-3">
+            {/* Mobile Menu Toggle */}
+            {isMobile && (
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Mobile Logo */}
+            {isMobile && (
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg">
+                  <Eye className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-bold text-white">MODUS</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 md:gap-3 ml-auto">
+              {/* Live Clock */}
+              <div className="flex items-center gap-2 px-2 md:px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span className="font-mono text-xs md:text-sm text-emerald-400 tabular-nums">{formatTime(currentTime)}</span>
+              </div>
 
             {/* Background Status Indicator */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs">
@@ -10088,11 +10597,11 @@ OUTPUT JSON:
             {/* Position Sizer */}
             <button
               onClick={() => setShowPositionSizer(true)}
-              className="px-4 py-2 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 rounded-lg transition-all duration-200 flex items-center gap-2 font-semibold text-sm shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 btn-press"
+              className="p-2 md:px-4 md:py-2 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 rounded-lg transition-all duration-200 flex items-center gap-2 font-semibold text-sm shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 btn-press"
               title="Position Sizing Calculator"
             >
               <Target className="w-4 h-4" />
-              <span>Position Sizer</span>
+              <span className="hidden md:inline">Position Sizer</span>
             </button>
             
             {/* History */}
@@ -10128,13 +10637,14 @@ OUTPUT JSON:
             >
               <Settings className="w-4 h-4 text-slate-400" />
             </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className={`min-h-screen overflow-y-auto transition-all duration-300 ease-out px-6 py-6 ${
-        sidebarCollapsed ? 'ml-16' : 'ml-64'
+      <main className={`min-h-screen overflow-y-auto transition-all duration-300 ease-out px-4 md:px-6 py-4 md:py-6 ${
+        isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
       }`}>
         {/* NEW: Live Ticker Tab */}
         {activeTab === "ticker" && (
