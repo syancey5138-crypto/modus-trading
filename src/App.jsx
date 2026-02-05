@@ -9605,32 +9605,53 @@ OUTPUT JSON:
                       type="email"
                       value={betaEmail}
                       onChange={(e) => setBetaEmail(e.target.value)}
-                      placeholder="Enter your email for early access"
+                      placeholder="Enter your email for updates & tips"
                       className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                     />
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (betaEmail && betaEmail.includes('@')) {
-                          // Store email locally (would send to backend in production)
+                          // Store email locally
                           const emails = JSON.parse(localStorage.getItem('modus_beta_emails') || '[]');
                           emails.push({ email: betaEmail, date: new Date().toISOString() });
                           localStorage.setItem('modus_beta_emails', JSON.stringify(emails));
                           trackEvent('conversion', 'beta_signup', 'landing_page');
+
+                          // Send notification via EmailJS
+                          try {
+                            await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                service_id: 'service_wka2oph',
+                                template_id: 'template_1bn2e5y',
+                                user_id: 'P3MjxM_aqWY9csXhF',
+                                template_params: {
+                                  to_email: 'steventox5138@gmail.com',
+                                  subject: '🎉 New MODUS Beta Signup!',
+                                  message: `New beta signup:\n\nEmail: ${betaEmail}\nDate: ${new Date().toLocaleString()}\nTotal signups: ${emails.length}`,
+                                },
+                              }),
+                            });
+                          } catch (e) {
+                            console.log('Email notification skipped');
+                          }
+
                           setEmailSubmitted(true);
                         }
                       }}
                       className="px-6 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
                     >
-                      Join Beta
+                      Get Updates
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">Join 1,000+ traders getting early access. No spam.</p>
+                  <p className="text-xs text-slate-500 mt-2">Get trading tips & feature updates. No spam, unsubscribe anytime.</p>
                 </div>
               ) : (
                 <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-6 py-4 mb-8">
                   <p className="text-green-400 font-semibold flex items-center gap-2 justify-center">
                     <Check className="w-5 h-5" />
-                    You're on the list! Check your email for updates.
+                    You're signed up! Now try the app below.
                   </p>
                 </div>
               )}
@@ -9785,82 +9806,84 @@ OUTPUT JSON:
       {showOnboarding && disclaimerAccepted && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
           <div className="bg-slate-900 rounded-2xl border border-violet-500/30 p-6 max-w-lg w-full shadow-2xl">
-            {[
-              {
-                icon: <Camera className="w-8 h-8 text-violet-400" />,
-                title: "Upload a Chart",
-                desc: "Go to Chart Analysis and upload a screenshot of any stock chart. We support all timeframes and indicators."
-              },
-              {
-                icon: <BarChart3 className="w-8 h-8 text-emerald-400" />,
-                title: "Get AI Analysis",
-                desc: "Our AI identifies patterns, support/resistance levels, and generates trade setups with entry, stop, and target prices."
-              },
-              {
-                icon: <Star className="w-8 h-8 text-yellow-400" />,
-                title: "Daily Picks",
-                desc: "Check the Daily Pick tab for AI-curated stock recommendations based on technical indicators and market momentum."
-              },
-              {
-                icon: <Target className="w-8 h-8 text-blue-400" />,
-                title: "Track Your Trades",
-                desc: "Use the Journal to log your trades and the Paper Trading feature to practice without risking real money."
-              }
-            ][onboardingStep] && (
-              <div className="text-center">
-                <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  {[
-                    <Camera className="w-10 h-10 text-violet-400" />,
-                    <BarChart3 className="w-10 h-10 text-emerald-400" />,
-                    <Star className="w-10 h-10 text-yellow-400" />,
-                    <Target className="w-10 h-10 text-blue-400" />
-                  ][onboardingStep]}
-                </div>
-                <h3 className="text-2xl font-bold mb-3">
-                  {["Upload a Chart", "Get AI Analysis", "Daily Picks", "Track Your Trades"][onboardingStep]}
-                </h3>
-                <p className="text-slate-400 mb-8">
-                  {[
-                    "Go to Chart Analysis and upload a screenshot of any stock chart. We support all timeframes and indicators.",
-                    "Our AI identifies patterns, support/resistance levels, and generates trade setups with entry, stop, and target prices.",
-                    "Check the Daily Pick tab for AI-curated stock recommendations based on technical indicators and market momentum.",
-                    "Use the Journal to log your trades and the Paper Trading feature to practice without risking real money."
-                  ][onboardingStep]}
-                </p>
+            {(() => {
+              const tourSteps = [
+                {
+                  icon: <Camera className="w-10 h-10 text-violet-400" />,
+                  title: "Upload a Chart",
+                  desc: "Go to Chart Analysis and upload a screenshot of any stock chart. We support all timeframes and indicators."
+                },
+                {
+                  icon: <BarChart3 className="w-10 h-10 text-emerald-400" />,
+                  title: "Get AI Analysis",
+                  desc: "Our AI identifies patterns, support/resistance levels, and generates trade setups with entry, stop, and target prices."
+                },
+                {
+                  icon: <MessageCircle className="w-10 h-10 text-cyan-400" />,
+                  title: "Ask the AI",
+                  desc: "Use the chat feature to ask follow-up questions about any analysis. Get clarification on patterns, strategies, or trade ideas."
+                },
+                {
+                  icon: <Bell className="w-10 h-10 text-orange-400" />,
+                  title: "Set Price Alerts",
+                  desc: "Create custom alerts for price levels, and get SMS notifications when your targets are hit. Never miss an entry!"
+                },
+                {
+                  icon: <Star className="w-10 h-10 text-yellow-400" />,
+                  title: "Daily Picks",
+                  desc: "Check the Daily Pick tab for AI-curated stock recommendations based on technical indicators and market momentum."
+                },
+                {
+                  icon: <Target className="w-10 h-10 text-blue-400" />,
+                  title: "Track Your Trades",
+                  desc: "Use the Journal to log your trades and the Paper Trading feature to practice without risking real money."
+                }
+              ];
+              const currentStep = tourSteps[onboardingStep];
+              const totalSteps = tourSteps.length;
 
-                {/* Progress dots */}
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === onboardingStep ? 'w-6 bg-violet-500' : 'bg-slate-700'}`} />
-                  ))}
-                </div>
+              return currentStep && (
+                <div className="text-center">
+                  <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    {currentStep.icon}
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3">{currentStep.title}</h3>
+                  <p className="text-slate-400 mb-8">{currentStep.desc}</p>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('modus_onboarding_complete', 'true');
-                      setShowOnboarding(false);
-                    }}
-                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-medium transition-all"
-                  >
-                    Skip Tour
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (onboardingStep < 3) {
-                        setOnboardingStep(onboardingStep + 1);
-                      } else {
+                  {/* Progress dots */}
+                  <div className="flex items-center justify-center gap-2 mb-6">
+                    {tourSteps.map((_, i) => (
+                      <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === onboardingStep ? 'w-6 bg-violet-500' : 'bg-slate-700'}`} />
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
                         localStorage.setItem('modus_onboarding_complete', 'true');
                         setShowOnboarding(false);
-                      }
-                    }}
-                    className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
-                  >
-                    {onboardingStep < 3 ? "Next" : "Get Started"}
-                  </button>
+                      }}
+                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-medium transition-all"
+                    >
+                      Skip Tour
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (onboardingStep < totalSteps - 1) {
+                          setOnboardingStep(onboardingStep + 1);
+                        } else {
+                          localStorage.setItem('modus_onboarding_complete', 'true');
+                          setShowOnboarding(false);
+                        }
+                      }}
+                      className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
+                    >
+                      {onboardingStep < totalSteps - 1 ? "Next" : "Get Started"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}
@@ -9993,6 +10016,12 @@ OUTPUT JSON:
                   setShowDisclaimer(false);
                   localStorage.setItem('modus_disclaimer_accepted', 'true');
                   localStorage.setItem('modus_disclaimer_date', new Date().toISOString());
+                  // Show onboarding tour immediately if not completed
+                  const onboardingComplete = localStorage.getItem('modus_onboarding_complete');
+                  if (onboardingComplete !== 'true') {
+                    setOnboardingStep(0);
+                    setShowOnboarding(true);
+                  }
                 }}
                 className="flex-1 bg-violet-600 hover:bg-violet-500 text-white rounded-lg py-4 font-bold text-lg transition-colors shadow-lg"
               >
