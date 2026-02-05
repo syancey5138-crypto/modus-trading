@@ -245,14 +245,17 @@ function App() {
   const [pickAssetClass, setPickAssetClass] = useState("all");
   const [lastPickTime, setLastPickTime] = useState(null);
   const [pickTimeframe, setPickTimeframe] = useState("24-48h"); // Holding period timeframe
-  const [pickVolatility, setPickVolatility] = useState("medium"); // Volatility preference: low, medium, high, any
+  const [pickVolatility, setPickVolatility] = useState("medium"); // Volatility preference: low, lowmed, medium, medhigh, high, any
 
-  // Volatility thresholds (based on ATR%)
+  // Volatility thresholds (based on ATR%) - 5 levels + any
+  // Redesigned so "high" = actual high-risk stocks (AI, small caps, meme stocks)
   const volatilityThresholds = {
-    low: { min: 0, max: 1.5, label: "Low Volatility", description: "Stable, slower moves" },
-    medium: { min: 1.0, max: 3.0, label: "Medium Volatility", description: "Balanced risk/reward" },
-    high: { min: 2.5, max: 100, label: "High Volatility", description: "Bigger swings, more risk" },
-    any: { min: 0, max: 100, label: "Any Volatility", description: "No filter" }
+    low: { min: 0, max: 1.2, label: "Low", description: "Very stable stocks (utilities, consumer staples)", emoji: "🐢" },
+    lowmed: { min: 0.8, max: 2.0, label: "Low-Medium", description: "Established companies (AAPL, HD, JPM)", emoji: "🏛️" },
+    medium: { min: 1.5, max: 3.5, label: "Medium", description: "Balanced risk/reward (most tech)", emoji: "⚖️" },
+    medhigh: { min: 2.5, max: 5.0, label: "Medium-High", description: "Growth stocks, volatile tech (AMD, TSLA)", emoji: "📈" },
+    high: { min: 4.0, max: 100, label: "High", description: "High risk/reward (AI stocks, small caps, meme)", emoji: "🔥" },
+    any: { min: 0, max: 100, label: "Any", description: "No volatility filter", emoji: "🎲" }
   };
 
   // Timeframe options with risk/reward profiles
@@ -2988,7 +2991,12 @@ function App() {
     }
     const atr = trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length;
     const atrPercent = (atr / currentPrice) * 100;
-    const volatilityCategory = atrPercent > 3 ? 'High' : atrPercent < 1.5 ? 'Low' : 'Medium';
+    // 5-level volatility categorization
+    const volatilityCategory =
+      atrPercent >= 4.0 ? 'High' :
+      atrPercent >= 2.5 ? 'Medium-High' :
+      atrPercent >= 1.5 ? 'Medium' :
+      atrPercent >= 0.8 ? 'Low-Medium' : 'Low';
 
     // Trend
     const trendSlope = (closes[closes.length - 1] - closes[closes.length - 20]) / closes[closes.length - 20] * 100;
@@ -5004,7 +5012,7 @@ OUTPUT JSON:
       setAnalysis(fullAnalysis);
 
       // Track analysis completion
-      trackEvent('analysis', 'complete', ticker || 'unknown');
+      trackEvent('analysis', 'complete', context?.ticker || detectedTicker || 'unknown');
 
       // Auto-save to history
       if (fullAnalysis && image) {
@@ -5310,14 +5318,15 @@ OUTPUT JSON:
       }
 
       // TIMEFRAME CONFIG - adjusts stops/targets based on holding period
+      // Now includes recommended Live Ticker timeframe for viewing the stock
       const timeframeConfig = {
-        "5-7h": { label: "5-7 Hours", category: "Short", style: "Day Trade", stopPct: -1.0, target1Pct: 1.5, target2Pct: 2.5 },
-        "12-24h": { label: "12-24 Hours", category: "Short", style: "Day Trade", stopPct: -1.5, target1Pct: 2.0, target2Pct: 3.5 },
-        "24-48h": { label: "24-48 Hours", category: "Short", style: "Overnight Swing", stopPct: -2.0, target1Pct: 3.0, target2Pct: 5.0 },
-        "3-5d": { label: "3-5 Days", category: "Medium", style: "Swing Trade", stopPct: -3.0, target1Pct: 5.0, target2Pct: 8.0 },
-        "5-7d": { label: "5-7 Days", category: "Medium", style: "Extended Swing", stopPct: -4.0, target1Pct: 7.0, target2Pct: 12.0 },
-        "1-2w": { label: "1-2 Weeks", category: "Long", style: "Position Trade", stopPct: -5.0, target1Pct: 8.0, target2Pct: 15.0 },
-        "3-4w": { label: "3-4 Weeks", category: "Long", style: "Extended Position", stopPct: -7.0, target1Pct: 12.0, target2Pct: 20.0 }
+        "5-7h": { label: "5-7 Hours", category: "Short", style: "Day Trade", stopPct: -1.0, target1Pct: 1.5, target2Pct: 2.5, liveTimeframe: "5m", liveTimeframeLabel: "5-Minute" },
+        "12-24h": { label: "12-24 Hours", category: "Short", style: "Day Trade", stopPct: -1.5, target1Pct: 2.0, target2Pct: 3.5, liveTimeframe: "15m", liveTimeframeLabel: "15-Minute" },
+        "24-48h": { label: "24-48 Hours", category: "Short", style: "Overnight Swing", stopPct: -2.0, target1Pct: 3.0, target2Pct: 5.0, liveTimeframe: "30m", liveTimeframeLabel: "30-Minute" },
+        "3-5d": { label: "3-5 Days", category: "Medium", style: "Swing Trade", stopPct: -3.0, target1Pct: 5.0, target2Pct: 8.0, liveTimeframe: "1h", liveTimeframeLabel: "1-Hour" },
+        "5-7d": { label: "5-7 Days", category: "Medium", style: "Extended Swing", stopPct: -4.0, target1Pct: 7.0, target2Pct: 12.0, liveTimeframe: "4h", liveTimeframeLabel: "4-Hour" },
+        "1-2w": { label: "1-2 Weeks", category: "Long", style: "Position Trade", stopPct: -5.0, target1Pct: 8.0, target2Pct: 15.0, liveTimeframe: "1d", liveTimeframeLabel: "Daily" },
+        "3-4w": { label: "3-4 Weeks", category: "Long", style: "Extended Position", stopPct: -7.0, target1Pct: 12.0, target2Pct: 20.0, liveTimeframe: "1d", liveTimeframeLabel: "Daily" }
       };
       
       const tfConfig = timeframeConfig[pickTimeframe] || timeframeConfig["24-48h"];
@@ -5428,6 +5437,8 @@ OUTPUT JSON:
           invalidation: `${direction === 'LONG' ? 'Below' : 'Above'} $${stopLoss.toFixed(2)}`,
           timeframe: tfConfig.style,
           holdingPeriod: tfConfig.label,
+          recommendedLiveTimeframe: tfConfig.liveTimeframe,
+          recommendedLiveTimeframeLabel: tfConfig.liveTimeframeLabel,
           generatedWithLiveData: true,
           livePricesFetched: PRIORITY_STOCKS.length,
           marketSentiment: bestPick.bullishScore > bestPick.bearishScore + 10 ? 'bullish' : bestPick.bearishScore > bestPick.bullishScore + 10 ? 'bearish' : 'neutral',
@@ -12608,11 +12619,13 @@ OUTPUT JSON:
                                   <span className="text-amber-400 font-bold">${currentATR.toFixed(2)}</span>
                                   <span className="text-slate-400">({atrPercent.toFixed(2)}%)</span>
                                   <div className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                                    atrPercent > 3 ? 'bg-red-500/20 text-red-300' : 
-                                    atrPercent < 1 ? 'bg-emerald-500/20 text-emerald-300' : 
-                                    'bg-amber-500/20 text-amber-300'
+                                    atrPercent >= 4 ? 'bg-red-500/20 text-red-300' :
+                                    atrPercent >= 2.5 ? 'bg-amber-500/20 text-amber-300' :
+                                    atrPercent >= 1.5 ? 'bg-violet-500/20 text-violet-300' :
+                                    atrPercent >= 0.8 ? 'bg-blue-500/20 text-blue-300' :
+                                    'bg-cyan-500/20 text-cyan-300'
                                   }`}>
-                                    {atrPercent > 3 ? 'High Vol' : atrPercent < 1 ? 'Low Vol' : 'Normal'}
+                                    {atrPercent >= 4 ? 'High' : atrPercent >= 2.5 ? 'Med-High' : atrPercent >= 1.5 ? 'Medium' : atrPercent >= 0.8 ? 'Low-Med' : 'Low'}
                                   </div>
                                 </div>
                               </div>
@@ -16273,63 +16286,87 @@ OUTPUT JSON:
                 </div>
               </div>
 
-              {/* Volatility Selector */}
+              {/* Volatility Selector - 5 Levels + Any */}
               <div className="mb-6">
                 <div className="text-sm text-slate-400 mb-3 flex items-center gap-2">
                   <Activity className="w-4 h-4" />
-                  <span>Select Volatility Preference:</span>
+                  <span>Select Risk/Volatility Level:</span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   <button
                     onClick={() => setPickVolatility("low")}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
                       pickVolatility === "low"
                         ? "bg-cyan-600 text-white border-2 border-cyan-400"
                         : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-cyan-500/50"
                     }`}
                   >
-                    <div className="text-xs opacity-70">Stable</div>
-                    <div>Low Volatility</div>
+                    <div className="text-lg">🐢</div>
+                    <div className="text-xs">Low</div>
+                  </button>
+                  <button
+                    onClick={() => setPickVolatility("lowmed")}
+                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                      pickVolatility === "lowmed"
+                        ? "bg-blue-600 text-white border-2 border-blue-400"
+                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-blue-500/50"
+                    }`}
+                  >
+                    <div className="text-lg">🏛️</div>
+                    <div className="text-xs">Low-Med</div>
                   </button>
                   <button
                     onClick={() => setPickVolatility("medium")}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
                       pickVolatility === "medium"
                         ? "bg-violet-600 text-white border-2 border-violet-400"
                         : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-violet-500/50"
                     }`}
                   >
-                    <div className="text-xs opacity-70">Balanced</div>
-                    <div>Medium</div>
+                    <div className="text-lg">⚖️</div>
+                    <div className="text-xs">Medium</div>
+                  </button>
+                  <button
+                    onClick={() => setPickVolatility("medhigh")}
+                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                      pickVolatility === "medhigh"
+                        ? "bg-amber-600 text-white border-2 border-amber-400"
+                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-amber-500/50"
+                    }`}
+                  >
+                    <div className="text-lg">📈</div>
+                    <div className="text-xs">Med-High</div>
                   </button>
                   <button
                     onClick={() => setPickVolatility("high")}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
                       pickVolatility === "high"
-                        ? "bg-orange-600 text-white border-2 border-orange-400"
-                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-orange-500/50"
+                        ? "bg-red-600 text-white border-2 border-red-400"
+                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-red-500/50"
                     }`}
                   >
-                    <div className="text-xs opacity-70">Aggressive</div>
-                    <div>High Volatility</div>
+                    <div className="text-lg">🔥</div>
+                    <div className="text-xs">High Risk</div>
                   </button>
                   <button
                     onClick={() => setPickVolatility("any")}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
                       pickVolatility === "any"
                         ? "bg-slate-600 text-white border-2 border-slate-400"
                         : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-slate-500/50"
                     }`}
                   >
-                    <div className="text-xs opacity-70">No Filter</div>
-                    <div>Any</div>
+                    <div className="text-lg">🎲</div>
+                    <div className="text-xs">Any</div>
                   </button>
                 </div>
                 <div className="mt-2 text-xs text-slate-500">
-                  {pickVolatility === "low" && "🐢 Slower, steadier moves. Lower risk but smaller potential gains. Good for conservative traders."}
-                  {pickVolatility === "medium" && "⚖️ Balanced volatility. Moderate price swings with reasonable risk/reward."}
-                  {pickVolatility === "high" && "🔥 Bigger price swings, higher risk. For experienced traders comfortable with larger moves."}
-                  {pickVolatility === "any" && "🎲 No volatility filter. Best available setup regardless of volatility level."}
+                  {pickVolatility === "low" && "🐢 Very stable stocks like utilities, consumer staples. Slow but steady. Conservative traders."}
+                  {pickVolatility === "lowmed" && "🏛️ Established companies like AAPL, HD, JPM. Reliable with moderate moves."}
+                  {pickVolatility === "medium" && "⚖️ Balanced risk/reward. Most tech stocks. Good for swing traders."}
+                  {pickVolatility === "medhigh" && "📈 Growth stocks, volatile tech like AMD, TSLA. Larger moves, more risk."}
+                  {pickVolatility === "high" && "🔥 HIGH RISK: AI stocks, small caps, meme stocks. Big swings, experienced traders only!"}
+                  {pickVolatility === "any" && "🎲 No volatility filter. Best available setup regardless of risk level."}
                 </div>
               </div>
 
@@ -16470,14 +16507,30 @@ OUTPUT JSON:
                             {dailyPick.holdingPeriod || '24-48 Hours'}
                           </div>
                         </div>
-                        {/* Volatility Badge */}
+                        {/* Recommended Chart Timeframe Badge */}
+                        {dailyPick.recommendedLiveTimeframeLabel && (
+                          <div
+                            className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 cursor-help"
+                            title="Use this timeframe in Live Ticker for optimal analysis alignment with this recommendation"
+                          >
+                            <div className="text-xs opacity-70">View Chart In</div>
+                            <div className="font-semibold text-sm flex items-center gap-1">
+                              <BarChart3 className="w-3 h-3" />
+                              {dailyPick.recommendedLiveTimeframeLabel}
+                            </div>
+                          </div>
+                        )}
+                        {/* Volatility Badge - 5 Levels */}
                         {dailyPick.volatility && (
                           <div className={`px-3 py-1.5 rounded-lg border ${
                             dailyPick.volatility.category === 'Low' ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' :
-                            dailyPick.volatility.category === 'High' ? 'bg-orange-500/20 border-orange-500/30 text-orange-300' :
+                            dailyPick.volatility.category === 'Low-Medium' ? 'bg-blue-500/20 border-blue-500/30 text-blue-300' :
+                            dailyPick.volatility.category === 'Medium' ? 'bg-violet-500/20 border-violet-500/30 text-violet-300' :
+                            dailyPick.volatility.category === 'Medium-High' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' :
+                            dailyPick.volatility.category === 'High' ? 'bg-red-500/20 border-red-500/30 text-red-300' :
                             'bg-violet-500/20 border-violet-500/30 text-violet-300'
                           }`}>
-                            <div className="text-xs opacity-70">Volatility</div>
+                            <div className="text-xs opacity-70">Risk Level</div>
                             <div className="font-semibold text-sm flex items-center gap-1">
                               <Activity className="w-3 h-3" />
                               {dailyPick.volatility.category} ({dailyPick.volatility.atrPercent}%)
@@ -16513,6 +16566,22 @@ OUTPUT JSON:
                         <div className="font-bold text-lg text-emerald-400">{dailyPick.riskReward}</div>
                       </div>
                     </div>
+
+                    {/* View in Live Ticker Button with Auto-Timeframe */}
+                    {dailyPick.recommendedLiveTimeframe && (
+                      <button
+                        onClick={() => {
+                          setTickerSymbol(dailyPick.asset);
+                          setTickerTimeframe(dailyPick.recommendedLiveTimeframe);
+                          setActiveTab("ticker");
+                          setTimeout(() => fetchTickerData(), 100);
+                        }}
+                        className="mt-4 w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl font-semibold text-white shadow-lg flex items-center justify-center gap-2 transition-all"
+                      >
+                        <LineChart className="w-5 h-5" />
+                        View {dailyPick.asset} in Live Ticker ({dailyPick.recommendedLiveTimeframeLabel})
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -19254,15 +19323,18 @@ OUTPUT JSON:
                                 <span className="text-xs text-green-400">Live Data</span>
                               </div>
                             )}
-                            {/* Volatility Indicator */}
+                            {/* Volatility Indicator - 5 Levels */}
                             {idea.volatility && (
                               <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
+                                idea.volatility.category === 'Low' ? 'bg-cyan-500/20 text-cyan-300' :
+                                idea.volatility.category === 'Low-Medium' ? 'bg-blue-500/20 text-blue-300' :
+                                idea.volatility.category === 'Medium' ? 'bg-violet-500/20 text-violet-300' :
+                                idea.volatility.category === 'Medium-High' ? 'bg-amber-500/20 text-amber-300' :
                                 idea.volatility.category === 'High' ? 'bg-red-500/20 text-red-300' :
-                                idea.volatility.category === 'Low' ? 'bg-emerald-500/20 text-emerald-300' :
-                                'bg-amber-500/20 text-amber-300'
+                                'bg-violet-500/20 text-violet-300'
                               }`}>
                                 <Activity className="w-3 h-3" />
-                                {idea.volatility.category} Vol ({idea.volatility.atrPercent}%)
+                                {idea.volatility.category} ({idea.volatility.atrPercent}%)
                               </div>
                             )}
                           </div>
