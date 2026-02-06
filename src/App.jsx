@@ -244,7 +244,11 @@ function App() {
   // Daily Pick
   const [dailyPick, setDailyPick] = useState(null);
   const [loadingPick, setLoadingPick] = useState(false);
+  const [dailyPickError, setDailyPickError] = useState(null);
   const [dailyPickProgress, setDailyPickProgress] = useState({ phase: 'idle', current: 0, total: 0, scanTime: 0 });
+
+  // Toast notifications for feedback
+  const [toast, setToast] = useState(null); // { type: 'success'|'error'|'info', message: string }
   const [pickAssetClass, setPickAssetClass] = useState("all");
   const [lastPickTime, setLastPickTime] = useState(null);
   const [pickTimeframe, setPickTimeframe] = useState("24-48h"); // Holding period timeframe
@@ -842,8 +846,16 @@ function App() {
       }
     }
   }, []);
-  
-  
+
+  // Auto-dismiss toast notifications after 4 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+
   // =================================================================
   // NEW: PHASE 1 & 2 STATE VARIABLES
   // =================================================================
@@ -5295,6 +5307,7 @@ OUTPUT JSON:
   // Daily Pick - FETCHES LIVE DATA AND CALCULATES REAL TECHNICAL INDICATORS
   const fetchDailyPick = async (forceRefresh = false) => {
     setLoadingPick(true);
+    setDailyPickError(null);
     setAnalysisError(null);
 
     try {
@@ -5501,6 +5514,7 @@ OUTPUT JSON:
 
         setDailyPick(pick);
         setLastPickTime(new Date());
+        setToast({ type: 'success', message: `✅ Found top pick: ${pick.ticker} (${pick.direction})` });
         setLoadingPick(false);
         return; // Skip legacy slow analysis
         }  // end else (stockAnalyses.length > 0)
@@ -6155,9 +6169,11 @@ OUTPUT JSON:
       
       setDailyPick(pick);
       setLastPickTime(new Date());
+      setToast({ type: 'success', message: `✅ Found top pick: ${pick.ticker} (${pick.direction})` });
     } catch (err) {
       console.error("[Daily Pick] Error:", err);
-      setAnalysisError(`Failed: ${err.message}`);
+      setDailyPickError(`Failed to generate pick: ${err.message}`);
+      setToast({ type: 'error', message: '❌ Failed to generate pick. Try again.' });
     } finally {
       setLoadingPick(false);
     }
@@ -9019,6 +9035,25 @@ OUTPUT JSON:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-sm animate-slideIn flex items-center gap-3 max-w-sm ${
+            toast.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' :
+            toast.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-300' :
+            'bg-blue-500/20 border-blue-500/50 text-blue-300'
+          }`}
+        >
+          <span className="text-sm font-medium">{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-auto text-slate-400 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* API Key Modal - ENHANCED WITH BACKEND MODE & SMS */}
       {showApiKeyModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
@@ -16243,7 +16278,7 @@ OUTPUT JSON:
                   <Clock className="w-4 h-4" />
                   <span>Select Holding Period:</span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2">
                   {/* Short Timeframes */}
                   <button
                     onClick={() => setPickTimeframe("5-7h")}
@@ -16562,6 +16597,26 @@ OUTPUT JSON:
                 </div>
               )}
 
+              {/* Daily Pick Error Display */}
+              {dailyPickError && !loadingPick && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-red-400 mb-1">Unable to Generate Pick</h4>
+                      <p className="text-sm text-slate-300">{dailyPickError}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => fetchDailyPick(true)}
+                    className="mt-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-medium text-sm transition-colors flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Retry</span>
+                  </button>
+                </div>
+              )}
+
               {dailyPick && (
                 <div className="space-y-5">
                   {/* LIVE DATA INDICATOR */}
@@ -16588,17 +16643,17 @@ OUTPUT JSON:
                     </div>
                   )}
                   
-                  <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl p-6">
-                    <div className="flex items-start justify-between mb-4">
+                  <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl p-4 md:p-6">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
                       <div>
-                        <h3 className="text-2xl font-bold mb-1">{dailyPick.assetName}</h3>
-                        <p className="text-slate-400">{dailyPick.asset} • {dailyPick.assetType}</p>
+                        <h3 className="text-xl md:text-2xl font-bold mb-1">{dailyPick.assetName}</h3>
+                        <p className="text-sm md:text-base text-slate-400">{dailyPick.asset} • {dailyPick.assetType}</p>
                         {/* Show current price prominently */}
-                        <p className="text-lg font-semibold text-white mt-1">
+                        <p className="text-base md:text-lg font-semibold text-white mt-1">
                           Current: <span className="text-violet-400">${dailyPick.currentPrice}</span>
                         </p>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-wrap md:flex-col items-start md:items-end gap-2">
                         {/* UNIFIED Recommendation Badge - matches main analyzer */}
                         {dailyPick.recommendation && (
                           <div className={`px-4 py-2 rounded-xl font-bold text-lg shadow-lg ${
