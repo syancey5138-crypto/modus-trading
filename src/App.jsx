@@ -1923,7 +1923,13 @@ function App() {
   const [bollingerPeriod, setBollingerPeriod] = useState(20);
   const [bollingerStdDev, setBollingerStdDev] = useState(2);
   const [showTickerOverlay, setShowTickerOverlay] = useState(true);
-  
+
+  // Chart Comparison Overlay
+  const [comparisonSymbol, setComparisonSymbol] = useState('');
+  const [comparisonData, setComparisonData] = useState(null);
+  const [loadingComparison, setLoadingComparison] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+
   const fileInputRef = useRef(null);
 
   // =================================================================
@@ -4144,6 +4150,42 @@ function App() {
     console.log(`[Yahoo Finance] All ${maxRetries} attempts failed`);
     return null;
   };
+
+  // ============================================================
+  // CHART COMPARISON OVERLAY - Fetch second stock for comparison
+  // ============================================================
+  const fetchComparisonData = useCallback(async (symbol) => {
+    if (!symbol || symbol.trim() === '') {
+      setComparisonData(null);
+      setShowComparison(false);
+      return;
+    }
+    const sym = symbol.trim().toUpperCase();
+    setLoadingComparison(true);
+    try {
+      const result = await tryYahooFetch(sym, tickerTimeframeRef.current || tickerTimeframe || '1d', '1y');
+      if (result && result.timeSeries && result.timeSeries.length > 0) {
+        setComparisonData({
+          symbol: sym,
+          timeSeries: result.timeSeries,
+          currentPrice: result.timeSeries[result.timeSeries.length - 1]?.close || 0
+        });
+        setShowComparison(true);
+        console.log(`[Comparison] ✅ Loaded ${result.timeSeries.length} bars for ${sym}`);
+      } else {
+        showToast(`Could not load data for ${sym}`, 'error');
+        setComparisonData(null);
+        setShowComparison(false);
+      }
+    } catch (err) {
+      console.error('[Comparison] Failed:', err);
+      showToast(`Failed to load ${sym}: ${err.message}`, 'error');
+      setComparisonData(null);
+      setShowComparison(false);
+    } finally {
+      setLoadingComparison(false);
+    }
+  }, [tickerTimeframe]);
 
   const fetchFromYahooFinance = async (symbol) => {
     console.log(`[Yahoo Finance] Fetching data for ${symbol}...`);
@@ -13479,9 +13521,47 @@ OUTPUT JSON:
                             >
                               {showVWAP ? '✅' : '☐'} VWAP
                             </button>
+
+                            {/* Chart Comparison Overlay */}
+                            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-600">
+                              <button
+                                onClick={() => {
+                                  if (showComparison) {
+                                    setShowComparison(false);
+                                    setComparisonData(null);
+                                    setComparisonSymbol('');
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                                  showComparison ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400'
+                                }`}
+                                title={showComparison ? 'Click to remove comparison' : 'Type a symbol and press Enter to compare'}
+                              >
+                                {showComparison ? `✅ vs ${comparisonData?.symbol || ''}` : '📊 Compare'}
+                              </button>
+                              {!showComparison && (
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={comparisonSymbol}
+                                    onChange={(e) => setComparisonSymbol(e.target.value.toUpperCase())}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && comparisonSymbol.trim()) {
+                                        fetchComparisonData(comparisonSymbol);
+                                      }
+                                    }}
+                                    placeholder="e.g. SPY"
+                                    className="w-24 bg-slate-800/80 border border-slate-600/50 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                                  />
+                                  {loadingComparison && (
+                                    <RefreshCw className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-amber-400 animate-spin" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        
+
                         {/* Chart Controls - Separate Panels */}
                         <div className="mb-4">
                           <div className="text-xs text-slate-500 mb-1">Indicator Panels</div>
@@ -13988,17 +14068,56 @@ OUTPUT JSON:
                                       strokeWidth="0.5"
                                     />
                                   )}
+
+                                  {/* COMPARISON OVERLAY LINE */}
+                                  {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
+                                    // Normalize comparison data to overlay on the main chart's price scale
+                                    const mainCloses = tickerData.timeSeries.map(b => b.close);
+                                    const compCloses = comparisonData.timeSeries.map(b => b.close);
+
+                                    // Use percentage change from start to normalize both to same scale
+                                    const mainStart = mainCloses[0] || 1;
+                                    const compStart = compCloses[0] || 1;
+
+                                    // Map comparison closes to the main chart's price range
+                                    const normalizedComp = compCloses.map(c => {
+                                      const compPctChange = (c - compStart) / compStart;
+                                      return mainStart * (1 + compPctChange);
+                                    });
+
+                                    // Sample comparison data to match main chart length
+                                    const mainLen = mainCloses.length;
+                                    const compLen = normalizedComp.length;
+                                    const sampledComp = [];
+                                    for (let ci = 0; ci < mainLen; ci++) {
+                                      const compIdx = Math.round((ci / mainLen) * compLen);
+                                      const val = normalizedComp[Math.min(compIdx, compLen - 1)];
+                                      if (val != null) sampledComp.push({ x: ci, y: priceToY(val) });
+                                    }
+
+                                    return sampledComp.length > 1 ? (
+                                      <polyline
+                                        points={sampledComp.map(p => `${p.x},${p.y}`).join(' ')}
+                                        fill="none"
+                                        stroke="#fbbf24"
+                                        strokeWidth="0.7"
+                                        strokeDasharray="3,1"
+                                        opacity="0.85"
+                                      />
+                                    ) : null;
+                                  })()}
                                 </svg>
                               );
                             })()}
                             
                             {/* Overlay Legend */}
-                            {(showSMA || showEMA || showBollinger || showVWAP) && (
+                            {(showSMA || showEMA || showBollinger || showVWAP || showComparison) && (
                               <div className="absolute top-2 right-20 bg-slate-900/90 rounded px-2 py-1 text-xs flex gap-3 z-20">
                                 {showSMA && <span className="text-blue-400">━ SMA({smaPeriod})</span>}
                                 {showEMA && <span className="text-orange-400">━ EMA({emaPeriod})</span>}
                                 {showBollinger && <span className="text-cyan-400">┄ BB({bollingerPeriod},{bollingerStdDev})</span>}
                                 {showVWAP && <span className="text-pink-400">━ VWAP</span>}
+                                {showComparison && comparisonData && <span className="text-amber-400">┄ {comparisonData.symbol} (normalized)</span>}
                               </div>
                             )}
                             
