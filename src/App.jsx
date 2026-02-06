@@ -1217,7 +1217,28 @@ function App() {
           [alert.id]: currentTriggerCount
         }));
 
-        // Show notification
+        // Push to notification center
+        const notifData = {
+          type: 'price_alert',
+          title: `${alert.symbol} Alert Triggered!`,
+          message: `Price ${alert.condition} $${targetPrice.toFixed(2)}. Current: $${currentPrice.toFixed(2)}`,
+          icon: currentPrice > targetPrice ? '📈' : '📉',
+          symbol: alert.symbol,
+          price: currentPrice,
+          targetPrice: targetPrice,
+          condition: alert.condition
+        };
+
+        // Add to notification history
+        setNotificationHistory(prev => [{
+          id: Date.now() + Math.random(),
+          timestamp: new Date().toISOString(),
+          read: false,
+          ...notifData
+        }, ...prev].slice(0, 100));
+        setUnreadNotifications(prev => prev + 1);
+
+        // Show browser notification
         if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
           new Notification(`🔔 ${alert.symbol} Alert!`, {
             body: `Price ${alert.condition} $${targetPrice.toFixed(2)}. Current: $${currentPrice.toFixed(2)}`,
@@ -1357,6 +1378,35 @@ function App() {
   const [lastPriceUpdate, setLastPriceUpdate] = useState(Date.now());
   const [priceFlash, setPriceFlash] = useState(null);
   const [previousPrice, setPreviousPrice] = useState(null);
+
+  // NEW: WebSocket Streaming State
+  const wsRef = useRef(null);
+  const wsReconnectTimerRef = useRef(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsSubscribedSymbols, setWsSubscribedSymbols] = useState([]);
+  const [streamingPrices, setStreamingPrices] = useState({});
+
+  // NEW: Notification Center State
+  const [notificationHistory, setNotificationHistory] = useState([]);
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    sound: true,
+    browser: true,
+    sms: false,
+    priceAlerts: true,
+    newsAlerts: true,
+    tradeAlerts: true
+  });
+
+  // NEW: Sharing State
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareContent, setShareContent] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // NEW: Screener Presets
+  const [selectedScanPreset, setSelectedScanPreset] = useState('custom');
+
   const [priceChange, setPriceChange] = useState(null); // { amount: 0.50, percent: 0.12, direction: 'up' }
   const [isRefreshing, setIsRefreshing] = useState(false); // Subtle refresh indicator
   const [nextRefreshIn, setNextRefreshIn] = useState(null); // Countdown to next refresh
@@ -7171,9 +7221,393 @@ OUTPUT JSON:
   };
   
   // ========================
+  // WEBSOCKET STREAMING PRICES
+  // ========================
+
+  const connectWebSocket = useCallback(() => {
+    // Finnhub free WebSocket for real-time trades
+    const FINNHUB_WS_URL = 'wss://ws.finnhub.io?token=demo';
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      return; // Already connected
+    }
+
+    try {
+      const ws = new WebSocket(FINNHUB_WS_URL);
+
+      ws.onopen = () => {
+        console.log('[WebSocket] ✅ Connected to price stream');
+        setWsConnected(true);
+
+        // Subscribe to watchlist symbols
+        const symbolsToSubscribe = [...new Set([...watchlist, tickerSymbol].filter(Boolean))];
+        symbolsToSubscribe.forEach(symbol => {
+          ws.send(JSON.stringify({ type: 'subscribe', symbol: symbol }));
+        });
+        setWsSubscribedSymbols(symbolsToSubscribe);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'trade' && data.data) {
+            const updates = {};
+            data.data.forEach(trade => {
+              updates[trade.s] = {
+                current: trade.p,
+                volume: trade.v,
+                timestamp: trade.t,
+                lastUpdate: Date.now()
+              };
+            });
+
+            setStreamingPrices(prev => {
+              const newPrices = { ...prev };
+              Object.entries(updates).forEach(([symbol, priceData]) => {
+                const oldPrice = newPrices[symbol]?.current;
+                newPrices[symbol] = {
+                  ...priceData,
+                  change: oldPrice ? priceData.current - oldPrice : 0,
+                  direction: oldPrice ? (priceData.current > oldPrice ? 'up' : priceData.current < oldPrice ? 'down' : 'flat') : 'flat'
+                };
+              });
+              return newPrices;
+            });
+
+            // Also update watchlist prices for alert checking
+            setWatchlistPrices(prev => {
+              const updated = { ...prev };
+              Object.entries(updates).forEach(([symbol, priceData]) => {
+                if (updated[symbol]) {
+                  updated[symbol] = {
+                    ...updated[symbol],
+                    current: priceData.current,
+                    lastUpdate: Date.now()
+                  };
+                }
+              });
+              return updated;
+            });
+          }
+        } catch (e) {
+          // Ignore parse errors for ping/pong
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[WebSocket] 🔌 Disconnected');
+        setWsConnected(false);
+        // Reconnect after 5 seconds
+        wsReconnectTimerRef.current = setTimeout(() => {
+          console.log('[WebSocket] 🔄 Reconnecting...');
+          connectWebSocket();
+        }, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.log('[WebSocket] ⚠️ Error, falling back to polling');
+        setWsConnected(false);
+      };
+
+      wsRef.current = ws;
+    } catch (e) {
+      console.log('[WebSocket] Failed to connect, using polling fallback');
+      setWsConnected(false);
+    }
+  }, [watchlist, tickerSymbol]);
+
+  // Subscribe/unsubscribe when watchlist changes
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const currentSymbols = [...new Set([...watchlist, tickerSymbol].filter(Boolean))];
+
+      // Unsubscribe removed symbols
+      wsSubscribedSymbols.forEach(sym => {
+        if (!currentSymbols.includes(sym)) {
+          wsRef.current.send(JSON.stringify({ type: 'unsubscribe', symbol: sym }));
+        }
+      });
+
+      // Subscribe new symbols
+      currentSymbols.forEach(sym => {
+        if (!wsSubscribedSymbols.includes(sym)) {
+          wsRef.current.send(JSON.stringify({ type: 'subscribe', symbol: sym }));
+        }
+      });
+
+      setWsSubscribedSymbols(currentSymbols);
+    }
+  }, [watchlist, tickerSymbol]);
+
+  // Connect WebSocket on mount, cleanup on unmount
+  useEffect(() => {
+    connectWebSocket();
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (wsReconnectTimerRef.current) {
+        clearTimeout(wsReconnectTimerRef.current);
+      }
+    };
+  }, []);
+
+  // ========================
+  // NOTIFICATION CENTER
+  // ========================
+
+  const addNotification = useCallback((notification) => {
+    const newNotif = {
+      id: Date.now() + Math.random(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notification
+    };
+
+    setNotificationHistory(prev => [newNotif, ...prev].slice(0, 100)); // Keep last 100
+    setUnreadNotifications(prev => prev + 1);
+
+    // Play sound if enabled
+    if (notificationPrefs.sound) {
+      playBeep(800, 0.2);
+    }
+
+    // Show browser notification if enabled
+    if (notificationPrefs.browser && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(notification.title || 'MODUS Alert', {
+        body: notification.message || '',
+        icon: '/favicon.ico',
+        tag: `modus-${newNotif.id}`,
+        silent: true // We handle our own sound
+      });
+    }
+  }, [notificationPrefs, playBeep]);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotificationHistory(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadNotifications(0);
+  }, []);
+
+  const clearNotifications = useCallback(() => {
+    setNotificationHistory([]);
+    setUnreadNotifications(0);
+  }, []);
+
+  const requestNotificationPermission = useCallback(async () => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        addNotification({
+          type: 'system',
+          title: 'Notifications Enabled',
+          message: 'You will now receive browser notifications for price alerts and important events.',
+          icon: '🔔'
+        });
+      }
+    }
+  }, [addNotification]);
+
+  // Request notification permission on first load
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      // Delay permission request to not be intrusive
+      const timer = setTimeout(() => {
+        requestNotificationPermission();
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // ========================
+  // SOCIAL SHARING
+  // ========================
+
+  const generateShareText = useCallback((analysisData) => {
+    if (!analysisData) return '';
+
+    const symbol = analysisData.context?.ticker || analysisData.symbol || 'N/A';
+    const score = Math.round(analysisData.final?.confidenceScore || 0);
+    const recommendation = (analysisData.final?.recommendation || 'HOLD').replace(/_/g, ' ');
+    const trend = analysisData.patterns?.trendAnalysis?.trend || 'N/A';
+    const summary = analysisData.final?.summary || '';
+
+    // Truncate summary for sharing
+    const shortSummary = summary.length > 200 ? summary.substring(0, 197) + '...' : summary;
+
+    return `📊 $${symbol} Analysis via MODUS\n\n` +
+      `Score: ${score}/100 | ${recommendation}\n` +
+      `Trend: ${trend}\n\n` +
+      `${shortSummary}\n\n` +
+      `#Trading #StockAnalysis #MODUS`;
+  }, []);
+
+  const shareAnalysis = useCallback(async (method = 'native') => {
+    const text = generateShareText(analysis);
+    if (!text) return;
+
+    setShareContent(text);
+
+    switch (method) {
+      case 'native':
+        // Web Share API (mobile-first)
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: `MODUS Analysis - ${analysis?.context?.ticker || 'Stock'}`,
+              text: text,
+              url: window.location.href
+            });
+            addNotification({ type: 'system', title: 'Shared!', message: 'Analysis shared successfully', icon: '✅' });
+          } catch (e) {
+            if (e.name !== 'AbortError') {
+              // Fallback to copy
+              shareAnalysis('copy');
+            }
+          }
+        } else {
+          // Fallback to showing share modal
+          setShowShareModal(true);
+        }
+        break;
+
+      case 'twitter':
+        const tweetText = encodeURIComponent(text.substring(0, 280));
+        window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank', 'width=550,height=420');
+        break;
+
+      case 'copy':
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 2000);
+          addNotification({ type: 'system', title: 'Copied!', message: 'Analysis copied to clipboard', icon: '📋' });
+        } catch (e) {
+          // Fallback for older browsers
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 2000);
+        }
+        break;
+
+      case 'reddit':
+        const redditTitle = encodeURIComponent(`$${analysis?.context?.ticker || 'Stock'} Technical Analysis - Score: ${Math.round(analysis?.final?.confidenceScore || 0)}/100`);
+        const redditText = encodeURIComponent(text);
+        window.open(`https://www.reddit.com/submit?title=${redditTitle}&selftext=${redditText}`, '_blank');
+        break;
+    }
+  }, [analysis, generateShareText, addNotification]);
+
+  const shareTradeIdea = useCallback((idea) => {
+    const text = `💡 Trade Idea via MODUS\n\n` +
+      `$${idea.symbol} - ${idea.direction}\n` +
+      `Entry: $${idea.entry} | Stop: $${idea.stop} | Target: $${idea.target}\n` +
+      `R/R: ${idea.riskReward || 'N/A'}\n\n` +
+      `${idea.reason || ''}\n\n#Trading #MODUS`;
+
+    if (navigator.share) {
+      navigator.share({ title: `Trade Idea - ${idea.symbol}`, text });
+    } else {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      });
+    }
+  }, []);
+
+  // ========================
+  // SCREENER PRESET STRATEGIES
+  // ========================
+
+  const SCAN_PRESETS = useMemo(() => ({
+    custom: {
+      name: 'Custom Scan',
+      icon: '🔧',
+      description: 'Set your own filters',
+      criteria: null
+    },
+    oversold_bounce: {
+      name: 'RSI Oversold Bounce',
+      icon: '📉',
+      description: 'Stocks with RSI < 30 showing reversal potential',
+      filter: (stock) => stock.rsi < 30 && stock.trend !== 'DOWN'
+    },
+    overbought: {
+      name: 'RSI Overbought',
+      icon: '📈',
+      description: 'Stocks with RSI > 70, potential pullback candidates',
+      filter: (stock) => stock.rsi > 70
+    },
+    volume_breakout: {
+      name: 'Volume Breakout',
+      icon: '🔥',
+      description: 'Unusual volume with strong price movement',
+      filter: (stock) => stock.volumeRatio > 2.0 && Math.abs(stock.change) > 2
+    },
+    bullish_momentum: {
+      name: 'Bullish Momentum',
+      icon: '🚀',
+      description: 'Strong uptrend with MACD and SMA confirmation',
+      filter: (stock) => stock.trend === 'UP' && stock.macdSignal === 'Bullish' && stock.aboveSMA20 && stock.aboveSMA50
+    },
+    bearish_breakdown: {
+      name: 'Bearish Breakdown',
+      icon: '🐻',
+      description: 'Stocks breaking down below key moving averages',
+      filter: (stock) => stock.trend === 'DOWN' && !stock.aboveSMA20 && !stock.aboveSMA50
+    },
+    golden_cross: {
+      name: 'Golden Cross Setup',
+      icon: '✨',
+      description: 'SMA20 above SMA50 with bullish momentum',
+      filter: (stock) => stock.aboveSMA20 && stock.aboveSMA50 && stock.rsi > 50 && stock.rsi < 70
+    },
+    high_conviction: {
+      name: 'High Conviction',
+      icon: '🎯',
+      description: 'Strong BUY or SELL signals with multiple confirmations',
+      filter: (stock) => stock.recommendation === 'BUY' || stock.recommendation === 'SELL'
+    },
+    dip_buy: {
+      name: 'Buy the Dip',
+      icon: '💰',
+      description: 'Quality stocks down >3% with RSI support',
+      filter: (stock) => stock.change < -3 && stock.rsi < 40 && stock.aboveSMA50
+    }
+  }), []);
+
+  // Apply preset filter to scan results
+  const getFilteredScanResults = useCallback(() => {
+    if (!scanResults || scanResults.length === 0) return [];
+
+    if (selectedScanPreset === 'custom') {
+      // Apply manual criteria filters
+      return scanResults.filter(stock => {
+        if (scanCriteria.minPrice && stock.price < parseFloat(scanCriteria.minPrice)) return false;
+        if (scanCriteria.maxPrice && stock.price > parseFloat(scanCriteria.maxPrice)) return false;
+        if (scanCriteria.rsiMin && stock.rsi < parseFloat(scanCriteria.rsiMin)) return false;
+        if (scanCriteria.rsiMax && stock.rsi > parseFloat(scanCriteria.rsiMax)) return false;
+        if (scanCriteria.minVolume && stock.volumeRaw < parseFloat(scanCriteria.minVolume)) return false;
+        return true;
+      });
+    }
+
+    const preset = SCAN_PRESETS[selectedScanPreset];
+    if (preset && preset.filter) {
+      return scanResults.filter(preset.filter);
+    }
+
+    return scanResults;
+  }, [scanResults, selectedScanPreset, scanCriteria, SCAN_PRESETS]);
+
+  // ========================
   // TRADING JOURNAL
   // ========================
-  
+
   const openAddTrade = () => {
     setNewTrade({
       symbol: analysis?.symbol || tickerSymbol || "",
@@ -10176,6 +10610,144 @@ OUTPUT JSON:
         </div>
       )}
 
+      {/* NOTIFICATION CENTER PANEL */}
+      {showNotificationCenter && (
+        <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-slate-900/98 backdrop-blur-xl border-l border-slate-700/50 z-[55] shadow-2xl flex flex-col" style={{ animation: 'slideIn 0.3s ease-out' }}>
+          <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-violet-500/20 rounded-lg">
+                <Bell className="w-5 h-5 text-violet-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Notifications</h3>
+                <p className="text-xs text-slate-500">{notificationHistory.length} total</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {notificationHistory.length > 0 && (
+                <button onClick={clearNotifications} className="text-xs text-slate-500 hover:text-red-400 transition-colors px-2 py-1">
+                  Clear All
+                </button>
+              )}
+              <button onClick={() => setShowNotificationCenter(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+          </div>
+
+          {/* Notification Preferences */}
+          <div className="px-4 py-3 border-b border-slate-800/50 flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-slate-500">Notify via:</span>
+            {[
+              { key: 'sound', label: 'Sound', icon: '🔊' },
+              { key: 'browser', label: 'Browser', icon: '🌐' },
+            ].map(pref => (
+              <button
+                key={pref.key}
+                onClick={() => setNotificationPrefs(prev => ({ ...prev, [pref.key]: !prev[pref.key] }))}
+                className={`text-xs px-2.5 py-1 rounded-full transition-all ${
+                  notificationPrefs[pref.key]
+                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                    : 'bg-slate-800 text-slate-500 border border-slate-700/30'
+                }`}
+              >
+                {pref.icon} {pref.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Notification List */}
+          <div className="flex-1 overflow-y-auto">
+            {notificationHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+                <Bell className="w-12 h-12 mb-3 opacity-30" />
+                <p className="text-sm">No notifications yet</p>
+                <p className="text-xs mt-1">Price alerts will appear here</p>
+              </div>
+            ) : (
+              notificationHistory.map(notif => (
+                <div key={notif.id} className={`px-4 py-3 border-b border-slate-800/30 hover:bg-slate-800/30 transition-colors ${!notif.read ? 'bg-violet-500/5 border-l-2 border-l-violet-500' : ''}`}>
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl mt-0.5">{notif.icon || '🔔'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-medium text-sm truncate">{notif.title}</h4>
+                        <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                          {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{notif.message}</p>
+                      {notif.symbol && (
+                        <button
+                          onClick={() => { setTickerSymbol(notif.symbol); setActiveTab('ticker'); setShowNotificationCenter(false); }}
+                          className="text-[10px] text-violet-400 hover:text-violet-300 mt-1 font-medium"
+                        >
+                          View ${notif.symbol} →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SHARE MODAL */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 max-w-lg w-full shadow-2xl" onClick={e => e.stopPropagation()} style={{ animation: 'slideUp 0.3s ease-out' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-violet-500/20 rounded-lg">
+                  <ArrowUpRight className="w-5 h-5 text-violet-400" />
+                </div>
+                <h3 className="text-xl font-semibold">Share Analysis</h3>
+              </div>
+              <button onClick={() => setShowShareModal(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-slate-800/50 rounded-xl p-4 mb-4 border border-slate-700/30 max-h-48 overflow-y-auto">
+              <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono">{shareContent || generateShareText(analysis)}</pre>
+            </div>
+
+            {/* Share Options */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { shareAnalysis('copy'); setShowShareModal(false); }}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700/50 text-sm font-medium"
+              >
+                <span>📋</span> Copy Text
+              </button>
+              <button
+                onClick={() => { shareAnalysis('twitter'); setShowShareModal(false); }}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/30 rounded-xl transition-all border border-[#1DA1F2]/30 text-sm font-medium text-[#1DA1F2]"
+              >
+                <span>𝕏</span> Twitter/X
+              </button>
+              <button
+                onClick={() => { shareAnalysis('reddit'); setShowShareModal(false); }}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FF4500]/20 hover:bg-[#FF4500]/30 rounded-xl transition-all border border-[#FF4500]/30 text-sm font-medium text-[#FF4500]"
+              >
+                <span>🟠</span> Reddit
+              </button>
+              {navigator.share && (
+                <button
+                  onClick={() => { shareAnalysis('native'); setShowShareModal(false); }}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-violet-600/20 hover:bg-violet-600/30 rounded-xl transition-all border border-violet-500/30 text-sm font-medium text-violet-400"
+                >
+                  <ArrowUpRight className="w-4 h-4" /> More...
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LANDING PAGE */}
       {showLandingPage && (
         <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-violet-950 z-[110] overflow-y-auto">
@@ -11241,7 +11813,43 @@ OUTPUT JSON:
                 <Download className="w-4 h-4" />
               </button>
             )}
-            
+
+            {/* Share Analysis */}
+            {analysis && (
+              <button
+                onClick={() => shareAnalysis('native')}
+                className="p-2.5 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg transition-all duration-200 border border-emerald-500/50 btn-press relative"
+                title="Share Analysis"
+              >
+                <ArrowUpRight className="w-4 h-4" />
+                {copySuccess && (
+                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">Copied!</span>
+                )}
+              </button>
+            )}
+
+            {/* Notification Center */}
+            <button
+              onClick={() => { setShowNotificationCenter(!showNotificationCenter); if (!showNotificationCenter) markAllNotificationsRead(); }}
+              className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-xl transition-all duration-200 relative border border-slate-700/30 hover:border-violet-500/30 btn-press"
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4 text-slate-400" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-red-500 to-rose-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
+            </button>
+
+            {/* WebSocket Status Indicator */}
+            <div className={`hidden md:flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs ${
+              wsConnected ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+            }`} title={wsConnected ? 'Live streaming prices' : 'Polling mode (10s updates)'}>
+              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-amber-400'}`} />
+              <span className="hidden lg:inline">{wsConnected ? 'LIVE' : 'Polling'}</span>
+            </div>
+
             {/* Settings */}
             <button
               onClick={() => setShowApiKeyModal(true)}
@@ -20115,14 +20723,93 @@ OUTPUT JSON:
               </div>
             </div>
 
+            {/* ADVANCED PRESET STRATEGY SELECTOR */}
             <div className="bg-slate-900/50 rounded-lg p-6 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-4">Pre-Built Scans</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Strategy Presets</h3>
+                <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-1 rounded-full">
+                  {selectedScanPreset === 'custom' ? 'Custom Mode' : SCAN_PRESETS[selectedScanPreset]?.name}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                {Object.entries(SCAN_PRESETS).filter(([key]) => key !== 'custom').map(([key, preset]) => (
+                  <button
+                    key={key}
+                    onClick={async () => {
+                      setSelectedScanPreset(key);
+                      if (scanResults.length === 0) {
+                        setLoadingScanner(true);
+                        try {
+                          await scanRealMarket();
+                        } finally {
+                          setLoadingScanner(false);
+                        }
+                      }
+                    }}
+                    className={`p-3 rounded-xl text-left transition-all border ${
+                      selectedScanPreset === key
+                        ? 'bg-violet-600/20 border-violet-500/50 shadow-lg shadow-violet-500/10'
+                        : 'bg-slate-800/40 border-slate-700/30 hover:border-slate-600/50 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="text-lg mb-1">{preset.icon}</div>
+                    <div className="font-semibold text-sm mb-0.5">{preset.name}</div>
+                    <div className="text-[10px] text-slate-500 leading-tight">{preset.description}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Full Market Scan Button */}
+              <button
+                onClick={async () => {
+                  setLoadingScanner(true);
+                  try {
+                    await scanRealMarket();
+                  } finally {
+                    setLoadingScanner(false);
+                  }
+                }}
+                disabled={loadingScanner}
+                className="w-full bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 py-3 rounded-xl font-semibold disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              >
+                {loadingScanner ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Scanning 220+ Stocks...
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4" />
+                    Run Full Market Scan (220+ Stocks)
+                  </>
+                )}
+              </button>
+
+              {/* Scanner Progress */}
+              {loadingScanner && scannerProgress && (
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-slate-500 mb-1">
+                    <span>{scannerProgress.phase === 'scanning' ? 'Scanning...' : scannerProgress.phase}</span>
+                    <span>{scannerProgress.current || 0}/{scannerProgress.total || 0}</span>
+                  </div>
+                  <div className="w-full bg-slate-800 rounded-full h-1.5">
+                    <div
+                      className="bg-violet-500 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${scannerProgress.total ? (scannerProgress.current / scannerProgress.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-900/50 rounded-lg p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold mb-4">Quick Scans</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <button
                   onClick={async () => {
                     setLoadingScanner(true);
+                    setSelectedScanPreset('bullish_momentum');
                     try {
-                      // Fetch real momentum stocks
                       const results = await scanRealMarket();
                       if (results && results.gainers && results.gainers.length > 0) {
                         setScanResults(results.gainers.slice(0, 5));
@@ -20428,8 +21115,32 @@ OUTPUT JSON:
 
             {scanResults.length > 0 && (
               <div className="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700">
-                <div className="p-4 border-b border-slate-700 flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Results ({scanResults.length} stocks)</h3>
+                <div className="p-4 border-b border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      Results ({getFilteredScanResults().length} stocks)
+                      {selectedScanPreset !== 'custom' && (
+                        <span className="ml-2 text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
+                          {SCAN_PRESETS[selectedScanPreset]?.icon} {SCAN_PRESETS[selectedScanPreset]?.name}
+                        </span>
+                      )}
+                    </h3>
+                    {scanResults[0]?.isLive && (
+                      <p className="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block" /> Live market data
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedScanPreset !== 'custom' && (
+                      <button
+                        onClick={() => setSelectedScanPreset('custom')}
+                        className="text-xs text-slate-500 hover:text-white px-2 py-1 bg-slate-800 rounded-lg transition-colors"
+                      >
+                        Clear Filter
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -20440,39 +21151,77 @@ OUTPUT JSON:
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Change</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Volume</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">RSI</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 hidden md:table-cell">Trend</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 hidden md:table-cell">Signal</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700">
-                      {scanResults.map((stock, i) => (
-                        <tr key={i} className="hover:bg-slate-800/50">
-                          <td className="px-4 py-3 font-semibold">{stock.symbol}</td>
-                          <td className="px-4 py-3">${typeof stock.price === 'number' ? stock.price.toFixed(2) : stock.price || '---'}</td>
+                      {getFilteredScanResults().map((stock, i) => (
+                        <tr key={i} className="hover:bg-slate-800/50 transition-colors">
                           <td className="px-4 py-3">
-                            <span className={(stock.change || 0) >= 0 ? "text-green-400" : "text-red-400"}>
+                            <div className="font-semibold">{stock.symbol}</div>
+                            <div className="text-[10px] text-slate-500">{getCompanyName(stock.symbol)}</div>
+                          </td>
+                          <td className="px-4 py-3 tabular-nums">${typeof stock.price === 'number' ? stock.price.toFixed(2) : stock.price || '---'}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${(stock.change || 0) >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                               {(stock.change || 0) >= 0 ? "+" : ""}{typeof stock.change === 'number' ? stock.change.toFixed(2) : stock.change || '0'}%
                             </span>
                           </td>
-                          <td className="px-4 py-3">{stock.volume || '---'}</td>
+                          <td className="px-4 py-3 text-sm text-slate-400">{stock.volume || '---'}</td>
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              (stock.rsi || 50) > 70 ? 'bg-red-900/30 text-red-400' :
-                              (stock.rsi || 50) < 30 ? 'bg-green-900/30 text-green-400' :
-                              'bg-slate-700 text-slate-300'
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              (stock.rsi || 50) > 70 ? 'bg-red-500/15 text-red-400' :
+                              (stock.rsi || 50) < 30 ? 'bg-emerald-500/15 text-emerald-400' :
+                              'bg-slate-700/50 text-slate-300'
                             }`}>
                               {Math.round(stock.rsi || 50)}
                             </span>
                           </td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            <span className={`text-xs font-medium ${
+                              stock.trend === 'UP' ? 'text-emerald-400' : stock.trend === 'DOWN' ? 'text-red-400' : 'text-slate-500'
+                            }`}>
+                              {stock.trend === 'UP' ? '↑ Up' : stock.trend === 'DOWN' ? '↓ Down' : '→ Flat'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            {stock.recommendation && (
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                stock.recommendation === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                stock.recommendation === 'SELL' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                stock.recommendation === 'LEAN_BUY' ? 'bg-emerald-500/10 text-emerald-500/70' :
+                                stock.recommendation === 'LEAN_SELL' ? 'bg-red-500/10 text-red-500/70' :
+                                'bg-slate-700/50 text-slate-400'
+                              }`}>
+                                {(stock.recommendation || 'HOLD').replace('_', ' ')}
+                              </span>
+                            )}
+                          </td>
                           <td className="px-4 py-3">
-                            <button
-                              onClick={() => {
-                                setTickerSymbol(stock.symbol);
-                                setActiveTab("ticker");
-                              }}
-                              className="text-violet-400 hover:text-violet-300 text-sm font-semibold"
-                            >
-                              Analyze →
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setTickerSymbol(stock.symbol);
+                                  setActiveTab("ticker");
+                                }}
+                                className="text-violet-400 hover:text-violet-300 text-sm font-semibold"
+                              >
+                                Analyze →
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (!watchlist.includes(stock.symbol)) {
+                                    setWatchlist([...watchlist, stock.symbol]);
+                                  }
+                                }}
+                                className={`text-xs p-1 rounded ${watchlist.includes(stock.symbol) ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}
+                                title={watchlist.includes(stock.symbol) ? 'In watchlist' : 'Add to watchlist'}
+                              >
+                                <Star className="w-3.5 h-3.5" fill={watchlist.includes(stock.symbol) ? 'currentColor' : 'none'} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
