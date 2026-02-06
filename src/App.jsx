@@ -5874,6 +5874,104 @@ OUTPUT JSON:
     return { catalysts: ['Market momentum'], risks: ['General market risk'], sectorTrend: 'Mixed signals', generic: true };
   };
 
+  // Daily Pick - Normalize pick data to prevent render crashes from missing/wrong-typed properties
+  const normalizeDailyPick = (pick) => {
+    if (!pick || typeof pick !== 'object') return null;
+    const safe = { ...pick };
+    // Ensure all top-level string/number properties have safe defaults
+    safe.asset = safe.asset || safe.symbol || safe.ticker || 'N/A';
+    safe.symbol = safe.symbol || safe.asset;
+    safe.ticker = safe.ticker || safe.asset;
+    safe.assetName = safe.assetName || safe.asset || 'Unknown';
+    safe.assetType = safe.assetType || 'Stock';
+    safe.direction = safe.direction || 'LONG';
+    safe.recommendation = (typeof safe.recommendation === 'string') ? safe.recommendation : '';
+    safe.confidence = typeof safe.confidence === 'number' ? safe.confidence : parseInt(safe.confidence) || 0;
+    safe.currentPrice = safe.currentPrice || safe.entry || '0.00';
+    safe.entry = safe.entry || '0.00';
+    safe.stopLoss = safe.stopLoss || '0.00';
+    safe.target1 = safe.target1 || '0.00';
+    safe.target2 = safe.target2 || safe.target1 || '0.00';
+    safe.riskReward = safe.riskReward || '1:1';
+    safe.setup = safe.setup || 'Technical analysis setup';
+    safe.keyReason = safe.keyReason || 'Technical signals detected';
+    safe.technicalSignals = Array.isArray(safe.technicalSignals) ? safe.technicalSignals : [];
+    safe.marketContext = safe.marketContext || '';
+    safe.riskFactors = Array.isArray(safe.riskFactors) ? safe.riskFactors : ['General market risk'];
+    safe.optimalEntry = safe.optimalEntry || 'Near current price';
+    safe.invalidation = safe.invalidation || 'See stop loss level';
+    safe.timeframe = safe.timeframe || 'Swing';
+    safe.holdingPeriod = safe.holdingPeriod || '24-48 Hours';
+    safe.marketSentiment = (typeof safe.marketSentiment === 'string') ? safe.marketSentiment : '';
+    safe.liveDataTimestamp = safe.liveDataTimestamp || '';
+    safe.livePricesFetched = safe.livePricesFetched || 0;
+    // Normalize nested volatility object
+    if (safe.volatility && typeof safe.volatility === 'object') {
+      safe.volatility = {
+        atrPercent: safe.volatility.atrPercent || '0',
+        category: safe.volatility.category || 'Medium',
+        preference: safe.volatility.preference || '',
+        warning: safe.volatility.warning || null,
+      };
+    } else {
+      safe.volatility = { atrPercent: '0', category: 'Medium', preference: '', warning: null };
+    }
+    // Normalize nested technicalData
+    if (safe.technicalData && typeof safe.technicalData === 'object') {
+      safe.technicalData = {
+        rsi: safe.technicalData.rsi ?? 'N/A',
+        macdHistogram: safe.technicalData.macdHistogram ?? '0',
+        trend: safe.technicalData.trend || 'SIDEWAYS',
+        aboveSMA20: safe.technicalData.aboveSMA20 ?? false,
+        aboveSMA50: safe.technicalData.aboveSMA50 ?? false,
+        bullishScore: safe.technicalData.bullishScore ?? 0,
+        bearishScore: safe.technicalData.bearishScore ?? 0,
+      };
+    } else {
+      safe.technicalData = { rsi: 'N/A', macdHistogram: '0', trend: 'SIDEWAYS', aboveSMA20: false, aboveSMA50: false, bullishScore: 0, bearishScore: 0 };
+    }
+    // Normalize nested expectedProfit
+    if (safe.expectedProfit && typeof safe.expectedProfit === 'object') {
+      const ep = safe.expectedProfit;
+      safe.expectedProfit = {
+        profitPerShare: ep.profitPerShare || '0.00',
+        profitPercent: ep.profitPercent || '0.0',
+        profitPerShareT2: ep.profitPerShareT2 || '0.00',
+        profitPercentT2: ep.profitPercentT2 || '0.0',
+        riskPerShare: ep.riskPerShare || '0.00',
+        riskPercent: ep.riskPercent || '0.0',
+        winProbability: ep.winProbability ?? 50,
+        expectedValuePercent: ep.expectedValuePercent || '0.00',
+        exampleAccount: ep.exampleAccount || 10000,
+        exampleRiskPercent: ep.exampleRiskPercent || 2,
+        exampleShares: ep.exampleShares || 0,
+        examplePositionValue: ep.examplePositionValue || '0.00',
+        exampleExpectedProfit: ep.exampleExpectedProfit || '0.00',
+        exampleMaxLoss: ep.exampleMaxLoss || '0.00',
+      };
+    } else {
+      safe.expectedProfit = null;
+    }
+    // Normalize nested catalystData
+    if (safe.catalystData && typeof safe.catalystData === 'object') {
+      const cd = safe.catalystData;
+      safe.catalystData = {
+        catalysts: Array.isArray(cd.catalysts) ? cd.catalysts : [],
+        risks: Array.isArray(cd.risks) ? cd.risks : [],
+        upcomingEvents: Array.isArray(cd.upcomingEvents) ? cd.upcomingEvents : [],
+        earnings: cd.earnings || null,
+        sectorTrend: cd.sectorTrend || null,
+        seasonality: cd.seasonality || null,
+        catalystBonus: cd.catalystBonus || 0,
+      };
+    } else {
+      safe.catalystData = null;
+    }
+    // Normalize otherCandidates
+    safe.otherCandidates = Array.isArray(safe.otherCandidates) ? safe.otherCandidates : [];
+    return safe;
+  };
+
   // Daily Pick Generation
   // Daily Pick - FETCHES LIVE DATA AND CALCULATES REAL TECHNICAL INDICATORS
   const fetchDailyPick = async (forceRefresh = false) => {
@@ -5896,7 +5994,7 @@ OUTPUT JSON:
           // Cache valid for 15 minutes on same day
           if (sameDay && cacheAge < 15 * 60 * 1000) {
             console.log('[Daily Pick] ⚡ Using cached pick (age: ' + Math.round(cacheAge/60000) + 'min)');
-            setDailyPick(pick);
+            setDailyPick(normalizeDailyPick(pick));
             setDailyPickProgress({ phase: 'complete', current: pick.scannedCount || 200, total: pick.scannedCount || 200, scanTime: 0 });
             setLoadingPick(false);
             return;
@@ -6094,7 +6192,7 @@ OUTPUT JSON:
           date: new Date().toDateString()
         }));
 
-        setDailyPick(pick);
+        setDailyPick(normalizeDailyPick(pick));
         setLastPickTime(new Date());
         setToast({ type: 'success', message: `✅ Found top pick: ${pick.asset} (${pick.direction})` });
         setLoadingPick(false);
@@ -6751,7 +6849,7 @@ OUTPUT JSON:
 
       console.log(`[Daily Pick] ✅ ${pick.direction} ${pick.asset} @ $${entry.toFixed(2)} | RSI:${bestPick.rsi?.toFixed(1)} MACD:${bestPick.macdHistogram > 0 ? '+' : '-'} Trend:${bestPick.trend} | Catalysts: ${bestPick.catalysts?.length || 0}`);
       
-      setDailyPick(pick);
+      setDailyPick(normalizeDailyPick(pick));
       setLastPickTime(new Date());
       setToast({ type: 'success', message: `✅ Found top pick: ${pick.asset} (${pick.direction})` });
     } catch (err) {
@@ -19474,7 +19572,7 @@ OUTPUT JSON:
 
                   {lastPickTime && (
                     <p className="text-xs text-slate-500 text-center">
-                      Generated at {lastPickTime.toLocaleTimeString()}
+                      Generated at {lastPickTime instanceof Date ? lastPickTime.toLocaleTimeString() : String(lastPickTime)}
                     </p>
                   )}
                 </div>
@@ -19482,7 +19580,8 @@ OUTPUT JSON:
                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
                   <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
                   <h4 className="font-semibold text-red-400 mb-2">Pick Display Error</h4>
-                  <p className="text-sm text-slate-400 mb-4">Something went wrong rendering the daily pick. This is usually caused by stale cached data.</p>
+                  <p className="text-sm text-slate-400 mb-4">Something went wrong rendering the daily pick.</p>
+                  <p className="text-xs text-red-300/60 mb-4 font-mono break-all">{renderErr?.message || 'Unknown error'}</p>
                   <button onClick={() => { setDailyPick(null); localStorage.removeItem(`modus_daily_pick_${pickTimeframe}_${pickVolatility}`); fetchDailyPick(true); }} className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium text-sm transition-colors">Clear Cache & Retry</button>
                 </div>
               ); } })()}
