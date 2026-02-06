@@ -11389,7 +11389,7 @@ OUTPUT JSON:
               }}
               className="absolute top-4 right-4 text-sm text-slate-500 hover:text-white transition-colors"
             >
-              Skip Setup ×
+              Skip ×
             </button>
 
             {/* Progress */}
@@ -11399,41 +11399,35 @@ OUTPUT JSON:
               ))}
             </div>
 
-            {/* Step 0: API Key */}
+            {/* Step 0: Welcome */}
             {setupStep === 0 && (
               <div className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Key className="w-8 h-8 text-white" />
+                  <Zap className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Set Up Your API Key</h3>
-                <p className="text-sm text-slate-400 mb-6">MODUS uses AI to analyze your charts. You'll need an API key from Anthropic or OpenAI.</p>
+                <h3 className="text-xl font-bold mb-2">Welcome to MODUS</h3>
+                <p className="text-sm text-slate-400 mb-6">Your all-in-one trading analysis platform. Let's get you set up in under a minute.</p>
 
-                <div className="text-left bg-slate-800/50 rounded-xl p-4 mb-4">
-                  <p className="text-xs text-slate-400 mb-3">Quick steps:</p>
-                  <div className="space-y-2 text-xs text-slate-300">
-                    <p>1. Visit <span className="text-violet-400 font-medium">console.anthropic.com</span> or <span className="text-violet-400 font-medium">platform.openai.com</span></p>
-                    <p>2. Create an account and generate an API key</p>
-                    <p>3. Come back and paste it in Settings</p>
-                  </div>
+                <div className="space-y-2 text-left mb-6">
+                  {[
+                    { icon: '🧠', text: 'AI-powered chart analysis with trade setups' },
+                    { icon: '📊', text: 'Real-time data for 220+ stocks across 15 sectors' },
+                    { icon: '🔔', text: 'Price alerts, watchlists, and a full trading journal' },
+                    { icon: '📱', text: 'Custom dashboard you can personalize to your style' },
+                  ].map((tip, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/40 rounded-lg">
+                      <span className="text-lg">{tip.icon}</span>
+                      <span className="text-sm text-slate-300">{tip.text}</span>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowSetupWizard(false);
-                      setShowApiKeyModal(true);
-                    }}
-                    className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
-                  >
-                    Open Settings
-                  </button>
-                  <button
-                    onClick={() => setSetupStep(1)}
-                    className="px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-all text-sm"
-                  >
-                    I'll do this later
-                  </button>
-                </div>
+                <button
+                  onClick={() => setSetupStep(1)}
+                  className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
+                >
+                  Let's Go →
+                </button>
               </div>
             )}
 
@@ -11487,21 +11481,25 @@ OUTPUT JSON:
                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Check className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">You're All Set!</h3>
-                <p className="text-sm text-slate-400 mb-6">Here's what you can do next:</p>
+                <h3 className="text-xl font-bold mb-2">You're Ready!</h3>
+                <p className="text-sm text-slate-400 mb-6">Here's a quick look at what you can do:</p>
 
-                <div className="space-y-2 text-left mb-6">
+                <div className="space-y-2 text-left mb-4">
                   {[
-                    { icon: '📊', text: 'Upload a chart in the Analysis tab to get AI insights' },
-                    { icon: '⭐', text: 'Check the Daily Pick for today\'s AI stock recommendation' },
-                    { icon: '🔔', text: 'Set price alerts to get notified when targets hit' },
-                    { icon: '📓', text: 'Log your trades in the Journal to track performance' },
+                    { icon: '📊', text: 'Upload a chart in Analysis to get AI-powered trade setups' },
+                    { icon: '⭐', text: 'Check the Daily Pick for today\'s top stock recommendation' },
+                    { icon: '🔔', text: 'Set price alerts so you never miss a move' },
+                    { icon: '📓', text: 'Log trades in the Journal and track your performance' },
                   ].map((tip, i) => (
                     <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/40 rounded-lg">
                       <span className="text-lg">{tip.icon}</span>
                       <span className="text-sm text-slate-300">{tip.text}</span>
                     </div>
                   ))}
+                </div>
+
+                <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl px-4 py-3 mb-6">
+                  <p className="text-sm text-slate-300">For a full breakdown of every feature, check out the <span className="text-violet-400 font-semibold">Info & Legal</span> tab in the sidebar.</p>
                 </div>
 
                 <div className="flex gap-3">
@@ -11512,9 +11510,9 @@ OUTPUT JSON:
                       setShowSetupWizard(false);
                       setActiveTab('dashboard');
                     }}
-                    className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 rounded-xl font-semibold transition-all"
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 rounded-xl font-semibold transition-all text-lg"
                   >
-                    Start Trading →
+                    Get Started
                   </button>
                 </div>
               </div>
@@ -24681,7 +24679,7 @@ OUTPUT JSON:
 
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
                         <h3 className="font-semibold text-white mb-2 text-lg">Guided Setup Wizard</h3>
-                        <p className="text-sm text-slate-400 leading-relaxed">New to MODUS? The setup wizard walks you through getting started in 3 easy steps: configuring your API key (or enabling Demo Mode to try the platform without one), building your first watchlist with one-click adds for popular stocks (AAPL, TSLA, MSFT, NVDA, AMZN, GOOGL, META, SPY), and a summary of next steps with tips for getting the most out of the platform.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">New to MODUS? The setup wizard walks you through getting started in 3 quick steps: a welcome overview of what the platform offers, building your first watchlist with one-click adds for popular stocks (AAPL, TSLA, MSFT, NVDA, AMZN, GOOGL, META, SPY), and a summary of next steps with tips for getting the most out of the platform. At the end, you'll be pointed to the Info & Legal tab for a full breakdown of every feature.</p>
                       </div>
                     </div>
                   </div>
