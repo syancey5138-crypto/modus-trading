@@ -6928,22 +6928,40 @@ OUTPUT JSON:
 
   const askChartQuestion = async () => {
     if (!analysis || chartQuestion.length < 5) return;
-    
+
     setLoadingChartAnswer(true);
+    setAnalysisError(null);
     try {
-      const data = await callAPI([{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: imageData.mediaType, data: imageData.data } },
-          { type: "text", text: `Analysis context:\n${JSON.stringify(analysis, null, 2)}\n\nUser question: ${chartQuestion}\n\nAnswer based on the chart and analysis.` }
-        ]
-      }], 2000);
-      
+      // Build message content - include image if available, otherwise just analysis context
+      const messageContent = [];
+      if (imageData?.data && imageData?.mediaType) {
+        messageContent.push({ type: "image", source: { type: "base64", media_type: imageData.mediaType, data: imageData.data } });
+      }
+      // Provide condensed analysis context to keep tokens efficient
+      const contextSummary = {
+        symbol: analysis.context?.symbol,
+        timeframe: analysis.context?.timeframe,
+        trend: analysis.context?.trend,
+        patterns: analysis.patterns?.detected,
+        support: analysis.context?.support,
+        resistance: analysis.context?.resistance,
+        recommendation: analysis.tradeSetup?.recommendation,
+        entry: analysis.tradeSetup?.entryPrice,
+        stopLoss: analysis.tradeSetup?.stopLoss,
+        target: analysis.tradeSetup?.targetPrice,
+        riskReward: analysis.tradeSetup?.riskRewardRatio,
+        indicators: analysis.indicators,
+      };
+      messageContent.push({ type: "text", text: `You are a trading chart analysis expert. A user uploaded a chart and received this analysis:\n\n${JSON.stringify(contextSummary, null, 2)}\n\nThe user now asks: "${chartQuestion}"\n\nProvide a detailed, educational answer referencing the chart analysis. Use **bold** for key terms and bullet points for lists. Be specific with price levels and technical concepts.` });
+
+      const data = await callAPI([{ role: "user", content: messageContent }], 2000);
+
       const answerText = data.content[0].text;
       setChartAnswer(answerText);
       setChartQaHistory([...chartQaHistory, { q: chartQuestion, a: answerText }]);
       setChartQuestion("");
     } catch (err) {
+      console.error('[Chart Q&A] Error:', err);
       setAnalysisError(`Chart Q&A failed: ${err.message}`);
     } finally {
       setLoadingChartAnswer(false);
@@ -17760,57 +17778,180 @@ OUTPUT JSON:
 
                   {analysisTab === "qa" && (
                     <div className="space-y-4 md:space-y-6">
-                      <div>
-                        <h4 className="font-semibold mb-4">Ask About This Chart</h4>
-                        <p className="text-sm text-slate-400 mb-4">
-                          Have questions about this specific chart analysis? Ask follow-up questions here.
-                        </p>
-                        
-                        <div className="mb-4">
-                          <textarea
-                            value={chartQuestion}
-                            onChange={(e) => setChartQuestion(e.target.value)}
-                            placeholder="e.g., Why is the stop loss set at that level? What if price breaks above resistance?"
-                            className="w-full bg-slate-800/40 border border-slate-700/30 rounded-xl hover-lift px-4 py-3 min-h-[100px] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
-                            maxLength={500}
-                          />
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="text-xs text-slate-500">{chartQuestion.length}/500</span>
-                            <button
-                              onClick={askChartQuestion}
-                              disabled={loadingChartAnswer || chartQuestion.length < 5}
-                              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-semibold disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                              {loadingChartAnswer ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" />Thinking...</>
-                              ) : (
-                                <><Send className="w-4 h-4" />Ask</>
-                              )}
-                            </button>
-                          </div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl">
+                          <MessageCircle className="w-5 h-5 text-white" />
                         </div>
+                        <div>
+                          <h4 className="font-semibold text-lg">Ask About This Chart</h4>
+                          <p className="text-sm text-slate-400">Ask follow-up questions about your chart analysis</p>
+                        </div>
+                      </div>
 
-                        {chartAnswer && (
-                          <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-5 mb-4">
-                            <h5 className="font-semibold mb-3 text-violet-300">Answer</h5>
-                            <p className="text-sm text-slate-200 whitespace-pre-wrap">{chartAnswer}</p>
-                          </div>
-                        )}
+                      <div className="mb-4">
+                        <textarea
+                          value={chartQuestion}
+                          onChange={(e) => setChartQuestion(e.target.value)}
+                          placeholder="e.g., Why is the stop loss set at that level? What if price breaks above resistance? Is the RSI divergence significant here?"
+                          className="w-full bg-slate-800/40 border border-slate-700/30 rounded-xl hover-lift px-4 py-4 min-h-[120px] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none placeholder:text-slate-500"
+                          maxLength={500}
+                        />
+                        <div className="flex items-center justify-between mt-3">
+                          <span className="text-xs text-slate-500">{chartQuestion.length}/500</span>
+                          <button
+                            onClick={askChartQuestion}
+                            disabled={loadingChartAnswer || chartQuestion.length < 5}
+                            className="px-6 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-xl font-semibold disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+                          >
+                            {loadingChartAnswer ? (
+                              <><Loader2 className="w-4 h-4 animate-spin" />Thinking...</>
+                            ) : (
+                              <><Send className="w-4 h-4" />Ask Question</>
+                            )}
+                          </button>
+                        </div>
+                      </div>
 
-                        {chartQaHistory.length > 0 && (
-                          <div>
-                            <h5 className="font-semibold mb-3 text-slate-400">Previous Questions</h5>
-                            <div className="space-y-2 md:space-y-3">
-                              {chartQaHistory.slice().reverse().map((item, i) => (
-                                <div key={i} className="bg-slate-800/30 rounded-lg p-4">
-                                  <p className="font-medium text-sm text-slate-200 mb-2">Q: {item.q}</p>
-                                  <p className="text-xs text-slate-400">A: {item.a.slice(0, 150)}...</p>
-                                </div>
-                              ))}
+                      {/* Error State */}
+                      {analysisError && analysisError.includes('Chart Q&A') && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-medium text-red-300">Unable to get AI response</p>
+                              <p className="text-xs text-slate-400 mt-1">{analysisError}</p>
+                              <button onClick={() => setAnalysisError(null)} className="mt-2 text-xs text-red-400 hover:text-red-300">Dismiss</button>
                             </div>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+
+                      {/* Loading State */}
+                      {loadingChartAnswer && (
+                        <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+                              <div className="absolute inset-0 w-8 h-8 border-2 border-violet-500/20 rounded-full animate-ping" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-violet-300">AI is analyzing your chart question...</p>
+                              <p className="text-xs text-slate-400 mt-1">Using the uploaded chart and analysis context for an accurate answer</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Answer Display - Matches Ask AI style */}
+                      {chartAnswer && (
+                        <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-violet-500/20 rounded-xl overflow-hidden">
+                          <div className="bg-violet-600/20 px-6 py-3 border-b border-violet-500/20">
+                            <h5 className="font-semibold flex items-center gap-2 text-violet-200">
+                              <Sparkles className="w-5 h-5 text-violet-400" />
+                              AI Response
+                            </h5>
+                          </div>
+                          <div className="p-6">
+                            <div className="space-y-3 md:space-y-4">
+                              {chartAnswer.split('\n\n').map((block, blockIdx) => {
+                                if (block.startsWith('**') && block.endsWith('**')) {
+                                  const headerText = block.replace(/\*\*/g, '');
+                                  return (
+                                    <h3 key={blockIdx} className="text-lg font-bold text-white flex items-center gap-2 mt-2">
+                                      <div className="w-1 h-5 bg-violet-500 rounded-full" />
+                                      {headerText}
+                                    </h3>
+                                  );
+                                }
+                                if (block.includes('\n•') || block.includes('\n-') || block.startsWith('•') || block.startsWith('-')) {
+                                  const lines = block.split('\n');
+                                  return (
+                                    <div key={blockIdx} className="space-y-2">
+                                      {lines.map((line, lineIdx) => {
+                                        const trimmed = line.trim();
+                                        if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+                                          const bulletText = trimmed.replace(/^[•-]\s*/, '');
+                                          const formatted = bulletText.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                                            if (part.startsWith('**') && part.endsWith('**')) {
+                                              return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                                            }
+                                            return part;
+                                          });
+                                          return (
+                                            <div key={lineIdx} className="flex items-start gap-3 pl-2">
+                                              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-2 flex-shrink-0" />
+                                              <span className="text-slate-300 text-sm leading-relaxed">{formatted}</span>
+                                            </div>
+                                          );
+                                        } else if (trimmed) {
+                                          const formatted = trimmed.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                                            if (part.startsWith('**') && part.endsWith('**')) {
+                                              return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                                            }
+                                            return part;
+                                          });
+                                          return <p key={lineIdx} className="text-slate-200 font-medium">{formatted}</p>;
+                                        }
+                                        return null;
+                                      })}
+                                    </div>
+                                  );
+                                }
+                                const formatted = block.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                                  if (part.startsWith('**') && part.endsWith('**')) {
+                                    return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                                  }
+                                  return part;
+                                });
+                                return (
+                                  <p key={blockIdx} className="text-slate-300 text-sm leading-relaxed">{formatted}</p>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="bg-slate-800/30 px-6 py-3 border-t border-violet-500/10 flex items-center justify-between">
+                            <span className="text-xs text-slate-500">Based on your uploaded chart analysis</span>
+                            <button onClick={() => setChartAnswer(null)} className="text-xs text-slate-400 hover:text-slate-200 transition-colors">Clear</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Previous Questions History */}
+                      {chartQaHistory.length > 0 && (
+                        <div>
+                          <h5 className="font-semibold mb-4 text-slate-400">Previous Questions</h5>
+                          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                            {chartQaHistory.slice().reverse().map((item, i) => (
+                              <div key={i} className="bg-slate-800/30 rounded-xl p-4 hover:bg-slate-800/50 transition-colors">
+                                <p className="font-medium text-slate-200 mb-2">{item.q}</p>
+                                <p className="text-xs text-slate-400 line-clamp-3">{item.a.slice(0, 200)}...</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Empty State */}
+                      {!chartAnswer && !loadingChartAnswer && chartQaHistory.length === 0 && (
+                        <div className="text-center py-8">
+                          <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                          <h3 className="text-lg font-semibold mb-2">Ask Anything About This Chart</h3>
+                          <p className="text-slate-400 max-w-md mx-auto mb-4 text-sm">
+                            The AI has full context from your chart analysis. Ask about patterns, setups, risk levels, or anything else you see.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg mx-auto text-left">
+                            {["Why is the stop loss at that level?", "What confirms the trend direction?", "Is the RSI divergence significant?", "What's the best entry timing?"].map((q, i) => (
+                              <button
+                                key={i}
+                                onClick={() => setChartQuestion(q)}
+                                className="bg-slate-800/30 rounded-lg p-3 text-left hover:bg-slate-800/60 transition-colors"
+                              >
+                                <p className="text-xs text-slate-400">{q}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
