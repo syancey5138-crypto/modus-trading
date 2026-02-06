@@ -13417,7 +13417,7 @@ OUTPUT JSON:
                             Bias: {analysis.final.directionalBias} ({analysis.final.biasStrength || 'MODERATE'}) ⓘ
                           </div>
                           {/* CSS Tooltip */}
-                          <div className="absolute left-0 bottom-full mb-2 opacity-0 invisible group-hover/bias:opacity-100 group-hover/bias:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover/bias:opacity-100 group-hover/bias:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
                             <div className={`font-semibold mb-1 ${analysis.final.directionalBias === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
                               {analysis.final.directionalBias === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
                             </div>
@@ -13905,7 +13905,7 @@ OUTPUT JSON:
                               {analysis.final.ifYouMustTrade.direction} <span className="text-xs opacity-60">ⓘ</span>
                             </div>
                             {/* CSS Tooltip */}
-                            <div className="absolute left-0 bottom-full mb-2 opacity-0 invisible group-hover/dir:opacity-100 group-hover/dir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover/dir:opacity-100 group-hover/dir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
                               <div className={`font-semibold mb-1 ${analysis.final.ifYouMustTrade.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {analysis.final.ifYouMustTrade.direction === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
                               </div>
@@ -14975,7 +14975,7 @@ OUTPUT JSON:
                                       {analysis.tradeSetup.tradeDirection} <span className="text-xs opacity-60">ⓘ</span>
                                     </span>
                                     {/* CSS Tooltip */}
-                                    <div className="absolute right-0 bottom-full mb-2 opacity-0 invisible group-hover/tradedir:opacity-100 group-hover/tradedir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover/tradedir:opacity-100 group-hover/tradedir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
                                       <div className={`font-semibold mb-1 ${analysis.tradeSetup.tradeDirection === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
                                         {analysis.tradeSetup.tradeDirection === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
                                       </div>
@@ -16527,7 +16527,7 @@ OUTPUT JSON:
                             {dailyPick.direction} <span className="text-xs opacity-60">ⓘ</span>
                           </div>
                           {/* CSS Tooltip */}
-                          <div className="absolute left-0 bottom-full mb-2 opacity-0 invisible group-hover/pickdir:opacity-100 group-hover/pickdir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover/pickdir:opacity-100 group-hover/pickdir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
                             <div className={`font-semibold mb-1 ${dailyPick.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
                               {dailyPick.direction === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
                             </div>
@@ -16577,7 +16577,7 @@ OUTPUT JSON:
                               </div>
                             </div>
                             {/* CSS Tooltip */}
-                            <div className="absolute right-0 bottom-full mb-2 opacity-0 invisible group-hover/vol:opacity-100 group-hover/vol:visible w-64 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover/vol:opacity-100 group-hover/vol:visible w-64 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
                               <div className={`font-semibold mb-1 ${
                                 dailyPick.volatility.category === 'Low' ? 'text-cyan-400' :
                                 dailyPick.volatility.category === 'Low-Medium' ? 'text-blue-400' :
@@ -20875,7 +20875,7 @@ OUTPUT JSON:
                             {isLong ? '📈 LONG' : '📉 SHORT'} <span className="text-xs opacity-60">ⓘ</span>
                           </div>
                           {/* CSS Tooltip */}
-                          <div className="absolute right-0 bottom-full mb-2 opacity-0 invisible group-hover/plandir:opacity-100 group-hover/plandir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover/plandir:opacity-100 group-hover/plandir:visible w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
                             <div className={`font-semibold mb-1 ${isLong ? 'text-emerald-400' : 'text-red-400'}`}>
                               {isLong ? '📈 LONG Position' : '📉 SHORT Position'}
                             </div>
