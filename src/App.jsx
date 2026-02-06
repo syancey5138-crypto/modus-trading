@@ -486,7 +486,60 @@ function App() {
       document.head.appendChild(styleSheet);
     }
   }, []);
-  
+
+  // Reusable Skeleton Loader Component
+  const SkeletonBlock = useCallback(({ width = '100%', height = '16px', rounded = 'rounded', className = '' }) => (
+    <div
+      className={`bg-slate-800/60 ${rounded} animate-pulse ${className}`}
+      style={{ width, height, background: 'linear-gradient(90deg, rgba(30,41,59,0.5) 25%, rgba(51,65,85,0.5) 50%, rgba(30,41,59,0.5) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }}
+    />
+  ), []);
+
+  const SkeletonCard = useCallback(({ lines = 3, className = '' }) => (
+    <div className={`p-4 bg-slate-800/30 rounded-xl border border-slate-700/20 space-y-3 ${className}`}>
+      <SkeletonBlock height="20px" width="60%" rounded="rounded-md" />
+      {Array.from({ length: lines }).map((_, i) => (
+        <SkeletonBlock key={i} height="14px" width={`${85 - i * 15}%`} rounded="rounded" />
+      ))}
+    </div>
+  ), [SkeletonBlock]);
+
+  const SkeletonTable = useCallback(({ rows = 5, cols = 4 }) => (
+    <div className="space-y-2">
+      <div className="flex gap-4 p-3">
+        {Array.from({ length: cols }).map((_, i) => (
+          <SkeletonBlock key={i} height="12px" width={`${100/cols - 2}%`} rounded="rounded" />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, r) => (
+        <div key={r} className="flex gap-4 p-3 bg-slate-800/20 rounded-lg">
+          {Array.from({ length: cols }).map((_, c) => (
+            <SkeletonBlock key={c} height="14px" width={`${100/cols - 2}%`} rounded="rounded" />
+          ))}
+        </div>
+      ))}
+    </div>
+  ), [SkeletonBlock]);
+
+  const SkeletonChart = useCallback(() => (
+    <div className="p-6 bg-slate-800/30 rounded-xl border border-slate-700/20 space-y-4">
+      <div className="flex items-center justify-between">
+        <SkeletonBlock height="24px" width="120px" rounded="rounded-md" />
+        <SkeletonBlock height="32px" width="80px" rounded="rounded-lg" />
+      </div>
+      <div className="h-48 bg-slate-800/40 rounded-lg flex items-end justify-around gap-1 p-4">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="bg-slate-700/40 rounded-t animate-pulse" style={{ width: '7%', height: `${20 + Math.random() * 70}%`, animationDelay: `${i * 0.1}s` }} />
+        ))}
+      </div>
+      <div className="flex gap-4">
+        <SkeletonBlock height="14px" width="25%" rounded="rounded" />
+        <SkeletonBlock height="14px" width="25%" rounded="rounded" />
+        <SkeletonBlock height="14px" width="25%" rounded="rounded" />
+      </div>
+    </div>
+  ), [SkeletonBlock]);
+
   // Production mode - set to false to disable console logs
   const DEBUG_MODE = false;
   const log = (...args) => DEBUG_MODE && console.log(...args);
@@ -540,7 +593,9 @@ function App() {
   ];
   
   // Navigation
-  const [activeTab, setActiveTab] = useState("analyze");
+  const [activeTab, setActiveTab] = useState(() => {
+    try { return localStorage.getItem('modus_active_tab') || 'analyze'; } catch { return 'analyze'; }
+  });
   
   // Chart Analysis
   const [image, setImage] = useState(null);
@@ -1680,10 +1735,23 @@ function App() {
   const [showBacktest, setShowBacktest] = useState(false);
   
   // Sidebar
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('modus_sidebar_collapsed') === 'true'; } catch { return false; }
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+
+  // Persist tab and sidebar state
+  useEffect(() => {
+    try { localStorage.setItem('modus_active_tab', activeTab); } catch {}
+  }, [activeTab]);
+  useEffect(() => {
+    try { localStorage.setItem('modus_sidebar_collapsed', String(sidebarCollapsed)); } catch {}
+  }, [sidebarCollapsed]);
+
+  // Platform detection for keyboard shortcuts
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 
   // Auto-detect mobile/tablet and collapse sidebar with debounce
   useEffect(() => {
@@ -7465,6 +7533,30 @@ OUTPUT JSON:
         }, 100);
       }
 
+      // Ctrl/Cmd + E: Export PDF
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        if (typeof exportToPDF === 'function') exportToPDF();
+      }
+
+      // Ctrl/Cmd + Shift + S: Share analysis
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        setShowShareModal(true);
+      }
+
+      // Ctrl/Cmd + B: Toggle sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        setSidebarCollapsed(prev => !prev);
+      }
+
+      // Ctrl/Cmd + ,: Open settings
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setShowApiKeyModal(true);
+      }
+
       // Escape: Close modals
       if (e.key === 'Escape') {
         if (showNotificationCenter) setShowNotificationCenter(false);
@@ -7624,6 +7716,78 @@ OUTPUT JSON:
       });
     }
   }, []);
+
+  // ========================
+  // PERFORMANCE DASHBOARD METRICS
+  // ========================
+  const performanceMetrics = useMemo(() => {
+    if (!trades || trades.length === 0) {
+      return { totalTrades: 0, winRate: 0, totalPnL: 0, avgWin: 0, avgLoss: 0, profitFactor: 0, bestTrade: null, worstTrade: null, streak: 0, avgHoldTime: 0, sharpe: 0 };
+    }
+    const closedTrades = trades.filter(t => t.exit && t.entry);
+    if (closedTrades.length === 0) {
+      return { totalTrades: trades.length, openTrades: trades.length, winRate: 0, totalPnL: 0, avgWin: 0, avgLoss: 0, profitFactor: 0, bestTrade: null, worstTrade: null, streak: 0, avgHoldTime: 0, sharpe: 0 };
+    }
+
+    const results = closedTrades.map(t => {
+      const entry = parseFloat(t.entry);
+      const exit = parseFloat(t.exit);
+      const qty = parseFloat(t.quantity) || 1;
+      const pnl = t.side === 'long' ? (exit - entry) * qty : (entry - exit) * qty;
+      const pnlPercent = t.side === 'long' ? ((exit - entry) / entry) * 100 : ((entry - exit) / entry) * 100;
+      const holdDays = t.entryDate && t.exitDate ? Math.ceil((new Date(t.exitDate) - new Date(t.entryDate)) / (1000 * 60 * 60 * 24)) : 0;
+      return { ...t, pnl, pnlPercent, holdDays };
+    });
+
+    const wins = results.filter(r => r.pnl > 0);
+    const losses = results.filter(r => r.pnl < 0);
+    const totalPnL = results.reduce((sum, r) => sum + r.pnl, 0);
+    const grossWins = wins.reduce((sum, r) => sum + r.pnl, 0);
+    const grossLosses = Math.abs(losses.reduce((sum, r) => sum + r.pnl, 0));
+
+    // Calculate current streak
+    let streak = 0;
+    for (let i = results.length - 1; i >= 0; i--) {
+      if (i === results.length - 1) {
+        streak = results[i].pnl >= 0 ? 1 : -1;
+      } else if ((streak > 0 && results[i].pnl >= 0) || (streak < 0 && results[i].pnl < 0)) {
+        streak += streak > 0 ? 1 : -1;
+      } else break;
+    }
+
+    // Simplified Sharpe-like ratio (annualized)
+    const avgReturn = results.reduce((sum, r) => sum + r.pnlPercent, 0) / results.length;
+    const variance = results.reduce((sum, r) => sum + Math.pow(r.pnlPercent - avgReturn, 2), 0) / results.length;
+    const stdDev = Math.sqrt(variance) || 1;
+    const sharpe = (avgReturn / stdDev) * Math.sqrt(252);
+
+    const sorted = [...results].sort((a, b) => b.pnl - a.pnl);
+
+    return {
+      totalTrades: trades.length,
+      closedTrades: closedTrades.length,
+      openTrades: trades.length - closedTrades.length,
+      winRate: (wins.length / results.length) * 100,
+      wins: wins.length,
+      losses: losses.length,
+      totalPnL,
+      avgWin: wins.length > 0 ? grossWins / wins.length : 0,
+      avgLoss: losses.length > 0 ? grossLosses / losses.length : 0,
+      profitFactor: grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? Infinity : 0,
+      bestTrade: sorted[0] || null,
+      worstTrade: sorted[sorted.length - 1] || null,
+      streak,
+      avgHoldTime: results.reduce((sum, r) => sum + r.holdDays, 0) / results.length,
+      sharpe: isFinite(sharpe) ? sharpe : 0,
+      monthlyPnL: results.reduce((acc, r) => {
+        if (r.exitDate) {
+          const month = r.exitDate.substring(0, 7);
+          acc[month] = (acc[month] || 0) + r.pnl;
+        }
+        return acc;
+      }, {})
+    };
+  }, [trades]);
 
   // ========================
   // SCREENER PRESET STRATEGIES
@@ -11019,11 +11183,15 @@ OUTPUT JSON:
             <div className="space-y-1">
               {[
                 { keys: '1-9', desc: 'Switch tabs (Ticker, Analyze, Alerts...)' },
-                { keys: 'Ctrl+K', desc: 'Quick search / Go to Ticker' },
+                { keys: isMac ? '⌘K' : 'Ctrl+K', desc: 'Quick search / Go to Ticker' },
+                { keys: isMac ? '⌘E' : 'Ctrl+E', desc: 'Export analysis as PDF' },
+                { keys: isMac ? '⌘⇧S' : 'Ctrl+Shift+S', desc: 'Share analysis' },
+                { keys: isMac ? '⌘B' : 'Ctrl+B', desc: 'Toggle sidebar' },
+                { keys: isMac ? '⌘,' : 'Ctrl+,', desc: 'Open settings' },
                 { keys: '?', desc: 'Toggle this shortcuts panel' },
                 { keys: 'Esc', desc: 'Close current modal or panel' },
-                { keys: 'Alt+N', desc: 'Go to Trading Journal' },
-                { keys: 'Alt+A', desc: 'Go to Watchlist' },
+                { keys: isMac ? '⌥N' : 'Alt+N', desc: 'Go to Trading Journal' },
+                { keys: isMac ? '⌥A' : 'Alt+A', desc: 'Go to Watchlist' },
               ].map((shortcut, i) => (
                 <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-800/50">
                   <span className="text-sm text-slate-300">{shortcut.desc}</span>
@@ -11031,7 +11199,7 @@ OUTPUT JSON:
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-slate-600 mt-4 text-center">Shortcuts are disabled while typing in text fields</p>
+            <p className="text-[10px] text-slate-600 mt-4 text-center">{isMac ? '⌘ = Command, ⌥ = Option, ⇧ = Shift' : 'Shortcuts are disabled while typing in text fields'}</p>
           </div>
         </div>
       )}
@@ -11737,7 +11905,7 @@ OUTPUT JSON:
               <Layers className="w-5 h-5 flex-shrink-0" />
               {!sidebarCollapsed && <span className="font-medium">Multi-Timeframe</span>}
             </button>
-            
+
             <button
               onClick={() => setActiveTab("options")}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
@@ -14260,7 +14428,13 @@ OUTPUT JSON:
             </div>
 
             {/* Analysis Results */}
-            {analysis && (
+            {loadingAnalysis && !analysis ? (
+              <div className="space-y-4 md:space-y-6">
+                <SkeletonChart />
+                <SkeletonCard lines={4} className="h-48" />
+                <SkeletonCard lines={3} />
+              </div>
+            ) : analysis && (
               <div className="space-y-4 md:space-y-6">
                 {/* Reconciliation Warning - if AI and calculated conflict */}
                 {analysis.final?.reconciled && (
@@ -18737,6 +18911,58 @@ OUTPUT JSON:
               </div>
             </div>
 
+            {/* PERFORMANCE DASHBOARD */}
+            {trades.length > 0 && (
+              <div className="mb-6 animate-fadeIn">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="p-3 bg-slate-800/40 rounded-xl border border-slate-700/20">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Win Rate</div>
+                    <div className={`text-xl font-bold ${performanceMetrics.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {performanceMetrics.winRate.toFixed(1)}%
+                    </div>
+                    <div className="text-[10px] text-slate-500">{performanceMetrics.wins}W / {performanceMetrics.losses}L</div>
+                  </div>
+                  <div className="p-3 bg-slate-800/40 rounded-xl border border-slate-700/20">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Total P&L</div>
+                    <div className={`text-xl font-bold ${performanceMetrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {performanceMetrics.totalPnL >= 0 ? '+' : ''}{performanceMetrics.totalPnL < 1000 ? `$${performanceMetrics.totalPnL.toFixed(2)}` : `$${(performanceMetrics.totalPnL/1000).toFixed(1)}k`}
+                    </div>
+                    <div className="text-[10px] text-slate-500">{performanceMetrics.closedTrades || 0} closed trades</div>
+                  </div>
+                  <div className="p-3 bg-slate-800/40 rounded-xl border border-slate-700/20">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Profit Factor</div>
+                    <div className={`text-xl font-bold ${performanceMetrics.profitFactor >= 1.5 ? 'text-emerald-400' : performanceMetrics.profitFactor >= 1 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {performanceMetrics.profitFactor === Infinity ? '∞' : performanceMetrics.profitFactor.toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {performanceMetrics.profitFactor >= 1.5 ? 'Excellent' : performanceMetrics.profitFactor >= 1 ? 'Break Even' : 'Needs Work'}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-800/40 rounded-xl border border-slate-700/20">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Streak</div>
+                    <div className={`text-xl font-bold ${performanceMetrics.streak > 0 ? 'text-emerald-400' : performanceMetrics.streak < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                      {performanceMetrics.streak > 0 ? `${performanceMetrics.streak}W` : performanceMetrics.streak < 0 ? `${Math.abs(performanceMetrics.streak)}L` : '-'}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      Avg hold: {performanceMetrics.avgHoldTime.toFixed(1)}d
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick stats bar */}
+                <div className="flex flex-wrap items-center gap-4 px-4 py-2.5 bg-slate-800/20 rounded-lg text-xs text-slate-400">
+                  <span>Avg Win: <span className="text-emerald-400 font-medium">${performanceMetrics.avgWin.toFixed(2)}</span></span>
+                  <span>Avg Loss: <span className="text-red-400 font-medium">${performanceMetrics.avgLoss.toFixed(2)}</span></span>
+                  {performanceMetrics.bestTrade && (
+                    <span>Best: <span className="text-emerald-400 font-medium">{performanceMetrics.bestTrade.symbol} +${performanceMetrics.bestTrade.pnl?.toFixed(2) || '0'}</span></span>
+                  )}
+                  {performanceMetrics.sharpe !== 0 && (
+                    <span>Sharpe: <span className={`font-medium ${performanceMetrics.sharpe >= 1 ? 'text-emerald-400' : 'text-yellow-400'}`}>{performanceMetrics.sharpe.toFixed(2)}</span></span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {trades.length === 0 ? (
               <div className="bg-slate-800/30 rounded-lg p-6 md:p-12 text-center">
                 <Target className="w-12 md:w-16 h-12 md:h-16 text-slate-700 mx-auto mb-3 md:mb-4" />
@@ -19235,13 +19461,30 @@ OUTPUT JSON:
             </div>
 
             {/* Major Indices */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-              {[
-                { symbol: 'SPY', name: 'S&P 500', data: marketData.indices.SPY },
-                { symbol: 'QQQ', name: 'NASDAQ 100', data: marketData.indices.QQQ },
-                { symbol: 'DIA', name: 'Dow Jones', data: marketData.indices.DIA },
-                { symbol: 'IWM', name: 'Russell 2000', data: marketData.indices.IWM }
-              ].map(index => (
+            {loadingMarketData ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-slate-800/30 rounded-xl p-3 md:p-5 border border-slate-700/20 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <SkeletonBlock height="20px" width="60px" rounded="rounded-md" className="mb-2" />
+                        <SkeletonBlock height="12px" width="80px" rounded="rounded" />
+                      </div>
+                      <SkeletonBlock height="20px" width="20px" rounded="rounded-md" />
+                    </div>
+                    <SkeletonBlock height="28px" width="100%" rounded="rounded-md" />
+                    <SkeletonBlock height="14px" width="80%" rounded="rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                {[
+                  { symbol: 'SPY', name: 'S&P 500', data: marketData.indices.SPY },
+                  { symbol: 'QQQ', name: 'NASDAQ 100', data: marketData.indices.QQQ },
+                  { symbol: 'DIA', name: 'Dow Jones', data: marketData.indices.DIA },
+                  { symbol: 'IWM', name: 'Russell 2000', data: marketData.indices.IWM }
+                ].map(index => (
                 <div
                   key={index.symbol}
                   className={`${
@@ -19278,7 +19521,8 @@ OUTPUT JSON:
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            )}
 
             {/* VIX & Market Sentiment */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
