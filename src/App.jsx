@@ -38,6 +38,10 @@ function App() {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes pageTransition {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         @keyframes pulse-glow {
           0%, 100% { box-shadow: 0 0 5px rgba(139, 92, 246, 0.3); }
           50% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.6); }
@@ -51,12 +55,12 @@ function App() {
           50% { border-color: rgba(139, 92, 246, 0.5); }
         }
         @keyframes priceUp {
-          0% { color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 0.6); }
-          100% { text-shadow: none; }
+          0% { color: #10b981; text-shadow: 0 0 6px rgba(16, 185, 129, 0.35); }
+          100% { color: inherit; text-shadow: none; }
         }
         @keyframes priceDown {
-          0% { color: #ef4444; text-shadow: 0 0 12px rgba(239, 68, 68, 0.6); }
-          100% { text-shadow: none; }
+          0% { color: #ef4444; text-shadow: 0 0 6px rgba(239, 68, 68, 0.35); }
+          100% { color: inherit; text-shadow: none; }
         }
         @keyframes glowPulse {
           0%, 100% { opacity: 0.4; }
@@ -74,9 +78,10 @@ function App() {
         .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
         .animate-slideIn { animation: slideIn 0.2s ease-out forwards; }
         .animate-slideUp { animation: slideUp 0.3s ease-out forwards; }
+        .animate-page-transition { animation: pageTransition 0.35s ease-out forwards; }
         .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
-        .animate-price-up { animation: priceUp 0.8s ease-out; }
-        .animate-price-down { animation: priceDown 0.8s ease-out; }
+        .animate-price-up { animation: priceUp 0.6s ease-out; }
+        .animate-price-down { animation: priceDown 0.6s ease-out; }
         .animate-border-glow { animation: borderGlow 3s ease-in-out infinite; }
         .animate-number-roll { animation: numberRoll 0.3s ease-out; }
 
@@ -97,50 +102,168 @@ function App() {
 
         /* Glass morphism card - the default card style */
         .glass {
-          background: rgba(15, 23, 42, 0.7);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border: 1px solid rgba(148, 163, 184, 0.1);
+          background: rgba(15, 23, 42, 0.75);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(148, 163, 184, 0.12);
+          transition: all 0.3s ease;
+        }
+
+        /* Enhanced sidebar glass effect */
+        .sidebar-glass {
+          background: rgba(15, 23, 42, 0.85);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border-right: 1px solid rgba(148, 163, 184, 0.1);
+          box-shadow: inset -1px 0 0 rgba(148, 163, 184, 0.05);
         }
 
         /* Premium card with subtle inner glow */
         .card-premium {
-          background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.6) 100%);
-          border: 1px solid rgba(148, 163, 184, 0.12);
+          background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 29, 48, 0.85) 100%);
+          border: 1px solid rgba(148, 163, 184, 0.15);
           box-shadow:
-            0 4px 16px rgba(0, 0, 0, 0.25),
-            inset 0 1px 0 rgba(148, 163, 184, 0.05);
+            0 2px 8px rgba(0, 0, 0, 0.15),
+            inset 0 0.5px 0 rgba(148, 163, 184, 0.08);
           transition: all 0.25s ease;
         }
         .card-premium:hover {
-          border-color: rgba(139, 92, 246, 0.25);
+          border-color: rgba(139, 92, 246, 0.2);
           box-shadow:
-            0 8px 32px rgba(0, 0, 0, 0.35),
-            0 0 0 1px rgba(139, 92, 246, 0.1),
-            inset 0 1px 0 rgba(148, 163, 184, 0.08);
-          transform: translateY(-1px);
+            0 4px 16px rgba(0, 0, 0, 0.2),
+            0 0 0 0.5px rgba(139, 92, 246, 0.08),
+            inset 0 0.5px 0 rgba(148, 163, 184, 0.1);
+          transform: translateY(-0.5px);
         }
 
-        /* Gain card - green ambient glow */
+        /* Gain card - subtle green accent */
         .card-gain {
-          background: linear-gradient(135deg, rgba(6, 78, 59, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
-          border: 1px solid rgba(16, 185, 129, 0.2);
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 0 30px rgba(16, 185, 129, 0.03);
+          background: linear-gradient(135deg, rgba(6, 78, 59, 0.08) 0%, rgba(15, 23, 42, 0.9) 100%);
+          border: 1px solid rgba(16, 185, 129, 0.12);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 0 20px rgba(16, 185, 129, 0.02);
+          transition: all 0.25s ease;
         }
         .card-gain:hover {
-          border-color: rgba(16, 185, 129, 0.35);
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(16, 185, 129, 0.08);
+          border-color: rgba(16, 185, 129, 0.2);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(16, 185, 129, 0.03);
+          transform: translateY(-0.5px);
         }
 
-        /* Loss card - red ambient glow */
+        /* Loss card - subtle red accent */
         .card-loss {
-          background: linear-gradient(135deg, rgba(127, 29, 29, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 0 30px rgba(239, 68, 68, 0.03);
+          background: linear-gradient(135deg, rgba(127, 29, 29, 0.08) 0%, rgba(15, 23, 42, 0.9) 100%);
+          border: 1px solid rgba(239, 68, 68, 0.12);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 0 20px rgba(239, 68, 68, 0.02);
+          transition: all 0.25s ease;
         }
         .card-loss:hover {
-          border-color: rgba(239, 68, 68, 0.35);
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(239, 68, 68, 0.08);
+          border-color: rgba(239, 68, 68, 0.2);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(239, 68, 68, 0.03);
+          transform: translateY(-0.5px);
+        }
+
+        /* =============================================
+           Button System
+           ============================================= */
+        .btn-primary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.625rem 1.25rem;
+          font-size: 0.9375rem;
+          font-weight: 500;
+          letter-spacing: 0.3px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          box-shadow:
+            0 2px 8px rgba(139, 92, 246, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          transition: all 0.25s ease;
+          cursor: pointer;
+          position: relative;
+          overflow: hidden;
+        }
+        .btn-primary:hover {
+          transform: translateY(-1px);
+          box-shadow:
+            0 4px 16px rgba(139, 92, 246, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+          background: linear-gradient(135deg, #9d5fef 0%, #8b5cf6 100%);
+        }
+        .btn-primary:active {
+          transform: translateY(0);
+          box-shadow:
+            0 2px 8px rgba(139, 92, 246, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .btn-primary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        /* =============================================
+           Section Headers
+           ============================================= */
+        .section-header {
+          font-size: 1.125rem;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+          color: #f1f5f9;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          position: relative;
+          margin-bottom: 1.5rem;
+        }
+        .section-header::before {
+          content: '';
+          display: inline-block;
+          width: 3px;
+          height: 1.5rem;
+          border-radius: 2px;
+          background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        /* =============================================
+           Badge System
+           ============================================= */
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.375rem 0.75rem;
+          border-radius: 4px;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          letter-spacing: 0.25px;
+          white-space: nowrap;
+        }
+
+        .badge-success {
+          background: rgba(16, 185, 129, 0.12);
+          color: #6ee7b7;
+          border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .badge-warning {
+          background: rgba(251, 146, 60, 0.12);
+          color: #fed7aa;
+          border: 1px solid rgba(251, 146, 60, 0.25);
+        }
+
+        .badge-danger {
+          background: rgba(239, 68, 68, 0.12);
+          color: #fca5a5;
+          border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .badge-info {
+          background: rgba(59, 130, 246, 0.12);
+          color: #93c5fd;
+          border: 1px solid rgba(59, 130, 246, 0.25);
         }
 
         /* =============================================
@@ -753,12 +876,15 @@ function App() {
   const [answer, setAnswer] = useState(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
   const [qaHistory, setQaHistory] = useState([]);
-  
+
   // Chart-specific Q&A
   const [chartQuestion, setChartQuestion] = useState("");
   const [chartAnswer, setChartAnswer] = useState(null);
   const [loadingChartAnswer, setLoadingChartAnswer] = useState(false);
   const [chartQaHistory, setChartQaHistory] = useState([]);
+
+  // Welcome Banner State
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
   
   // NEW: Live Ticker State
   const [tickerSymbol, setTickerSymbol] = useState("");
@@ -1379,12 +1505,7 @@ function App() {
   const [priceFlash, setPriceFlash] = useState(null);
   const [previousPrice, setPreviousPrice] = useState(null);
 
-  // NEW: WebSocket Streaming State
-  const wsRef = useRef(null);
-  const wsReconnectTimerRef = useRef(null);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [wsSubscribedSymbols, setWsSubscribedSymbols] = useState([]);
-  const [streamingPrices, setStreamingPrices] = useState({});
+  // Price streaming handled via polling (10s intervals) - see Background Monitor above
 
   // NEW: Notification Center State
   const [notificationHistory, setNotificationHistory] = useState([]);
@@ -7221,138 +7342,6 @@ OUTPUT JSON:
   };
   
   // ========================
-  // WEBSOCKET STREAMING PRICES
-  // ========================
-
-  const connectWebSocket = useCallback(() => {
-    // Finnhub free WebSocket for real-time trades
-    const FINNHUB_WS_URL = 'wss://ws.finnhub.io?token=demo';
-
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      return; // Already connected
-    }
-
-    try {
-      const ws = new WebSocket(FINNHUB_WS_URL);
-
-      ws.onopen = () => {
-        console.log('[WebSocket] ✅ Connected to price stream');
-        setWsConnected(true);
-
-        // Subscribe to watchlist symbols
-        const symbolsToSubscribe = [...new Set([...watchlist, tickerSymbol].filter(Boolean))];
-        symbolsToSubscribe.forEach(symbol => {
-          ws.send(JSON.stringify({ type: 'subscribe', symbol: symbol }));
-        });
-        setWsSubscribedSymbols(symbolsToSubscribe);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'trade' && data.data) {
-            const updates = {};
-            data.data.forEach(trade => {
-              updates[trade.s] = {
-                current: trade.p,
-                volume: trade.v,
-                timestamp: trade.t,
-                lastUpdate: Date.now()
-              };
-            });
-
-            setStreamingPrices(prev => {
-              const newPrices = { ...prev };
-              Object.entries(updates).forEach(([symbol, priceData]) => {
-                const oldPrice = newPrices[symbol]?.current;
-                newPrices[symbol] = {
-                  ...priceData,
-                  change: oldPrice ? priceData.current - oldPrice : 0,
-                  direction: oldPrice ? (priceData.current > oldPrice ? 'up' : priceData.current < oldPrice ? 'down' : 'flat') : 'flat'
-                };
-              });
-              return newPrices;
-            });
-
-            // Also update watchlist prices for alert checking
-            setWatchlistPrices(prev => {
-              const updated = { ...prev };
-              Object.entries(updates).forEach(([symbol, priceData]) => {
-                if (updated[symbol]) {
-                  updated[symbol] = {
-                    ...updated[symbol],
-                    current: priceData.current,
-                    lastUpdate: Date.now()
-                  };
-                }
-              });
-              return updated;
-            });
-          }
-        } catch (e) {
-          // Ignore parse errors for ping/pong
-        }
-      };
-
-      ws.onclose = () => {
-        console.log('[WebSocket] 🔌 Disconnected');
-        setWsConnected(false);
-        // Reconnect after 5 seconds
-        wsReconnectTimerRef.current = setTimeout(() => {
-          console.log('[WebSocket] 🔄 Reconnecting...');
-          connectWebSocket();
-        }, 5000);
-      };
-
-      ws.onerror = (err) => {
-        console.log('[WebSocket] ⚠️ Error, falling back to polling');
-        setWsConnected(false);
-      };
-
-      wsRef.current = ws;
-    } catch (e) {
-      console.log('[WebSocket] Failed to connect, using polling fallback');
-      setWsConnected(false);
-    }
-  }, [watchlist, tickerSymbol]);
-
-  // Subscribe/unsubscribe when watchlist changes
-  useEffect(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const currentSymbols = [...new Set([...watchlist, tickerSymbol].filter(Boolean))];
-
-      // Unsubscribe removed symbols
-      wsSubscribedSymbols.forEach(sym => {
-        if (!currentSymbols.includes(sym)) {
-          wsRef.current.send(JSON.stringify({ type: 'unsubscribe', symbol: sym }));
-        }
-      });
-
-      // Subscribe new symbols
-      currentSymbols.forEach(sym => {
-        if (!wsSubscribedSymbols.includes(sym)) {
-          wsRef.current.send(JSON.stringify({ type: 'subscribe', symbol: sym }));
-        }
-      });
-
-      setWsSubscribedSymbols(currentSymbols);
-    }
-  }, [watchlist, tickerSymbol]);
-
-  // Connect WebSocket on mount, cleanup on unmount
-  useEffect(() => {
-    connectWebSocket();
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (wsReconnectTimerRef.current) {
-        clearTimeout(wsReconnectTimerRef.current);
-      }
-    };
-  }, []);
-
-  // ========================
   // NOTIFICATION CENTER
   // ========================
 
@@ -11726,208 +11715,187 @@ OUTPUT JSON:
       <header className={`border-b border-slate-800/20 sticky top-0 z-header transition-all duration-300 ease-out safe-area-top ${
         isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
       }`} style={{ background: 'rgba(10, 15, 30, 0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
-        <div className="px-3 md:px-6 py-2.5 md:py-3">
-          <div className="flex items-center justify-between gap-3">
-            {/* Mobile Menu Toggle */}
-            {isMobile && (
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Mobile Logo */}
-            {isMobile && (
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-700 rounded-lg shadow-md shadow-violet-500/25">
-                  <Eye className="w-4 h-4 text-white" />
+        <div className="px-3 md:px-6 py-2 md:py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            {/* LEFT: Mobile menu + logo */}
+            <div className="flex items-center gap-2">
+              {isMobile && (
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/40 text-slate-400 hover:text-white transition-all"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+              )}
+              {isMobile && (
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-700 rounded-lg">
+                    <Eye className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-bold text-white text-sm">MODUS</span>
                 </div>
-                <span className="font-bold text-white">MODUS</span>
-              </div>
-            )}
+              )}
+            </div>
 
-            <div className="flex items-center gap-2 md:gap-3 ml-auto">
-              {/* Live Clock */}
-              <div className="flex items-center gap-2 px-2 md:px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="font-mono text-xs md:text-sm text-emerald-400 tabular-nums">{formatTime(currentTime)}</span>
-              </div>
-
-            {/* Background Status Indicator */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs">
+            {/* CENTER: Status bar (desktop only) */}
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 rounded-lg border border-slate-700/30">
               {(loadingAnalysis || loadingPick || loadingAnswer || loadingTicker) ? (
                 <>
                   <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
-                  <span className="text-amber-400">
+                  <span className="text-xs text-amber-400">
                     {loadingAnalysis ? 'Analyzing...' :
                      loadingPick ? 'Finding pick...' :
                      loadingAnswer ? 'AI thinking...' :
-                     loadingTicker ? 'Loading chart...' : 'Working...'}
+                     'Loading...'}
                   </span>
                 </>
               ) : (
                 <>
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                  <span className="text-slate-400">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                  <span className="text-xs text-slate-500 font-mono tabular-nums">{formatTime(currentTime)}</span>
+                  <span className="text-slate-700 mx-1">|</span>
+                  <span className="text-xs text-slate-400">
                     {enabledAlertCount > 0
                       ? `${enabledAlertCount} alert${enabledAlertCount > 1 ? 's' : ''} active`
                       : 'Ready'}
                   </span>
+                  {currentUser && (
+                    <>
+                      <span className="text-slate-700 mx-1">|</span>
+                      {cloudSyncStatus === 'synced' ? <Cloud className="w-3 h-3 text-emerald-500/60" /> :
+                       cloudSyncStatus === 'syncing' ? <Loader2 className="w-3 h-3 animate-spin text-amber-400/60" /> :
+                       cloudSyncStatus === 'error' ? <CloudOff className="w-3 h-3 text-red-400/60" /> :
+                       <Cloud className="w-3 h-3 text-slate-600" />}
+                    </>
+                  )}
                 </>
               )}
             </div>
 
-            {/* Position Sizer */}
-            <button
-              onClick={() => setShowPositionSizer(true)}
-              className="p-2 md:px-4 md:py-2 bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 rounded-xl transition-all duration-200 flex items-center gap-2 font-semibold text-sm shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-[1.02] btn-press"
-              title="Position Sizing Calculator"
-            >
-              <Target className="w-4 h-4" />
-              <span className="hidden md:inline">Position Sizer</span>
-            </button>
-            
-            {/* History */}
-            <button
-              onClick={() => setShowHistory(true)}
-              className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-xl transition-all duration-200 relative border border-slate-700/30 hover:border-violet-500/30 btn-press"
-              title="Analysis History"
-            >
-              <Calendar className="w-4 h-4 text-slate-400" />
-              {analysisHistory.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
-                  {analysisHistory.length}
-                </span>
-              )}
-            </button>
-            
-            {/* Export PDF */}
-            {analysis && (
+            {/* RIGHT: Actions - grouped by function */}
+            <div className="flex items-center gap-1.5">
+              {/* Primary action: Position Sizer */}
               <button
-                onClick={exportToPDF}
-                className="p-2.5 bg-blue-600/80 hover:bg-blue-500 rounded-lg transition-all duration-200 border border-blue-500/50 btn-press"
-                title="Export to PDF"
+                onClick={() => setShowPositionSizer(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/90 hover:bg-violet-500 rounded-lg transition-all text-xs font-semibold"
+                title="Position Sizing Calculator"
               >
-                <Download className="w-4 h-4" />
+                <Target className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Position Sizer</span>
               </button>
-            )}
 
-            {/* Share Analysis */}
-            {analysis && (
-              <button
-                onClick={() => shareAnalysis('native')}
-                className="p-2.5 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg transition-all duration-200 border border-emerald-500/50 btn-press relative"
-                title="Share Analysis"
-              >
-                <ArrowUpRight className="w-4 h-4" />
-                {copySuccess && (
-                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">Copied!</span>
-                )}
-              </button>
-            )}
+              {/* Divider */}
+              <div className="hidden sm:block w-px h-5 bg-slate-700/50 mx-0.5" />
 
-            {/* Notification Center */}
-            <button
-              onClick={() => { setShowNotificationCenter(!showNotificationCenter); if (!showNotificationCenter) markAllNotificationsRead(); }}
-              className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-xl transition-all duration-200 relative border border-slate-700/30 hover:border-violet-500/30 btn-press"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4 text-slate-400" />
-              {unreadNotifications > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-red-500 to-rose-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse">
-                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                </span>
-              )}
-            </button>
-
-            {/* WebSocket Status Indicator */}
-            <div className={`hidden md:flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs ${
-              wsConnected ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
-            }`} title={wsConnected ? 'Live streaming prices' : 'Polling mode (10s updates)'}>
-              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-amber-400'}`} />
-              <span className="hidden lg:inline">{wsConnected ? 'LIVE' : 'Polling'}</span>
-            </div>
-
-            {/* Settings */}
-            <button
-              onClick={() => setShowApiKeyModal(true)}
-              className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-xl transition-all duration-200 border border-slate-700/30 hover:border-violet-500/30 btn-press"
-              title="API Key Settings"
-            >
-              <Settings className="w-4 h-4 text-slate-400" />
-            </button>
-
-            {/* Cloud Sync Status */}
-            {currentUser && (
-              <div className={`hidden md:flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs ${
-                cloudSyncStatus === 'synced' ? 'bg-emerald-500/10 text-emerald-400' :
-                cloudSyncStatus === 'syncing' ? 'bg-amber-500/10 text-amber-400' :
-                cloudSyncStatus === 'error' ? 'bg-red-500/10 text-red-400' :
-                'bg-slate-800/50 text-slate-400'
-              }`}>
-                {cloudSyncStatus === 'synced' ? <Cloud className="w-3.5 h-3.5" /> :
-                 cloudSyncStatus === 'syncing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
-                 cloudSyncStatus === 'error' ? <CloudOff className="w-3.5 h-3.5" /> :
-                 <Cloud className="w-3.5 h-3.5" />}
-                <span className="hidden lg:inline">
-                  {cloudSyncStatus === 'synced' ? 'Synced' :
-                   cloudSyncStatus === 'syncing' ? 'Syncing...' :
-                   cloudSyncStatus === 'error' ? 'Sync Error' : 'Local'}
-                </span>
-              </div>
-            )}
-
-            {/* User Auth Button */}
-            {currentUser ? (
-              <div className="relative">
+              {/* Icon buttons group - all same size */}
+              {analysis && (
                 <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-600/90 to-purple-700/90 hover:from-violet-500 hover:to-purple-600 rounded-xl transition-all duration-200 border border-violet-500/20 shadow-lg shadow-violet-500/15 hover:shadow-violet-500/30"
+                  onClick={exportToPDF}
+                  className="p-2 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-slate-600/50"
+                  title="Export to PDF"
                 >
-                  <div className="w-6 h-6 rounded-full bg-violet-400 flex items-center justify-center text-xs font-bold text-slate-900">
-                    {userProfile?.displayName?.[0]?.toUpperCase() || currentUser.email?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <span className="hidden md:inline text-sm font-medium max-w-[100px] truncate">
-                    {userProfile?.displayName || currentUser.email?.split('@')[0]}
-                  </span>
+                  <Download className="w-4 h-4 text-slate-400" />
                 </button>
+              )}
 
-                {/* User Dropdown Menu */}
-                {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/40 rounded-xl shadow-2xl shadow-black/50 z-[55] overflow-hidden">
-                    <div className="p-3 border-b border-slate-700">
-                      <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
-                      <p className="text-xs text-slate-400 truncate">{currentUser.email}</p>
-                      {lastSyncTime && (
-                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                          <Cloud className="w-3 h-3" />
-                          Last sync: {lastSyncTime.toLocaleTimeString()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="p-2">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
+              {analysis && (
+                <button
+                  onClick={() => shareAnalysis('native')}
+                  className="p-2 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-slate-600/50 relative"
+                  title="Share Analysis"
+                >
+                  <ArrowUpRight className="w-4 h-4 text-slate-400" />
+                  {copySuccess && (
+                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded whitespace-nowrap shadow-lg">Copied!</span>
+                  )}
+                </button>
+              )}
+
               <button
-                onClick={() => { setShowAuthModal(true); setAuthMode('login'); }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 rounded-xl transition-all duration-200 font-semibold text-sm shadow-lg shadow-violet-500/20 hover:shadow-violet-500/35 hover:scale-[1.02]"
+                onClick={() => setShowHistory(true)}
+                className="p-2 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-slate-600/50 relative"
+                title="Analysis History"
               >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden md:inline">Sign In</span>
+                <Calendar className="w-4 h-4 text-slate-400" />
+                {analysisHistory.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-violet-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {analysisHistory.length > 9 ? '9+' : analysisHistory.length}
+                  </span>
+                )}
               </button>
-            )}
+
+              <button
+                onClick={() => { setShowNotificationCenter(!showNotificationCenter); if (!showNotificationCenter) markAllNotificationsRead(); }}
+                className="p-2 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-slate-600/50 relative"
+                title="Notifications"
+              >
+                <Bell className="w-4 h-4 text-slate-400" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setShowApiKeyModal(true)}
+                className="p-2 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-slate-600/50"
+                title="Settings"
+              >
+                <Settings className="w-4 h-4 text-slate-400" />
+              </button>
+
+              {/* Divider */}
+              <div className="w-px h-5 bg-slate-700/50 mx-0.5" />
+
+              {/* Auth button */}
+              {currentUser ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-violet-500/30"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white">
+                      {userProfile?.displayName?.[0]?.toUpperCase() || currentUser.email?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                    <span className="hidden lg:inline text-xs font-medium text-slate-300 max-w-[80px] truncate">
+                      {userProfile?.displayName || currentUser.email?.split('@')[0]}
+                    </span>
+                  </button>
+
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900/98 backdrop-blur-xl border border-slate-700/40 rounded-xl shadow-2xl shadow-black/50 z-[55] overflow-hidden">
+                      <div className="p-3 border-b border-slate-800">
+                        <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
+                        <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                        {lastSyncTime && (
+                          <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-1">
+                            <Cloud className="w-3 h-3" />
+                            Synced: {lastSyncTime.toLocaleTimeString()}
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-1.5">
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setShowAuthModal(true); setAuthMode('login'); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/90 hover:bg-violet-500 rounded-lg transition-all text-xs font-semibold"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -11937,6 +11905,38 @@ OUTPUT JSON:
       <main className={`min-h-screen overflow-y-auto transition-all duration-300 ease-out px-3 sm:px-4 md:px-6 lg:px-8 py-3 md:py-6 pb-8 safe-area-bottom ${
         isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
       }`}>
+        {/* Welcome Banner */}
+        {showWelcomeBanner && !currentUser && (
+          <div className="mb-4 bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/30 rounded-lg p-3 md:p-4 flex items-center justify-between gap-4 animate-slideDown">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-violet-500/30 rounded-lg">
+                <Sparkles className="w-5 h-5 text-violet-300" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm md:text-base font-semibold text-violet-200">Welcome to MODUS</p>
+                <p className="text-xs md:text-sm text-slate-300">AI-powered trading tools for smarter market analysis</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  // Redirect to sign in or show sign in
+                  navigate('/login');
+                }}
+                className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-semibold text-sm transition-all"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setShowWelcomeBanner(false)}
+                className="p-2 hover:bg-slate-700/30 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* NEW: Live Ticker Tab */}
         {activeTab === "ticker" && (
           <div className="space-y-4 md:space-y-6 animate-fadeIn">
@@ -17089,13 +17089,13 @@ OUTPUT JSON:
           <div className="space-y-4 md:space-y-6">
             <div className="bg-slate-900/50 rounded-xl md:rounded-2xl border border-slate-800/50 p-4 md:p-6">
               <div className="flex items-center justify-between mb-3 md:mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl">
-                    <Star className="w-6 h-6 text-white" />
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className="p-3 md:p-3.5 bg-gradient-to-br from-amber-500 via-orange-500 to-red-600 rounded-xl md:rounded-2xl shadow-lg shadow-orange-500/30 flex-shrink-0">
+                    <Star className="w-6 h-6 md:w-7 md:h-7 text-white" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold">Today's Top Trade</h2>
-                    <p className="text-sm text-slate-400">AI-selected high-probability setup</p>
+                  <div className="flex-1">
+                    <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Today's Top Trade</h2>
+                    <p className="text-xs md:text-sm text-slate-400 mt-0.5">AI-selected high-probability setup</p>
                   </div>
                 </div>
 
@@ -17491,7 +17491,7 @@ OUTPUT JSON:
                   <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg md:rounded-xl p-3 md:p-6">
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                       <div>
-                        <h3 className="text-lg md:text-2xl font-bold mb-1">{dailyPick.assetName}</h3>
+                        <h3 className="text-lg md:text-2xl font-bold mb-1 bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">{dailyPick.assetName}</h3>
                         <p className="text-sm md:text-base text-slate-400">{dailyPick.asset} • {dailyPick.assetType}</p>
                         {/* Show current price prominently */}
                         <p className="text-base md:text-lg font-semibold text-white mt-1">
@@ -17523,11 +17523,12 @@ OUTPUT JSON:
                           onMouseLeave={() => setActiveTooltip(null)}
                         >
                           <div
-                            className={`px-4 py-2 rounded-xl font-bold text-lg cursor-help ${
-                              dailyPick.direction === "LONG" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
+                            className={`px-5 py-2 rounded-full font-bold text-sm md:text-base cursor-help shadow-lg inline-flex items-center gap-1.5 transition-all ${
+                              dailyPick.direction === "LONG" ? "bg-gradient-to-r from-emerald-600 to-green-600 text-white" : "bg-gradient-to-r from-red-600 to-rose-600 text-white"
                             }`}
                           >
-                            {dailyPick.direction} <span className="text-xs opacity-60">ⓘ</span>
+                            {dailyPick.direction === "LONG" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                            {dailyPick.direction} <span className="text-xs opacity-70">ⓘ</span>
                           </div>
                           {/* State-based Tooltip */}
                           {activeTooltip === 'pickdir' && (
@@ -17625,21 +17626,33 @@ OUTPUT JSON:
                     )}
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">Entry</div>
-                        <div className="font-bold text-lg text-violet-400">${dailyPick.entry}</div>
+                      <div className="bg-gradient-to-br from-emerald-600/30 to-green-600/20 border border-emerald-500/40 rounded-lg md:rounded-xl p-4 shadow-md">
+                        <div className="text-xs text-emerald-300 font-semibold mb-2 flex items-center gap-1">
+                          <ChevronUp className="w-3 h-3" />
+                          Entry Point
+                        </div>
+                        <div className="font-bold text-xl md:text-2xl text-emerald-300">${dailyPick.entry}</div>
                       </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">Stop Loss</div>
-                        <div className="font-bold text-lg text-red-400">${dailyPick.stopLoss}</div>
+                      <div className="bg-gradient-to-br from-red-600/30 to-rose-600/20 border border-red-500/40 rounded-lg md:rounded-xl p-4 shadow-md">
+                        <div className="text-xs text-red-300 font-semibold mb-2 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Stop Loss
+                        </div>
+                        <div className="font-bold text-xl md:text-2xl text-red-300">${dailyPick.stopLoss}</div>
                       </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">Target</div>
-                        <div className="font-bold text-lg text-green-400">${dailyPick.target1}</div>
+                      <div className="bg-gradient-to-br from-blue-600/30 to-cyan-600/20 border border-blue-500/40 rounded-lg md:rounded-xl p-4 shadow-md">
+                        <div className="text-xs text-blue-300 font-semibold mb-2 flex items-center gap-1">
+                          <Target className="w-3 h-3" />
+                          Target
+                        </div>
+                        <div className="font-bold text-xl md:text-2xl text-blue-300">${dailyPick.target1}</div>
                       </div>
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">R:R</div>
-                        <div className="font-bold text-lg text-emerald-400">{dailyPick.riskReward}</div>
+                      <div className="bg-gradient-to-br from-violet-600/30 to-purple-600/20 border border-violet-500/40 rounded-lg md:rounded-xl p-4 shadow-md">
+                        <div className="text-xs text-violet-300 font-semibold mb-2 flex items-center gap-1">
+                          <Zap className="w-3 h-3" />
+                          Risk:Reward
+                        </div>
+                        <div className="font-bold text-xl md:text-2xl text-violet-300">{dailyPick.riskReward}</div>
                       </div>
                     </div>
 
@@ -17661,12 +17674,20 @@ OUTPUT JSON:
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-slate-800/50 rounded-lg p-4 relative group">
-                      <div className="text-xs text-slate-500 mb-1 flex items-center gap-1">
+                    <div className="bg-gradient-to-br from-violet-600/40 to-purple-600/30 border border-violet-500/50 rounded-lg md:rounded-xl p-4 relative group shadow-lg shadow-violet-500/20 md:col-span-1">
+                      <div className="text-xs text-violet-300 font-semibold mb-2 flex items-center gap-1">
+                        <Zap className="w-3 h-3" />
                         Confidence
-                        <HelpCircle className="w-3 h-3 text-slate-500 hover:text-violet-400 cursor-help" />
+                        <HelpCircle className="w-3 h-3 text-violet-400 cursor-help" />
                       </div>
-                      <div className="text-2xl font-bold text-violet-400">{dailyPick.confidence}%</div>
+                      <div className="text-3xl md:text-4xl font-bold text-violet-200">{dailyPick.confidence}%</div>
+                      {/* Confidence Score Bar */}
+                      <div className="mt-3 w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-500"
+                          style={{ width: `${dailyPick.confidence}%` }}
+                        />
+                      </div>
                       {/* Confidence Tooltip */}
                       <div className="absolute left-0 top-full mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-xl z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                         <div className="text-xs text-slate-200 font-semibold mb-2">What makes this score:</div>
@@ -22737,6 +22758,21 @@ OUTPUT JSON:
           </div>
         )}
 
+        {/* Main Content Footer */}
+        <footer className="mt-12 pt-8 border-t border-slate-800/30">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-400">MODUS Trading Platform</span>
+            </div>
+            <div className="text-center flex-1">
+              <p className="text-slate-500">© {new Date().getFullYear()} MODUS. Not financial advice.</p>
+            </div>
+            <div className="text-right">
+              <p className="text-slate-600">Educational tool only</p>
+            </div>
+          </div>
+        </footer>
+
       </main>
 
       {/* Footer */}
@@ -22812,20 +22848,22 @@ OUTPUT JSON:
                 const isPositive = changePercent >= 0;
                 
                 return (
-                  <div 
-                    key={symbol} 
-                    className="flex items-center justify-between group bg-slate-800/40 hover:bg-slate-800/80 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer border border-transparent hover:border-slate-700/50"
+                  <div
+                    key={symbol}
+                    className="flex items-center justify-between group bg-slate-800/30 hover:bg-slate-800/70 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer border border-slate-700/30 hover:border-slate-600/60"
                     onClick={() => loadWatchlistSymbol(symbol)}
                   >
                     <div className="flex-1">
                       <div className="text-sm text-white font-semibold">{symbol}</div>
                       {price?.price > 0 && (
-                        <div className="text-[10px] text-slate-400 tabular-nums">${price.price.toFixed(2)}</div>
+                        <div className={`text-[10px] tabular-nums font-medium ${
+                          isPositive ? 'text-emerald-400' : 'text-red-400'
+                        }`}>${price.price.toFixed(2)}</div>
                       )}
                     </div>
                     {price?.price > 0 && (
-                      <div className={`text-xs font-medium px-2 py-1 rounded-lg ${
-                        isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                      <div className={`text-xs font-semibold px-2.5 py-1.5 rounded-full ${
+                        isPositive ? 'bg-emerald-500/25 text-emerald-300' : 'bg-red-500/25 text-red-300'
                       }`}>
                         {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
                       </div>
@@ -22849,13 +22887,13 @@ OUTPUT JSON:
       {!watchlistVisible && (
         <button
           onClick={() => setWatchlistVisible(true)}
-          className="fixed right-4 bottom-4 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white px-5 py-3 rounded-xl shadow-xl shadow-violet-500/25 z-40 flex items-center gap-2.5 transition-all duration-200 hover:scale-105 btn-press"
+          className="fixed right-4 bottom-4 bg-slate-800/60 hover:bg-slate-700/80 text-white px-6 py-2.5 rounded-full shadow-lg shadow-black/40 z-40 flex items-center gap-2.5 transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/20 border border-slate-700/50 hover:border-slate-600/80 backdrop-blur-sm btn-press"
           title="Show watchlist"
         >
-          <List className="w-5 h-5" />
-          <span className="text-sm font-bold">Watchlist</span>
+          <List className="w-4 h-4" />
+          <span className="text-sm font-semibold">Watchlist</span>
           {watchlist.length > 0 && (
-            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">{watchlist.length}</span>
+            <span className="bg-violet-500/40 px-2 py-0.5 rounded-full text-xs font-bold text-violet-200">{watchlist.length}</span>
           )}
         </button>
       )}
