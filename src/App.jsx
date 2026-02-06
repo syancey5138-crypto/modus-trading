@@ -3859,74 +3859,111 @@ function App() {
     tickerLoadingRef.current = loadingTicker;
   }, [loadingTicker]);
 
-  // Auto-refresh: periodically check if a new candle period has started and append it
-  // This does NOT re-fetch the full chart — only the current quote to detect new periods
+  // Auto-refresh: fetch full chart but smart-merge — historical candles stay, only tail updates
   useEffect(() => {
     if (!tickerAutoRefresh || !tickerSymbol || activeTab !== "ticker") return;
 
-    console.log(`[Ticker Auto-Refresh] ✅ Lightweight refresh every ${tickerRefreshInterval}s for ${tickerSymbol}`);
+    console.log(`[Ticker Auto-Refresh] ✅ Smart refresh every ${tickerRefreshInterval}s for ${tickerSymbol}`);
 
     const interval = setInterval(async () => {
       if (tickerLoadingRef.current) return;
       try {
         setIsRefreshing(true);
-        const quote = await fetchCurrentQuote(tickerSymbol);
-        if (!quote?.price) return;
+
+        // Fetch fresh chart data from Yahoo (same as manual but we merge smartly)
+        const freshData = await tryYahooFetch(
+          tickerSymbol,
+          tickerTimeframeRef.current || tickerTimeframe || '1d',
+          // Use a short range for intraday, longer for daily+
+          (['1m','2m','5m','15m','30m'].includes(tickerTimeframeRef.current || tickerTimeframe) ? '1d' : '1y')
+        );
+
+        if (!freshData || !freshData.timeSeries || freshData.timeSeries.length === 0) return;
+
+        const freshPrice = freshData.meta?.regularMarketPrice || freshData.timeSeries[freshData.timeSeries.length - 1]?.close;
 
         setTickerData(prev => {
           if (!prev || !prev.timeSeries || prev.timeSeries.length === 0) return prev;
 
-          const newPrice = quote.price;
-          // Reject suspicious price
-          if (Math.abs(newPrice - prev.currentPrice) / prev.currentPrice > 0.10) return prev;
-
-          const updatedSeries = [...prev.timeSeries];
-          const lastCandle = updatedSeries[updatedSeries.length - 1];
-
-          // Determine if we should start a new candle based on timeframe
-          const tfMinutes = { '1m': 1, '2m': 2, '5m': 5, '15m': 15, '30m': 30, '60m': 60, '1h': 60, '90m': 90, '1d': 1440, '5d': 7200, '1wk': 10080, '1mo': 43200 };
-          const candleDuration = (tfMinutes[tickerTimeframeRef.current || '1d'] || 1440) * 60 * 1000;
-          const lastCandleTime = new Date(lastCandle.time).getTime();
-          const now = Date.now();
-          const elapsed = now - lastCandleTime;
-
-          if (elapsed >= candleDuration && candleDuration <= 90 * 60 * 1000) {
-            // New candle period — append a new bar
-            updatedSeries.push({
-              time: new Date().toLocaleString(),
-              open: lastCandle.close,
-              high: Math.max(lastCandle.close, newPrice),
-              low: Math.min(lastCandle.close, newPrice),
-              close: newPrice,
-              volume: 0
-            });
-            // Keep candle count stable
-            if (updatedSeries.length > prev.timeSeries.length) {
-              updatedSeries.shift();
-            }
-            console.log(`[Auto-Refresh] 📊 New candle added at $${newPrice.toFixed(2)}`);
-          } else {
-            // Same period — just update last candle
-            const updated = { ...lastCandle };
-            updated.close = newPrice;
-            updated.high = Math.max(updated.high, newPrice);
-            updated.low = Math.min(updated.low, newPrice);
-            updatedSeries[updatedSeries.length - 1] = updated;
+          // Reject suspicious price jumps (>10%)
+          if (freshPrice && Math.abs(freshPrice - prev.currentPrice) / prev.currentPrice > 0.10) {
+            console.log(`[Auto-Refresh] ⚠️ Rejected suspicious price change`);
+            return { ...prev, lastUpdate: new Date(), lastRealUpdate: Date.now(), isLive: true };
           }
+
+          const existingCandles = prev.timeSeries;
+          const newCandles = freshData.timeSeries;
+
+          // Build a time-keyed map of new candles for fast lookup
+          const newCandleMap = new Map();
+          for (const c of newCandles) {
+            newCandleMap.set(c.time, c);
+          }
+
+          // Smart merge strategy:
+          // - Keep ALL existing candles as-is (preserves chart shape)
+          // - EXCEPT the last 3 candles which may still be forming — update those from fresh data
+          // - Append any genuinely new candles that come after our last existing one
+          const updateCount = Math.min(3, existingCandles.length);
+          const stableCandles = existingCandles.slice(0, existingCandles.length - updateCount);
+          const tailCandles = existingCandles.slice(existingCandles.length - updateCount);
+
+          // Update tail candles with fresh data if available (matching by time)
+          const updatedTail = tailCandles.map(existing => {
+            const fresh = newCandleMap.get(existing.time);
+            if (fresh) {
+              return { ...fresh }; // Use fresh OHLCV (proper candle shape + volume)
+            }
+            return { ...existing }; // Keep existing if no match
+          });
+
+          // Find genuinely new candles (times that don't exist in our data)
+          const existingTimes = new Set(existingCandles.map(c => c.time));
+          const lastExistingTime = new Date(existingCandles[existingCandles.length - 1].time).getTime();
+          const brandNewCandles = newCandles.filter(c =>
+            !existingTimes.has(c.time) && new Date(c.time).getTime() > lastExistingTime
+          );
+
+          // Combine: stable history + updated tail + new candles
+          let merged = [...stableCandles, ...updatedTail, ...brandNewCandles];
+
+          // Keep candle count stable by trimming from the front
+          const maxCandles = existingCandles.length;
+          if (merged.length > maxCandles) {
+            merged = merged.slice(merged.length - maxCandles);
+          }
+
+          if (brandNewCandles.length > 0) {
+            console.log(`[Auto-Refresh] 📊 Added ${brandNewCandles.length} new candle(s), updated ${updateCount} tail candles`);
+          }
+
+          // Update price from fresh data
+          const validPrice = freshPrice || prev.currentPrice;
 
           return {
             ...prev,
-            currentPrice: newPrice,
-            change: quote.change || (newPrice - prev.open),
-            changePercent: quote.changePercent || (((newPrice - prev.open) / prev.open) * 100),
-            timeSeries: updatedSeries,
+            currentPrice: validPrice,
+            change: validPrice - prev.open,
+            changePercent: ((validPrice - prev.open) / prev.open) * 100,
+            volume: freshData.meta?.regularMarketVolume || prev.volume,
+            high: Math.max(prev.high || validPrice, validPrice),
+            low: Math.min(prev.low || validPrice, validPrice),
+            timeSeries: merged,
             lastUpdate: new Date(),
             isLive: true,
             lastRealUpdate: Date.now()
           };
         });
+
+        // Price flash
+        if (freshPrice) {
+          setPriceFlash(freshPrice > (tickerData?.currentPrice || 0) ? 'up' : 'down');
+          setLastPriceUpdate(Date.now());
+          setTimeout(() => setPriceFlash(null), 500);
+        }
       } catch (err) {
-        // Silent fail
+        // Silent fail — don't disrupt the chart
+        console.log('[Auto-Refresh] Failed:', err.message);
       } finally {
         setIsRefreshing(false);
         setTickerLastRefresh(new Date());
