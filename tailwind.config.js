@@ -100,6 +100,7 @@ export default {
       // Trading-optimized font sizes
       fontSize: {
         'xxs': ['0.625rem', { lineHeight: '0.875rem' }],
+        '7px': ['0.4375rem', { lineHeight: '0.5rem' }],
         'price': ['1.125rem', { lineHeight: '1.5rem', fontWeight: '600' }],
       },
       // Consistent border radius

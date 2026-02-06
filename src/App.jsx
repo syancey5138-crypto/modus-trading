@@ -1249,6 +1249,8 @@ function App() {
   const [watchlistVisible, setWatchlistVisible] = useState(true); // NEW: Collapsable watchlist
   const [watchlistPrices, setWatchlistPrices] = useState({});
   const [addToWatchlistSymbol, setAddToWatchlistSymbol] = useState('');
+  const [draggedWatchlistItem, setDraggedWatchlistItem] = useState(null);
+  const [dragOverWatchlistItem, setDragOverWatchlistItem] = useState(null);
 
   // Memoize alert symbols string to prevent unnecessary useEffect re-runs
   const alertSymbolsString = useMemo(
@@ -6964,7 +6966,18 @@ OUTPUT JSON:
   const removeFromWatchlist = (symbol) => {
     setWatchlist(watchlist.filter(s => s !== symbol));
   };
-  
+
+  const reorderWatchlist = useCallback((fromIdx, toIdx) => {
+    setWatchlist(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIdx, 1);
+      updated.splice(toIdx, 0, moved);
+      return updated;
+    });
+    setDraggedWatchlistItem(null);
+    setDragOverWatchlistItem(null);
+  }, []);
+
   const loadWatchlistSymbol = async (symbol) => {
     setTickerSymbol(symbol);
     setActiveTab("ticker");
@@ -7516,6 +7529,108 @@ OUTPUT JSON:
       }
     }
   }, [addNotification]);
+
+  // Earnings calendar estimation for watchlist stocks
+  const getEstimatedEarnings = useCallback((symbols) => {
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
+    const currentYear = now.getFullYear();
+
+    // Typical earnings seasons: Jan (Q4), Apr (Q1), Jul (Q2), Oct (Q3)
+    const earningsMonths = [0, 3, 6, 9]; // Jan, Apr, Jul, Oct
+
+    // Find next earnings month
+    const nextEarningsMonth = earningsMonths.find(m => m > currentMonth) ?? earningsMonths[0];
+    const nextEarningsYear = nextEarningsMonth <= currentMonth ? currentYear + 1 : currentYear;
+    const nextEarningsDate = new Date(nextEarningsYear, nextEarningsMonth, 15); // ~mid month
+    const daysUntil = Math.ceil((nextEarningsDate - now) / (1000 * 60 * 60 * 24));
+
+    // Map earnings periods to quarter labels
+    const quarterMap = { 0: 'Q4', 3: 'Q1', 6: 'Q2', 9: 'Q3' };
+    const quarter = quarterMap[nextEarningsMonth] || 'Q?';
+
+    // Some well-known companies with approximate earnings dates
+    const knownEarnings = {
+      'AAPL': { typical: 'Late Jan, Late Apr, Late Jul, Late Oct' },
+      'MSFT': { typical: 'Late Jan, Late Apr, Late Jul, Late Oct' },
+      'GOOGL': { typical: 'Late Jan, Late Apr, Late Jul, Late Oct' },
+      'AMZN': { typical: 'Early Feb, Late Apr, Late Jul, Late Oct' },
+      'META': { typical: 'Early Feb, Late Apr, Late Jul, Late Oct' },
+      'TSLA': { typical: 'Late Jan, Late Apr, Late Jul, Late Oct' },
+      'NVDA': { typical: 'Late Feb, Late May, Late Aug, Late Nov' },
+      'JPM': { typical: 'Mid Jan, Mid Apr, Mid Jul, Mid Oct' },
+      'BAC': { typical: 'Mid Jan, Mid Apr, Mid Jul, Mid Oct' },
+      'DIS': { typical: 'Early Feb, Early May, Early Aug, Early Nov' },
+      'NFLX': { typical: 'Mid Jan, Mid Apr, Mid Jul, Mid Oct' },
+    };
+
+    return symbols.map(sym => ({
+      symbol: sym,
+      nextSeason: quarter,
+      daysUntil,
+      approximateDate: nextEarningsDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      known: knownEarnings[sym]?.typical || null,
+      isEarningsSeason: daysUntil <= 30
+    }));
+  }, []);
+
+  // Data Backup & Restore
+  const exportAllData = useCallback(() => {
+    const data = {
+      version: '1.0',
+      exportDate: new Date().toISOString(),
+      watchlist: watchlist,
+      trades: trades,
+      alerts: alerts,
+      portfolio: portfolio,
+      tradePlans: tradePlans,
+      paperTradingAccount: paperTradingAccount,
+      analysisHistory: analysisHistory,
+      notificationPrefs: notificationPrefs,
+      portfolioSettings: portfolioSettings,
+      // Collect localStorage settings
+      settings: {}
+    };
+    // Grab relevant localStorage keys
+    ['modus_active_tab', 'modus_sidebar_collapsed', 'modus_discord_webhook', 'sms_settings'].forEach(key => {
+      try { const val = localStorage.getItem(key); if (val) data.settings[key] = val; } catch {}
+    });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `modus-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [watchlist, trades, alerts, portfolio, tradePlans, paperTradingAccount, analysisHistory, notificationPrefs, portfolioSettings]);
+
+  const importAllData = useCallback((file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.version) { alert('Invalid backup file'); return; }
+        if (data.watchlist) setWatchlist(data.watchlist);
+        if (data.trades) setTrades(data.trades);
+        if (data.alerts) setAlerts(data.alerts);
+        if (data.portfolio) setPortfolio(data.portfolio);
+        if (data.tradePlans) setTradePlans(data.tradePlans);
+        if (data.paperTradingAccount) setPaperTradingAccount(data.paperTradingAccount);
+        if (data.analysisHistory) setAnalysisHistory(data.analysisHistory);
+        if (data.notificationPrefs) setNotificationPrefs(data.notificationPrefs);
+        if (data.portfolioSettings) setPortfolioSettings(data.portfolioSettings);
+        if (data.settings) {
+          Object.entries(data.settings).forEach(([key, val]) => {
+            try { localStorage.setItem(key, val); } catch {}
+          });
+        }
+        alert(`Data restored from ${data.exportDate ? new Date(data.exportDate).toLocaleDateString() : 'backup'}! ${data.trades?.length || 0} trades, ${data.watchlist?.length || 0} watchlist items.`);
+      } catch (err) {
+        alert('Error reading backup file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }, []);
 
   // KEYBOARD SHORTCUTS
   useEffect(() => {
@@ -10316,6 +10431,41 @@ OUTPUT JSON:
                   </div>
                 </div>
               )}
+
+              {/* Data Backup & Restore */}
+              <div className="border-t border-slate-700/50 pt-4 mt-4">
+                <h3 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Data Backup & Restore
+                </h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={exportAllData}
+                    className="w-full py-2.5 px-4 bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 rounded-lg text-sm text-violet-300 hover:text-white transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export All Data (JSON)
+                  </button>
+                  <label className="w-full py-2.5 px-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 rounded-lg text-sm text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer">
+                    <Upload className="w-4 h-4" />
+                    Import Backup File
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files[0]) {
+                          if (window.confirm('This will overwrite your current data. Are you sure?')) {
+                            importAllData(e.target.files[0]);
+                          }
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                  </label>
+                  <p className="text-[10px] text-slate-600">Exports: watchlist, trades, alerts, portfolio, settings. File can be imported on any device.</p>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-3">
@@ -12409,7 +12559,7 @@ OUTPUT JSON:
 
       {/* Main Content */}
       <main className={`min-h-screen overflow-y-auto transition-all duration-300 ease-out px-3 sm:px-4 md:px-6 lg:px-8 py-3 md:py-6 pb-8 safe-area-bottom ${
-        isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
+        isMobile ? 'ml-0 pb-20' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
       }`}>
         {/* Welcome Banner */}
         {showWelcomeBanner && !currentUser && (
@@ -19706,6 +19856,70 @@ OUTPUT JSON:
               </div>
             </div>
 
+            {/* SECTOR ROTATION TRACKER */}
+            <div className="mt-6 bg-slate-800/30 rounded-xl border border-slate-700/20 p-5">
+              <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-violet-400" />
+                Sector Rotation
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">Relative performance across sectors — green = money flowing in, red = money flowing out</p>
+
+              {/* Rotation bar chart */}
+              <div className="space-y-2">
+                {Object.entries(marketData.sectors)
+                  .sort((a, b) => (b[1].changePercent || 0) - (a[1].changePercent || 0))
+                  .map(([symbol, sector]) => {
+                    const change = sector.changePercent || 0;
+                    const maxChange = Math.max(...Object.values(marketData.sectors).map(s => Math.abs(s.changePercent || 0)), 1);
+                    const barWidth = Math.min(Math.abs(change) / maxChange * 100, 100);
+                    const isPositive = change >= 0;
+
+                    return (
+                      <div key={symbol} className="flex items-center gap-3 group hover:bg-slate-800/40 rounded-lg px-2 py-1.5 transition-colors">
+                        <div className="w-28 text-xs text-slate-400 font-medium truncate">{sector.name}</div>
+                        <div className="flex-1 h-6 bg-slate-900/50 rounded relative overflow-hidden">
+                          {/* Center line */}
+                          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-700" />
+                          {/* Bar */}
+                          <div
+                            className={`absolute top-0.5 bottom-0.5 rounded transition-all duration-500 ${
+                              isPositive ? 'bg-emerald-500/60 left-1/2' : 'bg-red-500/60 right-1/2'
+                            }`}
+                            style={{ width: `${barWidth / 2}%` }}
+                          />
+                        </div>
+                        <div className={`w-16 text-right text-xs font-bold tabular-nums ${
+                          isPositive ? 'text-emerald-400' : 'text-red-400'
+                        }`}>
+                          {isPositive ? '+' : ''}{change.toFixed(2)}%
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Rotation summary */}
+              <div className="mt-4 pt-3 border-t border-slate-700/30 flex flex-wrap gap-4 text-xs">
+                {(() => {
+                  const sectors = Object.values(marketData.sectors);
+                  const advancing = sectors.filter(s => (s.changePercent || 0) > 0).length;
+                  const declining = sectors.length - advancing;
+                  const avgChange = sectors.reduce((sum, s) => sum + (s.changePercent || 0), 0) / (sectors.length || 1);
+                  const bestSector = Object.entries(marketData.sectors).sort((a, b) => (b[1].changePercent || 0) - (a[1].changePercent || 0))[0];
+                  const worstSector = Object.entries(marketData.sectors).sort((a, b) => (a[1].changePercent || 0) - (b[1].changePercent || 0))[0];
+
+                  return (
+                    <>
+                      <span className="text-slate-500">Breadth: <span className={`font-medium ${advancing > declining ? 'text-emerald-400' : 'text-red-400'}`}>{advancing}/{sectors.length} advancing</span></span>
+                      <span className="text-slate-500">Avg: <span className={`font-medium ${avgChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{avgChange >= 0 ? '+' : ''}{avgChange.toFixed(2)}%</span></span>
+                      {bestSector && <span className="text-slate-500">Leading: <span className="text-emerald-400 font-medium">{bestSector[1].name}</span></span>}
+                      {worstSector && <span className="text-slate-500">Lagging: <span className="text-red-400 font-medium">{worstSector[1].name}</span></span>}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
             {/* Quick Actions */}
             <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
               <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
@@ -22031,11 +22245,24 @@ OUTPUT JSON:
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700">
-                    {watchlist.map((symbol) => {
+                    {watchlist.map((symbol, i) => {
                       const price = watchlistPrices[symbol] || { current: 0, change: 0, changePercent: 0 };
                       return (
-                        <tr key={symbol} className="hover:bg-slate-800/50">
-                          <td className="px-4 py-3 font-bold text-lg">{symbol}</td>
+                        <tr
+                          key={symbol}
+                          draggable
+                          onDragStart={(e) => { setDraggedWatchlistItem(i); e.dataTransfer.effectAllowed = 'move'; }}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverWatchlistItem(i); }}
+                          onDragEnd={() => { setDraggedWatchlistItem(null); setDragOverWatchlistItem(null); }}
+                          onDrop={(e) => { e.preventDefault(); if (draggedWatchlistItem !== null && draggedWatchlistItem !== i) reorderWatchlist(draggedWatchlistItem, i); }}
+                          className={`hover:bg-slate-800/50 transition-all cursor-move ${dragOverWatchlistItem === i ? 'border-t-2 border-t-violet-500' : ''} ${draggedWatchlistItem === i ? 'opacity-50' : ''}`}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-slate-500 text-sm opacity-0 hover:opacity-100 transition-opacity">⋮⋮</span>
+                              <span className="font-bold text-lg">{symbol}</span>
+                            </div>
+                          </td>
                           <td className="px-4 py-3 font-semibold">${(price.current || 0).toFixed(2)}</td>
                           <td className="px-4 py-3">
                             <span className={(price.change || 0) >= 0 ? 'text-green-400' : 'text-red-400'}>
@@ -22073,6 +22300,121 @@ OUTPUT JSON:
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* CORRELATION HEATMAP */}
+            {watchlist.length >= 2 && (
+              <div className="mt-6 bg-slate-800/30 rounded-xl border border-slate-700/20 p-5">
+                <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-violet-400" />
+                  Correlation Overview
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">Based on current price movement similarity. Green = moving together, Red = moving apart.</p>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th className="p-2 text-left text-slate-500"></th>
+                        {watchlist.slice(0, 10).map(sym => (
+                          <th key={sym} className="p-2 text-center text-slate-400 font-semibold" style={{ minWidth: '50px' }}>{sym}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {watchlist.slice(0, 10).map((symA, rowIdx) => (
+                        <tr key={symA}>
+                          <td className="p-2 text-slate-400 font-semibold">{symA}</td>
+                          {watchlist.slice(0, 10).map((symB, colIdx) => {
+                            if (rowIdx === colIdx) {
+                              return <td key={symB} className="p-1"><div className="w-full h-8 bg-violet-500/30 rounded flex items-center justify-center text-[10px] text-violet-300 font-bold">1.00</div></td>;
+                            }
+                            const changeA = watchlistPrices[symA]?.changePercent || 0;
+                            const changeB = watchlistPrices[symB]?.changePercent || 0;
+                            // Simple directional correlation: same direction = positive, opposite = negative
+                            const sameDirection = (changeA >= 0 && changeB >= 0) || (changeA < 0 && changeB < 0);
+                            const magnitudeSimilarity = 1 - Math.min(Math.abs(Math.abs(changeA) - Math.abs(changeB)) / Math.max(Math.abs(changeA), Math.abs(changeB), 0.01), 1);
+                            const correlation = sameDirection ? magnitudeSimilarity * 0.5 + 0.5 : -(magnitudeSimilarity * 0.5 + 0.5);
+                            const normalized = Math.max(-1, Math.min(1, correlation));
+
+                            const bg = normalized > 0.5 ? `rgba(16, 185, 129, ${Math.abs(normalized) * 0.5})` :
+                                       normalized > 0 ? `rgba(16, 185, 129, ${Math.abs(normalized) * 0.3})` :
+                                       normalized > -0.5 ? `rgba(239, 68, 68, ${Math.abs(normalized) * 0.3})` :
+                                       `rgba(239, 68, 68, ${Math.abs(normalized) * 0.5})`;
+
+                            return (
+                              <td key={symB} className="p-1">
+                                <div
+                                  className="w-full h-8 rounded flex items-center justify-center text-[10px] font-bold tabular-nums transition-all hover:scale-110 cursor-default"
+                                  style={{ backgroundColor: bg }}
+                                  title={`${symA} vs ${symB}: ${normalized.toFixed(2)}`}
+                                >
+                                  <span className={normalized >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                                    {normalized.toFixed(2)}
+                                  </span>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-3 flex items-center justify-center gap-4 text-[10px] text-slate-500">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.4)' }} />
+                    <span>Negatively correlated</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-3 rounded bg-slate-700" />
+                    <span>Uncorrelated</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-3 rounded" style={{ backgroundColor: 'rgba(16, 185, 129, 0.4)' }} />
+                    <span>Positively correlated</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* UPCOMING EARNINGS */}
+            {watchlist.length > 0 && (
+              <div className="mt-6 bg-slate-800/30 rounded-xl border border-slate-700/20 p-5">
+                <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-amber-400" />
+                  Earnings Watch
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">Estimated earnings seasons for your watchlist stocks. Always verify dates before trading.</p>
+
+                <div className="space-y-2">
+                  {getEstimatedEarnings(watchlist).map((earning) => (
+                    <div key={earning.symbol} className={`flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors ${
+                      earning.isEarningsSeason ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-slate-800/30 hover:bg-slate-800/50'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-sm text-white w-14">{earning.symbol}</span>
+                        {earning.isEarningsSeason && (
+                          <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-bold rounded-full animate-pulse">EARNINGS SOON</span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-slate-300">
+                          Next: <span className="font-medium text-white">{earning.nextSeason}</span> — ~{earning.approximateDate}
+                        </div>
+                        {earning.known && (
+                          <div className="text-[10px] text-slate-500">{earning.known}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-[10px] text-slate-600 mt-3 text-center">
+                  Dates are approximate. Check your broker for confirmed earnings dates before trading around announcements.
+                </p>
               </div>
             )}
 
@@ -23629,9 +23971,95 @@ OUTPUT JSON:
 
       </main>
 
+      {/* MOBILE BOTTOM NAVIGATION */}
+      {isMobile && (
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/50 pt-2 pb-safe" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+          <div className="flex items-center justify-around h-16 px-2">
+            {/* Ticker Tab */}
+            <button
+              onClick={() => setActiveTab("ticker")}
+              className="flex flex-col items-center gap-1 py-1 transition-colors duration-200"
+              title="Ticker"
+            >
+              <div className="relative">
+                {activeTab === "ticker" && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-violet-400 rounded-full" />}
+                <LineChart className={`w-5 h-5 ${activeTab === "ticker" ? 'text-violet-400' : 'text-slate-500'}`} />
+              </div>
+              <span className={`text-7px font-medium ${activeTab === "ticker" ? 'text-violet-400' : 'text-slate-500'}`}>Ticker</span>
+            </button>
+
+            {/* Analysis Tab */}
+            <button
+              onClick={() => setActiveTab("analyze")}
+              className="flex flex-col items-center gap-1 py-1 transition-colors duration-200"
+              title="Analysis"
+            >
+              <div className="relative">
+                {activeTab === "analyze" && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-violet-400 rounded-full" />}
+                <BarChart3 className={`w-5 h-5 ${activeTab === "analyze" ? 'text-violet-400' : 'text-slate-500'}`} />
+              </div>
+              <span className={`text-7px font-medium ${activeTab === "analyze" ? 'text-violet-400' : 'text-slate-500'}`}>Analysis</span>
+            </button>
+
+            {/* Daily Pick Tab */}
+            <button
+              onClick={() => setActiveTab("daily")}
+              className="flex flex-col items-center gap-1 py-1 transition-colors duration-200"
+              title="Daily Pick"
+            >
+              <div className="relative">
+                {activeTab === "daily" && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-violet-400 rounded-full" />}
+                <Star className={`w-5 h-5 ${activeTab === "daily" ? 'text-violet-400' : 'text-slate-500'}`} />
+              </div>
+              <span className={`text-7px font-medium ${activeTab === "daily" ? 'text-violet-400' : 'text-slate-500'}`}>Daily</span>
+            </button>
+
+            {/* Alerts Tab */}
+            <button
+              onClick={() => setActiveTab("alerts")}
+              className="flex flex-col items-center gap-1 py-1 transition-colors duration-200"
+              title="Alerts"
+            >
+              <div className="relative">
+                {activeTab === "alerts" && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-violet-400 rounded-full" />}
+                <Bell className={`w-5 h-5 ${activeTab === "alerts" ? 'text-violet-400' : 'text-slate-500'}`} />
+              </div>
+              <span className={`text-7px font-medium ${activeTab === "alerts" ? 'text-violet-400' : 'text-slate-500'}`}>Alerts</span>
+            </button>
+
+            {/* Journal Tab */}
+            <button
+              onClick={() => setActiveTab("journal")}
+              className="flex flex-col items-center gap-1 py-1 transition-colors duration-200"
+              title="Journal"
+            >
+              <div className="relative">
+                {activeTab === "journal" && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-violet-400 rounded-full" />}
+                <Target className={`w-5 h-5 ${activeTab === "journal" ? 'text-violet-400' : 'text-slate-500'}`} />
+              </div>
+              <span className={`text-7px font-medium ${activeTab === "journal" ? 'text-violet-400' : 'text-slate-500'}`}>Journal</span>
+            </button>
+
+            {/* More Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex flex-col items-center gap-1 py-1 transition-colors duration-200"
+              title="More Options"
+            >
+              <div className="relative">
+                {mobileMenuOpen && <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-violet-400 rounded-full" />}
+                <Menu className={`w-5 h-5 ${mobileMenuOpen ? 'text-violet-400' : 'text-slate-500'}`} />
+              </div>
+              <span className={`text-7px font-medium ${mobileMenuOpen ? 'text-violet-400' : 'text-slate-500'}`}>More</span>
+            </button>
+          </div>
+        </nav>
+      )}
+
       {/* SITE FOOTER */}
+      {!isMobile && (
       <footer className={`border-t border-slate-800/30 py-3 px-4 md:px-8 transition-all duration-300 ${
-        isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
+        sidebarCollapsed ? 'ml-16' : 'ml-64'
       }`} style={{ background: 'rgba(10, 15, 30, 0.6)' }}>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <div className="flex items-center gap-1.5">
@@ -23647,6 +24075,7 @@ OUTPUT JSON:
           </div>
         </div>
       </footer>
+      )}
 
       {/* INFO PAGES */}
       {showInfoPage && (
@@ -23966,17 +24395,25 @@ OUTPUT JSON:
             </div>
           ) : (
             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-              {watchlist.map(symbol => {
+              {watchlist.map((symbol, i) => {
                 const price = watchlistPrices[symbol];
                 const changePercent = price?.changePercent || 0;
                 const isPositive = changePercent >= 0;
-                
+
                 return (
                   <div
                     key={symbol}
-                    className="flex items-center justify-between group bg-slate-800/30 hover:bg-slate-800/70 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer border border-slate-700/30 hover:border-slate-600/60"
+                    draggable
+                    onDragStart={(e) => { setDraggedWatchlistItem(i); e.dataTransfer.effectAllowed = 'move'; }}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverWatchlistItem(i); }}
+                    onDragEnd={() => { setDraggedWatchlistItem(null); setDragOverWatchlistItem(null); }}
+                    onDrop={(e) => { e.preventDefault(); if (draggedWatchlistItem !== null && draggedWatchlistItem !== i) reorderWatchlist(draggedWatchlistItem, i); }}
+                    className={`flex items-center justify-between group bg-slate-800/30 hover:bg-slate-800/70 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-move border border-slate-700/30 hover:border-slate-600/60 ${dragOverWatchlistItem === i ? 'border-t-2 border-t-violet-500' : ''} ${draggedWatchlistItem === i ? 'opacity-50' : ''}`}
                     onClick={() => loadWatchlistSymbol(symbol)}
                   >
+                    <div className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity mr-2 flex items-center justify-center w-4 h-4 text-xs font-bold">
+                      ⋮⋮
+                    </div>
                     <div className="flex-1">
                       <div className="text-sm text-white font-semibold">{symbol}</div>
                       {price?.price > 0 && (
