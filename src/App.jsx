@@ -13406,17 +13406,25 @@ OUTPUT JSON:
                       </div>
                       <div className="text-xs text-slate-500 mt-1">Setup Quality: {analysis.final.setupQuality}</div>
                       {analysis.final.directionalBias && (
-                        <div
-                          className={`text-xs mt-1 px-2 py-0.5 rounded inline-block cursor-help ${
-                            analysis.final.directionalBias === 'LONG'
-                              ? 'text-emerald-400 bg-emerald-500/20'
-                              : 'text-red-400 bg-red-500/20'
-                          }`}
-                          title={analysis.final.directionalBias === 'LONG'
-                            ? "LONG = Buy position. You profit when the price goes UP."
-                            : "SHORT = Sell position. You profit when the price goes DOWN."}
-                        >
-                          Bias: {analysis.final.directionalBias} ({analysis.final.biasStrength || 'MODERATE'}) ⓘ
+                        <div className="relative group inline-block">
+                          <div
+                            className={`text-xs mt-1 px-2 py-0.5 rounded inline-block cursor-help ${
+                              analysis.final.directionalBias === 'LONG'
+                                ? 'text-emerald-400 bg-emerald-500/20'
+                                : 'text-red-400 bg-red-500/20'
+                            }`}
+                          >
+                            Bias: {analysis.final.directionalBias} ({analysis.final.biasStrength || 'MODERATE'}) ⓘ
+                          </div>
+                          {/* CSS Tooltip */}
+                          <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-56 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200 z-50">
+                            <div className={`font-semibold mb-1 ${analysis.final.directionalBias === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {analysis.final.directionalBias === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
+                            </div>
+                            <p>{analysis.final.directionalBias === 'LONG'
+                              ? "Buy position. You profit when the price goes UP."
+                              : "Sell position. You profit when the price goes DOWN."}</p>
+                          </div>
                         </div>
                       )}
                       {analysis.final.dataValidated && (
@@ -13886,17 +13894,23 @@ OUTPUT JSON:
                         If You Must Trade (Reduced Risk Setup)
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
+                        <div className="relative group">
                           <div className="text-xs text-slate-500 mb-1">Direction</div>
                           <div
                             className={`font-bold text-lg cursor-help ${
                               analysis.final.ifYouMustTrade.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'
                             }`}
-                            title={analysis.final.ifYouMustTrade.direction === 'LONG'
-                              ? "LONG = Buy position. You profit when the price goes UP."
-                              : "SHORT = Sell position. You profit when the price goes DOWN."}
                           >
                             {analysis.final.ifYouMustTrade.direction} <span className="text-xs opacity-60">ⓘ</span>
+                          </div>
+                          {/* CSS Tooltip */}
+                          <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-56 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200 z-50">
+                            <div className={`font-semibold mb-1 ${analysis.final.ifYouMustTrade.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {analysis.final.ifYouMustTrade.direction === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
+                            </div>
+                            <p>{analysis.final.ifYouMustTrade.direction === 'LONG'
+                              ? "Buy position. You profit when the price goes UP. Buy low, sell high."
+                              : "Sell position. You profit when the price goes DOWN. Sell high, buy back lower."}</p>
                           </div>
                         </div>
                         <div>
@@ -14948,13 +14962,24 @@ OUTPUT JSON:
                                     {analysis.tradeSetup.confidence}
                                   </span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between relative group">
                                   <span className="text-slate-400">Direction:</span>
-                                  <span className={`font-semibold ${
-                                    analysis.tradeSetup.tradeDirection === "LONG" ? "text-green-400" : "text-red-400"
-                                  }`}>
-                                    {analysis.tradeSetup.tradeDirection}
+                                  <span
+                                    className={`font-semibold cursor-help ${
+                                      analysis.tradeSetup.tradeDirection === "LONG" ? "text-green-400" : "text-red-400"
+                                    }`}
+                                  >
+                                    {analysis.tradeSetup.tradeDirection} <span className="text-xs opacity-60">ⓘ</span>
                                   </span>
+                                  {/* CSS Tooltip */}
+                                  <div className="absolute right-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-56 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200 z-50">
+                                    <div className={`font-semibold mb-1 ${analysis.tradeSetup.tradeDirection === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                      {analysis.tradeSetup.tradeDirection === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
+                                    </div>
+                                    <p>{analysis.tradeSetup.tradeDirection === 'LONG'
+                                      ? "Buy position. You profit when the price goes UP."
+                                      : "Sell position. You profit when the price goes DOWN."}</p>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -16489,15 +16514,23 @@ OUTPUT JSON:
                             {dailyPick.recommendation.replace(/_/g, ' ')}
                           </div>
                         )}
-                        <div
-                          className={`px-4 py-2 rounded-xl font-bold text-lg cursor-help ${
-                            dailyPick.direction === "LONG" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
-                          }`}
-                          title={dailyPick.direction === "LONG"
-                            ? "LONG = Buy position. You profit when the price goes UP. Buy low, sell high."
-                            : "SHORT = Sell position. You profit when the price goes DOWN. Sell high, buy back lower."}
-                        >
-                          {dailyPick.direction} <span className="text-xs opacity-60">ⓘ</span>
+                        <div className="relative group">
+                          <div
+                            className={`px-4 py-2 rounded-xl font-bold text-lg cursor-help ${
+                              dailyPick.direction === "LONG" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
+                            }`}
+                          >
+                            {dailyPick.direction} <span className="text-xs opacity-60">ⓘ</span>
+                          </div>
+                          {/* CSS Tooltip */}
+                          <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-56 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200 z-50">
+                            <div className={`font-semibold mb-1 ${dailyPick.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {dailyPick.direction === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
+                            </div>
+                            <p>{dailyPick.direction === 'LONG'
+                              ? "Buy position. You profit when the price goes UP. Buy low, sell high."
+                              : "Sell position. You profit when the price goes DOWN. Sell high, buy back lower."}</p>
+                          </div>
                         </div>
                         {/* Holding Period Badge */}
                         <div className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300">
@@ -16520,20 +16553,48 @@ OUTPUT JSON:
                             </div>
                           </div>
                         )}
-                        {/* Volatility Badge - 5 Levels */}
+                        {/* Volatility Badge - 5 Levels with CSS Tooltip */}
                         {dailyPick.volatility && (
-                          <div className={`px-3 py-1.5 rounded-lg border ${
-                            dailyPick.volatility.category === 'Low' ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' :
-                            dailyPick.volatility.category === 'Low-Medium' ? 'bg-blue-500/20 border-blue-500/30 text-blue-300' :
-                            dailyPick.volatility.category === 'Medium' ? 'bg-violet-500/20 border-violet-500/30 text-violet-300' :
-                            dailyPick.volatility.category === 'Medium-High' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' :
-                            dailyPick.volatility.category === 'High' ? 'bg-red-500/20 border-red-500/30 text-red-300' :
-                            'bg-violet-500/20 border-violet-500/30 text-violet-300'
-                          }`}>
-                            <div className="text-xs opacity-70">Risk Level</div>
-                            <div className="font-semibold text-sm flex items-center gap-1">
-                              <Activity className="w-3 h-3" />
-                              {dailyPick.volatility.category} ({dailyPick.volatility.atrPercent}%)
+                          <div className="relative group">
+                            <div
+                              className={`px-3 py-1.5 rounded-lg border cursor-help ${
+                                dailyPick.volatility.category === 'Low' ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' :
+                                dailyPick.volatility.category === 'Low-Medium' ? 'bg-blue-500/20 border-blue-500/30 text-blue-300' :
+                                dailyPick.volatility.category === 'Medium' ? 'bg-violet-500/20 border-violet-500/30 text-violet-300' :
+                                dailyPick.volatility.category === 'Medium-High' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' :
+                                dailyPick.volatility.category === 'High' ? 'bg-red-500/20 border-red-500/30 text-red-300' :
+                                'bg-violet-500/20 border-violet-500/30 text-violet-300'
+                              }`}
+                            >
+                              <div className="text-xs opacity-70">Risk Level</div>
+                              <div className="font-semibold text-sm flex items-center gap-1">
+                                <Activity className="w-3 h-3" />
+                                {dailyPick.volatility.category} ({dailyPick.volatility.atrPercent}%) <span className="text-xs opacity-60">ⓘ</span>
+                              </div>
+                            </div>
+                            {/* CSS Tooltip */}
+                            <div className="absolute right-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200 z-50">
+                              <div className={`font-semibold mb-1 ${
+                                dailyPick.volatility.category === 'Low' ? 'text-cyan-400' :
+                                dailyPick.volatility.category === 'Low-Medium' ? 'text-blue-400' :
+                                dailyPick.volatility.category === 'Medium' ? 'text-violet-400' :
+                                dailyPick.volatility.category === 'Medium-High' ? 'text-amber-400' :
+                                dailyPick.volatility.category === 'High' ? 'text-red-400' : 'text-violet-400'
+                              }`}>
+                                {dailyPick.volatility.category === 'Low' ? '🐢 Low Volatility' :
+                                 dailyPick.volatility.category === 'Low-Medium' ? '🏛️ Low-Medium Volatility' :
+                                 dailyPick.volatility.category === 'Medium' ? '⚖️ Medium Volatility' :
+                                 dailyPick.volatility.category === 'Medium-High' ? '📈 Medium-High Volatility' :
+                                 dailyPick.volatility.category === 'High' ? '🔥 High Volatility' : 'Volatility'}
+                              </div>
+                              <p>
+                                {dailyPick.volatility.category === 'Low' ? 'Very stable stocks (utilities, consumer staples). Slow but steady moves. Best for conservative traders.' :
+                                 dailyPick.volatility.category === 'Low-Medium' ? 'Established companies (AAPL, HD, JPM). Reliable with moderate price movements.' :
+                                 dailyPick.volatility.category === 'Medium' ? 'Balanced risk/reward. Most tech stocks fall here. Good for swing traders.' :
+                                 dailyPick.volatility.category === 'Medium-High' ? 'Growth stocks, volatile tech (AMD, TSLA). Larger moves, more risk but more reward.' :
+                                 dailyPick.volatility.category === 'High' ? 'HIGH RISK: AI stocks, small caps, meme stocks. Big swings - experienced traders only!' :
+                                 'Volatility level of this stock'}
+                              </p>
                             </div>
                           </div>
                         )}
@@ -20802,10 +20863,21 @@ OUTPUT JSON:
                             1:{riskReward}
                           </div>
                         </div>
-                        <div className="bg-slate-800/50 rounded-lg p-3">
+                        <div className="bg-slate-800/50 rounded-lg p-3 relative group">
                           <div className="text-xs text-slate-500 mb-1">Direction</div>
-                          <div className={`text-xl font-bold ${isLong ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {isLong ? '📈 LONG' : '📉 SHORT'}
+                          <div
+                            className={`text-xl font-bold cursor-help ${isLong ? 'text-emerald-400' : 'text-red-400'}`}
+                          >
+                            {isLong ? '📈 LONG' : '📉 SHORT'} <span className="text-xs opacity-60">ⓘ</span>
+                          </div>
+                          {/* CSS Tooltip */}
+                          <div className="absolute right-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-56 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200 z-50">
+                            <div className={`font-semibold mb-1 ${isLong ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {isLong ? '📈 LONG Position' : '📉 SHORT Position'}
+                            </div>
+                            <p>{isLong
+                              ? "Buy position. You profit when the price goes UP."
+                              : "Sell position. You profit when the price goes DOWN."}</p>
                           </div>
                         </div>
                       </div>
