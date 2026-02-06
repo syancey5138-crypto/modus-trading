@@ -16343,72 +16343,150 @@ OUTPUT JSON:
                   <span>Select Risk/Volatility Level:</span>
                 </div>
                 <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                  <button
-                    onClick={() => setPickVolatility("low")}
-                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                      pickVolatility === "low"
-                        ? "bg-cyan-600 text-white border-2 border-cyan-400"
-                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-cyan-500/50"
-                    }`}
+                  {/* Low Volatility */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveTooltip('vol-low')}
+                    onMouseLeave={() => setActiveTooltip(null)}
                   >
-                    <div className="text-lg">🐢</div>
-                    <div className="text-xs">Low</div>
-                  </button>
-                  <button
-                    onClick={() => setPickVolatility("lowmed")}
-                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                      pickVolatility === "lowmed"
-                        ? "bg-blue-600 text-white border-2 border-blue-400"
-                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-blue-500/50"
-                    }`}
+                    <button
+                      onClick={() => setPickVolatility("low")}
+                      className={`w-full px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                        pickVolatility === "low"
+                          ? "bg-cyan-600 text-white border-2 border-cyan-400"
+                          : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-cyan-500/50"
+                      }`}
+                    >
+                      <div className="text-lg">🐢</div>
+                      <div className="text-xs">Low</div>
+                    </button>
+                    {activeTooltip === 'vol-low' && (
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+                        <div className="font-semibold mb-1 text-cyan-400">🐢 Low Volatility</div>
+                        <p>Very stable stocks (utilities, consumer staples). Slow but steady. Best for conservative traders.</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Low-Medium Volatility */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveTooltip('vol-lowmed')}
+                    onMouseLeave={() => setActiveTooltip(null)}
                   >
-                    <div className="text-lg">🏛️</div>
-                    <div className="text-xs">Low-Med</div>
-                  </button>
-                  <button
-                    onClick={() => setPickVolatility("medium")}
-                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                      pickVolatility === "medium"
-                        ? "bg-violet-600 text-white border-2 border-violet-400"
-                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-violet-500/50"
-                    }`}
+                    <button
+                      onClick={() => setPickVolatility("lowmed")}
+                      className={`w-full px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                        pickVolatility === "lowmed"
+                          ? "bg-blue-600 text-white border-2 border-blue-400"
+                          : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-blue-500/50"
+                      }`}
+                    >
+                      <div className="text-lg">🏛️</div>
+                      <div className="text-xs">Low-Med</div>
+                    </button>
+                    {activeTooltip === 'vol-lowmed' && (
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+                        <div className="font-semibold mb-1 text-blue-400">🏛️ Low-Medium Volatility</div>
+                        <p>Established companies (AAPL, HD, JPM). Reliable with moderate price movements.</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Medium Volatility */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveTooltip('vol-medium')}
+                    onMouseLeave={() => setActiveTooltip(null)}
                   >
-                    <div className="text-lg">⚖️</div>
-                    <div className="text-xs">Medium</div>
-                  </button>
-                  <button
-                    onClick={() => setPickVolatility("medhigh")}
-                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                      pickVolatility === "medhigh"
-                        ? "bg-amber-600 text-white border-2 border-amber-400"
-                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-amber-500/50"
-                    }`}
+                    <button
+                      onClick={() => setPickVolatility("medium")}
+                      className={`w-full px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                        pickVolatility === "medium"
+                          ? "bg-violet-600 text-white border-2 border-violet-400"
+                          : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-violet-500/50"
+                      }`}
+                    >
+                      <div className="text-lg">⚖️</div>
+                      <div className="text-xs">Medium</div>
+                    </button>
+                    {activeTooltip === 'vol-medium' && (
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+                        <div className="font-semibold mb-1 text-violet-400">⚖️ Medium Volatility</div>
+                        <p>Balanced risk/reward. Most tech stocks fall here. Good for swing traders.</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Medium-High Volatility */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveTooltip('vol-medhigh')}
+                    onMouseLeave={() => setActiveTooltip(null)}
                   >
-                    <div className="text-lg">📈</div>
-                    <div className="text-xs">Med-High</div>
-                  </button>
-                  <button
-                    onClick={() => setPickVolatility("high")}
-                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                      pickVolatility === "high"
-                        ? "bg-red-600 text-white border-2 border-red-400"
-                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-red-500/50"
-                    }`}
+                    <button
+                      onClick={() => setPickVolatility("medhigh")}
+                      className={`w-full px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                        pickVolatility === "medhigh"
+                          ? "bg-amber-600 text-white border-2 border-amber-400"
+                          : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-amber-500/50"
+                      }`}
+                    >
+                      <div className="text-lg">📈</div>
+                      <div className="text-xs">Med-High</div>
+                    </button>
+                    {activeTooltip === 'vol-medhigh' && (
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+                        <div className="font-semibold mb-1 text-amber-400">📈 Medium-High Volatility</div>
+                        <p>Growth stocks, volatile tech (AMD, TSLA). Larger moves, more risk but more reward.</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* High Volatility */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveTooltip('vol-high')}
+                    onMouseLeave={() => setActiveTooltip(null)}
                   >
-                    <div className="text-lg">🔥</div>
-                    <div className="text-xs">High Risk</div>
-                  </button>
-                  <button
-                    onClick={() => setPickVolatility("any")}
-                    className={`px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                      pickVolatility === "any"
-                        ? "bg-slate-600 text-white border-2 border-slate-400"
-                        : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-slate-500/50"
-                    }`}
+                    <button
+                      onClick={() => setPickVolatility("high")}
+                      className={`w-full px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                        pickVolatility === "high"
+                          ? "bg-red-600 text-white border-2 border-red-400"
+                          : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-red-500/50"
+                      }`}
+                    >
+                      <div className="text-lg">🔥</div>
+                      <div className="text-xs">High Risk</div>
+                    </button>
+                    {activeTooltip === 'vol-high' && (
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-52 bg-slate-900 border border-red-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+                        <div className="font-semibold mb-1 text-red-400">🔥 HIGH RISK</div>
+                        <p>AI stocks, small caps, meme stocks. Big swings - experienced traders only!</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Any Volatility */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveTooltip('vol-any')}
+                    onMouseLeave={() => setActiveTooltip(null)}
                   >
-                    <div className="text-lg">🎲</div>
-                    <div className="text-xs">Any</div>
-                  </button>
+                    <button
+                      onClick={() => setPickVolatility("any")}
+                      className={`w-full px-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                        pickVolatility === "any"
+                          ? "bg-slate-600 text-white border-2 border-slate-400"
+                          : "bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-slate-500/50"
+                      }`}
+                    >
+                      <div className="text-lg">🎲</div>
+                      <div className="text-xs">Any</div>
+                    </button>
+                    {activeTooltip === 'vol-any' && (
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
+                        <div className="font-semibold mb-1 text-slate-300">🎲 Any Volatility</div>
+                        <p>No volatility filter. Best available setup regardless of risk level.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-2 text-xs text-slate-500">
                   {pickVolatility === "low" && "🐢 Very stable stocks like utilities, consumer staples. Slow but steady. Conservative traders."}
