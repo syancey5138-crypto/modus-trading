@@ -6057,6 +6057,15 @@ OUTPUT JSON:
             exampleExpectedProfit: (Math.floor(200 / riskPerShare) * rewardPerShare).toFixed(2),
             exampleMaxLoss: '200.00'
           },
+          volatility: {
+            atrPercent: bestPick.atrPercent || (Math.abs(bestPick.changePercent || 0) * 0.5).toFixed(2),
+            category: parseFloat(bestPick.atrPercent) < 1.5 ? 'Low' :
+                      parseFloat(bestPick.atrPercent) < 2.5 ? 'Low-Medium' :
+                      parseFloat(bestPick.atrPercent) < 4 ? 'Medium' :
+                      parseFloat(bestPick.atrPercent) < 6 ? 'Medium-High' : 'High',
+            preference: volConfig.label,
+            warning: null
+          },
           catalystData: {
             catalysts: catalystData.catalysts || [],
             risks: catalystData.risks || [],
@@ -18776,7 +18785,7 @@ OUTPUT JSON:
                 </div>
               )}
 
-              {dailyPick && (
+              {dailyPick && (() => { try { return (
                 <div className="space-y-5">
                   {/* LIVE DATA INDICATOR */}
                   {dailyPick.generatedWithLiveData && (
@@ -19469,7 +19478,14 @@ OUTPUT JSON:
                     </p>
                   )}
                 </div>
-              )}
+              ); } catch (renderErr) { console.error('[Daily Pick Render] Crash caught:', renderErr); return (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+                  <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+                  <h4 className="font-semibold text-red-400 mb-2">Pick Display Error</h4>
+                  <p className="text-sm text-slate-400 mb-4">Something went wrong rendering the daily pick. This is usually caused by stale cached data.</p>
+                  <button onClick={() => { setDailyPick(null); localStorage.removeItem(`modus_daily_pick_${pickTimeframe}_${pickVolatility}`); fetchDailyPick(true); }} className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium text-sm transition-colors">Clear Cache & Retry</button>
+                </div>
+              ); } })()}
 
               {!loadingPick && !dailyPick && (
                 <div className="text-center py-16">
