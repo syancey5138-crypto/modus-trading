@@ -2301,73 +2301,72 @@ function App() {
     sessionStorage.setItem("modus_ticker_candles", tickerCandleCount.toString());
   }, [tickerCandleCount]);
 
-  // NEW: Real-time Price Updates (ACTUAL API CALLS every 10 seconds)
+  // Real-time Price Updates — updates price display AND last chart candle
+  // This is the ONLY periodic updater. Chart shape stays stable; only the latest candle moves.
   useEffect(() => {
     if (!tickerSymbol || !tickerData || !tickerData.currentPrice) return;
-    
+
     const updatePrice = async () => {
       try {
-        console.log(`[Real-Time] Fetching update for ${tickerSymbol}...`);
         const quote = await fetchCurrentQuote(tickerSymbol);
-        
+
         if (!quote || !quote.price) {
-          console.log("[Real-Time] No valid quote received, keeping current data");
-          // Don't mark as delayed immediately - just skip this update
-          setTickerData(prev => ({
-            ...prev,
-            lastRealUpdate: Date.now(),
-            isLive: true  // Keep LIVE status even if one update fails
-          }));
+          setTickerData(prev => prev ? ({ ...prev, lastRealUpdate: Date.now(), isLive: true }) : prev);
           return;
         }
-        
-        const oldPrice = tickerData.currentPrice;
+
         const newPrice = quote.price;
-        
-        // Only update if price actually changed
-        if (Math.abs(newPrice - oldPrice) > 0.001) {
-          setTickerData(prev => ({
+
+        setTickerData(prev => {
+          if (!prev) return prev;
+          const oldPrice = prev.currentPrice;
+
+          // Reject suspicious data: >10% change in a single tick
+          if (Math.abs(newPrice - oldPrice) / oldPrice > 0.10) {
+            console.log(`[Real-Time] ⚠️ Rejected suspicious price: $${oldPrice.toFixed(2)} → $${newPrice.toFixed(2)}`);
+            return { ...prev, lastRealUpdate: Date.now(), isLive: true };
+          }
+
+          // Update the last candle in the timeSeries to reflect the latest price
+          let updatedSeries = prev.timeSeries;
+          if (updatedSeries && updatedSeries.length > 0) {
+            updatedSeries = [...updatedSeries];
+            const lastCandle = { ...updatedSeries[updatedSeries.length - 1] };
+            lastCandle.close = newPrice;
+            lastCandle.high = Math.max(lastCandle.high, newPrice);
+            lastCandle.low = Math.min(lastCandle.low, newPrice);
+            updatedSeries[updatedSeries.length - 1] = lastCandle;
+          }
+
+          // Flash the price change
+          if (Math.abs(newPrice - oldPrice) > 0.001) {
+            setPriceFlash(newPrice > oldPrice ? 'up' : 'down');
+            setLastPriceUpdate(Date.now());
+            setTimeout(() => setPriceFlash(null), 500);
+          }
+
+          return {
             ...prev,
             currentPrice: newPrice,
             change: quote.change || (newPrice - prev.open),
             changePercent: quote.changePercent || (((newPrice - prev.open) / prev.open) * 100),
             marketState: quote.marketState,
+            timeSeries: updatedSeries,
+            lastUpdate: new Date(),
             lastRealUpdate: Date.now(),
             isLive: true
-          }));
-          
-          setPriceFlash(newPrice > oldPrice ? 'up' : 'down');
-          setLastPriceUpdate(Date.now());
-          
-          console.log(`[Real-Time] ✅ Price updated: $${(oldPrice || 0).toFixed(2)} → $${(newPrice || 0).toFixed(2)}`);
-          
-          // Note: Alerts are now checked by background monitor
-        } else {
-          console.log(`[Real-Time] Price unchanged: $${(newPrice || 0).toFixed(2)}`);
-          setTickerData(prev => ({
-            ...prev,
-            lastRealUpdate: Date.now(),
-            isLive: true
-          }));
-        }
-        
-        setTimeout(() => setPriceFlash(null), 500);
+          };
+        });
       } catch (err) {
-        console.error("[Real-Time] Update failed:", err.message);
-        // Don't mark as delayed - keep trying and maintain LIVE status
-        // Only show delayed after multiple consecutive failures
-        setTickerData(prev => ({
-          ...prev,
-          isLive: true,  // Keep showing LIVE even if update fails
-          lastRealUpdate: Date.now()
-        }));
+        // Silent fail — maintain LIVE status, don't disrupt chart
+        setTickerData(prev => prev ? ({ ...prev, isLive: true, lastRealUpdate: Date.now() }) : prev);
       }
     };
-    
-    // Update every 10 seconds (good balance for free APIs)
+
+    // Update every 10 seconds
     const interval = setInterval(updatePrice, 10000);
-    updatePrice(); // Call immediately on mount
-    
+    updatePrice();
+
     return () => clearInterval(interval);
   }, [tickerSymbol, tickerData?.open]);
   
@@ -3714,15 +3713,10 @@ function App() {
 
   // PRIORITY_STOCKS is now imported from ./constants/stockData.js
 
-  const fetchTickerData = async (isAutoRefresh = false) => {
+  const fetchTickerData = async () => {
     if (!tickerSymbol) return;
 
-    // Use subtle refresh indicator for auto-refresh, full loading for manual
-    if (isAutoRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setLoadingTicker(true);
-    }
+    setLoadingTicker(true);
     setTickerError(null);
 
     // Store previous price for comparison
@@ -3839,98 +3833,14 @@ function App() {
         setPreviousPrice(oldPrice);
       }
 
-      // On auto-refresh, intelligently merge chart data to keep it stable but updated
-      if (isAutoRefresh && tickerData?.timeSeries?.length > 0 && data.timeSeries?.length > 0) {
-        // VALIDATION: Reject update if price change is too extreme (likely bad data)
-        const prevPrice = tickerData.currentPrice;
-        const newPrice = data.currentPrice;
-        const priceChange = Math.abs(newPrice - prevPrice) / prevPrice;
-
-        if (priceChange > 0.15) { // 15% change in single update is suspicious
-          console.log(`[Auto-Refresh] ⚠️ Rejected suspicious price: $${prevPrice.toFixed(2)} → $${newPrice.toFixed(2)} (${(priceChange*100).toFixed(1)}% change)`);
-          // Keep existing data, just mark as updated
-          setTickerData(prev => ({
-            ...prev,
-            lastUpdate: new Date(),
-            lastRealUpdate: Date.now()
-          }));
-          return;
-        }
-
-        setTickerData(prev => {
-          // Smart merge: update latest candle + append any genuinely new candles
-          const existingCandles = [...prev.timeSeries];
-          const newCandles = data.timeSeries;
-
-          // VALIDATION: Filter new candles for outliers
-          const chartMedian = existingCandles.map(c => c.close).sort((a,b) => a-b)[Math.floor(existingCandles.length/2)];
-          const validNewCandles = newCandles.filter(c => Math.abs(c.close - chartMedian) / chartMedian < 0.20);
-
-          // Update the most recent candle with latest price data
-          if (existingCandles.length > 0 && validNewCandles.length > 0) {
-            const lastCandle = existingCandles[existingCandles.length - 1];
-            const latestNewCandle = validNewCandles[validNewCandles.length - 1];
-
-            // Only update if new price is reasonable
-            if (Math.abs(data.currentPrice - lastCandle.close) / lastCandle.close < 0.10) {
-              lastCandle.close = data.currentPrice;
-              lastCandle.high = Math.max(lastCandle.high, data.currentPrice);
-              lastCandle.low = Math.min(lastCandle.low, data.currentPrice);
-            }
-            if (latestNewCandle?.volume) {
-              lastCandle.volume = latestNewCandle.volume;
-            }
-          }
-
-          // Check if there are genuinely new candles (new time period started)
-          const lastExistingTime = new Date(existingCandles[existingCandles.length - 1]?.time).getTime();
-          const newCandlesToAdd = validNewCandles.filter(c =>
-            new Date(c.time).getTime() > lastExistingTime
-          );
-
-          // Append any new candles
-          let mergedCandles = existingCandles;
-          if (newCandlesToAdd.length > 0) {
-            mergedCandles = [...existingCandles, ...newCandlesToAdd];
-            // Keep only the latest N candles to prevent memory growth
-            const maxCandles = prev.timeSeries.length;
-            if (mergedCandles.length > maxCandles) {
-              mergedCandles = mergedCandles.slice(-maxCandles);
-            }
-            console.log(`[Auto-Refresh] Added ${newCandlesToAdd.length} new candle(s)`);
-          }
-
-          // Only update price if it's reasonable
-          const validPrice = Math.abs(data.currentPrice - prev.currentPrice) / prev.currentPrice < 0.10
-            ? data.currentPrice
-            : prev.currentPrice;
-
-          return {
-            ...prev,
-            currentPrice: validPrice,
-            change: validPrice - prev.open,
-            changePercent: ((validPrice - prev.open) / prev.open) * 100,
-            high: Math.min(Math.max(prev.high || validPrice, validPrice), prev.currentPrice * 1.15),
-            low: Math.max(Math.min(prev.low || validPrice, validPrice), prev.currentPrice * 0.85),
-            volume: data.volume || prev.volume,
-            timeSeries: mergedCandles,
-            source,
-            lastUpdate: new Date(),
-            isLive: true,
-            lastRealUpdate: Date.now()
-          };
-        });
-        console.log('[Auto-Refresh] Chart updated smoothly');
-      } else {
-        // Full refresh - update everything including chart
-        setTickerData({
-          ...data,
-          source,
-          lastUpdate: new Date(),
-          isLive: true,
-          lastRealUpdate: Date.now()
-        });
-      }
+      // Full chart load — used for initial load and manual refresh only
+      setTickerData({
+        ...data,
+        source,
+        lastUpdate: new Date(),
+        isLive: true,
+        lastRealUpdate: Date.now()
+      });
       setLastPriceUpdate(Date.now());
 
     } catch (err) {
@@ -3949,30 +3859,83 @@ function App() {
     tickerLoadingRef.current = loadingTicker;
   }, [loadingTicker]);
 
-  // Auto-refresh ticker chart every X seconds (configurable 10-30 seconds)
+  // Auto-refresh: periodically check if a new candle period has started and append it
+  // This does NOT re-fetch the full chart — only the current quote to detect new periods
   useEffect(() => {
-    // Only start interval if auto-refresh is on, we have a symbol, and we're on the ticker tab
-    if (!tickerAutoRefresh || !tickerSymbol || activeTab !== "ticker") {
-      return;
-    }
+    if (!tickerAutoRefresh || !tickerSymbol || activeTab !== "ticker") return;
 
-    console.log(`[Ticker Auto-Refresh] ✅ Starting ${tickerRefreshInterval}s interval for ${tickerSymbol}`);
+    console.log(`[Ticker Auto-Refresh] ✅ Lightweight refresh every ${tickerRefreshInterval}s for ${tickerSymbol}`);
 
-    const interval = setInterval(() => {
-      // Check loading state via ref to avoid stale closure
-      if (!tickerLoadingRef.current) {
-        console.log(`[Ticker Auto-Refresh] 🔄 Refreshing ${tickerSymbol}...`);
-        fetchTickerData(true); // Pass true to indicate auto-refresh
-      } else {
-        console.log(`[Ticker Auto-Refresh] ⏳ Skipping - still loading...`);
+    const interval = setInterval(async () => {
+      if (tickerLoadingRef.current) return;
+      try {
+        setIsRefreshing(true);
+        const quote = await fetchCurrentQuote(tickerSymbol);
+        if (!quote?.price) return;
+
+        setTickerData(prev => {
+          if (!prev || !prev.timeSeries || prev.timeSeries.length === 0) return prev;
+
+          const newPrice = quote.price;
+          // Reject suspicious price
+          if (Math.abs(newPrice - prev.currentPrice) / prev.currentPrice > 0.10) return prev;
+
+          const updatedSeries = [...prev.timeSeries];
+          const lastCandle = updatedSeries[updatedSeries.length - 1];
+
+          // Determine if we should start a new candle based on timeframe
+          const tfMinutes = { '1m': 1, '2m': 2, '5m': 5, '15m': 15, '30m': 30, '60m': 60, '1h': 60, '90m': 90, '1d': 1440, '5d': 7200, '1wk': 10080, '1mo': 43200 };
+          const candleDuration = (tfMinutes[tickerTimeframeRef.current || '1d'] || 1440) * 60 * 1000;
+          const lastCandleTime = new Date(lastCandle.time).getTime();
+          const now = Date.now();
+          const elapsed = now - lastCandleTime;
+
+          if (elapsed >= candleDuration && candleDuration <= 90 * 60 * 1000) {
+            // New candle period — append a new bar
+            updatedSeries.push({
+              time: new Date().toLocaleString(),
+              open: lastCandle.close,
+              high: Math.max(lastCandle.close, newPrice),
+              low: Math.min(lastCandle.close, newPrice),
+              close: newPrice,
+              volume: 0
+            });
+            // Keep candle count stable
+            if (updatedSeries.length > prev.timeSeries.length) {
+              updatedSeries.shift();
+            }
+            console.log(`[Auto-Refresh] 📊 New candle added at $${newPrice.toFixed(2)}`);
+          } else {
+            // Same period — just update last candle
+            const updated = { ...lastCandle };
+            updated.close = newPrice;
+            updated.high = Math.max(updated.high, newPrice);
+            updated.low = Math.min(updated.low, newPrice);
+            updatedSeries[updatedSeries.length - 1] = updated;
+          }
+
+          return {
+            ...prev,
+            currentPrice: newPrice,
+            change: quote.change || (newPrice - prev.open),
+            changePercent: quote.changePercent || (((newPrice - prev.open) / prev.open) * 100),
+            timeSeries: updatedSeries,
+            lastUpdate: new Date(),
+            isLive: true,
+            lastRealUpdate: Date.now()
+          };
+        });
+      } catch (err) {
+        // Silent fail
+      } finally {
+        setIsRefreshing(false);
+        setTickerLastRefresh(new Date());
+        lastRefreshTimeRef.current = Date.now();
       }
     }, tickerRefreshInterval * 1000);
 
-    return () => {
-      console.log("[Ticker Auto-Refresh] 🛑 Clearing interval");
-      clearInterval(interval);
-    };
-  }, [tickerAutoRefresh, tickerSymbol, tickerRefreshInterval, activeTab]); // Removed tickerData and loadingTicker from deps
+    return () => clearInterval(interval);
+  }, [tickerAutoRefresh, tickerSymbol, tickerRefreshInterval, activeTab]);
 
   // Countdown timer for next refresh - ACCURATE version using elapsed time
   useEffect(() => {
