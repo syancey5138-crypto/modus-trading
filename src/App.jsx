@@ -6004,6 +6004,8 @@ OUTPUT JSON:
 
         const pick = {
           asset: bestPick.symbol,
+          symbol: bestPick.symbol,
+          ticker: bestPick.symbol,
           assetName: bestPick.symbol,
           assetType: 'Stock',
           direction: direction,
@@ -6085,7 +6087,7 @@ OUTPUT JSON:
 
         setDailyPick(pick);
         setLastPickTime(new Date());
-        setToast({ type: 'success', message: `✅ Found top pick: ${pick.ticker} (${pick.direction})` });
+        setToast({ type: 'success', message: `✅ Found top pick: ${pick.asset} (${pick.direction})` });
         setLoadingPick(false);
         return; // Skip legacy slow analysis
         }  // end else (stockAnalyses.length > 0)
@@ -6651,6 +6653,8 @@ OUTPUT JSON:
 
       const pick = {
         asset: bestPick.symbol,
+        symbol: bestPick.symbol,
+        ticker: bestPick.symbol,
         assetName: assetNames[bestPick.symbol] || bestPick.symbol,
         assetType: ['SPY', 'QQQ'].includes(bestPick.symbol) ? 'ETF' : 'Stock',
         direction: bestPick.direction,
@@ -6740,7 +6744,7 @@ OUTPUT JSON:
       
       setDailyPick(pick);
       setLastPickTime(new Date());
-      setToast({ type: 'success', message: `✅ Found top pick: ${pick.ticker} (${pick.direction})` });
+      setToast({ type: 'success', message: `✅ Found top pick: ${pick.asset} (${pick.direction})` });
     } catch (err) {
       console.error("[Daily Pick] Error:", err);
       setDailyPickError(`Failed to generate pick: ${err.message}`);
@@ -12907,7 +12911,7 @@ OUTPUT JSON:
                   {dailyPick ? (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-lg font-bold">{dailyPick.symbol}</span>
+                        <span className="text-lg font-bold">{dailyPick.asset || dailyPick.symbol}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${dailyPick.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
                           {dailyPick.direction}
                         </span>
@@ -19775,7 +19779,18 @@ OUTPUT JSON:
                     <span>Best: <span className="text-emerald-400 font-medium">{performanceMetrics.bestTrade.symbol} +${performanceMetrics.bestTrade.pnl?.toFixed(2) || '0'}</span></span>
                   )}
                   {performanceMetrics.sharpe !== 0 && (
-                    <span>Sharpe: <span className={`font-medium ${performanceMetrics.sharpe >= 1 ? 'text-emerald-400' : 'text-yellow-400'}`}>{performanceMetrics.sharpe.toFixed(2)}</span></span>
+                    <span className="relative group cursor-help">Sharpe: <span className={`font-medium ${performanceMetrics.sharpe >= 1 ? 'text-emerald-400' : 'text-yellow-400'}`}>{performanceMetrics.sharpe.toFixed(2)}</span>
+                      <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl text-xs text-slate-300 z-50">
+                        <div className="font-semibold text-violet-400 mb-1.5">Sharpe Ratio</div>
+                        <p className="mb-2">Measures your risk-adjusted return. It tells you how much profit you're making per unit of risk taken.</p>
+                        <div className="space-y-1 text-[10px]">
+                          <div className="flex items-center gap-2"><span className="text-red-400">●</span> Below 1.0 = Needs improvement</div>
+                          <div className="flex items-center gap-2"><span className="text-yellow-400">●</span> 1.0 – 2.0 = Good</div>
+                          <div className="flex items-center gap-2"><span className="text-emerald-400">●</span> Above 2.0 = Excellent</div>
+                        </div>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 border-r border-b border-slate-600 transform rotate-45 -mt-1"></div>
+                      </div>
+                    </span>
                   )}
                 </div>
 
