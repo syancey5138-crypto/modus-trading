@@ -1,5 +1,5 @@
 // Vercel Serverless Function - SMS Alerts via Email-to-SMS Gateway
-// Uses EmailJS - 200 FREE emails/month, works immediately
+// Uses EmailJS - 200 FREE emails/month
 
 // Carrier email-to-SMS gateways (US carriers)
 const CARRIER_GATEWAYS = {
@@ -14,15 +14,41 @@ const CARRIER_GATEWAYS = {
   'virgin': 'vmobl.com',
   'republic': 'text.republicwireless.com',
   'googlefi': 'msg.fi.google.com',
-  'mint': 'tmomail.net', // Mint uses T-Mobile network
-  'visible': 'vtext.com', // Visible uses Verizon network
+  'mint': 'tmomail.net',
+  'visible': 'vtext.com',
 };
 
+// Allowed origins
+const ALLOWED_ORIGINS = [
+  'https://modus-trading.vercel.app',
+  'https://tradevision-modus.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+function getCorsOrigin(req) {
+  const origin = req.headers?.origin || req.headers?.referer || '';
+  if (process.env.NODE_ENV === 'production') {
+    const matched = ALLOWED_ORIGINS.find(o => origin.startsWith(o));
+    return matched || ALLOWED_ORIGINS[0];
+  }
+  return origin || '*';
+}
+
+// Sanitize SMS message content
+function sanitizeMessage(msg) {
+  if (typeof msg !== 'string') return '';
+  // Remove potential injection, limit length for SMS
+  return msg.replace(/[<>]/g, '').trim().slice(0, 300);
+}
+
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS
+  const corsOrigin = getCorsOrigin(req);
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -35,23 +61,25 @@ export default async function handler(req, res) {
   try {
     const { phone, carrier, message, alertType = 'price' } = req.body;
 
+    // Input validation
     if (!phone || !carrier || !message) {
       return res.status(400).json({
         error: 'Missing required fields: phone, carrier, message'
       });
     }
 
-    // Clean phone number (remove non-digits)
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length !== 10 && cleanPhone.length !== 11) {
-      return res.status(400).json({ error: 'Invalid phone number' });
+    // Clean and validate phone number
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
     }
 
-    // Get carrier gateway
-    const gateway = CARRIER_GATEWAYS[carrier.toLowerCase()];
+    // Validate carrier
+    const carrierKey = String(carrier).toLowerCase();
+    const gateway = CARRIER_GATEWAYS[carrierKey];
     if (!gateway) {
       return res.status(400).json({
-        error: `Unknown carrier: ${carrier}. Supported: ${Object.keys(CARRIER_GATEWAYS).join(', ')}`
+        error: `Unsupported carrier. Supported: ${Object.keys(CARRIER_GATEWAYS).join(', ')}`
       });
     }
 
@@ -69,7 +97,7 @@ export default async function handler(req, res) {
         success: false,
         fallback: true,
         smsEmail: smsEmail,
-        message: 'EmailJS not configured. Send email manually to: ' + smsEmail
+        message: 'SMS service not configured. Please set up EmailJS credentials.'
       });
     }
 
@@ -85,41 +113,56 @@ export default async function handler(req, res) {
     };
 
     const emoji = alertEmojis[alertType] || '🔔';
-    const formattedMessage = `${emoji} MODUS Alert\n${message}`;
+    const sanitizedMessage = sanitizeMessage(message);
+    const formattedMessage = `${emoji} MODUS Alert\n${sanitizedMessage}`;
 
-    // Send via EmailJS REST API (200 free/month)
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-        template_params: {
-          to_email: smsEmail,
-          subject: 'MODUS',
-          message: formattedMessage,
+    // Send via EmailJS REST API with timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          service_id: serviceId,
+          template_id: templateId,
+          user_id: publicKey,
+          template_params: {
+            to_email: smsEmail,
+            subject: 'MODUS',
+            message: formattedMessage,
+          },
+        }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`EmailJS API error: ${error}`);
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('EmailJS error:', response.status, errorText);
+        throw new Error('SMS delivery service error');
+      }
+    } catch (fetchError) {
+      clearTimeout(timeout);
+      if (fetchError.name === 'AbortError') {
+        return res.status(504).json({ error: 'SMS delivery timed out. Please try again.' });
+      }
+      throw fetchError;
     }
 
     return res.status(200).json({
       success: true,
-      sentTo: smsEmail,
       alertType,
     });
 
   } catch (error) {
     console.error('SMS error:', error);
     return res.status(500).json({
-      error: error.message || 'Failed to send SMS'
+      error: 'Failed to send alert. Please try again.'
     });
   }
 }

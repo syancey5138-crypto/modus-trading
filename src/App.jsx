@@ -163,6 +163,39 @@ function App() {
         .tabular-nums {
           font-variant-numeric: tabular-nums;
         }
+
+        /* Mobile-optimized responsive utilities */
+        @media (max-width: 768px) {
+          .mobile-full { width: 100% !important; }
+          .mobile-stack { flex-direction: column !important; }
+          .mobile-gap-2 { gap: 0.5rem !important; }
+          .mobile-text-sm { font-size: 0.875rem !important; }
+          .mobile-p-3 { padding: 0.75rem !important; }
+          .mobile-hidden { display: none !important; }
+          .mobile-grid-1 { grid-template-columns: 1fr !important; }
+        }
+
+        /* Touch-optimized scrolling */
+        .scroll-touch {
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+        }
+
+        /* Smooth page transitions between tabs */
+        .tab-content {
+          animation: fadeIn 0.15s ease-out;
+        }
+
+        /* Better loading skeleton */
+        .skeleton-pulse {
+          background: linear-gradient(90deg, rgba(30,41,59,0.8) 25%, rgba(51,65,85,0.6) 50%, rgba(30,41,59,0.8) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        /* Prevent layout shift during loading */
+        .min-h-card { min-height: 200px; }
+        .min-h-chart { min-height: 300px; }
       `;
       document.head.appendChild(styleSheet);
     }
@@ -596,7 +629,10 @@ function App() {
   const [alertRingCounts, setAlertRingCounts] = useState({}); // Track how many times each alert has rung
   const alertRingCountsRef = useRef({}); // Ref to avoid closure issues in interval
   const alertLastStateRef = useRef({}); // Track last triggered state to prevent continuous ringing
-  
+
+  // Memoize enabled alert count to avoid repeated filtering
+  const enabledAlertCount = useMemo(() => alerts.filter(a => a.enabled).length, [alerts]);
+
   // Keep ref in sync with state
   useEffect(() => {
     alertRingCountsRef.current = alertRingCounts;
@@ -865,7 +901,13 @@ function App() {
   const [watchlistVisible, setWatchlistVisible] = useState(true); // NEW: Collapsable watchlist
   const [watchlistPrices, setWatchlistPrices] = useState({});
   const [addToWatchlistSymbol, setAddToWatchlistSymbol] = useState('');
-  
+
+  // Memoize alert symbols string to prevent unnecessary useEffect re-runs
+  const alertSymbolsString = useMemo(
+    () => alerts.filter(a => a.enabled).map(a => a.symbol).join(','),
+    [alerts]
+  );
+
   // ROBUST BACKGROUND WATCHLIST PRICE MONITOR
   // This runs independently and checks ALL stocks in watchlist + any stocks with alerts
   useEffect(() => {
@@ -935,8 +977,30 @@ function App() {
     const interval = setInterval(updateAllPrices, 10000);
     
     return () => clearInterval(interval);
-  }, [watchlist, alerts.filter(a => a.enabled).map(a => a.symbol).join(',')]); // Re-run when watchlist or enabled alerts change
-  
+  }, [watchlist, alertSymbolsString]); // Re-run when watchlist or enabled alerts change
+
+  // Memoized function to play beep sound for alerts
+  const playBeep = useCallback((frequency = 800, duration = 0.3) => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = frequency;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    } catch (e) {
+      console.log('Audio not available');
+    }
+  }, []);
+
   // ALERT CHECKING FUNCTION - checks all alerts against provided prices
   const checkAllAlertsAgainstPrices = (prices) => {
     alerts.forEach(alert => {
@@ -1005,28 +1069,6 @@ function App() {
           const smsMessage = `${alert.symbol} ${alert.condition} $${targetPrice.toFixed(2)}! Now: $${currentPrice.toFixed(2)}`;
           sendSmsAlert(smsMessage, 'price');
         }
-
-        // Play 3 rapid beeps (1 second apart)
-        const playBeep = (frequency = 800, duration = 0.3) => {
-          try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.frequency.value = frequency;
-            oscillator.type = 'sine';
-            gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + duration);
-          } catch (e) {
-            console.log('Audio not available');
-          }
-        };
 
         // Play 3 beeps immediately with 1-second intervals
         playBeep(800, 0.3); // First beep immediately
@@ -1297,21 +1339,34 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
-  // Auto-detect mobile and collapse sidebar
+  // Auto-detect mobile/tablet and collapse sidebar with debounce
   useEffect(() => {
+    let resizeTimer;
     const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile) {
-        setSidebarCollapsed(true);
-        setMobileMenuOpen(false);
-      }
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const width = window.innerWidth;
+        const mobile = width < 768;
+        const tablet = width >= 768 && width < 1024;
+        setIsMobile(mobile);
+        setIsTablet(tablet);
+        if (mobile) {
+          setSidebarCollapsed(true);
+          setMobileMenuOpen(false);
+        } else if (tablet) {
+          setSidebarCollapsed(true);
+        }
+      }, 100);
     };
 
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      clearTimeout(resizeTimer);
+    };
   }, []);
 
   // Close mobile menu when tab changes
@@ -5044,14 +5099,33 @@ OUTPUT JSON:
 
     } catch (err) {
       console.error("Analysis error:", err);
-      let errorMsg = `Analysis failed: ${err.message}`;
+      let errorMsg = 'Unable to analyze the chart';
+
+      // Provide user-friendly error messages
       if (err.message.includes("500") || err.message.includes("Internal server")) {
-        errorMsg += "\n\nYou may need to add your own API key. Click the key icon in the header.";
+        errorMsg = "API server error. Please check your API key configuration in settings.";
+      } else if (err.message.includes("401") || err.message.includes("unauthorized")) {
+        errorMsg = "API authentication failed. Please verify your API key.";
+      } else if (err.message.includes("quota") || err.message.includes("rate limit")) {
+        errorMsg = "API quota exceeded. Please try again later.";
+      } else if (err.message.includes("timeout")) {
+        errorMsg = "Analysis timed out. Your image may be too large or the server is busy.";
+      } else if (err.message) {
+        errorMsg = `Analysis failed: ${err.message}`;
       }
+
+      // Log full error for debugging
+      console.error("[Chart Analysis] Full error details:", {
+        message: err.message,
+        name: err.name,
+        stack: err.stack
+      });
+
       setAnalysisError(errorMsg);
     } finally {
       setLoadingAnalysis(false);
       setAnalysisStage("");
+      setAnalysisProgress(0);
     }
   };
 
@@ -9038,7 +9112,7 @@ OUTPUT JSON:
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-sm animate-slideIn flex items-center gap-3 max-w-sm ${
+          className={`fixed top-3 right-3 left-3 sm:left-auto sm:right-4 sm:top-4 z-[60] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-sm animate-slideIn flex items-center gap-3 max-w-sm ${
             toast.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' :
             toast.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-300' :
             'bg-blue-500/20 border-blue-500/50 text-blue-300'
@@ -9282,10 +9356,10 @@ OUTPUT JSON:
 
       {/* AUTH MODAL - Login / Signup / Password Reset */}
       {showAuthModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border border-violet-500/30 p-6 max-w-md w-full shadow-2xl">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border border-violet-500/30 p-4 md:p-6 max-w-sm md:max-w-md w-full shadow-2xl my-8">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-violet-500/20 rounded-xl">
                   {authMode === 'login' ? <LogIn className="w-5 h-5 text-violet-400" /> :
@@ -9293,7 +9367,7 @@ OUTPUT JSON:
                    <Mail className="w-5 h-5 text-violet-400" />}
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                  <h3 className="text-lg md:text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                     {authMode === 'login' ? 'Welcome Back' :
                      authMode === 'signup' ? 'Create Account' :
                      'Reset Password'}
@@ -9314,7 +9388,7 @@ OUTPUT JSON:
             </div>
 
             {/* Auth Form */}
-            <form onSubmit={handleAuth} className="space-y-4">
+            <form onSubmit={handleAuth} className="space-y-3 md:space-y-4">
               {/* Name field for signup */}
               {authMode === 'signup' && (
                 <div>
@@ -9326,7 +9400,7 @@ OUTPUT JSON:
                       value={authName}
                       onChange={(e) => setAuthName(e.target.value)}
                       placeholder="Your name"
-                      className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
+                      className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
                     />
                   </div>
                 </div>
@@ -9343,7 +9417,7 @@ OUTPUT JSON:
                     onChange={(e) => setAuthEmail(e.target.value)}
                     placeholder="you@example.com"
                     required
-                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
+                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
                   />
                 </div>
               </div>
@@ -9361,7 +9435,7 @@ OUTPUT JSON:
                       placeholder="••••••••"
                       required
                       minLength={6}
-                      className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
+                      className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
                     />
                   </div>
                 </div>
@@ -9671,7 +9745,7 @@ OUTPUT JSON:
               
               {/* MULTI-CONDITION ALERT */}
               {technicalAlertType === 'multi' && (
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   <label className="block text-sm text-slate-400 font-semibold">Conditions</label>
                   
                   {alertConditions.map((condition, index) => (
@@ -9950,7 +10024,7 @@ OUTPUT JSON:
 
           <div className="relative min-h-screen flex flex-col">
             {/* Header */}
-            <header className="p-6 flex items-center justify-between">
+            <header className="p-4 md:p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
                   <Target className="w-6 h-6 text-white" />
@@ -9970,27 +10044,27 @@ OUTPUT JSON:
             </header>
 
             {/* Hero Section */}
-            <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
+            <main className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 py-8 md:py-12 text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-500/10 border border-violet-500/30 rounded-full text-sm text-violet-300 mb-6">
                 <Sparkles className="w-4 h-4" />
                 AI-Powered Trading Analysis
               </div>
 
-              <h1 className="text-4xl md:text-6xl font-bold max-w-4xl mb-6 leading-tight">
+              <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold max-w-4xl mb-6 leading-tight">
                 Trade Smarter with
                 <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent"> AI-Powered </span>
                 Chart Analysis
               </h1>
 
-              <p className="text-lg md:text-xl text-slate-400 max-w-2xl mb-8">
+              <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-400 max-w-2xl mb-6 md:mb-8">
                 Upload any chart and get instant technical analysis, trade setups,
                 entry/exit points, and AI-generated predictions. No guesswork.
               </p>
 
               {/* Email Capture */}
               {!emailSubmitted ? (
-                <div className="w-full max-w-md mb-8">
-                  <div className="flex gap-2">
+                <div className="w-full max-w-md mb-6 md:mb-8 px-2 sm:px-0">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="email"
                       value={betaEmail}
@@ -10053,14 +10127,14 @@ OUTPUT JSON:
                   setShowLandingPage(false);
                   setShowDisclaimer(true);
                 }}
-                className="px-8 py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold text-lg shadow-lg shadow-violet-500/25 transition-all transform hover:scale-105"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold text-base sm:text-lg shadow-lg shadow-violet-500/25 transition-all transform hover:scale-105"
               >
                 Try MODUS Free →
               </button>
 
               {/* Feature Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl w-full">
-                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 text-left">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-12 md:mt-16 max-w-4xl w-full px-2 sm:px-0">
+                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 md:p-6 text-left">
                   <div className="w-12 h-12 bg-violet-500/20 rounded-lg flex items-center justify-center mb-4">
                     <BarChart3 className="w-6 h-6 text-violet-400" />
                   </div>
@@ -10068,7 +10142,7 @@ OUTPUT JSON:
                   <p className="text-sm text-slate-400">Upload any chart and get instant pattern recognition, support/resistance levels, and trend analysis.</p>
                 </div>
 
-                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 text-left">
+                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 md:p-6 text-left">
                   <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-4">
                     <Target className="w-6 h-6 text-emerald-400" />
                   </div>
@@ -10076,7 +10150,7 @@ OUTPUT JSON:
                   <p className="text-sm text-slate-400">Get precise entry points, stop losses, and profit targets with calculated risk/reward ratios.</p>
                 </div>
 
-                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6 text-left">
+                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 md:p-6 text-left">
                   <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mb-4">
                     <Zap className="w-6 h-6 text-blue-400" />
                   </div>
@@ -10086,9 +10160,9 @@ OUTPUT JSON:
               </div>
 
               {/* Social Proof */}
-              <div className="mt-16 text-center">
+              <div className="mt-12 md:mt-16 text-center">
                 <p className="text-slate-500 text-sm mb-4">Trusted by traders at</p>
-                <div className="flex items-center justify-center gap-8 opacity-50">
+                <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 opacity-50">
                   <span className="text-xl font-bold text-slate-400">TD Ameritrade</span>
                   <span className="text-xl font-bold text-slate-400">Fidelity</span>
                   <span className="text-xl font-bold text-slate-400">E*TRADE</span>
@@ -10098,7 +10172,7 @@ OUTPUT JSON:
             </main>
 
             {/* Footer */}
-            <footer className="p-6 text-center text-sm text-slate-500">
+            <footer className="p-4 md:p-6 text-center text-xs sm:text-sm text-slate-500">
               <p>© 2026 MODUS. For educational purposes only. Not financial advice.</p>
             </footer>
           </div>
@@ -10493,15 +10567,15 @@ OUTPUT JSON:
       {/* Mobile Menu Overlay */}
       {isMobile && mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 z-sidebar md:hidden backdrop-blur-sm"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Vertical Sidebar */}
-      <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-r border-slate-800/50 transition-all duration-300 ease-out z-50 ${
+      <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-r border-slate-800/50 transition-all duration-300 ease-out z-modal-overlay overflow-hidden ${
         isMobile
-          ? (mobileMenuOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full')
+          ? (mobileMenuOpen ? 'w-64 translate-x-0 shadow-2xl' : 'w-64 -translate-x-full')
           : (sidebarCollapsed ? 'w-16' : 'w-64')
       }`}>
         <div className="flex flex-col h-full">
@@ -10595,16 +10669,16 @@ OUTPUT JSON:
               {!sidebarCollapsed && (
                 <>
                   <span className="font-medium text-sm">Alerts</span>
-                  {alerts.filter(a => a.enabled).length > 0 && (
+                  {enabledAlertCount > 0 && (
                     <span className="ml-auto bg-emerald-500 text-white text-[10px] font-bold rounded-full px-2 py-0.5 shadow-sm">
-                      {alerts.filter(a => a.enabled).length}
+                      {enabledAlertCount}
                     </span>
                   )}
                 </>
               )}
-              {sidebarCollapsed && alerts.filter(a => a.enabled).length > 0 && (
+              {sidebarCollapsed && enabledAlertCount > 0 && (
                 <span className="absolute top-1 right-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow-sm">
-                  {alerts.filter(a => a.enabled).length}
+                  {enabledAlertCount}
                 </span>
               )}
             </button>
@@ -10914,10 +10988,10 @@ OUTPUT JSON:
         </div>
       </aside>
       {/* Header */}
-      <header className={`border-b border-slate-800/30 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-30 transition-all duration-300 ease-out ${
+      <header className={`border-b border-slate-800/30 bg-slate-900/90 backdrop-blur-xl sticky top-0 z-header transition-all duration-300 ease-out safe-area-top ${
         isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
       }`}>
-        <div className="px-4 md:px-6 py-3">
+        <div className="px-3 md:px-6 py-2.5 md:py-3">
           <div className="flex items-center justify-between gap-3">
             {/* Mobile Menu Toggle */}
             {isMobile && (
@@ -10962,8 +11036,8 @@ OUTPUT JSON:
                 <>
                   <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                   <span className="text-slate-400">
-                    {alerts.filter(a => a.enabled).length > 0
-                      ? `${alerts.filter(a => a.enabled).length} alert${alerts.filter(a => a.enabled).length > 1 ? 's' : ''} active`
+                    {enabledAlertCount > 0
+                      ? `${enabledAlertCount} alert${enabledAlertCount > 1 ? 's' : ''} active`
                       : 'Ready'}
                   </span>
                 </>
@@ -11051,7 +11125,7 @@ OUTPUT JSON:
 
                 {/* User Dropdown Menu */}
                 {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-[55] overflow-hidden">
                     <div className="p-3 border-b border-slate-700">
                       <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
                       <p className="text-xs text-slate-400 truncate">{currentUser.email}</p>
@@ -11089,14 +11163,14 @@ OUTPUT JSON:
       </header>
 
       {/* Main Content */}
-      <main className={`min-h-screen overflow-y-auto transition-all duration-300 ease-out px-4 md:px-6 py-4 md:py-6 ${
+      <main className={`min-h-screen overflow-y-auto transition-all duration-300 ease-out px-3 sm:px-4 md:px-6 lg:px-8 py-3 md:py-6 pb-8 safe-area-bottom ${
         isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
       }`}>
         {/* NEW: Live Ticker Tab */}
         {activeTab === "ticker" && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/50 rounded-2xl border border-slate-700/50 p-6 shadow-xl">
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
+          <div className="space-y-4 md:space-y-6 animate-fadeIn">
+            <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/50 rounded-xl md:rounded-2xl border border-slate-700/50 p-4 md:p-6 shadow-xl">
+              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 flex items-center gap-3">
                 <div className="p-2 bg-violet-500/20 rounded-lg">
                   <LineChart className="w-6 h-6 text-violet-400" />
                 </div>
@@ -11147,8 +11221,8 @@ OUTPUT JSON:
               </div>
 
               {/* Auto-Refresh Controls */}
-              <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-between">
+              <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${tickerAutoRefresh && tickerData ? 'bg-green-400 animate-pulse' : 'bg-slate-500'}`} />
                     <div>
@@ -11228,14 +11302,14 @@ OUTPUT JSON:
                 )}
               </div>
 
-              <div className="flex gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
                 <input
                   type="text"
                   value={tickerSymbol}
                   onChange={(e) => setTickerSymbol(e.target.value.toUpperCase())}
                   onKeyPress={(e) => e.key === 'Enter' && fetchTickerData()}
                   placeholder="Enter symbol (e.g., AAPL)"
-                  className="flex-1 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                  className="flex-1 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-base"
                 />
                 <button
                   onClick={() => fetchTickerData(false)}
@@ -11276,7 +11350,7 @@ OUTPUT JSON:
               </div>
 
               {/* Chart Configuration */}
-              <div className="flex gap-3 mb-6">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4 md:mb-6">
                 <div className="flex-1">
                   <label className="block text-xs text-slate-400 font-medium mb-2">Timeframe</label>
                   <select
@@ -11392,7 +11466,7 @@ OUTPUT JSON:
               )}
 
               {tickerData && (
-                <div className="space-y-6">
+                <div className="space-y-4 md:space-y-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className={`bg-slate-800/30 rounded-lg p-4 transition-all duration-300 ${
                       priceFlash === 'up' ? 'ring-2 ring-green-500' : 
@@ -11603,7 +11677,7 @@ OUTPUT JSON:
                                     <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
                                     Volume
                                   </div>
-                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[65]">
                                     <div className="font-semibold text-violet-400 mb-1">📊 Volume</div>
                                     <p>Shows trading activity. High volume confirms price moves; low volume suggests weak conviction. Green = buying pressure, Red = selling pressure.</p>
                                   </div>
@@ -11615,7 +11689,7 @@ OUTPUT JSON:
                                     <span className="w-2 h-2 bg-violet-500 rounded-full"></span>
                                     RSI (14)
                                   </div>
-                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[65]">
                                     <div className="font-semibold text-violet-400 mb-1">📈 RSI - Relative Strength Index</div>
                                     <p className="mb-2">Momentum oscillator (0-100) measuring speed of price changes.</p>
                                     <div className="space-y-1 text-[10px]">
@@ -11631,7 +11705,7 @@ OUTPUT JSON:
                                     <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                                     MACD
                                   </div>
-                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[65]">
                                     <div className="font-semibold text-blue-400 mb-1">📉 MACD</div>
                                     <p className="mb-2">Trend-following momentum indicator.</p>
                                     <div className="space-y-1 text-[10px]">
@@ -11647,7 +11721,7 @@ OUTPUT JSON:
                                     <span className="w-2 h-2 bg-cyan-500 rounded-full"></span>
                                     Stochastic
                                   </div>
-                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[65]">
                                     <div className="font-semibold text-cyan-400 mb-1">🔄 Stochastic (14,3,3)</div>
                                     <p className="mb-2">Compares closing price to price range.</p>
                                     <div className="space-y-1 text-[10px]">
@@ -11663,7 +11737,7 @@ OUTPUT JSON:
                                     <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
                                     ATR
                                   </div>
-                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-56 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                  <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-56 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl z-[65]">
                                     <div className="font-semibold text-amber-400 mb-1">📏 ATR - Average True Range</div>
                                     <p className="mb-2">Measures market volatility.</p>
                                     <div className="space-y-1 text-[10px]">
@@ -11678,7 +11752,7 @@ OUTPUT JSON:
                                   {showSMA && (
                                     <div className="group relative inline-block">
                                       <div className="px-2 py-1 bg-blue-600/20 border border-blue-500/30 rounded text-[10px] text-blue-300 cursor-help hover:bg-blue-600/30 transition-colors">SMA</div>
-                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-44 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-44 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[65]">
                                         <div className="font-semibold text-blue-400 mb-1">SMA (20)</div>
                                         <p>Simple Moving Average - trend direction.</p>
                                       </div>
@@ -11687,7 +11761,7 @@ OUTPUT JSON:
                                   {showEMA && (
                                     <div className="group relative inline-block">
                                       <div className="px-2 py-1 bg-orange-600/20 border border-orange-500/30 rounded text-[10px] text-orange-300 cursor-help hover:bg-orange-600/30 transition-colors">EMA</div>
-                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-44 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-44 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[65]">
                                         <div className="font-semibold text-orange-400 mb-1">EMA (20)</div>
                                         <p>Exponential MA - more responsive.</p>
                                       </div>
@@ -11696,7 +11770,7 @@ OUTPUT JSON:
                                   {showBollinger && (
                                     <div className="group relative inline-block">
                                       <div className="px-2 py-1 bg-cyan-600/20 border border-cyan-500/30 rounded text-[10px] text-cyan-300 cursor-help hover:bg-cyan-600/30 transition-colors">BB</div>
-                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-48 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-48 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[65]">
                                         <div className="font-semibold text-cyan-400 mb-1">Bollinger Bands</div>
                                         <p>Volatility bands at 2 std deviations.</p>
                                       </div>
@@ -11705,7 +11779,7 @@ OUTPUT JSON:
                                   {showVWAP && (
                                     <div className="group relative inline-block">
                                       <div className="px-2 py-1 bg-pink-600/20 border border-pink-500/30 rounded text-[10px] text-pink-300 cursor-help hover:bg-pink-600/30 transition-colors">VWAP</div>
-                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-48 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[9999]">
+                                      <div className="absolute left-full top-0 ml-2 hidden group-hover:block w-48 bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 shadow-2xl z-[65]">
                                         <div className="font-semibold text-pink-400 mb-1">VWAP</div>
                                         <p>Volume Weighted Average Price - institutional benchmark.</p>
                                       </div>
@@ -12748,10 +12822,10 @@ OUTPUT JSON:
         )}
 
         {activeTab === "analyze" && (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="space-y-4 md:space-y-6 animate-fadeIn">
             {/* Upload Section */}
-            <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/50 rounded-2xl border border-slate-700/50 p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/50 rounded-xl md:rounded-2xl border border-slate-700/50 p-4 md:p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-3 md:mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg shadow-violet-500/20">
                     <BarChart3 className="w-6 h-6 text-white" />
@@ -12794,8 +12868,8 @@ OUTPUT JSON:
               </div>
 
               {/* NEW: Trade Type Selector with Auto-Detection */}
-              <div className="mb-6 bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
-                <div className="flex items-center justify-between mb-3">
+              <div className="mb-4 md:mb-6 bg-slate-800/30 rounded-xl p-3 md:p-4 border border-slate-700/30">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-violet-400" />
                     <span className="text-sm font-semibold text-slate-300">Trade Type</span>
@@ -12823,7 +12897,7 @@ OUTPUT JSON:
                 </div>
                 {/* Show auto-detected style if available */}
                 {useAutoTradeType && autoDetectedTradeType && (
-                  <div className="mb-3 px-3 py-2 bg-violet-900/30 border border-violet-500/30 rounded-lg">
+                  <div className="mb-2 md:mb-3 px-3 py-2 bg-violet-900/30 border border-violet-500/30 rounded-lg">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-violet-400">🎯 Auto-detected:</span>
                       <span className="font-semibold text-white">{autoDetectedTradeType.icon} {autoDetectedTradeType.name}</span>
@@ -12847,7 +12921,7 @@ OUTPUT JSON:
                     <div className="text-xs text-slate-400 mt-1">{autoDetectedTradeType.reason}</div>
                   </div>
                 )}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5 md:gap-2">
                   {/* Scalp Trade */}
                   <div className="relative group">
                     <button
@@ -13009,20 +13083,20 @@ OUTPUT JSON:
               {!image && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-slate-700 rounded-xl p-12 hover:border-violet-500/50 hover:bg-slate-800/30 transition-all group"
+                  className="w-full border-2 border-dashed border-slate-700 rounded-xl p-6 md:p-12 hover:border-violet-500/50 hover:bg-slate-800/30 transition-all group"
                 >
-                  <Upload className="w-16 h-16 text-slate-600 group-hover:text-violet-400 mx-auto mb-4 transition-colors" />
-                  <p className="text-lg font-semibold text-slate-300 group-hover:text-violet-300 transition-colors">
+                  <Upload className="w-12 md:w-16 h-12 md:h-16 text-slate-600 group-hover:text-violet-400 mx-auto mb-3 md:mb-4 transition-colors" />
+                  <p className="text-base md:text-lg font-semibold text-slate-300 group-hover:text-violet-300 transition-colors">
                     Upload Trading Chart
                   </p>
-                  <p className="text-sm text-slate-500 mt-2">
+                  <p className="text-xs md:text-sm text-slate-500 mt-1 md:mt-2">
                     Supports all chart images • Consistent analysis guaranteed
                   </p>
                 </button>
               )}
 
               {image && (
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                   <div className="relative rounded-xl overflow-hidden border border-slate-700/50">
                     <img src={image} alt="Chart" className="w-full" />
                     <button
@@ -13098,7 +13172,7 @@ OUTPUT JSON:
 
             {/* Analysis Results */}
             {analysis && (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 {/* Reconciliation Warning - if AI and calculated conflict */}
                 {analysis.final?.reconciled && (
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
@@ -14360,7 +14434,7 @@ OUTPUT JSON:
 
                   {/* Tab Content */}
                   {analysisTab === "overview" && (
-                    <div className="space-y-6">
+                    <div className="space-y-4 md:space-y-6">
                       <div>
                         <h4 className="font-semibold mb-4">Chart Context</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -14411,7 +14485,7 @@ OUTPUT JSON:
                         <div>
                           <h4 className="font-semibold mb-4">Scoring Breakdown</h4>
                           <div className="bg-slate-800/30 rounded-lg p-5">
-                            <div className="space-y-3">
+                            <div className="space-y-2 md:space-y-3">
                               {Object.entries(analysis.final.pointsBreakdown).map(([key, value]) => {
                                 if (key === 'totalPoints') return null;
                                 return (
@@ -14447,7 +14521,7 @@ OUTPUT JSON:
                   )}
 
                   {analysisTab === "patterns" && (
-                    <div className="space-y-6">
+                    <div className="space-y-4 md:space-y-6">
                       <div>
                         <h4 className="font-semibold mb-4">Trend Structure</h4>
                         <div className="bg-slate-800/30 rounded-lg p-5">
@@ -14540,7 +14614,7 @@ OUTPUT JSON:
                       {(analysis.patterns.reversalPatterns || analysis.patterns.continuationPatterns) && (
                         <div>
                           <h4 className="font-semibold mb-4">Detected Patterns</h4>
-                          <div className="space-y-3">
+                          <div className="space-y-2 md:space-y-3">
                             {analysis.patterns.reversalPatterns && Object.entries(analysis.patterns.reversalPatterns).map(([key, value]) => {
                               if (value === "NONE" || !value) return null;
 
@@ -14705,7 +14779,7 @@ OUTPUT JSON:
                   )}
 
                   {analysisTab === "indicators" && (
-                    <div className="space-y-6">
+                    <div className="space-y-4 md:space-y-6">
                       {analysis.indicators.indicatorScores && (
                         <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-6">
                           <h4 className="font-semibold mb-4">Overall Indicator Score</h4>
@@ -14829,7 +14903,7 @@ OUTPUT JSON:
                         {analysis.indicators.movingAverages && analysis.indicators.movingAverages.length > 0 && (
                           <div className="bg-slate-800/30 rounded-lg p-5">
                             <h5 className="font-semibold mb-3">Moving Averages</h5>
-                            <div className="space-y-3">
+                            <div className="space-y-2 md:space-y-3">
                               {analysis.indicators.movingAverages.map((ma, i) => (
                                 <div key={i} className="text-sm">
                                   <div className="flex justify-between mb-1">
@@ -14887,7 +14961,7 @@ OUTPUT JSON:
                   )}
 
                   {analysisTab === "setups" && (
-                    <div className="space-y-6">
+                    <div className="space-y-4 md:space-y-6">
                       {analysis.tradeSetup.tradeDirection !== "NEUTRAL" ? (
                         <>
                           <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-6">
@@ -15058,7 +15132,7 @@ OUTPUT JSON:
                   )}
 
                   {analysisTab === "predictions" && analysis.recommendations && (
-                    <div className="space-y-6">
+                    <div className="space-y-4 md:space-y-6">
                       {/* Price Predictions */}
                       <div>
                         <h4 className="font-semibold mb-4 flex items-center gap-2">
@@ -15400,14 +15474,14 @@ OUTPUT JSON:
                   )}
 
                   {analysisTab === "recommendations" && analysis.recommendations && (
-                    <div className="space-y-6">
+                    <div className="space-y-4 md:space-y-6">
                       {/* Current Indicator Assessment */}
                       <div className="bg-slate-800/30 rounded-xl p-6">
                         <h4 className="font-semibold mb-4 flex items-center gap-2">
                           <BarChart3 className="w-5 h-5 text-violet-400" />
                           Current Indicator Setup
                         </h4>
-                        <div className="space-y-4">
+                        <div className="space-y-3 md:space-y-4">
                           <div>
                             <div className="text-xs text-slate-500 mb-2">Present Indicators</div>
                             <div className="flex flex-wrap gap-2">
@@ -15445,7 +15519,7 @@ OUTPUT JSON:
                           <Sparkles className="w-5 h-5 text-violet-400" />
                           Recommended Indicators to Add
                         </h4>
-                        <div className="space-y-4">
+                        <div className="space-y-3 md:space-y-4">
                           {analysis.recommendations.indicatorRecommendations?.map((rec, i) => (
                             <div key={i} className={`rounded-xl p-5 border ${
                               rec.priority === "Essential" 
@@ -15493,7 +15567,7 @@ OUTPUT JSON:
                   )}
 
                   {analysisTab === "qa" && (
-                    <div className="space-y-6">
+                    <div className="space-y-4 md:space-y-6">
                       <div>
                         <h4 className="font-semibold mb-4">Ask About This Chart</h4>
                         <p className="text-sm text-slate-400 mb-4">
@@ -15534,7 +15608,7 @@ OUTPUT JSON:
                         {chartQaHistory.length > 0 && (
                           <div>
                             <h5 className="font-semibold mb-3 text-slate-400">Previous Questions</h5>
-                            <div className="space-y-3">
+                            <div className="space-y-2 md:space-y-3">
                               {chartQaHistory.slice().reverse().map((item, i) => (
                                 <div key={i} className="bg-slate-800/30 rounded-lg p-4">
                                   <p className="font-medium text-sm text-slate-200 mb-2">Q: {item.q}</p>
@@ -15557,14 +15631,14 @@ OUTPUT JSON:
 
         {/* NEW: Alerts Tab */}
         {activeTab === "alerts" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900/50 rounded-2xl border border-slate-800/50 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold flex items-center gap-3">
-                  <Bell className="w-7 h-7 text-violet-400" />
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-slate-900/50 rounded-xl md:rounded-2xl border border-slate-800/50 p-4 md:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-6 gap-3 sm:gap-0">
+                <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
+                  <Bell className="w-6 md:w-7 h-6 md:h-7 text-violet-400" />
                   <span>Price Alerts</span>
                 </h2>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full sm:w-auto">
                   {/* Notification Permission Status */}
                   <div className={`px-4 py-2 rounded-lg border ${
                     typeof Notification !== 'undefined' && Notification.permission === 'granted'
@@ -15582,11 +15656,11 @@ OUTPUT JSON:
                       console.log('=== MANUAL ALERT TEST ===');
                       console.log('Watchlist prices:', watchlistPrices);
                       console.log('Total alerts:', alerts.length);
-                      console.log('Enabled alerts:', alerts.filter(a => a.enabled).length);
+                      console.log('Enabled alerts:', enabledAlertCount);
                       
                       if (Object.keys(watchlistPrices).length > 0) {
                         checkAllAlertsAgainstPrices(watchlistPrices);
-                        alert(`Checked ${alerts.filter(a => a.enabled).length} enabled alerts against ${Object.keys(watchlistPrices).length} monitored prices`);
+                        alert(`Checked ${enabledAlertCount} enabled alerts against ${Object.keys(watchlistPrices).length} monitored prices`);
                       } else {
                         alert('No prices available yet. Add stocks to watchlist or create alerts first!');
                       }
@@ -15607,7 +15681,7 @@ OUTPUT JSON:
                 </div>
               </div>
 
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 mb-6">
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-emerald-200">
@@ -15621,7 +15695,7 @@ OUTPUT JSON:
                     </ul>
                     <p className="mt-2 text-emerald-400">
                       Monitoring: <strong>{Object.keys(watchlistPrices).length}</strong> symbols | 
-                      Active alerts: <strong>{alerts.filter(a => a.enabled).length}</strong>
+                      Active alerts: <strong>{enabledAlertCount}</strong>
                     </p>
                   </div>
                 </div>
@@ -15629,7 +15703,7 @@ OUTPUT JSON:
               
               {/* Alert History Button */}
               {alertHistory.length > 0 && (
-                <div className="mb-6">
+                <div className="mb-4 md:mb-6">
                   <button
                     onClick={() => setShowAlertHistory(true)}
                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition-colors flex items-center gap-2"
@@ -15647,9 +15721,9 @@ OUTPUT JSON:
                   <p className="text-slate-500 text-sm mt-2">Click "Create Alert" to get started</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   {alerts.map(alert => (
-                    <div key={alert.id} className={`bg-slate-800/30 rounded-lg p-4 ${!alert.enabled ? 'opacity-50' : ''} ${alert.triggered ? 'border border-yellow-500/30' : ''}`}>
+                    <div key={alert.id} className={`bg-slate-800/30 rounded-lg p-3 md:p-4 ${!alert.enabled ? 'opacity-50' : ''} ${alert.triggered ? 'border border-yellow-500/30' : ''}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -15710,7 +15784,7 @@ OUTPUT JSON:
 
         {/* NEW: Multi-Timeframe Analysis Tab */}
         {activeTab === "multiframe" && (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {!image && (
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -15785,7 +15859,7 @@ OUTPUT JSON:
                 </button>
 
                 {multiTimeframeAnalysis && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 md:space-y-4">
                     <div className={`bg-gradient-to-r ${
                       multiTimeframeAnalysis.alignment.strength === 'STRONG' ? 'from-green-900/30 to-green-800/20 border-green-500/50' :
                       multiTimeframeAnalysis.alignment.strength === 'MODERATE' ? 'from-yellow-900/30 to-yellow-800/20 border-yellow-500/50' :
@@ -15872,22 +15946,22 @@ OUTPUT JSON:
         {/* OPTIONS TRADING TAB */}
         {/* ============================================ */}
         {activeTab === "options" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900/50 rounded-2xl border border-slate-800/50 p-6">
-              <div className="flex items-center justify-between mb-6">
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-slate-900/50 rounded-xl md:rounded-2xl border border-slate-800/50 p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3 md:mb-6">
                 <div className="flex items-center gap-3">
                   <TrendingUp className="w-7 h-7 text-violet-400" />
                   <div>
-                    <h2 className="text-2xl font-bold">Options Trading Platform</h2>
+                    <h2 className="text-xl md:text-2xl font-bold">Options Trading Platform</h2>
                     <p className="text-sm text-slate-500">Calculate strategies, Greeks, and P/L</p>
                   </div>
                 </div>
               </div>
               
               {/* Strategy Selector */}
-              <div className="mb-6">
+              <div className="mb-3 md:mb-6">
                 <label className="block text-sm font-semibold mb-3">Select Strategy:</label>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
                   {[
                     { id: 'covered_call', name: 'Covered Call', icon: '📈' },
                     { id: 'protective_put', name: 'Protective Put', icon: '🛡️' },
@@ -15912,8 +15986,8 @@ OUTPUT JSON:
               </div>
               
               {/* Strategy Inputs */}
-              <div className="bg-slate-800/50 rounded-lg p-6 mb-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <div className="bg-slate-800/50 rounded-lg p-4 md:p-6 mb-3 md:mb-6">
+                <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-emerald-400" />
                   Strategy Parameters
                 </h3>
@@ -16076,10 +16150,10 @@ OUTPUT JSON:
               </div>
               
               {/* Quick Results Dashboard - LIVE CALCULATIONS */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-800/10 border border-emerald-500/30 rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-6">
+                <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-800/10 border border-emerald-500/30 rounded-lg p-3 md:p-4">
                   <div className="text-xs text-emerald-400 mb-1">Max Profit</div>
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-xl md:text-2xl font-bold text-white">
                     {typeof calculatedResults.maxProfit === 'number' 
                       ? `$${Math.round(calculatedResults.maxProfit)}` 
                       : calculatedResults.maxProfit || 'Enter parameters'}
@@ -16241,9 +16315,9 @@ OUTPUT JSON:
         )}
         
         {activeTab === "daily" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900/50 rounded-2xl border border-slate-800/50 p-6">
-              <div className="flex items-center justify-between mb-6">
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-slate-900/50 rounded-xl md:rounded-2xl border border-slate-800/50 p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3 md:mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl">
                     <Star className="w-6 h-6 text-white" />
@@ -16273,12 +16347,12 @@ OUTPUT JSON:
               </div>
               
               {/* Timeframe Selector */}
-              <div className="mb-6">
+              <div className="mb-3 md:mb-6">
                 <div className="text-sm text-slate-400 mb-3 flex items-center gap-2">
                   <Clock className="w-4 h-4" />
                   <span>Select Holding Period:</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2 md:gap-3">
                   {/* Short Timeframes */}
                   <button
                     onClick={() => setPickTimeframe("5-7h")}
@@ -16372,12 +16446,12 @@ OUTPUT JSON:
               </div>
 
               {/* Volatility Selector - 5 Levels + Any */}
-              <div className="mb-6">
+              <div className="mb-3 md:mb-6">
                 <div className="text-sm text-slate-400 mb-3 flex items-center gap-2">
                   <Activity className="w-4 h-4" />
                   <span>Select Risk/Volatility Level:</span>
                 </div>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                   {/* Low Volatility */}
                   <div
                     className="relative"
@@ -16533,11 +16607,11 @@ OUTPUT JSON:
                 </div>
               </div>
 
-              <div className="flex gap-2 mb-6">
+              <div className="flex flex-col sm:flex-row gap-2 mb-3 md:mb-6">
                 <button
                   onClick={() => fetchDailyPick(false)}
                   disabled={loadingPick}
-                  className="flex-1 py-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:from-slate-700 disabled:to-slate-700 rounded-xl font-semibold text-lg shadow-lg transition-all flex items-center justify-center gap-3"
+                  className="flex-1 py-3 md:py-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:from-slate-700 disabled:to-slate-700 rounded-lg md:rounded-xl font-semibold text-sm md:text-lg shadow-lg transition-all flex items-center justify-center gap-3"
                 >
                   {loadingPick ? (
                     <><Loader2 className="w-6 h-6 animate-spin" />⚡ Scanning...</>
@@ -16643,10 +16717,10 @@ OUTPUT JSON:
                     </div>
                   )}
                   
-                  <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl p-4 md:p-6">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+                  <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg md:rounded-xl p-3 md:p-6">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                       <div>
-                        <h3 className="text-xl md:text-2xl font-bold mb-1">{dailyPick.assetName}</h3>
+                        <h3 className="text-lg md:text-2xl font-bold mb-1">{dailyPick.assetName}</h3>
                         <p className="text-sm md:text-base text-slate-400">{dailyPick.asset} • {dailyPick.assetType}</p>
                         {/* Show current price prominently */}
                         <p className="text-base md:text-lg font-semibold text-white mt-1">
@@ -17388,7 +17462,7 @@ OUTPUT JSON:
                   </div>
                   <div className="p-6">
                     {/* Formatted response with markdown parsing */}
-                    <div className="space-y-4">
+                    <div className="space-y-3 md:space-y-4">
                       {answer.split('\n\n').map((block, blockIdx) => {
                         // Handle headers (lines starting with **)
                         if (block.startsWith('**') && block.endsWith('**')) {
@@ -17459,7 +17533,7 @@ OUTPUT JSON:
                     <span className="text-xs text-slate-500">Response from AI Assistant</span>
                     <button
                       onClick={() => setAnswer(null)}
-                      className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                      className="text-xs text-slate-400 hover:text-slate-200 transition-colors whitespace-nowrap"
                     >
                       Clear
                     </button>
@@ -17512,17 +17586,17 @@ OUTPUT JSON:
         {/* Trading Journal Tab */}
         {activeTab === "journal" && (
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-3 sm:gap-0">
               <div>
-                <h2 className="text-3xl font-bold flex items-center gap-3">
-                  <Target className="w-8 h-8 text-violet-400" />
+                <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                  <Target className="w-7 md:w-8 h-7 md:h-8 text-violet-400" />
                   Trading Journal
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">Track and analyze your trading performance</p>
+                <p className="text-slate-400 text-xs md:text-sm mt-1">Track and analyze your trading performance</p>
               </div>
               <button
                 onClick={openAddTrade}
-                className="bg-violet-600 hover:bg-violet-500 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start"
               >
                 <span>+</span>
                 <span>Add Trade</span>
@@ -17530,7 +17604,7 @@ OUTPUT JSON:
             </div>
 
             {/* Important Disclaimer */}
-            <div className="mb-6 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-3">
+            <div className="mb-4 md:mb-6 px-3 md:px-4 py-2 md:py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
                 <span className="font-semibold text-amber-400">Paper Trading Only:</span>
@@ -17543,13 +17617,13 @@ OUTPUT JSON:
             </div>
 
             {trades.length === 0 ? (
-              <div className="bg-slate-800/30 rounded-lg p-12 text-center">
-                <Target className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Trades Yet</h3>
-                <p className="text-slate-400 mb-6">Start tracking your trades to improve your performance</p>
+              <div className="bg-slate-800/30 rounded-lg p-6 md:p-12 text-center">
+                <Target className="w-12 md:w-16 h-12 md:h-16 text-slate-700 mx-auto mb-3 md:mb-4" />
+                <h3 className="text-lg md:text-xl font-semibold mb-2">No Trades Yet</h3>
+                <p className="text-slate-400 mb-4 md:mb-6">Start tracking your trades to improve your performance</p>
                 <button
                   onClick={openAddTrade}
-                  className="bg-violet-600 hover:bg-violet-500 px-6 py-3 rounded-lg font-semibold transition-colors"
+                  className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors"
                 >
                   Add Your First Trade
                 </button>
@@ -17557,8 +17631,8 @@ OUTPUT JSON:
             ) : (
               <>
                 {/* Summary Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-slate-800/30 rounded-lg p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+                  <div className="bg-slate-800/30 rounded-lg p-3 md:p-4">
                     <div className="text-xs text-slate-500 mb-1">Total Trades</div>
                     <div className="text-2xl font-bold">{trades.length}</div>
                   </div>
@@ -17753,7 +17827,7 @@ OUTPUT JSON:
                 </button>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-slate-800/30 rounded-lg p-6">
                     <div className="text-xs text-slate-500 mb-2">Total Analyses</div>
@@ -17820,15 +17894,15 @@ OUTPUT JSON:
         {/* Portfolio Tab */}
         {activeTab === "portfolio" && (
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-bold flex items-center gap-3">
-                <DollarSign className="w-8 h-8 text-violet-400" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-6 gap-3 sm:gap-0">
+              <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                <DollarSign className="w-7 md:w-8 h-7 md:h-8 text-violet-400" />
                 Portfolio Tracker
               </h2>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
                 {/* Live Price Update Controls */}
                 {portfolio.length > 0 && (
-                  <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg px-4 py-2">
+                  <div className="flex items-center gap-2 md:gap-3 bg-slate-800/50 rounded-lg px-3 md:px-4 py-2">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${portfolioAutoRefresh ? 'bg-green-400 animate-pulse' : 'bg-slate-500'}`} />
                       <span className="text-sm text-slate-400">Live Prices</span>
@@ -17860,7 +17934,7 @@ OUTPUT JSON:
                 )}
                 <button
                   onClick={() => setShowAddPosition(true)}
-                  className="bg-violet-600 hover:bg-violet-500 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                  className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start"
                 >
                   <span>+</span>
                   <span>Add Position</span>
@@ -17869,13 +17943,13 @@ OUTPUT JSON:
             </div>
 
             {portfolio.length === 0 ? (
-              <div className="bg-slate-800/30 rounded-lg p-12 text-center">
-                <DollarSign className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Positions Yet</h3>
-                <p className="text-slate-400 mb-6">Track your holdings and monitor performance</p>
+              <div className="bg-slate-800/30 rounded-lg p-6 md:p-12 text-center">
+                <DollarSign className="w-12 md:w-16 h-12 md:h-16 text-slate-700 mx-auto mb-3 md:mb-4" />
+                <h3 className="text-lg md:text-xl font-semibold mb-2">No Positions Yet</h3>
+                <p className="text-slate-400 mb-4 md:mb-6">Track your holdings and monitor performance</p>
                 <button
                   onClick={() => setShowAddPosition(true)}
-                  className="bg-violet-600 hover:bg-violet-500 px-6 py-3 rounded-lg font-semibold transition-colors"
+                  className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors"
                 >
                   Add Your First Position
                 </button>
@@ -17883,8 +17957,8 @@ OUTPUT JSON:
             ) : (
               <>
                 {/* Portfolio Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                  <div className="bg-slate-800/30 rounded-lg p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-4 md:mb-6">
+                  <div className="bg-slate-800/30 rounded-lg p-3 md:p-4">
                     <div className="text-xs text-slate-500 mb-1">Total Positions</div>
                     <div className="text-2xl font-bold">{portfolio.length}</div>
                   </div>
@@ -17988,19 +18062,19 @@ OUTPUT JSON:
 
         {/* MARKET OVERVIEW TAB */}
         {activeTab === "marketoverview" && (
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <div>
-                <h2 className="text-3xl font-bold flex items-center gap-3">
-                  <BarChart3 className="w-8 h-8 text-violet-400" />
+                <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                  <BarChart3 className="w-7 md:w-8 h-7 md:h-8 text-violet-400" />
                   Market Overview
                 </h2>
-                <p className="text-slate-400 mt-1">Real-time market indices, sectors & sentiment</p>
+                <p className="text-xs md:text-sm text-slate-400 mt-1">Real-time market indices, sectors & sentiment</p>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
                 {/* Market Status */}
-                <div className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+                <div className={`px-3 md:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 whitespace-nowrap ${
                   marketData.marketStatus === 'open' ? 'bg-green-600/20 text-green-400 border border-green-500/30' :
                   marketData.marketStatus === 'pre-market' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' :
                   marketData.marketStatus === 'after-hours' ? 'bg-amber-600/20 text-amber-400 border border-amber-500/30' :
@@ -18040,7 +18114,7 @@ OUTPUT JSON:
             </div>
 
             {/* Major Indices */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
               {[
                 { symbol: 'SPY', name: 'S&P 500', data: marketData.indices.SPY },
                 { symbol: 'QQQ', name: 'NASDAQ 100', data: marketData.indices.QQQ },
@@ -18053,7 +18127,7 @@ OUTPUT JSON:
                     index.data.changePercent >= 0
                       ? 'from-emerald-900/20 to-emerald-800/10 border-emerald-500/30'
                       : 'from-red-900/20 to-red-800/10 border-red-500/30'
-                  } border rounded-xl p-5 hover-lift cursor-pointer`}
+                  } border rounded-xl p-3 md:p-5 hover-lift cursor-pointer`}
                   onClick={() => {
                     setTickerSymbol(index.symbol);
                     setActiveTab("ticker");
@@ -18086,14 +18160,14 @@ OUTPUT JSON:
             </div>
 
             {/* VIX & Market Sentiment */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
               {/* VIX Card */}
               <div className={`bg-gradient-to-br ${
                 !marketData.vix.price ? 'from-slate-900/30 to-slate-800/20 border-slate-500/40' :
                 marketData.vix.price > 30 ? 'from-red-900/30 to-red-800/20 border-red-500/40' :
                 marketData.vix.price > 20 ? 'from-amber-900/30 to-amber-800/20 border-amber-500/40' :
                 'from-emerald-900/30 to-emerald-800/20 border-emerald-500/40'
-              } border rounded-xl p-5`}>
+              } border rounded-xl p-3 md:p-5`}>
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <div className="text-lg font-bold">VIX</div>
@@ -18131,7 +18205,7 @@ OUTPUT JSON:
               </div>
 
               {/* Market Breadth Card */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 md:p-5">
                 <div className="text-lg font-bold mb-1">Market Breadth</div>
                 <div className="text-xs text-slate-400 mb-4">Based on sector performance</div>
 
@@ -18177,9 +18251,9 @@ OUTPUT JSON:
               </div>
 
               {/* Quick Stats */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 md:p-5">
                 <div className="text-lg font-bold mb-3">Session Info</div>
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Last Update:</span>
                     <span className="font-medium">
@@ -18292,7 +18366,7 @@ OUTPUT JSON:
 
         {/* PERFORMANCE DASHBOARD TAB */}
         {activeTab === "performance" && (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-3xl font-bold flex items-center gap-3">
                 <PieChart className="w-8 h-8 text-violet-400" />
@@ -18409,7 +18483,7 @@ OUTPUT JSON:
                       const exitPrice = parseFloat(bestTrade.exit) || parseFloat(bestTrade.exitPrice) || 0;
                       const quantity = parseFloat(bestTrade.quantity) || 1;
                       return (
-                        <div className="space-y-3">
+                        <div className="space-y-2 md:space-y-3">
                           <div className="flex justify-between items-center">
                             <span className="text-slate-400">Symbol:</span>
                             <span className="font-bold text-xl text-emerald-300">{bestTrade.symbol}</span>
@@ -18472,7 +18546,7 @@ OUTPUT JSON:
                       const exitPrice = parseFloat(worstTrade.exit) || parseFloat(worstTrade.exitPrice) || 0;
                       const quantity = parseFloat(worstTrade.quantity) || 1;
                       return (
-                        <div className="space-y-3">
+                        <div className="space-y-2 md:space-y-3">
                           <div className="flex justify-between items-center">
                             <span className="text-slate-400">Symbol:</span>
                             <span className="font-bold text-xl text-red-300">{worstTrade.symbol}</span>
@@ -18626,7 +18700,7 @@ OUTPUT JSON:
 
         {/* PAPER TRADING TAB */}
         {activeTab === "papertrading" && (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-3xl font-bold flex items-center gap-3">
@@ -18896,15 +18970,15 @@ OUTPUT JSON:
 
         {/* ECONOMIC CALENDAR TAB - ENHANCED */}
         {activeTab === "economic" && (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* Header with View Toggles */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-3 md:gap-4">
               <div>
-                <h2 className="text-3xl font-bold flex items-center gap-3">
-                  <CalendarDays className="w-8 h-8 text-violet-400" />
+                <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                  <CalendarDays className="w-7 md:w-8 h-7 md:h-8 text-violet-400" />
                   Economic Calendar
                 </h2>
-                <p className="text-slate-400 mt-1">Market-moving events and data releases</p>
+                <p className="text-sm md:text-base text-slate-400 mt-1">Market-moving events and data releases</p>
               </div>
               <div className="flex gap-2 flex-wrap">
                 <button
@@ -18956,10 +19030,10 @@ OUTPUT JSON:
             </div>
 
             {/* Info Banner */}
-            <div className="bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-500/30 rounded-xl p-4">
+            <div className="bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-500/30 rounded-lg md:rounded-xl p-3 md:p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-200">
+                <div className="text-xs md:text-sm text-blue-200">
                   <p className="font-semibold mb-1">📊 Economic Events Impact Trading</p>
                   <p className="text-blue-300/80">
                     High importance events (CPI, Fed decisions, jobs reports) can cause 1-3% market swings.
@@ -18970,10 +19044,10 @@ OUTPUT JSON:
             </div>
 
             {economicEvents.length === 0 ? (
-              <div className="bg-slate-800/30 rounded-xl p-12 text-center border border-slate-700/50">
-                <CalendarDays className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Events Loaded</h3>
-                <p className="text-slate-400 mb-6">
+              <div className="bg-slate-800/30 rounded-lg md:rounded-xl p-6 md:p-12 text-center border border-slate-700/50">
+                <CalendarDays className="w-12 md:w-16 h-12 md:h-16 text-slate-600 mx-auto mb-3 md:mb-4" />
+                <h3 className="text-lg md:text-xl font-semibold mb-2">No Events Loaded</h3>
+                <p className="text-sm md:text-base text-slate-400 mb-4 md:mb-6">
                   Click "Refresh" to load upcoming economic calendar events
                 </p>
               </div>
@@ -19443,7 +19517,7 @@ OUTPUT JSON:
 
         {/* TRADE IDEAS TAB */}
         {activeTab === "tradeideas" && (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-3xl font-bold flex items-center gap-3">
@@ -19524,7 +19598,7 @@ OUTPUT JSON:
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {tradeIdeas.map((idea) => (
                   <div key={idea.id} className="bg-slate-900/50 rounded-lg p-6 border border-slate-700 hover:border-violet-600/50 transition-all">
                     <div className="flex justify-between items-start mb-4">
@@ -19858,7 +19932,7 @@ OUTPUT JSON:
 
         {/* STOCK SCREENER TAB */}
         {activeTab === "screener" && (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-3xl font-bold flex items-center gap-3">
                 <Search className="w-8 h-8 text-violet-400" />
@@ -20487,14 +20561,14 @@ OUTPUT JSON:
         {/* PHASE 1: HOT STOCKS TAB */}
         {activeTab === "hotstocks" && (
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-6 gap-3 sm:gap-0">
               <div>
-                <h2 className="text-3xl font-bold flex items-center gap-3">
-                  <Flame className="w-8 h-8 text-orange-400" />
+                <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                  <Flame className="w-7 md:w-8 h-7 md:h-8 text-orange-400" />
                   Hot Stocks Scanner
                 </h2>
-                <div className="flex items-center gap-3 mt-2">
-                  <p className="text-slate-400">Find biggest movers and volume leaders</p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mt-2">
+                  <p className="text-xs md:text-sm text-slate-400">Find biggest movers and volume leaders</p>
                   {hotStocks.isLive !== undefined && (
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                       hotStocks.isLive 
@@ -20510,16 +20584,17 @@ OUTPUT JSON:
               <button
                 onClick={scanRealMarket}
                 disabled={hotStocks.loading}
-                className="bg-orange-600 hover:bg-orange-500 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+                className="w-full sm:w-auto bg-orange-600 hover:bg-orange-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-sm md:text-base transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <RefreshCw className={`w-5 h-5 ${hotStocks.loading ? 'animate-spin' : ''}`} />
-                {hotStocks.loading ? '⚡ Fast Scanning...' : '⚡ Refresh Scanner'}
+                <span className="hidden sm:inline">{hotStocks.loading ? '⚡ Fast Scanning...' : '⚡ Refresh Scanner'}</span>
+                <span className="sm:hidden">{hotStocks.loading ? 'Scanning...' : 'Refresh'}</span>
               </button>
             </div>
 
             {/* Scanner Progress Indicator */}
             {hotStocks.loading && scannerProgress.total > 0 && (
-              <div className="bg-slate-800/50 border border-orange-500/30 rounded-lg p-4">
+              <div className="bg-slate-800/50 border border-orange-500/30 rounded-lg p-3 md:p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
@@ -20557,17 +20632,17 @@ OUTPUT JSON:
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               {/* Top Gainers */}
-              <div className="bg-gradient-to-br from-green-900/20 to-green-800/10 border border-green-500/30 rounded-lg p-6">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-green-400">
+              <div className="bg-gradient-to-br from-green-900/20 to-green-800/10 border border-green-500/30 rounded-lg p-4 md:p-6">
+                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-green-400">
                   <ArrowUpRight className="w-5 h-5" />
                   Top Gainers
                 </h3>
                 {hotStocks.gainers.length === 0 ? (
                   <p className="text-slate-400 text-sm">Click Refresh to scan</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     {hotStocks.gainers.map((stock, idx) => (
                       <div key={idx} className="bg-slate-800/50 rounded p-3">
                         <div className="flex justify-between items-start mb-1">
@@ -20653,15 +20728,15 @@ OUTPUT JSON:
               </div>
 
               {/* Top Losers */}
-              <div className="bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-500/30 rounded-lg p-6">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-red-400">
+              <div className="bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-500/30 rounded-lg p-4 md:p-6">
+                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-red-400">
                   <ArrowDownRight className="w-5 h-5" />
                   Top Losers
                 </h3>
                 {hotStocks.losers.length === 0 ? (
                   <p className="text-slate-400 text-sm">Click Refresh to scan</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     {hotStocks.losers.map((stock, idx) => (
                       <div key={idx} className="bg-slate-800/50 rounded p-3">
                         <div className="flex justify-between items-start mb-1">
@@ -20755,7 +20830,7 @@ OUTPUT JSON:
                 {hotStocks.volume.length === 0 ? (
                   <p className="text-slate-400 text-sm">Click Refresh to scan</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     {hotStocks.volume.map((stock, idx) => (
                       <div key={idx} className="bg-slate-800/50 rounded p-3">
                         <div className="flex justify-between items-start mb-1">
@@ -21089,7 +21164,7 @@ OUTPUT JSON:
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   {tradePlans.map((plan, idx) => {
                     const entry = parseFloat(plan.entryPrice) || 0;
                     const stop = parseFloat(plan.stopLoss) || 0;
@@ -21485,7 +21560,7 @@ OUTPUT JSON:
                 </button>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-gradient-to-br from-violet-900/30 to-violet-800/10 border border-violet-500/30 rounded-lg p-6">
                     <div className="text-xs text-slate-400 mb-2">Total Triggered</div>
@@ -21561,25 +21636,25 @@ OUTPUT JSON:
 
         {/* NEWS & SENTIMENT FEED TAB */}
         {activeTab === "news" && (
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-3xl font-bold flex items-center gap-3">
-                  <MessageCircle className="w-8 h-8 text-violet-400" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4">
+              <div className="flex-1">
+                <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-2 md:gap-3">
+                  <MessageCircle className="w-7 md:w-8 h-7 md:h-8 text-violet-400" />
                   News & Sentiment Feed
-                  <span className="text-sm px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center gap-1.5 font-normal">
+                  <span className="text-xs md:text-sm px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center gap-1.5 font-normal whitespace-nowrap">
                     <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
                     LIVE
                   </span>
                 </h2>
-                <p className="text-slate-400 mt-1">Real-time news from Yahoo Finance & Google News APIs</p>
+                <p className="text-xs md:text-sm text-slate-400 mt-1">Real-time news from Yahoo Finance & Google News APIs</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <select
                   value={newsFilter}
                   onChange={(e) => setNewsFilter(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm"
+                  className="bg-slate-800 border border-slate-700 rounded-lg px-3 md:px-4 py-2 text-xs md:text-sm"
                 >
                   <option value="all">All News</option>
                   <option value="bullish">Bullish Only</option>
@@ -21589,38 +21664,39 @@ OUTPUT JSON:
                 <button
                   onClick={generateNewsFeed}
                   disabled={loadingNews}
-                  className="bg-violet-600 hover:bg-violet-500 px-6 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-2.5 rounded-lg font-semibold text-xs md:text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap"
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingNews ? 'animate-spin' : ''}`} />
-                  {loadingNews ? 'Loading...' : 'Refresh News'}
+                  <span className="hidden sm:inline">{loadingNews ? 'Loading...' : 'Refresh News'}</span>
+                  <span className="sm:hidden">{loadingNews ? 'Loading' : 'Refresh'}</span>
                 </button>
               </div>
             </div>
 
             {/* Sentiment Summary */}
             {newsFeed.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
-                  <div className="text-sm text-emerald-400 mb-1">Bullish News</div>
-                  <div className="text-3xl font-bold text-emerald-400">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg md:rounded-xl p-3 md:p-4">
+                  <div className="text-xs md:text-sm text-emerald-400 mb-1">Bullish News</div>
+                  <div className="text-2xl md:text-3xl font-bold text-emerald-400">
                     {newsFeed.filter(n => n.sentiment === 'bullish').length}
                   </div>
                 </div>
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                  <div className="text-sm text-red-400 mb-1">Bearish News</div>
-                  <div className="text-3xl font-bold text-red-400">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg md:rounded-xl p-3 md:p-4">
+                  <div className="text-xs md:text-sm text-red-400 mb-1">Bearish News</div>
+                  <div className="text-2xl md:text-3xl font-bold text-red-400">
                     {newsFeed.filter(n => n.sentiment === 'bearish').length}
                   </div>
                 </div>
-                <div className="bg-slate-700/30 border border-slate-600/30 rounded-xl p-4">
-                  <div className="text-sm text-slate-400 mb-1">Neutral</div>
-                  <div className="text-3xl font-bold text-slate-300">
+                <div className="bg-slate-700/30 border border-slate-600/30 rounded-lg md:rounded-xl p-3 md:p-4">
+                  <div className="text-xs md:text-sm text-slate-400 mb-1">Neutral</div>
+                  <div className="text-2xl md:text-3xl font-bold text-slate-300">
                     {newsFeed.filter(n => n.sentiment === 'neutral').length}
                   </div>
                 </div>
-                <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-                  <div className="text-sm text-violet-400 mb-1">Overall Sentiment</div>
-                  <div className={`text-2xl font-bold ${
+                <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg md:rounded-xl p-3 md:p-4">
+                  <div className="text-xs md:text-sm text-violet-400 mb-1">Overall Sentiment</div>
+                  <div className={`text-xl md:text-2xl font-bold ${
                     newsFeed.filter(n => n.sentiment === 'bullish').length > newsFeed.filter(n => n.sentiment === 'bearish').length
                       ? 'text-emerald-400' : 'text-red-400'
                   }`}>
@@ -21633,20 +21709,20 @@ OUTPUT JSON:
 
             {/* News Feed */}
             {newsFeed.length === 0 ? (
-              <div className="bg-slate-800/30 rounded-xl p-12 text-center">
-                <MessageCircle className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No News Yet</h3>
-                <p className="text-slate-400 mb-6">Click "Refresh News" to load the latest market news and sentiment analysis</p>
+              <div className="bg-slate-800/30 rounded-lg md:rounded-xl p-6 md:p-12 text-center">
+                <MessageCircle className="w-12 md:w-16 h-12 md:h-16 text-slate-600 mx-auto mb-3 md:mb-4" />
+                <h3 className="text-lg md:text-xl font-semibold mb-2">No News Yet</h3>
+                <p className="text-xs md:text-sm text-slate-400 mb-4 md:mb-6">Click "Refresh News" to load the latest market news and sentiment analysis</p>
                 <button
                   onClick={generateNewsFeed}
                   disabled={loadingNews}
-                  className="bg-violet-600 hover:bg-violet-500 px-6 py-3 rounded-lg font-semibold"
+                  className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-sm md:text-base"
                 >
                   Load News Feed
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 {newsFeed
                   .filter(news => {
                     if (newsFilter === 'all') return true;
@@ -21971,7 +22047,7 @@ OUTPUT JSON:
               </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-2">Symbol *</label>
@@ -22203,7 +22279,7 @@ OUTPUT JSON:
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-2">Symbol *</label>
@@ -22435,7 +22511,7 @@ OUTPUT JSON:
               </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Symbol *</label>
                 <input
@@ -22527,7 +22603,7 @@ OUTPUT JSON:
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Symbol</label>
                 <input
@@ -22621,7 +22697,7 @@ OUTPUT JSON:
               </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Symbol *</label>
                 <input

@@ -2,14 +2,49 @@
 // Faster endpoint for text-only questions without image processing
 
 export const config = {
-  maxDuration: 30, // Text-only is faster
+  maxDuration: 30,
 };
 
+// Allowed origins
+const ALLOWED_ORIGINS = [
+  'https://modus-trading.vercel.app',
+  'https://tradevision-modus.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+function getCorsOrigin(req) {
+  const origin = req.headers?.origin || req.headers?.referer || '';
+  if (process.env.NODE_ENV === 'production') {
+    const matched = ALLOWED_ORIGINS.find(o => origin.startsWith(o));
+    return matched || ALLOWED_ORIGINS[0];
+  }
+  return origin || '*';
+}
+
+// Fetch with timeout
+async function fetchWithTimeout(url, options, timeoutMs = 25000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS
+  const corsOrigin = getCorsOrigin(req);
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -22,19 +57,26 @@ export default async function handler(req, res) {
   try {
     const { prompt, maxTokens = 1000 } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: 'Prompt is required' });
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Prompt is required and must be a string' });
+    }
+
+    if (prompt.length > 10000) {
+      return res.status(400).json({ error: 'Prompt exceeds 10000 character limit' });
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
       return res.status(500).json({
-        error: 'ANTHROPIC_API_KEY not configured. Add it to Vercel environment variables.'
+        error: 'API key not configured. Please check server environment variables.'
       });
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Cap tokens between reasonable bounds
+    const tokenLimit = Math.min(Math.max(maxTokens, 200), 2000);
+
+    const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,7 +85,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: Math.min(maxTokens, 2000), // Cap at 2000 for speed
+        max_tokens: tokenLimit,
         messages: [
           {
             role: 'user',
@@ -51,11 +93,20 @@ export default async function handler(req, res) {
           },
         ],
       }),
-    });
+    }, 25000);
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`API error: ${error}`);
+      const errorText = await response.text();
+      console.error('Chat API error:', response.status, errorText);
+
+      if (response.status === 429) {
+        return res.status(429).json({ error: 'Rate limited. Please wait a moment and try again.' });
+      }
+      if (response.status === 401) {
+        return res.status(500).json({ error: 'API authentication failed. Please check server configuration.' });
+      }
+
+      throw new Error('Chat service temporarily unavailable');
     }
 
     const data = await response.json();
@@ -66,8 +117,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Chat error:', error);
-    return res.status(500).json({
-      error: error.message || 'Failed to get response'
+
+    const isTimeout = error.name === 'AbortError';
+    const clientMessage = isTimeout
+      ? 'Request timed out. Please try a shorter question.'
+      : 'Failed to get response. Please try again.';
+
+    return res.status(isTimeout ? 504 : 500).json({
+      error: clientMessage
     });
   }
 }

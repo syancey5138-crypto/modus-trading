@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Batch Alert Processing
-// Handles high-volume alerts efficiently with rate limiting and queuing
+// Handles high-volume alerts with rate limiting and queuing
 
 // Carrier email-to-SMS gateways
 const CARRIER_GATEWAYS = {
@@ -18,11 +18,12 @@ const CARRIER_GATEWAYS = {
   'visible': 'vtext.com',
 };
 
-// In-memory rate limiter (resets on cold start, but good enough for free tier)
+// In-memory rate limiter (note: resets on cold start for serverless)
+// For production, consider using Vercel KV or Upstash Redis
 const rateLimiter = {
   lastReset: Date.now(),
   count: 0,
-  dailyLimit: 100, // Resend free tier limit
+  dailyLimit: 100,
 };
 
 function checkRateLimit() {
@@ -37,14 +38,39 @@ function checkRateLimit() {
   return rateLimiter.count < rateLimiter.dailyLimit;
 }
 
-function incrementRateLimit() {
-  rateLimiter.count++;
+function incrementRateLimit(count = 1) {
+  rateLimiter.count += count;
+}
+
+// Allowed origins
+const ALLOWED_ORIGINS = [
+  'https://modus-trading.vercel.app',
+  'https://tradevision-modus.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+function getCorsOrigin(req) {
+  const origin = req.headers?.origin || req.headers?.referer || '';
+  if (process.env.NODE_ENV === 'production') {
+    const matched = ALLOWED_ORIGINS.find(o => origin.startsWith(o));
+    return matched || ALLOWED_ORIGINS[0];
+  }
+  return origin || '*';
+}
+
+// Sanitize alert message
+function sanitizeMessage(msg) {
+  if (typeof msg !== 'string') return '';
+  return msg.replace(/[<>]/g, '').trim().slice(0, 200);
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const corsOrigin = getCorsOrigin(req);
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -53,7 +79,7 @@ export default async function handler(req, res) {
   // GET - Check rate limit status
   if (req.method === 'GET') {
     return res.status(200).json({
-      remaining: rateLimiter.dailyLimit - rateLimiter.count,
+      remaining: Math.max(0, rateLimiter.dailyLimit - rateLimiter.count),
       limit: rateLimiter.dailyLimit,
       resetsAt: new Date(rateLimiter.lastReset + 24 * 60 * 60 * 1000).toISOString(),
     });
@@ -66,8 +92,13 @@ export default async function handler(req, res) {
   try {
     const { alerts, phone, carrier } = req.body;
 
+    // Input validation
     if (!Array.isArray(alerts) || alerts.length === 0) {
-      return res.status(400).json({ error: 'alerts array is required' });
+      return res.status(400).json({ error: 'alerts array is required and must not be empty' });
+    }
+
+    if (alerts.length > 50) {
+      return res.status(400).json({ error: 'Maximum 50 alerts per batch' });
     }
 
     if (!phone || !carrier) {
@@ -77,17 +108,23 @@ export default async function handler(req, res) {
     // Check rate limit
     if (!checkRateLimit()) {
       return res.status(429).json({
-        error: 'Daily SMS limit reached (100/day on free tier)',
+        error: 'Daily alert limit reached. Resets in 24 hours.',
         remaining: 0,
         resetsAt: new Date(rateLimiter.lastReset + 24 * 60 * 60 * 1000).toISOString(),
       });
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
-    const gateway = CARRIER_GATEWAYS[carrier.toLowerCase()];
+    // Validate phone and carrier
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const carrierKey = String(carrier).toLowerCase();
+    const gateway = CARRIER_GATEWAYS[carrierKey];
 
     if (!gateway) {
-      return res.status(400).json({ error: `Unknown carrier: ${carrier}` });
+      return res.status(400).json({ error: `Unsupported carrier: ${carrier}` });
+    }
+
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
     }
 
     const phoneNumber = cleanPhone.length === 11 ? cleanPhone.slice(1) : cleanPhone;
@@ -97,25 +134,27 @@ export default async function handler(req, res) {
 
     if (!resendApiKey) {
       return res.status(500).json({
-        error: 'RESEND_API_KEY not configured'
+        error: 'Batch SMS service not configured. Please check server environment variables.'
       });
     }
 
-    // Consolidate alerts into batched messages (to stay under SMS character limits)
+    // Alert type emojis
     const alertEmojis = {
       'price': '📊', 'entry': '🎯', 'stop': '🛑', 'target': '💰',
       'news': '📰', 'volume': '📈', 'pattern': '📐', 'default': '🔔'
     };
 
-    // Group similar alerts and batch them
+    // Batch alerts into SMS-sized messages
+    const maxSmsLength = 140;
     const batches = [];
     let currentBatch = [];
     let currentLength = 0;
-    const maxSmsLength = 140; // Keep under SMS limit
 
     for (const alert of alerts) {
       const emoji = alertEmojis[alert.type] || alertEmojis.default;
-      const line = `${emoji} ${alert.symbol}: ${alert.message}`;
+      const msg = sanitizeMessage(alert.message || '');
+      const symbol = String(alert.symbol || '').slice(0, 10);
+      const line = `${emoji} ${symbol}: ${msg}`;
 
       if (currentLength + line.length + 1 > maxSmsLength && currentBatch.length > 0) {
         batches.push(currentBatch.join('\n'));
@@ -132,11 +171,12 @@ export default async function handler(req, res) {
     }
 
     // Check if we have enough quota
-    if (rateLimiter.count + batches.length > rateLimiter.dailyLimit) {
+    const remainingQuota = rateLimiter.dailyLimit - rateLimiter.count;
+    if (batches.length > remainingQuota) {
       return res.status(429).json({
-        error: `Not enough quota. Need ${batches.length}, have ${rateLimiter.dailyLimit - rateLimiter.count} remaining`,
+        error: `Not enough quota. Need ${batches.length}, have ${remainingQuota} remaining.`,
         partial: true,
-        canSend: rateLimiter.dailyLimit - rateLimiter.count,
+        canSend: remainingQuota,
       });
     }
 
@@ -144,6 +184,9 @@ export default async function handler(req, res) {
     const results = [];
     for (const batch of batches) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
         const response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -156,36 +199,48 @@ export default async function handler(req, res) {
             subject: 'MODUS',
             text: batch,
           }),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeout);
 
         if (response.ok) {
           const data = await response.json();
           results.push({ success: true, id: data.id });
           incrementRateLimit();
         } else {
-          const error = await response.text();
-          results.push({ success: false, error });
+          const errorText = await response.text();
+          console.error('Batch send error:', response.status, errorText);
+          results.push({ success: false, error: 'Delivery failed' });
         }
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay between sends
+        if (batches.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
       } catch (err) {
-        results.push({ success: false, error: err.message });
+        const isTimeout = err.name === 'AbortError';
+        results.push({
+          success: false,
+          error: isTimeout ? 'Send timed out' : 'Delivery failed'
+        });
       }
     }
 
     const successCount = results.filter(r => r.success).length;
 
     return res.status(200).json({
-      success: true,
+      success: successCount > 0,
       totalAlerts: alerts.length,
       messagesSent: successCount,
-      remaining: rateLimiter.dailyLimit - rateLimiter.count,
-      results,
+      messagesFailed: results.length - successCount,
+      remaining: Math.max(0, rateLimiter.dailyLimit - rateLimiter.count),
     });
 
   } catch (error) {
     console.error('Batch alert error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: 'Failed to process batch alerts. Please try again.'
+    });
   }
 }
