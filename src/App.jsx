@@ -21,7 +21,11 @@ function App() {
       const styleSheet = document.createElement('style');
       styleSheet.id = 'modus-styles';
       styleSheet.textContent = `
-        /* Animations */
+        /* =============================================
+           MODUS PREMIUM - Trading Grade UI System
+           ============================================= */
+
+        /* Core Animations */
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
@@ -42,98 +46,156 @@ function App() {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
-        
+        @keyframes borderGlow {
+          0%, 100% { border-color: rgba(139, 92, 246, 0.2); }
+          50% { border-color: rgba(139, 92, 246, 0.5); }
+        }
+        @keyframes priceUp {
+          0% { color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 0.6); }
+          100% { text-shadow: none; }
+        }
+        @keyframes priceDown {
+          0% { color: #ef4444; text-shadow: 0 0 12px rgba(239, 68, 68, 0.6); }
+          100% { text-shadow: none; }
+        }
+        @keyframes glowPulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.8; }
+        }
+        @keyframes subtleBreathe {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+          50% { box-shadow: 0 0 30px 0 rgba(139, 92, 246, 0.08); }
+        }
+        @keyframes numberRoll {
+          from { transform: translateY(-100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
         .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
         .animate-slideIn { animation: slideIn 0.2s ease-out forwards; }
         .animate-slideUp { animation: slideUp 0.3s ease-out forwards; }
         .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .animate-price-up { animation: priceUp 0.8s ease-out; }
+        .animate-price-down { animation: priceDown 0.8s ease-out; }
+        .animate-border-glow { animation: borderGlow 3s ease-in-out infinite; }
+        .animate-number-roll { animation: numberRoll 0.3s ease-out; }
 
-        /* Smooth chart transitions */
+        /* Chart Transitions */
         @keyframes chartRefresh {
           0% { opacity: 0.7; }
           100% { opacity: 1; }
         }
-        .chart-container {
-          transition: all 0.3s ease-out;
+        .chart-container { transition: all 0.3s ease-out; }
+        .chart-container.refreshing { animation: chartRefresh 0.5s ease-out; }
+        .chart-bar { transition: all 0.2s ease-out; }
+        .chart-line { transition: d 0.3s ease-out, stroke-dashoffset 0.3s ease-out; }
+        .price-update { transition: all 0.3s ease-out; }
+
+        /* =============================================
+           Premium Card System
+           ============================================= */
+
+        /* Glass morphism card - the default card style */
+        .glass {
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(148, 163, 184, 0.1);
         }
-        .chart-container.refreshing {
-          animation: chartRefresh 0.5s ease-out;
+
+        /* Premium card with subtle inner glow */
+        .card-premium {
+          background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.6) 100%);
+          border: 1px solid rgba(148, 163, 184, 0.12);
+          box-shadow:
+            0 4px 16px rgba(0, 0, 0, 0.25),
+            inset 0 1px 0 rgba(148, 163, 184, 0.05);
+          transition: all 0.25s ease;
         }
-        .chart-bar {
-          transition: all 0.2s ease-out;
+        .card-premium:hover {
+          border-color: rgba(139, 92, 246, 0.25);
+          box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.35),
+            0 0 0 1px rgba(139, 92, 246, 0.1),
+            inset 0 1px 0 rgba(148, 163, 184, 0.08);
+          transform: translateY(-1px);
         }
-        .chart-line {
-          transition: d 0.3s ease-out, stroke-dashoffset 0.3s ease-out;
+
+        /* Gain card - green ambient glow */
+        .card-gain {
+          background: linear-gradient(135deg, rgba(6, 78, 59, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
+          border: 1px solid rgba(16, 185, 129, 0.2);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 0 30px rgba(16, 185, 129, 0.03);
         }
-        .price-update {
-          transition: all 0.3s ease-out;
+        .card-gain:hover {
+          border-color: rgba(16, 185, 129, 0.35);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(16, 185, 129, 0.08);
         }
-        
-        /* Skeleton loader */
-        .skeleton {
-          background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
+
+        /* Loss card - red ambient glow */
+        .card-loss {
+          background: linear-gradient(135deg, rgba(127, 29, 29, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 0 30px rgba(239, 68, 68, 0.03);
         }
-        
-        /* Typography */
+        .card-loss:hover {
+          border-color: rgba(239, 68, 68, 0.35);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(239, 68, 68, 0.08);
+        }
+
+        /* =============================================
+           Glow & Shadow System
+           ============================================= */
+        .glow-violet { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+        .glow-emerald { box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+        .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+        .glow-ambient-up { box-shadow: 0 0 40px rgba(16, 185, 129, 0.06); }
+        .glow-ambient-down { box-shadow: 0 0 40px rgba(239, 68, 68, 0.06); }
+
+        /* Hover card lift - enhanced */
+        .hover-lift {
+          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .hover-lift:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Button press */
+        .btn-press { transition: transform 0.1s ease; }
+        .btn-press:active { transform: scale(0.97); }
+
+        /* =============================================
+           Typography & Text Effects
+           ============================================= */
         * {
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: rgba(30, 41, 59, 0.5);
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: rgba(100, 116, 139, 0.5);
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: rgba(139, 92, 246, 0.6);
-        }
-        
-        /* Glass effect */
-        .glass {
-          background: rgba(15, 23, 42, 0.8);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-        }
-        
-        /* Glow effects */
-        .glow-violet { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
-        .glow-emerald { box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
-        .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
-        
-        /* Hover card lift effect */
-        .hover-lift {
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .hover-lift:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* Button press effect */
-        .btn-press:active {
-          transform: scale(0.97);
-        }
-        
-        /* Gradient text */
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+
         .gradient-text {
-          background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #8b5cf6 100%);
+          background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 40%, #7c3aed 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
-        
-        /* Card shine effect on hover */
+
+        /* Price text with glow on update */
+        .price-text-up {
+          color: #10b981;
+          text-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+        }
+        .price-text-down {
+          color: #ef4444;
+          text-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+        }
+
+        /* =============================================
+           Interactive Effects
+           ============================================= */
+
+        /* Card shine on hover */
         .card-shine {
           position: relative;
           overflow: hidden;
@@ -143,28 +205,100 @@ function App() {
           position: absolute;
           top: 0;
           left: -100%;
-          width: 100%;
+          width: 60%;
           height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
-          transition: left 0.5s ease;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+          transition: left 0.6s ease;
+          pointer-events: none;
+          z-index: 1;
         }
-        .card-shine:hover::before {
-          left: 100%;
+        .card-shine:hover::before { left: 150%; }
+
+        /* Animated border gradient */
+        .border-glow {
+          position: relative;
+          border: 1px solid transparent;
+          background-clip: padding-box;
         }
-        
-        /* Focus ring */
-        .focus-ring:focus {
-          outline: none;
-          ring: 2px;
-          ring-color: rgba(139, 92, 246, 0.5);
+        .border-glow::after {
+          content: '';
+          position: absolute;
+          inset: -1px;
+          border-radius: inherit;
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), transparent 40%, transparent 60%, rgba(99, 102, 241, 0.2));
+          z-index: -1;
+          opacity: 0;
+          transition: opacity 0.3s ease;
         }
-        
-        /* Number animations */
-        .tabular-nums {
-          font-variant-numeric: tabular-nums;
+        .border-glow:hover::after { opacity: 1; }
+
+        /* =============================================
+           Scrollbar (Premium Thin)
+           ============================================= */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.3);
+          border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.35);
+          border-radius: 3px;
+          transition: background 0.2s;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(139, 92, 246, 0.5);
         }
 
-        /* Mobile-optimized responsive utilities */
+        /* =============================================
+           Skeleton & Loading States
+           ============================================= */
+        .skeleton {
+          background: linear-gradient(90deg, rgba(30,41,59,0.8) 25%, rgba(51,65,85,0.5) 50%, rgba(30,41,59,0.8) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s ease-in-out infinite;
+          border-radius: 6px;
+        }
+        .skeleton-pulse {
+          background: linear-gradient(90deg, rgba(30,41,59,0.8) 25%, rgba(51,65,85,0.6) 50%, rgba(30,41,59,0.8) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        /* Loading shimmer bar */
+        .loading-bar {
+          height: 2px;
+          background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.6), transparent);
+          background-size: 200% 100%;
+          animation: shimmer 1.2s ease-in-out infinite;
+        }
+
+        /* =============================================
+           Focus & Accessibility
+           ============================================= */
+        .focus-ring:focus-visible {
+          outline: 2px solid rgba(139, 92, 246, 0.6);
+          outline-offset: 2px;
+        }
+
+        /* =============================================
+           Status Indicators
+           ============================================= */
+        .status-live {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+          background: #10b981;
+          box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+          animation: glowPulse 2s ease-in-out infinite;
+        }
+        .status-offline {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+          background: #64748b;
+        }
+
+        /* =============================================
+           Mobile Utilities
+           ============================================= */
         @media (max-width: 768px) {
           .mobile-full { width: 100% !important; }
           .mobile-stack { flex-direction: column !important; }
@@ -175,27 +309,56 @@ function App() {
           .mobile-grid-1 { grid-template-columns: 1fr !important; }
         }
 
-        /* Touch-optimized scrolling */
         .scroll-touch {
           -webkit-overflow-scrolling: touch;
           overscroll-behavior: contain;
         }
-
-        /* Smooth page transitions between tabs */
-        .tab-content {
-          animation: fadeIn 0.15s ease-out;
-        }
-
-        /* Better loading skeleton */
-        .skeleton-pulse {
-          background: linear-gradient(90deg, rgba(30,41,59,0.8) 25%, rgba(51,65,85,0.6) 50%, rgba(30,41,59,0.8) 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s ease-in-out infinite;
-        }
-
-        /* Prevent layout shift during loading */
+        .tab-content { animation: fadeIn 0.15s ease-out; }
         .min-h-card { min-height: 200px; }
         .min-h-chart { min-height: 300px; }
+
+        /* =============================================
+           Premium Progress Bars
+           ============================================= */
+        .progress-bar {
+          height: 6px;
+          border-radius: 3px;
+          background: rgba(30, 41, 59, 0.8);
+          overflow: hidden;
+        }
+        .progress-bar-fill {
+          height: 100%;
+          border-radius: 3px;
+          transition: width 0.6s ease-out;
+          position: relative;
+        }
+        .progress-bar-fill::after {
+          content: '';
+          position: absolute;
+          top: 0; right: 0;
+          width: 30%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15));
+        }
+
+        /* =============================================
+           Data Badge System
+           ============================================= */
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+        .badge-gain { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .badge-loss { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .badge-neutral { background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.15); }
+        .badge-info { background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.2); }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
       `;
       document.head.appendChild(styleSheet);
     }
@@ -9108,14 +9271,14 @@ OUTPUT JSON:
   }, [activeTab]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+    <div className="min-h-screen text-slate-100" style={{ background: 'linear-gradient(135deg, #030712 0%, #0f172a 40%, #0c1222 70%, #030712 100%)' }}>
       {/* Toast Notification */}
       {toast && (
         <div
           className={`fixed top-3 right-3 left-3 sm:left-auto sm:right-4 sm:top-4 z-[60] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-sm animate-slideIn flex items-center gap-3 max-w-sm ${
-            toast.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' :
-            toast.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-300' :
-            'bg-blue-500/20 border-blue-500/50 text-blue-300'
+            toast.type === 'success' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-lg shadow-emerald-500/10' :
+            toast.type === 'error' ? 'bg-red-500/15 border-red-500/40 text-red-300 shadow-lg shadow-red-500/10' :
+            'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-lg shadow-blue-500/10'
           }`}
         >
           <span className="text-sm font-medium">{toast.message}</span>
@@ -9130,8 +9293,8 @@ OUTPUT JSON:
 
       {/* API Key Modal - ENHANCED WITH BACKEND MODE & SMS */}
       {showApiKeyModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border border-slate-700/50 p-6 max-w-lg w-full shadow-2xl my-8">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-50 flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border border-slate-700/30 p-6 max-w-lg w-full shadow-2xl shadow-black/50 my-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-violet-500/20 rounded-xl">
                 <Settings className="w-5 h-5 text-violet-400" />
@@ -10573,22 +10736,22 @@ OUTPUT JSON:
       )}
 
       {/* Vertical Sidebar */}
-      <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-r border-slate-800/50 transition-all duration-300 ease-out z-modal-overlay overflow-hidden ${
+      <aside className={`fixed left-0 top-0 h-screen border-r border-slate-800/30 transition-all duration-300 ease-out z-modal-overlay overflow-hidden ${
         isMobile
           ? (mobileMenuOpen ? 'w-64 translate-x-0 shadow-2xl' : 'w-64 -translate-x-full')
           : (sidebarCollapsed ? 'w-16' : 'w-64')
-      }`}>
+      }`} style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(10,15,30,0.99) 100%)', backdropFilter: 'blur(20px)' }}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="p-4 border-b border-slate-800/50">
+          <div className="p-4 border-b border-slate-800/20">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 rounded-xl flex-shrink-0 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/40 transition-shadow duration-300">
-                <Eye className="w-5 h-5 text-white" />
+              <div className="p-2.5 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 rounded-xl flex-shrink-0 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 hover:scale-105">
+                <Eye className="w-5 h-5 text-white drop-shadow-sm" />
               </div>
               {!sidebarCollapsed && (
                 <div className="overflow-hidden">
-                  <h2 className="text-lg font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent whitespace-nowrap">MODUS</h2>
-                  <p className="text-[10px] text-violet-400/80 font-medium whitespace-nowrap tracking-wide">COMPLETE EDITION</p>
+                  <h2 className="text-lg font-bold tracking-tight whitespace-nowrap gradient-text">MODUS</h2>
+                  <p className="text-[10px] text-slate-500 font-semibold whitespace-nowrap tracking-[0.2em] uppercase">Trading Platform</p>
                 </div>
               )}
             </div>
@@ -10988,9 +11151,9 @@ OUTPUT JSON:
         </div>
       </aside>
       {/* Header */}
-      <header className={`border-b border-slate-800/30 bg-slate-900/90 backdrop-blur-xl sticky top-0 z-header transition-all duration-300 ease-out safe-area-top ${
+      <header className={`border-b border-slate-800/20 sticky top-0 z-header transition-all duration-300 ease-out safe-area-top ${
         isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
-      }`}>
+      }`} style={{ background: 'rgba(10, 15, 30, 0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
         <div className="px-3 md:px-6 py-2.5 md:py-3">
           <div className="flex items-center justify-between gap-3">
             {/* Mobile Menu Toggle */}
@@ -11006,7 +11169,7 @@ OUTPUT JSON:
             {/* Mobile Logo */}
             {isMobile && (
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg">
+                <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-700 rounded-lg shadow-md shadow-violet-500/25">
                   <Eye className="w-4 h-4 text-white" />
                 </div>
                 <span className="font-bold text-white">MODUS</span>
@@ -11047,7 +11210,7 @@ OUTPUT JSON:
             {/* Position Sizer */}
             <button
               onClick={() => setShowPositionSizer(true)}
-              className="p-2 md:px-4 md:py-2 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 rounded-lg transition-all duration-200 flex items-center gap-2 font-semibold text-sm shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 btn-press"
+              className="p-2 md:px-4 md:py-2 bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 rounded-xl transition-all duration-200 flex items-center gap-2 font-semibold text-sm shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-[1.02] btn-press"
               title="Position Sizing Calculator"
             >
               <Target className="w-4 h-4" />
@@ -11057,7 +11220,7 @@ OUTPUT JSON:
             {/* History */}
             <button
               onClick={() => setShowHistory(true)}
-              className="p-2.5 bg-slate-800/80 hover:bg-slate-700 rounded-lg transition-all duration-200 relative border border-slate-700/50 hover:border-slate-600 btn-press"
+              className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-xl transition-all duration-200 relative border border-slate-700/30 hover:border-violet-500/30 btn-press"
               title="Analysis History"
             >
               <Calendar className="w-4 h-4 text-slate-400" />
@@ -11082,7 +11245,7 @@ OUTPUT JSON:
             {/* Settings */}
             <button
               onClick={() => setShowApiKeyModal(true)}
-              className="p-2.5 bg-slate-800/80 hover:bg-slate-700 rounded-lg transition-all duration-200 border border-slate-700/50 hover:border-slate-600 btn-press"
+              className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-xl transition-all duration-200 border border-slate-700/30 hover:border-violet-500/30 btn-press"
               title="API Key Settings"
             >
               <Settings className="w-4 h-4 text-slate-400" />
@@ -11113,7 +11276,7 @@ OUTPUT JSON:
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-600/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-500 rounded-lg transition-all duration-200 border border-violet-500/30"
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-600/90 to-purple-700/90 hover:from-violet-500 hover:to-purple-600 rounded-xl transition-all duration-200 border border-violet-500/20 shadow-lg shadow-violet-500/15 hover:shadow-violet-500/30"
                 >
                   <div className="w-6 h-6 rounded-full bg-violet-400 flex items-center justify-center text-xs font-bold text-slate-900">
                     {userProfile?.displayName?.[0]?.toUpperCase() || currentUser.email?.[0]?.toUpperCase() || 'U'}
@@ -11125,7 +11288,7 @@ OUTPUT JSON:
 
                 {/* User Dropdown Menu */}
                 {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-[55] overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/40 rounded-xl shadow-2xl shadow-black/50 z-[55] overflow-hidden">
                     <div className="p-3 border-b border-slate-700">
                       <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
                       <p className="text-xs text-slate-400 truncate">{currentUser.email}</p>
@@ -11151,7 +11314,7 @@ OUTPUT JSON:
             ) : (
               <button
                 onClick={() => { setShowAuthModal(true); setAuthMode('login'); }}
-                className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-lg transition-all duration-200 font-medium text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 rounded-xl transition-all duration-200 font-semibold text-sm shadow-lg shadow-violet-500/20 hover:shadow-violet-500/35 hover:scale-[1.02]"
               >
                 <LogIn className="w-4 h-4" />
                 <span className="hidden md:inline">Sign In</span>
@@ -11169,7 +11332,7 @@ OUTPUT JSON:
         {/* NEW: Live Ticker Tab */}
         {activeTab === "ticker" && (
           <div className="space-y-4 md:space-y-6 animate-fadeIn">
-            <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/50 rounded-xl md:rounded-2xl border border-slate-700/50 p-4 md:p-6 shadow-xl">
+            <div className="rounded-xl md:rounded-2xl p-4 md:p-6 card-premium">
               <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 flex items-center gap-3">
                 <div className="p-2 bg-violet-500/20 rounded-lg">
                   <LineChart className="w-6 h-6 text-violet-400" />
@@ -12824,7 +12987,7 @@ OUTPUT JSON:
         {activeTab === "analyze" && (
           <div className="space-y-4 md:space-y-6 animate-fadeIn">
             {/* Upload Section */}
-            <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/50 rounded-xl md:rounded-2xl border border-slate-700/50 p-4 md:p-6 shadow-xl">
+            <div className="rounded-xl md:rounded-2xl p-4 md:p-6 card-premium">
               <div className="flex items-center justify-between mb-3 md:mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg shadow-violet-500/20">
@@ -15579,7 +15742,7 @@ OUTPUT JSON:
                             value={chartQuestion}
                             onChange={(e) => setChartQuestion(e.target.value)}
                             placeholder="e.g., Why is the stop loss set at that level? What if price breaks above resistance?"
-                            className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 min-h-[100px] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+                            className="w-full bg-slate-800/40 border border-slate-700/30 rounded-xl hover-lift px-4 py-3 min-h-[100px] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
                             maxLength={500}
                           />
                           <div className="flex items-center justify-between mt-2">
@@ -15723,7 +15886,7 @@ OUTPUT JSON:
               ) : (
                 <div className="space-y-2 md:space-y-3">
                   {alerts.map(alert => (
-                    <div key={alert.id} className={`bg-slate-800/30 rounded-lg p-3 md:p-4 ${!alert.enabled ? 'opacity-50' : ''} ${alert.triggered ? 'border border-yellow-500/30' : ''}`}>
+                    <div key={alert.id} className={`bg-slate-800/30 rounded-lg p-3 md:p-4 card-shine ${!alert.enabled ? 'opacity-50' : ''} ${alert.triggered ? 'border border-yellow-500/30' : ''}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -17397,7 +17560,7 @@ OUTPUT JSON:
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Ask about technical analysis, trading strategies, risk management, chart patterns, indicators, market psychology, or any trading concept..."
-                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-4 min-h-[120px] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none placeholder:text-slate-500"
+                  className="w-full bg-slate-800/40 border border-slate-700/30 rounded-xl hover-lift px-4 py-4 min-h-[120px] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none placeholder:text-slate-500"
                   maxLength={1000}
                 />
                 <div className="flex items-center justify-between mt-3">
@@ -17632,7 +17795,7 @@ OUTPUT JSON:
               <>
                 {/* Summary Stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
-                  <div className="bg-slate-800/30 rounded-lg p-3 md:p-4">
+                  <div className="bg-slate-800/30 rounded-lg p-3 md:p-4 card-shine">
                     <div className="text-xs text-slate-500 mb-1">Total Trades</div>
                     <div className="text-2xl font-bold">{trades.length}</div>
                   </div>
@@ -17958,7 +18121,7 @@ OUTPUT JSON:
               <>
                 {/* Portfolio Summary */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-4 md:mb-6">
-                  <div className="bg-slate-800/30 rounded-lg p-3 md:p-4">
+                  <div className="bg-slate-800/30 rounded-lg p-3 md:p-4 card-shine">
                     <div className="text-xs text-slate-500 mb-1">Total Positions</div>
                     <div className="text-2xl font-bold">{portfolio.length}</div>
                   </div>
@@ -18123,11 +18286,11 @@ OUTPUT JSON:
               ].map(index => (
                 <div
                   key={index.symbol}
-                  className={`bg-gradient-to-br ${
+                  className={`${
                     index.data.changePercent >= 0
-                      ? 'from-emerald-900/20 to-emerald-800/10 border-emerald-500/30'
-                      : 'from-red-900/20 to-red-800/10 border-red-500/30'
-                  } border rounded-xl p-3 md:p-5 hover-lift cursor-pointer`}
+                      ? 'card-gain'
+                      : 'card-loss'
+                  } rounded-xl p-3 md:p-5 hover-lift cursor-pointer`}
                   onClick={() => {
                     setTickerSymbol(index.symbol);
                     setActiveTab("ticker");
@@ -18205,7 +18368,7 @@ OUTPUT JSON:
               </div>
 
               {/* Market Breadth Card */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 md:p-5">
+              <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl hover-lift p-3 md:p-5">
                 <div className="text-lg font-bold mb-1">Market Breadth</div>
                 <div className="text-xs text-slate-400 mb-4">Based on sector performance</div>
 
@@ -18251,7 +18414,7 @@ OUTPUT JSON:
               </div>
 
               {/* Quick Stats */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 md:p-5">
+              <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl hover-lift p-3 md:p-5">
                 <div className="text-lg font-bold mb-3">Session Info</div>
                 <div className="space-y-2 md:space-y-3">
                   <div className="flex justify-between">
@@ -20634,7 +20797,7 @@ OUTPUT JSON:
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               {/* Top Gainers */}
-              <div className="bg-gradient-to-br from-green-900/20 to-green-800/10 border border-green-500/30 rounded-lg p-4 md:p-6">
+              <div className="card-gain rounded-xl p-4 md:p-6">
                 <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-green-400">
                   <ArrowUpRight className="w-5 h-5" />
                   Top Gainers
@@ -20728,7 +20891,7 @@ OUTPUT JSON:
               </div>
 
               {/* Top Losers */}
-              <div className="bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-500/30 rounded-lg p-4 md:p-6">
+              <div className="card-loss rounded-xl p-4 md:p-6">
                 <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-red-400">
                   <ArrowDownRight className="w-5 h-5" />
                   Top Losers
