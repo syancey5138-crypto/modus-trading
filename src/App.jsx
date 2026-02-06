@@ -1532,6 +1532,12 @@ function App() {
   // NEW: Screener Presets
   const [selectedScanPreset, setSelectedScanPreset] = useState('custom');
 
+  // NEW: Info Pages State
+  const [showInfoPage, setShowInfoPage] = useState(null); // 'terms', 'privacy', 'features', null
+
+  // NEW: Keyboard Shortcuts
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   const [priceChange, setPriceChange] = useState(null); // { amount: 0.50, percent: 0.12, direction: 'up' }
   const [isRefreshing, setIsRefreshing] = useState(false); // Subtle refresh indicator
   const [nextRefreshIn, setNextRefreshIn] = useState(null); // Countdown to next refresh
@@ -7443,6 +7449,70 @@ OUTPUT JSON:
     }
   }, [addNotification]);
 
+  // KEYBOARD SHORTCUTS
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+
+      // Ctrl/Cmd + K: Quick search (focus ticker input)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setActiveTab('ticker');
+        setTimeout(() => {
+          const tickerInput = document.querySelector('input[placeholder*="symbol"], input[placeholder*="ticker"], input[placeholder*="Symbol"]');
+          if (tickerInput) tickerInput.focus();
+        }, 100);
+      }
+
+      // Escape: Close modals
+      if (e.key === 'Escape') {
+        if (showNotificationCenter) setShowNotificationCenter(false);
+        else if (showShareModal) setShowShareModal(false);
+        else if (showInfoPage) setShowInfoPage(null);
+        else if (showShortcuts) setShowShortcuts(false);
+      }
+
+      // ?: Show keyboard shortcuts
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        setShowShortcuts(prev => !prev);
+      }
+
+      // Number keys 1-9 for quick tab switching
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key >= '1' && e.key <= '9') {
+        const tabMap = {
+          '1': 'ticker',
+          '2': 'analyze',
+          '3': 'alerts',
+          '4': 'watchlist',
+          '5': 'screener',
+          '6': 'journal',
+          '7': 'portfolio',
+          '8': 'daily',
+          '9': 'ask'
+        };
+        if (tabMap[e.key]) {
+          setActiveTab(tabMap[e.key]);
+        }
+      }
+
+      // Alt + N: New trade
+      if (e.altKey && e.key === 'n') {
+        e.preventDefault();
+        setActiveTab('journal');
+      }
+
+      // Alt + A: Quick add to watchlist
+      if (e.altKey && e.key === 'a') {
+        e.preventDefault();
+        setActiveTab('watchlist');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showNotificationCenter, showShareModal, showInfoPage, showShortcuts]);
+
   // Request notification permission on first load
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -7705,6 +7775,64 @@ OUTPUT JSON:
     setShowAddTrade(false);
   };
   
+  // EXPORT TRADES TO CSV
+  const exportTradesToCSV = useCallback(() => {
+    if (trades.length === 0) return;
+
+    const headers = ['Symbol', 'Side', 'Entry', 'Exit', 'Stop Loss', 'Target', 'Quantity', 'Entry Date', 'Exit Date', 'P&L ($)', 'P&L (%)', 'Status', 'Notes'];
+    const rows = trades.map(t => [
+      t.symbol,
+      t.side,
+      t.entry,
+      t.exit || '',
+      t.stopLoss || '',
+      t.target || '',
+      t.quantity || '',
+      t.entryDate || '',
+      t.exitDate || '',
+      t.pnl != null ? t.pnl.toFixed(2) : '',
+      t.pnlPercent != null ? t.pnlPercent.toFixed(2) + '%' : '',
+      t.status || 'open',
+      (t.notes || '').replace(/,/g, ';').replace(/\n/g, ' ')
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `MODUS_Trades_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [trades]);
+
+  // EXPORT PORTFOLIO TO CSV
+  const exportPortfolioToCSV = useCallback(() => {
+    if (portfolio.length === 0) return;
+
+    const headers = ['Symbol', 'Quantity', 'Avg Price', 'Current Price', 'Total Value', 'Total Cost', 'P&L ($)', 'P&L (%)', 'Notes'];
+    const rows = portfolio.map(p => [
+      p.symbol,
+      p.quantity,
+      p.avgPrice?.toFixed(2) || '',
+      p.currentPrice?.toFixed(2) || '',
+      p.totalValue?.toFixed(2) || '',
+      p.totalCost?.toFixed(2) || '',
+      p.pnl?.toFixed(2) || '',
+      p.pnlPercent?.toFixed(2) + '%' || '',
+      (p.notes || '').replace(/,/g, ';').replace(/\n/g, ' ')
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `MODUS_Portfolio_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [portfolio]);
+
   const deleteTrade = (id) => {
     const tradeToDelete = trades.find(t => t.id === id);
 
@@ -10875,6 +11003,39 @@ OUTPUT JSON:
         </div>
       )}
 
+      {/* KEYBOARD SHORTCUTS MODAL */}
+      {showShortcuts && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowShortcuts(false)}>
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <span className="text-slate-500 font-mono text-sm bg-slate-800 px-2 py-0.5 rounded">⌨</span>
+                Keyboard Shortcuts
+              </h3>
+              <button onClick={() => setShowShortcuts(false)} className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-1">
+              {[
+                { keys: '1-9', desc: 'Switch tabs (Ticker, Analyze, Alerts...)' },
+                { keys: 'Ctrl+K', desc: 'Quick search / Go to Ticker' },
+                { keys: '?', desc: 'Toggle this shortcuts panel' },
+                { keys: 'Esc', desc: 'Close current modal or panel' },
+                { keys: 'Alt+N', desc: 'Go to Trading Journal' },
+                { keys: 'Alt+A', desc: 'Go to Watchlist' },
+              ].map((shortcut, i) => (
+                <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-800/50">
+                  <span className="text-sm text-slate-300">{shortcut.desc}</span>
+                  <kbd className="font-mono text-xs bg-slate-800 border border-slate-700 text-slate-400 px-2 py-1 rounded">{shortcut.keys}</kbd>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-600 mt-4 text-center">Shortcuts are disabled while typing in text fields</p>
+          </div>
+        </div>
+      )}
+
       {/* LANDING PAGE */}
       {showLandingPage && (
         <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-violet-950 z-[110] overflow-y-auto">
@@ -11894,43 +12055,8 @@ OUTPUT JSON:
               )}
             </div>
 
-            {/* CENTER: Status bar (desktop only) */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 rounded-lg border border-slate-700/30">
-              {(loadingAnalysis || loadingPick || loadingAnswer || loadingTicker) ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
-                  <span className="text-xs text-amber-400">
-                    {loadingAnalysis ? 'Analyzing...' :
-                     loadingPick ? 'Finding pick...' :
-                     loadingAnswer ? 'AI thinking...' :
-                     'Loading...'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                  <span className="text-xs text-slate-500 font-mono tabular-nums">{formatTime(currentTime)}</span>
-                  <span className="text-slate-700 mx-1">|</span>
-                  <span className="text-xs text-slate-400">
-                    {enabledAlertCount > 0
-                      ? `${enabledAlertCount} alert${enabledAlertCount > 1 ? 's' : ''} active`
-                      : 'Ready'}
-                  </span>
-                  {currentUser && (
-                    <>
-                      <span className="text-slate-700 mx-1">|</span>
-                      {cloudSyncStatus === 'synced' ? <Cloud className="w-3 h-3 text-emerald-500/60" /> :
-                       cloudSyncStatus === 'syncing' ? <Loader2 className="w-3 h-3 animate-spin text-amber-400/60" /> :
-                       cloudSyncStatus === 'error' ? <CloudOff className="w-3 h-3 text-red-400/60" /> :
-                       <Cloud className="w-3 h-3 text-slate-600" />}
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* RIGHT: Actions - grouped by function */}
-            <div className="flex items-center gap-1.5">
+            {/* RIGHT: All actions grouped together */}
+            <div className="flex items-center gap-1.5 ml-auto">
               {/* Primary action: Position Sizer */}
               <button
                 onClick={() => setShowPositionSizer(true)}
@@ -12001,6 +12127,41 @@ OUTPUT JSON:
               >
                 <Settings className="w-4 h-4 text-slate-400" />
               </button>
+
+              {/* Divider */}
+              <div className="w-px h-5 bg-slate-700/50 mx-0.5" />
+
+              {/* Status + Clock combined */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/40 rounded-lg border border-slate-700/30">
+                {(loadingAnalysis || loadingPick || loadingAnswer || loadingTicker) ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                    <span className="text-xs text-amber-400">
+                      {loadingAnalysis ? 'Analyzing...' :
+                       loadingPick ? 'Finding pick...' :
+                       loadingAnswer ? 'AI thinking...' :
+                       'Loading...'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="font-mono text-xs text-emerald-400/80 tabular-nums">{formatTime(currentTime)}</span>
+                    <span className="text-slate-700">·</span>
+                    <span className="text-xs text-slate-400">
+                      {enabledAlertCount > 0
+                        ? `${enabledAlertCount} alert${enabledAlertCount > 1 ? 's' : ''}`
+                        : 'Ready'}
+                    </span>
+                    {currentUser && cloudSyncStatus === 'synced' && (
+                      <Cloud className="w-3 h-3 text-emerald-500/50" />
+                    )}
+                    {currentUser && cloudSyncStatus === 'syncing' && (
+                      <Loader2 className="w-3 h-3 animate-spin text-amber-400/50" />
+                    )}
+                  </>
+                )}
+              </div>
 
               {/* Divider */}
               <div className="w-px h-5 bg-slate-700/50 mx-0.5" />
@@ -18543,13 +18704,24 @@ OUTPUT JSON:
                 </h2>
                 <p className="text-slate-400 text-xs md:text-sm mt-1">Track and analyze your trading performance</p>
               </div>
-              <button
-                onClick={openAddTrade}
-                className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start"
-              >
-                <span>+</span>
-                <span>Add Trade</span>
-              </button>
+              <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
+                <button
+                  onClick={openAddTrade}
+                  className="bg-violet-600 hover:bg-violet-500 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 justify-center"
+                >
+                  <span>+</span>
+                  <span>Add Trade</span>
+                </button>
+                {trades.length > 0 && (
+                  <button
+                    onClick={exportTradesToCSV}
+                    className="bg-slate-700 hover:bg-slate-600 px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 justify-center"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>Export CSV</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Important Disclaimer */}
@@ -22932,27 +23104,297 @@ OUTPUT JSON:
 
       </main>
 
-      {/* Footer */}
-      <footer className={`border-t border-slate-800/50 mt-12 transition-all duration-300 ${
-        sidebarCollapsed ? 'ml-16' : 'ml-64'
-      }`}>
-        <div className="px-6 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Eye className="w-5 h-5 text-violet-400" />
-              <span className="font-semibold">MODUS</span>
-              <span className="text-xs text-slate-500">Consistent Edition © 2026</span>
-            </div>
-            <p className="text-xs text-slate-500 text-center max-w-2xl">
-              Educational tool only. Not financial advice. Trading involves substantial risk of loss. Always conduct your own research.
-            </p>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Clock className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="font-mono">{formatTime(currentTime)}</span>
-            </div>
+      {/* SITE FOOTER */}
+      <footer className={`border-t border-slate-800/30 py-3 px-4 md:px-8 transition-all duration-300 ${
+        isMobile ? 'ml-0' : (sidebarCollapsed ? 'ml-16' : 'ml-64')
+      }`} style={{ background: 'rgba(10, 15, 30, 0.6)' }}>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-slate-400">MODUS</span>
+            <span>© 2026 All rights reserved</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button onClick={() => setShowInfoPage('features')} className="hover:text-violet-400 transition-colors">Features</button>
+            <button onClick={() => setShowInfoPage('terms')} className="hover:text-violet-400 transition-colors">Terms of Service</button>
+            <button onClick={() => setShowInfoPage('privacy')} className="hover:text-violet-400 transition-colors">Privacy Policy</button>
+            <span className="text-slate-700">|</span>
+            <span>Not financial advice. For educational purposes only.</span>
           </div>
         </div>
       </footer>
+
+      {/* INFO PAGES */}
+      {showInfoPage && (
+        <div className="fixed inset-0 bg-slate-950/98 backdrop-blur-sm z-[70] overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-4 md:px-8 py-8 md:py-12">
+            {/* Header with close */}
+            <div className="flex items-center justify-between mb-8 sticky top-0 bg-slate-950/90 backdrop-blur-md py-4 -mx-4 px-4 z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-violet-500/20 rounded-lg">
+                  {showInfoPage === 'features' ? <Zap className="w-5 h-5 text-violet-400" /> :
+                   showInfoPage === 'terms' ? <Shield className="w-5 h-5 text-violet-400" /> :
+                   <Lock className="w-5 h-5 text-violet-400" />}
+                </div>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {showInfoPage === 'features' ? 'Platform Features' :
+                   showInfoPage === 'terms' ? 'Terms of Service' :
+                   'Privacy Policy'}
+                </h1>
+              </div>
+              <button onClick={() => setShowInfoPage(null)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                <X className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+
+            {/* FEATURES PAGE */}
+            {showInfoPage === 'features' && (
+              <div className="space-y-8">
+                <p className="text-lg text-slate-300 leading-relaxed">MODUS is a comprehensive trading analysis platform with 22+ tools designed for traders at every level. Here's everything included:</p>
+
+                {[
+                  {
+                    category: 'Analysis & AI',
+                    icon: '🧠',
+                    color: 'violet',
+                    features: [
+                      { name: 'AI Chart Analysis', desc: 'Upload any stock chart and get instant technical analysis powered by Claude AI and GPT-4 Vision. Identifies patterns, support/resistance levels, and generates trade setups with entry, stop loss, and target prices.' },
+                      { name: 'Multi-Timeframe Analysis', desc: 'Analyze the same stock across multiple timeframes simultaneously (1m, 5m, 15m, 1h, 4h, Daily) to confirm trend alignment and find high-probability entries.' },
+                      { name: 'Ask AI Trading Assistant', desc: 'Natural language trading assistant that can answer any trading question, explain strategies, analyze market conditions, and help you understand technical indicators.' },
+                      { name: 'Daily AI Pick', desc: 'Every day, the AI scans the market and delivers a top trade recommendation with full analysis, confidence score, entry/exit levels, and risk/reward ratio.' }
+                    ]
+                  },
+                  {
+                    category: 'Market Data & Scanning',
+                    icon: '📊',
+                    color: 'blue',
+                    features: [
+                      { name: 'Live Stock Ticker', desc: 'Real-time stock data with candlestick charts, volume analysis, RSI, MACD, and Bollinger Bands. Supports any US stock symbol with automatic multi-API fallback.' },
+                      { name: 'Stock Screener', desc: 'Scan 220+ stocks with 8 preset strategies (RSI Oversold, Volume Breakout, Bullish Momentum, Golden Cross, and more) or create custom filters by price, volume, and RSI range.' },
+                      { name: 'Market Scanner', desc: 'Real-time market overview showing top gainers, losers, and volume leaders. Identifies the most active and volatile stocks of the day.' },
+                      { name: 'Market Overview', desc: 'Dashboard showing major indices (SPY, QQQ, DIA, IWM), VIX, and all 11 S&P sectors with live performance data.' },
+                      { name: 'News & Sentiment Feed', desc: 'Aggregated financial news with sentiment analysis. Filter by bullish, bearish, or your watchlist stocks.' }
+                    ]
+                  },
+                  {
+                    category: 'Portfolio & Trading',
+                    icon: '💰',
+                    color: 'emerald',
+                    features: [
+                      { name: 'Portfolio Tracker', desc: 'Track your real positions with live price updates, P&L calculations, and weighted average cost basis. Automatically combines positions when you add to existing holdings.' },
+                      { name: 'Live Portfolio', desc: 'Real-time portfolio tracking with 5-second auto-refresh, daily change monitoring, and total P&L across all positions.' },
+                      { name: 'Paper Trading', desc: 'Practice trading with $100K virtual balance. Execute simulated trades, track performance, and build confidence without risking real money.' },
+                      { name: 'Position Size Calculator', desc: 'Calculate optimal position sizes based on your account size, risk tolerance (%), entry price, and stop loss. Ensures proper risk management on every trade.' },
+                      { name: 'Options Profit Calculator', desc: 'Visualize potential outcomes for calls, puts, spreads, and straddles with interactive payoff diagrams.' }
+                    ]
+                  },
+                  {
+                    category: 'Journaling & Performance',
+                    icon: '📝',
+                    color: 'amber',
+                    features: [
+                      { name: 'Trading Journal', desc: 'Log every trade with entry/exit prices, quantity, side (long/short), stop loss, target, confidence level, and notes. Link trades to AI analyses for complete records.' },
+                      { name: 'Performance Dashboard', desc: 'Visualize your trading performance with win rate, average P&L, profit factor, and equity curve. Compare your results over time.' },
+                      { name: 'Trade Planner', desc: 'Plan trades with detailed risk/reward calculations before entering. Calculate recommended shares, expected profit, max loss, and risk per share.' },
+                      { name: 'Backtesting', desc: 'Test your analysis accuracy against historical outcomes. Track win rates across all your past analyses.' },
+                      { name: 'Alert Performance', desc: 'Track how your price alerts perform after triggering. See which alerts led to profitable opportunities.' }
+                    ]
+                  },
+                  {
+                    category: 'Alerts & Monitoring',
+                    icon: '🔔',
+                    color: 'red',
+                    features: [
+                      { name: 'Price Alerts', desc: 'Set alerts for any stock with conditions (above, below, crosses). Get notified via browser notifications, sound alerts, SMS (via EmailJS), and optional Discord webhook.' },
+                      { name: 'Watchlist', desc: 'Monitor your favorite stocks with real-time prices updating every 10 seconds. See change percentage, and quickly navigate to any stock for deeper analysis.' },
+                      { name: 'Notification Center', desc: 'Centralized notification history showing all triggered alerts with timestamps. Manage notification preferences for sound, browser, and push alerts.' },
+                      { name: 'Economic Calendar', desc: 'Track upcoming economic events (FOMC, CPI, NFP, earnings) that could impact your trades. Plan around market-moving events.' }
+                    ]
+                  },
+                  {
+                    category: 'Tools & Export',
+                    icon: '🛠️',
+                    color: 'slate',
+                    features: [
+                      { name: 'PDF Reports', desc: 'Export comprehensive analysis reports as professional PDFs including score, recommendation, pattern analysis, trade setup, and technical indicators.' },
+                      { name: 'Social Sharing', desc: 'Share your analyses on Twitter/X, Reddit, or copy to clipboard. Formatted summaries with score, recommendation, and key metrics.' },
+                      { name: 'Trade Ideas Generator', desc: 'AI-generated trade ideas with full setups including entry, stop loss, targets, and reasoning. Scan for opportunities you might have missed.' },
+                      { name: 'Cloud Sync', desc: 'Sign in with Google or email to sync your data across devices. Watchlists, trades, alerts, and settings stored securely in Firebase.' },
+                      { name: 'CSV Export', desc: 'Export your trade journal and portfolio data as CSV files for use in Excel, Google Sheets, or other analysis tools.' }
+                    ]
+                  }
+                ].map((section, idx) => (
+                  <div key={idx} className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className={`px-6 py-4 border-b border-slate-800/50 bg-${section.color}-500/5`}>
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">{section.icon}</span>
+                        {section.category}
+                        <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{section.features.length} tools</span>
+                      </h2>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      {section.features.map((feature, fIdx) => (
+                        <div key={fIdx} className="px-6 py-4 hover:bg-slate-800/20 transition-colors">
+                          <h3 className="font-semibold text-white mb-1">{feature.name}</h3>
+                          <p className="text-sm text-slate-400 leading-relaxed">{feature.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-6 text-center">
+                  <h3 className="text-xl font-bold mb-2">Ready to Start Trading Smarter?</h3>
+                  <p className="text-slate-400 mb-4">Sign up to sync your data across devices and unlock the full potential of MODUS.</p>
+                  <button onClick={() => { setShowInfoPage(null); setShowAuthModal(true); setAuthMode('signup'); }} className="px-8 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl font-semibold transition-all">
+                    Get Started Free
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TERMS OF SERVICE */}
+            {showInfoPage === 'terms' && (
+              <div className="prose prose-invert prose-slate max-w-none">
+                <div className="space-y-6 text-slate-300 leading-relaxed">
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-sm text-amber-200">
+                    <strong>Last Updated:</strong> February 2026. By accessing or using MODUS, you agree to be bound by these Terms of Service.
+                  </div>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">1. Acceptance of Terms</h2>
+                    <p>By accessing and using the MODUS trading analysis platform ("Service"), you accept and agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you must not access or use the Service. These Terms apply to all visitors, users, and others who access the Service.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">2. Description of Service</h2>
+                    <p>MODUS is a web-based trading analysis and education platform that provides technical analysis tools, AI-powered chart analysis, stock screening, portfolio tracking, and related features. The Service is designed for educational and informational purposes only.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">3. Not Financial Advice</h2>
+                    <p><strong className="text-red-400">IMPORTANT:</strong> MODUS does not provide financial, investment, trading, or tax advice. All analysis, recommendations, scores, trade setups, and AI-generated content provided through the Service are for educational and informational purposes only. You should not rely on any information provided by MODUS as a substitute for professional financial advice. Always consult with a qualified financial advisor before making investment decisions.</p>
+                    <p className="mt-2">Past performance of any analysis or recommendation does not guarantee future results. Trading stocks, options, and other financial instruments involves substantial risk of loss and is not suitable for all investors.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">4. User Accounts</h2>
+                    <p>To access certain features of the Service, you may be required to create an account. You agree to provide accurate, current, and complete information during registration and to update such information as necessary. You are responsible for safeguarding your account credentials and for all activities that occur under your account.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">5. Acceptable Use</h2>
+                    <p>You agree not to: (a) use the Service for any unlawful purpose; (b) attempt to gain unauthorized access to any portion of the Service; (c) interfere with or disrupt the Service; (d) use automated means to access the Service without our permission; (e) redistribute, resell, or commercially exploit any content or data from the Service; (f) use the Service to manipulate markets or engage in any form of market abuse.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">6. Market Data</h2>
+                    <p>Market data displayed on MODUS is sourced from third-party providers including Yahoo Finance and other public APIs. While we strive for accuracy, we do not guarantee the accuracy, completeness, or timeliness of any market data. Data may be delayed, and real-time prices are provided on a best-effort basis. Do not rely solely on MODUS data for time-sensitive trading decisions.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">7. AI-Generated Content</h2>
+                    <p>MODUS uses artificial intelligence models to generate chart analyses, trade recommendations, and other content. AI-generated content may contain errors, inaccuracies, or biases. The AI does not have real-time market awareness and bases its analysis on the data provided to it. AI recommendations should be used as one of many inputs in your decision-making process, not as the sole basis for any trade.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">8. Limitation of Liability</h2>
+                    <p>To the maximum extent permitted by law, MODUS and its creators shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses resulting from: (a) your use or inability to use the Service; (b) any trading decisions made based on information provided by the Service; (c) unauthorized access to your account; (d) errors or inaccuracies in content or data.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">9. Subscription & Payments</h2>
+                    <p>Certain features of MODUS may require a paid subscription. Subscription fees are billed in advance on a monthly or annual basis. You may cancel your subscription at any time. Refunds are handled on a case-by-case basis. We reserve the right to change subscription pricing with 30 days' notice to existing subscribers.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">10. Intellectual Property</h2>
+                    <p>All content, features, and functionality of the Service are owned by MODUS and are protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, sell, or lease any part of the Service without our prior written consent.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">11. Termination</h2>
+                    <p>We may terminate or suspend your account and access to the Service at our sole discretion, without prior notice, for conduct that we believe violates these Terms or is harmful to other users, us, or third parties. Upon termination, your right to use the Service will immediately cease.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">12. Changes to Terms</h2>
+                    <p>We reserve the right to modify these Terms at any time. We will provide notice of material changes through the Service. Your continued use of the Service after such changes constitutes acceptance of the new Terms.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">13. Contact</h2>
+                    <p>If you have any questions about these Terms, please contact us through the Feedback button in the application or email us at the address provided in the application.</p>
+                  </section>
+                </div>
+              </div>
+            )}
+
+            {/* PRIVACY POLICY */}
+            {showInfoPage === 'privacy' && (
+              <div className="prose prose-invert prose-slate max-w-none">
+                <div className="space-y-6 text-slate-300 leading-relaxed">
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-sm text-blue-200">
+                    <strong>Last Updated:</strong> February 2026. This Privacy Policy describes how MODUS collects, uses, and protects your information.
+                  </div>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">1. Information We Collect</h2>
+                    <p><strong className="text-white">Account Information:</strong> When you create an account, we collect your email address, display name, and authentication credentials (handled securely through Firebase Authentication/Google OAuth).</p>
+                    <p className="mt-2"><strong className="text-white">Usage Data:</strong> We collect information about how you use the Service, including which features you use, stocks you analyze, and general interaction patterns. This data is anonymized and used to improve the Service.</p>
+                    <p className="mt-2"><strong className="text-white">Trading Data:</strong> Your watchlists, trade journal entries, portfolio positions, alerts, and analysis history are stored to provide the Service functionality. This data is associated with your account.</p>
+                    <p className="mt-2"><strong className="text-white">Device Information:</strong> We may collect browser type, operating system, and screen resolution for optimization purposes.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">2. How We Use Your Information</h2>
+                    <p>We use collected information to: (a) provide and maintain the Service; (b) sync your data across devices via cloud storage; (c) send price alert notifications you've configured; (d) improve and personalize the Service; (e) communicate with you about updates or issues; (f) generate anonymized analytics about Service usage.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">3. Data Storage & Security</h2>
+                    <p>Your data is stored using Firebase (Google Cloud) infrastructure, which provides enterprise-grade security including encryption at rest and in transit. Local data (settings, preferences) is stored in your browser's localStorage and is not transmitted to our servers.</p>
+                    <p className="mt-2">API keys you enter (Finnhub, OpenAI, Anthropic) are stored only in your browser's sessionStorage and are never transmitted to our servers. They are sent directly from your browser to the respective API providers.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">4. Third-Party Services</h2>
+                    <p>MODUS integrates with the following third-party services:</p>
+                    <p className="mt-2"><strong className="text-white">Firebase (Google):</strong> Authentication and cloud data storage. Subject to Google's Privacy Policy.</p>
+                    <p className="mt-1"><strong className="text-white">Yahoo Finance:</strong> Market data and stock prices. Data is fetched client-side.</p>
+                    <p className="mt-1"><strong className="text-white">AI Providers (Anthropic/OpenAI):</strong> Chart analysis and AI features. Chart images are sent directly from your browser to the AI provider for analysis.</p>
+                    <p className="mt-1"><strong className="text-white">EmailJS:</strong> Optional SMS alert delivery. Your phone number is used only for delivering alerts you configure.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">5. Data Sharing</h2>
+                    <p>We do not sell, trade, or rent your personal information to third parties. We may share anonymized, aggregate data for analytics purposes. We may disclose your information if required by law or to protect our rights.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">6. Your Rights</h2>
+                    <p>You have the right to: (a) access your personal data; (b) correct inaccurate data; (c) delete your account and associated data; (d) export your data; (e) opt out of non-essential data collection. To exercise these rights, contact us through the Feedback form or delete your account through the Settings menu.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">7. Cookies & Local Storage</h2>
+                    <p>MODUS uses browser localStorage to store your preferences, settings, and cached data locally on your device. We do not use third-party tracking cookies. Firebase may use essential cookies for authentication purposes.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">8. Children's Privacy</h2>
+                    <p>MODUS is not intended for use by individuals under the age of 18. We do not knowingly collect personal information from children. If you believe a child has provided us with personal information, please contact us immediately.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-3">9. Changes to This Policy</h2>
+                    <p>We may update this Privacy Policy from time to time. We will notify you of any material changes through the Service. Your continued use of the Service after changes constitutes acceptance of the updated policy.</p>
+                  </section>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Watchlist Sidebar - Premium Floating Panel */}
       {watchlistVisible && (
