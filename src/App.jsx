@@ -956,6 +956,10 @@ function App() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
+  // NEW: Toast Notification System
+  const [toasts, setToasts] = useState([]);
+  const toastIdRef = useRef(0);
+
   // =====================
   // AUTHENTICATION STATE
   // =====================
@@ -2650,6 +2654,28 @@ function App() {
       console.error("[SMS] Error sending alert:", error);
       return false;
     }
+
+    // Also send via Discord webhook if configured (free, unlimited)
+    try {
+      const discordWebhookUrl = localStorage.getItem('modus_discord_webhook');
+      if (discordWebhookUrl) {
+        const emoji = alertType === 'price' ? '🔔' : alertType === 'news' ? '📰' : '📊';
+        await fetch(discordWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: `${emoji} MODUS Alert`,
+              description: message,
+              color: 0x8B5CF6,
+              timestamp: new Date().toISOString()
+            }]
+          })
+        });
+      }
+    } catch (e) {
+      // Discord webhook optional
+    }
   };
 
   // Check SMS quota on mount
@@ -4194,7 +4220,7 @@ function App() {
       setTimeout(() => analyzeChart(), 500);
     } catch (err) {
       console.error("Capture error:", err);
-      alert("Screenshot failed. You can manually screenshot and upload instead.");
+      showToast("Screenshot failed. You can manually screenshot and upload instead.", "error");
     }
   };
 
@@ -6918,7 +6944,7 @@ OUTPUT JSON:
   
   const exportToPDF = async () => {
     if (!analysis) {
-      alert("No analysis to export!");
+      showToast("No analysis to export!", "error");
       return;
     }
     
@@ -7340,7 +7366,28 @@ OUTPUT JSON:
       alert(errorMessage);
     }
   };
-  
+
+  // ========================
+  // TOAST NOTIFICATION SYSTEM
+  // ========================
+
+  const showToast = useCallback((message, type = 'info', duration = 4000) => {
+    const id = ++toastIdRef.current;
+    const toast = { id, message, type, timestamp: Date.now() };
+    setToasts(prev => [...prev, toast]);
+
+    // Auto-remove after duration
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, duration);
+
+    return id;
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
   // ========================
   // NOTIFICATION CENTER
   // ========================
@@ -7619,7 +7666,7 @@ OUTPUT JSON:
   
   const saveTrade = () => {
     if (!newTrade.symbol || !newTrade.entry) {
-      alert("Symbol and Entry price are required!");
+      showToast("Symbol and Entry price are required!", "error");
       return;
     }
     
@@ -7652,7 +7699,7 @@ OUTPUT JSON:
       }));
       alert(`✅ Paper Trade saved! P&L: ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}\nNew Balance: $${(paperTradingAccount.balance + trade.pnl).toLocaleString()}`);
     } else {
-      alert("✅ Trade saved to journal!");
+      showToast("Trade saved to journal!", "success");
     }
     
     setShowAddTrade(false);
@@ -7705,7 +7752,7 @@ OUTPUT JSON:
   // Save Edited Trade
   const saveEditTrade = () => {
     if (!editingTrade.symbol || !editingTrade.entry) {
-      alert("Symbol and Entry price are required!");
+      showToast("Symbol and Entry price are required!", "error");
       return;
     }
 
@@ -7755,12 +7802,12 @@ OUTPUT JSON:
           };
         });
 
-        alert(`✅ Trade updated!\nP&L changed: ${pnlDifference >= 0 ? '+' : ''}$${pnlDifference.toFixed(2)}\nPaper trading balance updated.`);
+        showToast(`Trade updated! P&L changed: ${pnlDifference >= 0 ? '+' : ''}$${pnlDifference.toFixed(2)}. Paper trading balance updated.`, "success");
       } else {
-        alert("✅ Trade updated successfully!");
+        showToast("Trade updated!", "success");
       }
     } else {
-      alert("✅ Trade updated successfully!");
+      showToast("Trade updated!", "success");
     }
 
     setShowEditTrade(false);
@@ -9164,7 +9211,7 @@ OUTPUT JSON:
   
   const calculateBacktest = () => {
     if (analysisHistory.length === 0) {
-      alert("No analysis history to backtest. Analyze some charts first!");
+      showToast("No analysis history to backtest. Analyze some charts first!", "error");
       return;
     }
     
@@ -9213,7 +9260,7 @@ OUTPUT JSON:
   
   const addPosition = () => {
     if (!newPosition.symbol || !newPosition.quantity || !newPosition.avgPrice) {
-      alert("Symbol, Quantity, and Average Price are required!");
+      showToast("Symbol, Quantity, and Average Price are required!", "error");
       return;
     }
 
@@ -9273,7 +9320,7 @@ OUTPUT JSON:
       setPortfolio([...portfolio, position]);
       setShowAddPosition(false);
       setNewPosition({ symbol: "", quantity: "", avgPrice: "", currentPrice: "", notes: "" });
-      alert("✅ Position added to portfolio!");
+      showToast("Position added to portfolio!", "success");
     }
   };
   
@@ -9314,7 +9361,7 @@ OUTPUT JSON:
   // Save Edited Position
   const saveEditPosition = () => {
     if (!editingPosition.symbol || !editingPosition.quantity || !editingPosition.avgPrice) {
-      alert("Symbol, Quantity, and Average Price are required!");
+      showToast("Symbol, Quantity, and Average Price are required!", "error");
       return;
     }
 
@@ -9336,7 +9383,7 @@ OUTPUT JSON:
     setPortfolio(portfolio.map(p => p.id === editingPosition.id ? updatedPosition : p));
     setShowEditPosition(false);
     setEditingPosition(null);
-    alert("✅ Position updated successfully!");
+    showToast("Position updated!", "success");
   };
 
   // Update all portfolio positions with live prices
@@ -9909,6 +9956,71 @@ OUTPUT JSON:
                     <p className="text-xs text-slate-500 mt-2">
                       200 free SMS/month via EmailJS. Get your own free account above.
                     </p>
+                  </div>
+
+                  {/* Discord Webhook Settings */}
+                  <div className="border-t border-slate-700 pt-4">
+                    <label className="block text-sm font-semibold text-slate-200 mb-3">Discord Notifications</label>
+                    <p className="text-xs text-slate-400 mb-3">Get unlimited notifications via Discord webhook as a free alternative to SMS.</p>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-2">Webhook URL</label>
+                        <input
+                          type="password"
+                          value={localStorage.getItem('modus_discord_webhook') || ''}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              localStorage.setItem('modus_discord_webhook', e.target.value);
+                            } else {
+                              localStorage.removeItem('modus_discord_webhook');
+                            }
+                          }}
+                          placeholder="https://discord.com/api/webhooks/..."
+                          className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-300 placeholder-slate-600"
+                        />
+                      </div>
+
+                      <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-3">
+                        <p className="text-xs text-slate-400 mb-2">How to get a Discord webhook URL:</p>
+                        <ol className="text-xs text-slate-500 space-y-1 ml-4 list-decimal">
+                          <li>Go to your Discord server settings</li>
+                          <li>Select "Integrations" then "Webhooks"</li>
+                          <li>Click "New Webhook" and choose a channel</li>
+                          <li>Copy the webhook URL and paste it above</li>
+                        </ol>
+                      </div>
+
+                      <button
+                        onClick={async () => {
+                          const webhookUrl = localStorage.getItem('modus_discord_webhook');
+                          if (!webhookUrl) {
+                            alert('Please enter a Discord webhook URL first');
+                            return;
+                          }
+                          try {
+                            await fetch(webhookUrl, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                embeds: [{
+                                  title: '✅ MODUS Test Notification',
+                                  description: 'Your Discord webhook is working! This is a test message.',
+                                  color: 0x10B981,
+                                  timestamp: new Date().toISOString()
+                                }]
+                              })
+                            });
+                            alert('Test message sent! Check your Discord channel.');
+                          } catch (e) {
+                            alert('Failed to send test message: ' + e.message);
+                          }
+                        }}
+                        className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg font-semibold text-sm transition-all"
+                      >
+                        Test Webhook
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -10565,6 +10677,32 @@ OUTPUT JSON:
         </div>
       )}
 
+      {/* TOAST NOTIFICATIONS */}
+      {toasts.length > 0 && (
+        <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm" style={{ pointerEvents: 'none' }}>
+          {toasts.map(toast => (
+            <div
+              key={toast.id}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-xl text-sm font-medium ${
+                toast.type === 'success' ? 'bg-emerald-900/90 border-emerald-500/30 text-emerald-200' :
+                toast.type === 'error' ? 'bg-red-900/90 border-red-500/30 text-red-200' :
+                toast.type === 'warning' ? 'bg-amber-900/90 border-amber-500/30 text-amber-200' :
+                'bg-slate-800/90 border-slate-600/30 text-slate-200'
+              }`}
+              style={{ animation: 'slideIn 0.3s ease-out', pointerEvents: 'auto' }}
+            >
+              <span className="text-lg flex-shrink-0">
+                {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : toast.type === 'warning' ? '⚠️' : 'ℹ️'}
+              </span>
+              <span className="flex-1">{toast.message}</span>
+              <button onClick={() => removeToast(toast.id)} className="text-slate-400 hover:text-white ml-1 flex-shrink-0">
+                <span className="text-xs">✕</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* CONFIRMATION MODAL */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
@@ -10970,24 +11108,43 @@ OUTPUT JSON:
                       localStorage.setItem('modus_feedback', JSON.stringify(feedback));
                       trackEvent('feedback', 'submit', feedbackType);
 
-                      // Send via EmailJS to owner
+                      // Save feedback to Firestore (free, no email quota used)
                       try {
-                        await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            service_id: 'service_wka2oph',
-                            template_id: 'template_1bn2e5y',
-                            user_id: 'P3MjxM_aqWY9csXhF',
-                            template_params: {
-                              to_email: 'steventox5138@gmail.com',
-                              subject: `📬 MODUS Feedback: ${feedbackType.toUpperCase()}`,
-                              message: `Type: ${feedbackType}\n\nFeedback:\n${feedbackText}\n\nDate: ${new Date().toLocaleString()}`,
-                            },
-                          }),
+                        const { getFirestore, collection, addDoc } = await import('firebase/firestore');
+                        const db = getFirestore();
+                        await addDoc(collection(db, 'feedback'), {
+                          type: feedbackType,
+                          text: feedbackText,
+                          userEmail: currentUser?.email || 'anonymous',
+                          userId: currentUser?.uid || null,
+                          userAgent: navigator.userAgent,
+                          timestamp: new Date().toISOString(),
+                          status: 'new'
                         });
+                        console.log('[Feedback] ✅ Saved to Firestore');
                       } catch (e) {
-                        console.log('Feedback email skipped');
+                        console.log('[Feedback] Firestore save failed, kept in localStorage:', e.message);
+                      }
+
+                      // Also try Discord webhook (free, unlimited notifications)
+                      try {
+                        const discordWebhookUrl = localStorage.getItem('modus_discord_webhook');
+                        if (discordWebhookUrl) {
+                          await fetch(discordWebhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              embeds: [{
+                                title: `📬 MODUS Feedback: ${feedbackType.toUpperCase()}`,
+                                description: feedbackText.substring(0, 2000),
+                                color: feedbackType === 'bug' ? 0xFF0000 : feedbackType === 'feature' ? 0x3B82F6 : 0x8B5CF6,
+                                footer: { text: `From: ${currentUser?.email || 'anonymous'} | ${new Date().toLocaleString()}` }
+                              }]
+                            })
+                          });
+                        }
+                      } catch (e) {
+                        // Discord webhook optional
                       }
 
                       setFeedbackSubmitted(true);
