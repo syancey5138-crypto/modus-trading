@@ -6927,34 +6927,46 @@ OUTPUT JSON:
   };
 
   const askChartQuestion = async () => {
-    if (!analysis || chartQuestion.length < 5) return;
+    if (!analysis) {
+      setToast({ type: 'error', message: '❌ No chart analysis found. Upload and analyze a chart first.' });
+      return;
+    }
+    if (chartQuestion.length < 5) {
+      setToast({ type: 'error', message: '❌ Question too short. Please type at least 5 characters.' });
+      return;
+    }
 
     setLoadingChartAnswer(true);
     setAnalysisError(null);
     try {
-      // Build message content - include image if available, otherwise just analysis context
-      const messageContent = [];
-      if (imageData?.data && imageData?.mediaType) {
-        messageContent.push({ type: "image", source: { type: "base64", media_type: imageData.mediaType, data: imageData.data } });
+      // Build a rich text-only context from the analysis (no image to avoid size limits/timeouts)
+      const contextParts = [];
+      if (analysis.context) {
+        contextParts.push(`Chart: ${analysis.context.symbol || analysis.context.ticker || 'Unknown'} | Timeframe: ${analysis.context.timeframe || 'Unknown'} | Trend: ${analysis.context.trend || 'Unknown'}`);
+        if (analysis.context.support) contextParts.push(`Support: ${Array.isArray(analysis.context.support) ? analysis.context.support.join(', ') : analysis.context.support}`);
+        if (analysis.context.resistance) contextParts.push(`Resistance: ${Array.isArray(analysis.context.resistance) ? analysis.context.resistance.join(', ') : analysis.context.resistance}`);
       }
-      // Provide condensed analysis context to keep tokens efficient
-      const contextSummary = {
-        symbol: analysis.context?.symbol,
-        timeframe: analysis.context?.timeframe,
-        trend: analysis.context?.trend,
-        patterns: analysis.patterns?.detected,
-        support: analysis.context?.support,
-        resistance: analysis.context?.resistance,
-        recommendation: analysis.tradeSetup?.recommendation,
-        entry: analysis.tradeSetup?.entryPrice,
-        stopLoss: analysis.tradeSetup?.stopLoss,
-        target: analysis.tradeSetup?.targetPrice,
-        riskReward: analysis.tradeSetup?.riskRewardRatio,
-        indicators: analysis.indicators,
-      };
-      messageContent.push({ type: "text", text: `You are a trading chart analysis expert. A user uploaded a chart and received this analysis:\n\n${JSON.stringify(contextSummary, null, 2)}\n\nThe user now asks: "${chartQuestion}"\n\nProvide a detailed, educational answer referencing the chart analysis. Use **bold** for key terms and bullet points for lists. Be specific with price levels and technical concepts.` });
+      if (analysis.patterns?.detected) {
+        contextParts.push(`Patterns: ${Array.isArray(analysis.patterns.detected) ? analysis.patterns.detected.join(', ') : JSON.stringify(analysis.patterns.detected)}`);
+      }
+      if (analysis.indicators) {
+        contextParts.push(`Indicators: ${JSON.stringify(analysis.indicators)}`);
+      }
+      if (analysis.tradeSetup) {
+        const ts = analysis.tradeSetup;
+        contextParts.push(`Trade Setup: ${ts.recommendation || 'N/A'} | Entry: ${ts.entryPrice || 'N/A'} | Stop Loss: ${ts.stopLoss || 'N/A'} | Target: ${ts.targetPrice || 'N/A'} | R:R: ${ts.riskRewardRatio || 'N/A'}`);
+      }
+      if (analysis.final?.summary) {
+        contextParts.push(`Summary: ${analysis.final.summary}`);
+      }
+      if (analysis.realIndicators) {
+        const ri = analysis.realIndicators;
+        contextParts.push(`Real Indicators: RSI ${ri.rsi || 'N/A'} | MACD Histogram ${ri.macdHistogram || 'N/A'} | Trend ${ri.trend || 'N/A'} | Bull Score ${ri.bullishScore || 0} / Bear Score ${ri.bearishScore || 0}`);
+      }
 
-      const data = await callAPI([{ role: "user", content: messageContent }], 2000);
+      const prompt = `You are a trading chart analysis expert. A user uploaded a chart and received this analysis:\n\n${contextParts.join('\n')}\n\nThe user now asks: "${chartQuestion}"\n\nProvide a detailed, educational answer referencing the specific chart analysis data above. Use **bold** for key terms and bullet points (•) for lists. Be specific with price levels and technical concepts. Keep your response focused and actionable.`;
+
+      const data = await callAPI([{ role: "user", content: prompt }], 2000);
 
       const answerText = data.content[0].text;
       setChartAnswer(answerText);
@@ -6963,6 +6975,7 @@ OUTPUT JSON:
     } catch (err) {
       console.error('[Chart Q&A] Error:', err);
       setAnalysisError(`Chart Q&A failed: ${err.message}`);
+      setToast({ type: 'error', message: `❌ Chart Q&A failed: ${err.message}` });
     } finally {
       setLoadingChartAnswer(false);
     }
