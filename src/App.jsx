@@ -1590,7 +1590,8 @@ function App() {
   const [selectedScanPreset, setSelectedScanPreset] = useState('custom');
 
   // NEW: Info Pages State
-  const [showInfoPage, setShowInfoPage] = useState(null); // 'terms', 'privacy', 'features', null
+  const [showInfoPage, setShowInfoPage] = useState(null); // 'terms', 'privacy', 'features', null — FOOTER OVERLAY ONLY
+  const [infoSubTab, setInfoSubTab] = useState('features'); // Inline Info tab sub-navigation
 
   // NEW: Keyboard Shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -12557,7 +12558,7 @@ OUTPUT JSON:
             )}
 
             <button
-              onClick={() => { setActiveTab("info"); if (!showInfoPage) setShowInfoPage('features'); }}
+              onClick={() => { setActiveTab("info"); setInfoSubTab('features'); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
                 activeTab === "info"
                   ? "bg-gradient-to-r from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-500/25"
@@ -24432,9 +24433,9 @@ OUTPUT JSON:
                 ].map(tab => (
                   <button
                     key={tab.key}
-                    onClick={() => setShowInfoPage(prev => prev === tab.key ? tab.key : tab.key)}
+                    onClick={() => setInfoSubTab(tab.key)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                      showInfoPage === tab.key
+                      infoSubTab === tab.key
                         ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
                         : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50 hover:text-white'
                     }`}
@@ -24445,98 +24446,262 @@ OUTPUT JSON:
                 ))}
               </div>
 
-              {/* FEATURES CONTENT */}
-              {(!showInfoPage || showInfoPage === 'features') && (
-                <div className="space-y-6 animate-fadeIn">
-                  <p className="text-lg text-slate-300 leading-relaxed">MODUS is a comprehensive trading analysis platform with 22+ tools designed for traders at every level. Here's everything included:</p>
-
-                  {[
-                    {
-                      category: 'Analysis & AI',
-                      icon: '🧠',
-                      features: [
-                        { name: 'AI Chart Analysis', desc: 'Upload any stock chart and get instant technical analysis powered by AI. Identifies patterns, support/resistance levels, and generates trade setups with entry, stop loss, and target prices.' },
-                        { name: 'Multi-Timeframe Analysis', desc: 'Analyze the same stock across multiple timeframes simultaneously (1m, 5m, 15m, 1h, 4h, Daily) to confirm trend alignment and find high-probability entries.' },
-                        { name: 'Ask AI Trading Assistant', desc: 'Natural language trading assistant that can answer any trading question, explain strategies, analyze market conditions, and help you understand technical indicators.' },
-                        { name: 'Daily AI Pick', desc: 'Every day, the AI scans 220+ stocks and delivers a top trade recommendation with full analysis, confidence score, entry/exit levels, and risk/reward ratio.' }
-                      ]
-                    },
-                    {
-                      category: 'Market Data & Scanning',
-                      icon: '📊',
-                      features: [
-                        { name: 'Live Stock Ticker', desc: 'Real-time stock data with candlestick charts, volume analysis, RSI, MACD, and Bollinger Bands. Supports any US stock symbol with automatic multi-API fallback.' },
-                        { name: 'Stock Screener', desc: 'Scan 220+ stocks with 8 preset strategies (RSI Oversold, Volume Breakout, Bullish Momentum, Golden Cross, and more) or create custom filters.' },
-                        { name: 'Market Scanner', desc: 'Real-time market overview showing top gainers, losers, and volume leaders. Identifies the most active and volatile stocks of the day.' },
-                        { name: 'Market Overview', desc: 'Dashboard showing major indices (SPY, QQQ, DIA, IWM), VIX, and all 11 S&P sectors with live performance data.' },
-                        { name: 'News & Sentiment Feed', desc: 'Aggregated financial news with AI sentiment analysis. Filter by bullish, bearish, or your watchlist stocks.' }
-                      ]
-                    },
-                    {
-                      category: 'Portfolio & Trading',
-                      icon: '💰',
-                      features: [
-                        { name: 'Portfolio Tracker', desc: 'Track your real positions with live price updates, P&L calculations, and weighted average cost basis.' },
-                        { name: 'Paper Trading', desc: 'Practice trading with $100K virtual balance. Execute simulated trades and build confidence without risking real money.' },
-                        { name: 'Position Size Calculator', desc: 'Calculate optimal position sizes based on your account size, risk tolerance, entry price, and stop loss.' },
-                        { name: 'Options Profit Calculator', desc: 'Visualize potential outcomes for calls, puts, spreads, and straddles with interactive payoff diagrams.' }
-                      ]
-                    },
-                    {
-                      category: 'Journaling & Performance',
-                      icon: '📝',
-                      features: [
-                        { name: 'Trading Journal', desc: 'Log every trade with entry/exit prices, quantity, side, stop loss, target, confidence level, and notes. Link trades to AI analyses.' },
-                        { name: 'Performance Dashboard', desc: 'Win rate, average P&L, profit factor, Sharpe ratio, current streak, and monthly breakdown of your trading results.' },
-                        { name: 'Trade Planner', desc: 'Plan trades with detailed risk/reward calculations. See recommended shares, expected profit, and max loss before entering.' },
-                        { name: 'Backtesting', desc: 'Test your analysis accuracy against historical outcomes. Track win rates across all your past analyses.' }
-                      ]
-                    },
-                    {
-                      category: 'Alerts & Monitoring',
-                      icon: '🔔',
-                      features: [
-                        { name: 'Price Alerts', desc: 'Set alerts for any stock with conditions (above, below, crosses). Get notified via browser notifications, sound alerts, SMS, and optional Discord webhook.' },
-                        { name: 'Watchlist', desc: 'Monitor your favorite stocks with real-time prices updating every 10 seconds. Quick-navigate to any stock for deeper analysis.' },
-                        { name: 'Notification Center', desc: 'Centralized notification history showing all triggered alerts with timestamps and preference management.' },
-                        { name: 'Economic Calendar', desc: 'Track upcoming economic events (FOMC, CPI, NFP, earnings) that could impact your trades.' }
-                      ]
-                    },
-                    {
-                      category: 'Tools & Export',
-                      icon: '🛠️',
-                      features: [
-                        { name: 'PDF Reports', desc: 'Export comprehensive analysis reports as professional PDFs with score, recommendation, pattern analysis, and trade setup.' },
-                        { name: 'Social Sharing', desc: 'Share your analyses on Twitter/X, Reddit, or copy to clipboard with formatted summaries.' },
-                        { name: 'Cloud Sync', desc: 'Sign in with Google or email to sync your data across devices. Watchlists, trades, alerts, and settings stored securely.' },
-                        { name: 'CSV Export', desc: 'Export your trade journal and portfolio data as CSV files for use in Excel or Google Sheets.' },
-                        { name: 'Keyboard Shortcuts', desc: 'Power-user shortcuts for fast navigation. Press ? to view all available shortcuts.' }
-                      ]
-                    }
-                  ].map((section, idx) => (
-                    <div key={idx} className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
-                      <div className="px-6 py-4 border-b border-slate-800/50 bg-slate-800/20">
-                        <h2 className="text-xl font-bold flex items-center gap-3">
-                          <span className="text-2xl">{section.icon}</span>
-                          {section.category}
-                          <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{section.features.length} tools</span>
-                        </h2>
+              {/* FEATURES CONTENT — DETAILED VERSION */}
+              {infoSubTab === 'features' && (
+                <div className="space-y-8 animate-fadeIn">
+                  {/* Hero intro */}
+                  <div className="bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/20 rounded-2xl p-6 md:p-8">
+                    <h2 className="text-2xl font-bold text-white mb-3">Welcome to MODUS</h2>
+                    <p className="text-lg text-slate-300 leading-relaxed mb-4">MODUS is an all-in-one trading analysis platform built for traders who want real tools — not gimmicks. Whether you are brand new to trading and learning the basics, or an experienced day trader looking for an edge, MODUS gives you institutional-grade analysis, smart automation, and a complete trading workflow in one place.</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                      <div className="text-center p-3 bg-slate-800/40 rounded-xl">
+                        <div className="text-2xl font-bold text-violet-400">30+</div>
+                        <div className="text-xs text-slate-400">Built-in Tools</div>
                       </div>
-                      <div className="divide-y divide-slate-800/30">
-                        {section.features.map((feature, fIdx) => (
-                          <div key={fIdx} className="px-6 py-4 hover:bg-slate-800/20 transition-colors">
-                            <h3 className="font-semibold text-white mb-1">{feature.name}</h3>
-                            <p className="text-sm text-slate-400 leading-relaxed">{feature.desc}</p>
-                          </div>
-                        ))}
+                      <div className="text-center p-3 bg-slate-800/40 rounded-xl">
+                        <div className="text-2xl font-bold text-emerald-400">220+</div>
+                        <div className="text-xs text-slate-400">Stocks Scanned</div>
+                      </div>
+                      <div className="text-center p-3 bg-slate-800/40 rounded-xl">
+                        <div className="text-2xl font-bold text-amber-400">6</div>
+                        <div className="text-xs text-slate-400">Timeframes</div>
+                      </div>
+                      <div className="text-center p-3 bg-slate-800/40 rounded-xl">
+                        <div className="text-2xl font-bold text-cyan-400">Real-Time</div>
+                        <div className="text-xs text-slate-400">Market Data</div>
                       </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Section 1: AI Analysis */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-violet-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">🧠</span>
+                        AI-Powered Analysis
+                        <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Core Feature</span>
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">The heart of MODUS — advanced AI that reads charts the way a professional technical analyst would, giving you actionable trade setups in seconds.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">AI Chart Analysis</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Upload a screenshot of any stock chart from TradingView, Thinkorswim, Webull, or any other charting platform, and MODUS will analyze it using advanced AI vision models. The AI identifies candlestick patterns (doji, engulfing, hammer, shooting star), chart patterns (head & shoulders, double tops/bottoms, triangles, flags), support and resistance levels, trend direction, and volume characteristics.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Every analysis generates a complete trade setup including a specific entry price, stop loss, three take-profit target levels, a confidence score from 0-100, and a clear recommendation (Strong Buy, Buy, Hold, Sell, Strong Sell). The analysis is deterministic — uploading the same chart image twice will always give you the same result, so you can trust the consistency of the output.</p>
+                        <div className="bg-slate-800/40 rounded-lg px-4 py-3 text-xs text-slate-500 border border-slate-700/30">
+                          <span className="text-violet-400 font-semibold">How to use:</span> Go to the Analyze tab, upload or drag a chart screenshot, select your timeframe and asset type (or leave on Auto), and click "Analyze Chart." Results appear in seconds with full trade setup details.
+                        </div>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Multi-Timeframe Analysis</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Professional traders always check multiple timeframes before entering a trade. MODUS automates this by analyzing the same stock across up to 6 timeframes at once: 1-minute, 5-minute, 15-minute, 1-hour, 4-hour, and daily. The system automatically captures live chart data for each timeframe, runs AI analysis on all of them in parallel, and then combines the results into a single multi-timeframe consensus.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">This helps you spot when a stock is bullish on the daily chart but overbought on the 15-minute — a common trap that catches beginners. Each timeframe shows its own score and recommendation, and the overall consensus tells you whether the timeframes are aligned or conflicting.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Ask AI Trading Assistant</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">A conversational AI assistant that understands trading. Ask it anything: "What does RSI divergence mean?", "Should I hold through earnings?", "Explain the difference between a limit order and a market order", or "What's a good strategy for trading AAPL?" The assistant draws on deep knowledge of technical analysis, fundamental analysis, risk management, trading psychology, and market mechanics.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">It is not limited to generic answers — if you have an active analysis loaded, the AI assistant can reference that specific data to give you context-aware guidance about your current trade idea.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Daily AI Pick</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Every day, the AI runs a comprehensive scan of over 220 stocks across 15 sectors using parallel batch processing. It evaluates each stock on multiple technical indicators — RSI (14-period), MACD histogram, SMA20/SMA50 crossovers, trend detection, and volume analysis — to identify the single best trade opportunity of the day.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">The daily pick comes with a complete analysis: confidence score, specific entry price, stop loss level, target prices, risk/reward ratio, and a detailed explanation of why this stock was selected. The scan results are cached for 5 minutes to prevent excessive API calls while keeping data fresh.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Market Data & Scanning */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-blue-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">📊</span>
+                        Market Data & Scanning
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">Real-time market data from multiple sources with smart fallback, so you always have live prices and charts even when individual APIs go down.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Live Stock Ticker & Interactive Chart</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Type any US stock symbol and instantly see a full candlestick chart with real-time price data. The chart supports 8 timeframes (1m, 5m, 15m, 30m, 1h, 4h, Daily, Weekly) and automatically falls back to a larger timeframe if the requested one isn't available (e.g., 1-minute charts are only available during market hours). The chart is fully interactive — hover over any candle to see OHLCV data, and the ticker overlay stays pinned so you always see the current price.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Chart overlays include: SMA (Simple Moving Average), EMA (Exponential Moving Average), Bollinger Bands, and VWAP (Volume Weighted Average Price). Separate indicator panels show Volume, RSI, MACD, Stochastic, and ATR. Each indicator has a built-in guide tooltip explaining what it measures and how to read it. You can also overlay a second stock for visual comparison — type any symbol in the Compare field to see normalized price lines side by side.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">Data is sourced from Yahoo Finance with automatic CORS proxy failover using parallel requests (Promise.any for fastest response), plus Finnhub and Alpha Vantage as additional fallbacks. Auto-refresh updates the chart every 10 seconds during market hours without full reloads.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Stock Screener</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">A powerful scanner that analyzes 220+ stocks across 15 sectors to find trade opportunities matching specific criteria. Comes with 8 built-in preset strategies: RSI Oversold (stocks below RSI 30), RSI Overbought (above RSI 70), Volume Breakout (unusual volume spikes), Bullish Momentum (strong uptrend with multiple confirmations), Bearish Momentum, Golden Cross (SMA20 crossing above SMA50), Death Cross, and High Volatility plays.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">You can also create custom filters by adjusting price range, volume minimum, RSI range, and volatility criteria. Stocks are ranked by a composite technical score and the results show key metrics for each: current price, RSI, change %, ATR, and the overall technical recommendation. Scanning uses parallel batch processing for speed — it can analyze all 220 stocks in under 30 seconds.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Market Overview & Sector Rotation</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">A dashboard-level view of the overall market. Displays live performance for major indices (SPY, QQQ, DIA, IWM), the VIX volatility index, and all 11 S&P 500 sectors (Technology, Healthcare, Financials, Energy, Consumer Discretionary, etc.) with sector ETF prices and daily change percentages. This helps you quickly gauge whether the broader market is risk-on or risk-off before trading individual stocks.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">The Sector Rotation tracker shows you which sectors are leading and lagging, so you can identify sector rotation trends — when money flows out of one sector and into another. A correlation heatmap visualizes how different stocks and sectors move relative to each other.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">News & Sentiment Feed</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Aggregated financial news from multiple sources with real-time updates. Each headline includes AI-powered sentiment analysis classifying it as bullish, bearish, or neutral. You can filter news by sentiment type or by your watchlist stocks to see only the headlines that matter to your positions. This helps you stay ahead of market-moving events and understand the narrative driving price action.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3: Portfolio & Trading */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-emerald-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">💰</span>
+                        Portfolio & Trading Tools
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">Track your real portfolio, practice risk-free with paper trading, and use built-in calculators to size positions correctly every time.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Portfolio Tracker & Live P&L</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Enter your real stock positions — symbol, quantity, and average cost — and MODUS will track them with live prices. The portfolio shows each position's current market value, unrealized P&L (profit/loss) in both dollars and percentage, daily change, and your total portfolio value. When you add more shares of a stock you already own, the system automatically recalculates your weighted average cost basis.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">Prices refresh automatically every 5 seconds during market hours, so your P&L is always current. You can see your portfolio from the custom Dashboard widget or the dedicated Portfolio tab.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Paper Trading Simulator</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Start with a virtual $100,000 balance and practice trading in a realistic simulated environment. Execute buy and sell orders using real-time market prices. Every paper trade is logged with timestamps and P&L, and your virtual balance updates accordingly. This is perfect for testing new strategies, building confidence before going live, or learning how the platform works without any financial risk.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">Paper trades integrate with the trading journal and performance metrics, so you can track your simulated win rate and see if your strategy is profitable before committing real capital.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Position Size Calculator</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">One of the most important tools for risk management. Enter your total account size, what percentage you're willing to risk on a single trade (e.g., 1-2%), your planned entry price, and your stop loss price. The calculator tells you exactly how many shares to buy, your maximum dollar risk, your expected risk per share, and the total position cost. This prevents the #1 mistake new traders make — risking too much on a single trade.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Options Profit Calculator</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Visualize the profit/loss potential of options strategies before placing a trade. Supports calls, puts, vertical spreads, and straddles. Enter the option details (strike price, premium, expiration, number of contracts) and see an interactive payoff diagram showing your max profit, max loss, and breakeven point at various stock prices. This is powered by Black-Scholes pricing with full Greeks calculation (Delta, Gamma, Theta, Vega, Rho).</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 4: Journal & Performance */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-amber-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">📝</span>
+                        Journaling & Performance Tracking
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">The only way to improve as a trader is to track every trade and learn from your data. MODUS makes this effortless.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Trading Journal</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Log every trade with comprehensive details: symbol, side (long/short), entry price, exit price, quantity, stop loss, target, confidence level (1-5), strategy used, and free-form notes. Trades can be linked to AI analyses so you can later review what the AI recommended vs. what actually happened. Open trades show live P&L, and closing a trade automatically calculates your realized profit or loss.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">The journal includes a visual Trade Timeline showing your last 20 trades on a horizontal bar — each trade is color-coded green (win), red (loss), or blue (still open) with P&L labels, making it easy to spot patterns in your trading behavior at a glance.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Performance Dashboard & Metrics</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">A quantitative breakdown of your trading performance automatically calculated from your journal entries. Metrics include: win rate (percentage of profitable trades), total P&L, average winning trade, average losing trade, profit factor (gross profit divided by gross loss — above 1.5 is good), best and worst individual trades, current win/loss streak, average hold time, and Sharpe ratio (a risk-adjusted return metric used by hedge funds).</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">Monthly P&L is broken down so you can see which months were profitable and which weren't, helping you identify seasonal patterns or periods where you deviate from your strategy.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Trade Planner & Risk/Reward Visualizer</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Before entering any trade, use the trade planner to map out the full setup. Enter your entry price, stop loss, and target, and the planner calculates recommended share count (based on your risk settings), expected dollar profit, max dollar loss, risk per share, and the risk/reward ratio. A visual color-coded bar shows your stop, entry, and target zones so you can see the setup at a glance.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">The Risk/Reward Visualizer also appears directly in your AI analysis results, showing a color-coded bar with the stop zone (red), entry zone (amber), and target zone (green) with a clear R:R ratio badge.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Backtesting & Accuracy Tracking</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">After you've built up a history of AI analyses, the backtesting feature lets you measure how accurate those analyses were. It compares the AI's predicted direction and targets against what actually happened in the market. This gives you a real win rate for the AI's recommendations, helping you calibrate your trust in the system and adjust your strategy accordingly.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 5: Alerts & Monitoring */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-red-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">🔔</span>
+                        Alerts & Monitoring
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">Set it and forget it — get notified the moment your price targets are hit, even when you're away from the screen.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Price Alerts System</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Create alerts for any stock with three condition types: price goes above a level, price drops below a level, or price crosses a specific price point. When your alert triggers, you can be notified through multiple channels: browser push notifications, an audible sound alert, and optionally through a Discord webhook (for sending alerts to your Discord server or DMs). Alerts check prices every 10 seconds while the app is open.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">Each alert shows its status (active, triggered, expired), the current price relative to the target, and how close the price is to triggering. Triggered alerts are logged in the Notification Center with timestamps so you have a full history.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Watchlist with Drag & Drop</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Build a list of stocks you're watching. Each watchlist entry shows the current price and daily change percentage, updated in real-time every 10 seconds. Click any stock to instantly load it in the Ticker tab for deeper analysis. Reorder your watchlist by dragging and dropping stocks to prioritize what matters most to you. Upcoming earnings dates are shown with "EARNINGS SOON" badges so you're never caught off guard by an earnings announcement.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">The watchlist also powers other features — the News feed can filter by your watchlist stocks, and alerts can be created directly from watchlist entries with one click.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Notification Center & Economic Calendar</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">The Notification Center keeps a full history of every alert that triggered, every system notification, and important events. Each notification is timestamped and clickable — clicking an alert notification takes you directly to that stock's chart. The Economic Calendar tracks major market-moving events like FOMC rate decisions, CPI inflation reports, Non-Farm Payrolls, earnings dates for major companies, and more, so you can plan your trades around high-impact news.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 6: Tools, Export & Customization */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-slate-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">🛠️</span>
+                        Tools, Export & Customization
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">Export your work, customize your workspace, and keep your data safe.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Custom Dashboard</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Your personal command center. The Dashboard shows configurable widgets in a responsive grid — choose which widgets to display from: Watchlist, Daily Pick, Portfolio, Alerts, Performance Metrics, Market Summary, News Feed, and Hot Stocks. Toggle widgets on and off with a single click, and your configuration is saved automatically between sessions. This is the default landing page when you open MODUS.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">PDF Reports & Social Sharing</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Export any AI analysis as a professionally formatted PDF report. The PDF includes the confidence score, recommendation, detected patterns, trend analysis, support/resistance levels, the complete trade setup (entry, stop, targets), and indicator readings. Share your analyses directly to Twitter/X or Reddit with auto-formatted summaries, or copy a formatted summary to your clipboard for pasting anywhere.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Cloud Sync & Data Backup</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Sign in with Google or email/password to sync your data across all your devices. Your watchlist, trades, alerts, settings, analysis history, and dashboard configuration are stored securely in Firebase and automatically synced. You'll never lose your trading data if you clear your browser or switch computers.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">For an extra layer of protection, use the Data Backup & Restore feature in Settings to export all your local data (trades, watchlist, alerts, settings) as a JSON file. You can import this backup file at any time to restore your complete trading workspace.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">CSV Export, Keyboard Shortcuts & Mobile Support</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Export your trade journal or portfolio data as CSV files for use in Excel, Google Sheets, or your own analysis tools. Full keyboard shortcut support lets power users navigate without touching the mouse — press "?" at any time to see all available shortcuts. Mac users get native key symbols (⌘/⌥/⇧). Shortcuts include quick tab switching (1-9), chart capture (Ctrl+Enter), PDF export (Ctrl+E), sidebar toggle (Ctrl+B), and more.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">On mobile devices, a fixed bottom navigation bar provides quick access to all major sections (Dashboard, Ticker, Analysis, Daily Pick, Alerts, Journal) with a clean touch-friendly interface optimized for smaller screens.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Guided Setup Wizard</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">New to MODUS? The setup wizard walks you through getting started in 3 easy steps: configuring your API key (or enabling Demo Mode to try the platform without one), building your first watchlist with one-click adds for popular stocks (AAPL, TSLA, MSFT, NVDA, AMZN, GOOGL, META, SPY), and a summary of next steps with tips for getting the most out of the platform.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom CTA */}
+                  <div className="bg-gradient-to-r from-violet-600/20 to-indigo-600/20 border border-violet-500/30 rounded-2xl p-8 text-center">
+                    <h3 className="text-2xl font-bold mb-3 text-white">Ready to Trade Smarter?</h3>
+                    <p className="text-slate-300 mb-6 max-w-xl mx-auto">Create a free account to sync your data across devices and unlock the full MODUS experience. All features are available — no credit card required.</p>
+                    <button
+                      onClick={() => { setActiveTab('dashboard'); }}
+                      className="px-8 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl font-semibold transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
+                    >
+                      Go to Dashboard
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* TERMS OF SERVICE CONTENT */}
-              {showInfoPage === 'terms' && (
+              {infoSubTab === 'terms' && (
                 <div className="space-y-6 text-slate-300 leading-relaxed animate-fadeIn">
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-sm text-amber-200">
                     <strong>Last Updated:</strong> February 2026. By accessing or using MODUS, you agree to be bound by these Terms of Service.
@@ -24611,7 +24776,7 @@ OUTPUT JSON:
               )}
 
               {/* PRIVACY POLICY CONTENT */}
-              {showInfoPage === 'privacy' && (
+              {infoSubTab === 'privacy' && (
                 <div className="space-y-6 text-slate-300 leading-relaxed animate-fadeIn">
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-sm text-blue-200">
                     <strong>Last Updated:</strong> February 2026. This Privacy Policy describes how MODUS collects, uses, and protects your information.
