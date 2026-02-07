@@ -1604,9 +1604,9 @@ function App() {
   const [dashboardWidgets, setDashboardWidgets] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('modus_dashboard_widgets')) || [
-        'clock', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary'
+        'clock', 'quickstats', 'quicknav', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news'
       ];
-    } catch { return ['clock', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary']; }
+    } catch { return ['clock', 'quickstats', 'quicknav', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news']; }
   });
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState(null);
@@ -6945,11 +6945,14 @@ OUTPUT JSON:
   // Q&A Functions with offline fallback for common questions
   const getOfflineAnswer = (q) => {
     const lowerQ = q.toLowerCase();
+    // Only use offline answers for SHORT, simple questions (under 80 chars)
+    // Long, detailed, or multi-part questions should always go to the AI for thorough answers
+    if (q.length > 80) return null;
+
     const answers = {
       'position size': `**Position Sizing Formula:**\n\nPosition Size = (Account Risk $) / (Trade Risk per Share)\n\n**Example:**\n- Account: $10,000\n- Risk: 2% = $200\n- Entry: $100, Stop Loss: $95\n- Risk per share: $5\n- Position Size: $200 / $5 = 40 shares\n\n**Key Rules:**\n• Never risk more than 1-2% per trade\n• Adjust size based on volatility\n• Smaller positions for uncertain setups`,
       'rsi': `**RSI (Relative Strength Index)**\n\nMeasures momentum on a 0-100 scale.\n\n**Key Levels:**\n• Above 70 = Overbought (potential sell)\n• Below 30 = Oversold (potential buy)\n• 50 = Neutral\n\n**RSI Divergence:**\n• Bullish: Price makes lower low, RSI makes higher low\n• Bearish: Price makes higher high, RSI makes lower high\n\n**Best Practices:**\n• Use with trend direction\n• Don't trade RSI alone\n• Works best in ranging markets`,
       'macd': `**MACD (Moving Average Convergence Divergence)**\n\n**Components:**\n• MACD Line = 12 EMA - 26 EMA\n• Signal Line = 9 EMA of MACD\n• Histogram = MACD - Signal\n\n**Signals:**\n• Bullish: MACD crosses above Signal\n• Bearish: MACD crosses below Signal\n• Histogram growing = momentum increasing\n\n**Tips:**\n• Best for trending markets\n• Use histogram for early signals\n• Combine with price action`,
-      'stop loss': `**Stop Loss Strategies**\n\n**Types:**\n• Fixed % (1-2% of account)\n• ATR-based (1.5-2x ATR)\n• Support/Resistance based\n• Moving average based\n\n**Placement Tips:**\n• Below recent swing low (longs)\n• Above recent swing high (shorts)\n• Give room for normal volatility\n• Never move stop further from entry\n\n**Risk Management:**\n• Set before entering trade\n• Calculate position size from stop\n• Accept the loss if hit`,
       'head and shoulders': `**Head and Shoulders Pattern**\n\n**Structure:**\n• Left Shoulder: First peak\n• Head: Higher peak\n• Right Shoulder: Lower peak (similar to left)\n• Neckline: Support connecting the lows\n\n**Trading:**\n• Entry: Break below neckline\n• Stop: Above right shoulder\n• Target: Distance from head to neckline\n\n**Confirmation:**\n• Volume decreases on right shoulder\n• Volume increases on breakdown\n• Wait for neckline retest`,
       'support resistance': `**Support & Resistance**\n\n**Support:** Price level where buying pressure exceeds selling\n**Resistance:** Price level where selling pressure exceeds buying\n\n**How to Identify:**\n• Previous highs/lows\n• Round numbers ($100, $50)\n• Moving averages\n• Volume clusters\n\n**Trading Tips:**\n• More touches = stronger level\n• Broken support becomes resistance\n• Look for confluence of levels\n• Use for entries and stops`,
       'risk reward': `**Risk/Reward Ratio**\n\n**Formula:** Potential Profit / Potential Loss\n\n**Example:**\n• Entry: $100\n• Stop Loss: $95 (risk $5)\n• Target: $115 (reward $15)\n• R:R = 15/5 = 3:1\n\n**Guidelines:**\n• Minimum 2:1 for swing trades\n• 3:1 or better is ideal\n• Even 1:1 works with 60%+ win rate\n\n**Reality Check:**\n• Higher R:R = lower win rate\n• Balance R:R with probability\n• Account for slippage/fees`
@@ -6985,8 +6988,21 @@ OUTPUT JSON:
       // Try API call
       const data = await callAPI([{
         role: "user",
-        content: `You are a trading education assistant. Answer this question clearly and educationally:\n\n${question}\n\nProvide a comprehensive, accurate answer focused on helping the user learn.`
-      }], 2000);
+        content: `You are an expert trading education assistant with deep knowledge of stocks, options, technical analysis, order types, risk management, market mechanics, and trading psychology.
+
+CRITICAL INSTRUCTIONS:
+1. READ THE ENTIRE QUESTION CAREFULLY. If the user asks about multiple things (e.g. multiple order types, multiple strategies, multiple concepts), you MUST address EVERY SINGLE ONE individually. Do NOT skip or gloss over any part of their question.
+2. For each concept, provide: a clear definition, how it works mechanically, a practical real-world example with specific numbers, and when to use it vs. when not to.
+3. If the user asks about differences between things, create a clear comparison showing how each one differs from the others.
+4. Use **bold** for key terms and headers. Use bullet points (•) for lists. Use numbered sections for multi-part answers.
+5. Be thorough and detailed. A good answer is typically 400-800 words. Never give a surface-level answer when the user is asking a detailed question.
+6. End with a practical takeaway or summary if the answer covers multiple topics.
+
+USER QUESTION:
+${question}
+
+Remember: Address EVERY part of the question above. Do not cherry-pick only one topic to answer. The user expects a complete, thorough response covering everything they asked about.`
+      }], 3500);
 
       const answerText = data.content[0].text;
       setAnswer(answerText);
@@ -7045,9 +7061,22 @@ OUTPUT JSON:
         contextParts.push(`Real Indicators: RSI ${ri.rsi || 'N/A'} | MACD Histogram ${ri.macdHistogram || 'N/A'} | Trend ${ri.trend || 'N/A'} | Bull Score ${ri.bullishScore || 0} / Bear Score ${ri.bearishScore || 0}`);
       }
 
-      const prompt = `You are a trading chart analysis expert. A user uploaded a chart and received this analysis:\n\n${contextParts.join('\n')}\n\nThe user now asks: "${chartQuestion}"\n\nProvide a detailed, educational answer referencing the specific chart analysis data above. Use **bold** for key terms and bullet points (•) for lists. Be specific with price levels and technical concepts. Keep your response focused and actionable.`;
+      const prompt = `You are an expert trading chart analysis assistant. A user uploaded a chart and received this analysis:
 
-      const data = await callAPI([{ role: "user", content: prompt }], 2000);
+${contextParts.join('\n')}
+
+The user now asks: "${chartQuestion}"
+
+INSTRUCTIONS:
+1. Address EVERY part of the user's question thoroughly. If they ask about multiple things, cover each one.
+2. Reference specific data from the chart analysis above (price levels, indicators, patterns) wherever relevant.
+3. Provide practical, actionable insights — not just definitions. Explain what the data means for THIS specific chart.
+4. Use **bold** for key terms and headers. Use bullet points (•) for lists.
+5. If the question is about entry/exit strategy, give specific price levels based on the analysis.
+6. If they ask about risk, calculate specific risk amounts and position sizes using the chart data.
+7. Be thorough — aim for 300-600 words for detailed questions.`;
+
+      const data = await callAPI([{ role: "user", content: prompt }], 3500);
 
       const answerText = data.content[0].text;
       setChartAnswer(answerText);
@@ -13072,55 +13101,72 @@ OUTPUT JSON:
             {/* Widget Config Panel */}
             {showDashboardConfig && (() => {
               const allWidgetDefs = [
-                { key: 'clock', label: 'Clock & Status', icon: '🕐', mini: true },
-                { key: 'dailytip', label: 'Daily Tip', icon: '💡' },
-                { key: 'watchlist', label: 'Watchlist', icon: '👁️' },
-                { key: 'dailypick', label: 'Daily Pick', icon: '⭐' },
-                { key: 'portfolio', label: 'Portfolio P&L', icon: '💰' },
-                { key: 'alerts', label: 'Active Alerts', icon: '🔔' },
-                { key: 'performance', label: 'Performance', icon: '📊' },
-                { key: 'marketsummary', label: 'Market Summary', icon: '📈' },
-                { key: 'news', label: 'Latest News', icon: '📰' },
-                { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥' },
+                { key: 'clock', label: 'Clock & Market', icon: '🕐', group: 'mini' },
+                { key: 'quickstats', label: 'Quick Stats', icon: '📈', group: 'mini' },
+                { key: 'quicknav', label: 'Quick Navigation', icon: '🧭', group: 'mini' },
+                { key: 'dailytip', label: 'Daily Tip', icon: '💡', group: 'trading' },
+                { key: 'watchlist', label: 'Watchlist', icon: '👁️', group: 'trading' },
+                { key: 'dailypick', label: 'Daily Pick', icon: '⭐', group: 'trading' },
+                { key: 'portfolio', label: 'Portfolio P&L', icon: '💰', group: 'trading' },
+                { key: 'alerts', label: 'Active Alerts', icon: '🔔', group: 'trading' },
+                { key: 'performance', label: 'Performance', icon: '📊', group: 'data' },
+                { key: 'marketsummary', label: 'Market Summary', icon: '📈', group: 'data' },
+                { key: 'news', label: 'Latest News', icon: '📰', group: 'data' },
+                { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥', group: 'data' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
               const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
+              const groupLabels = { mini: 'Mini Widgets', trading: 'Trading', data: 'Market Data' };
+              const groupColors = { mini: 'text-cyan-400', trading: 'text-violet-400', data: 'text-emerald-400' };
               return (
                 <div className="mb-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700/20 animate-fadeIn">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold">Widgets & Layout</h3>
-                    <span className="text-[10px] text-slate-500">Drag widgets or use arrows to reorder</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-slate-500">Drag cards or use arrows to reorder</span>
+                      <button onClick={() => setDashboardWidgets(['clock', 'quickstats', 'quicknav', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news'])} className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors">Reset to default</button>
+                    </div>
                   </div>
-                  {/* Active widgets - ordered */}
-                  <div className="space-y-1.5 mb-4">
-                    {orderedActive.map((w, idx) => (
-                      <div key={w.key} className="flex items-center gap-2 px-3 py-2 bg-slate-700/30 rounded-lg group hover:bg-slate-700/50 transition-all">
-                        <GripVertical className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 cursor-grab" />
-                        <span className="text-sm">{w.icon}</span>
-                        <span className="text-xs font-medium text-white flex-1">{w.label}</span>
-                        {w.mini && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">MINI</span>}
-                        <div className="flex items-center gap-0.5">
-                          <button onClick={() => moveWidget(w.key, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-slate-600/50 text-slate-500 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-all">
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => moveWidget(w.key, 'down')} disabled={idx === orderedActive.length - 1} className="p-1 rounded hover:bg-slate-600/50 text-slate-500 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-all">
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => setDashboardWidgets(prev => prev.filter(k => k !== w.key))} className="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all ml-1">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                  {/* Active widgets - grouped by category */}
+                  <div className="space-y-1 mb-4">
+                    {orderedActive.map((w, idx) => {
+                      const prevGroup = idx > 0 ? orderedActive[idx - 1]?.group : null;
+                      const showGroupLabel = w.group !== prevGroup;
+                      return (
+                        <div key={w.key}>
+                          {showGroupLabel && (
+                            <div className={`text-[9px] uppercase tracking-widest font-bold ${groupColors[w.group] || 'text-slate-500'} mt-2 mb-1 pl-1`}>{groupLabels[w.group] || w.group}</div>
+                          )}
+                          <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/30 rounded-lg group hover:bg-slate-700/50 transition-all">
+                            <GripVertical className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 cursor-grab" />
+                            <span className="text-sm">{w.icon}</span>
+                            <span className="text-xs font-medium text-white flex-1">{w.label}</span>
+                            {w.group === 'mini' && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded font-medium">MINI</span>}
+                            <div className="flex items-center gap-0.5">
+                              <button onClick={() => moveWidget(w.key, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-slate-600/50 text-slate-500 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-all">
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => moveWidget(w.key, 'down')} disabled={idx === orderedActive.length - 1} className="p-1 rounded hover:bg-slate-600/50 text-slate-500 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-all">
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => setDashboardWidgets(prev => prev.filter(k => k !== w.key))} className="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all ml-1">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                  {/* Inactive widgets */}
+                  {/* Inactive widgets - grouped */}
                   {inactive.length > 0 && (
                     <div>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Available widgets</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">Available to add</p>
                       <div className="flex flex-wrap gap-2">
                         {inactive.map(w => (
                           <button key={w.key} onClick={() => setDashboardWidgets(prev => [...prev, w.key])} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/50 text-slate-400 hover:bg-violet-600/30 hover:text-violet-300 transition-all flex items-center gap-1.5 border border-slate-700/20 border-dashed">
                             <Plus className="w-3 h-3" /> <span>{w.icon}</span> {w.label}
+                            {w.group === 'mini' && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1 py-0.5 rounded">MINI</span>}
                           </button>
                         ))}
                       </div>
@@ -13131,59 +13177,130 @@ OUTPUT JSON:
             })()}
 
             {/* Mini Widgets Row */}
-            {dashboardWidgets.includes('clock') && (() => {
+            {(() => {
+              const miniKeys = ['clock', 'quickstats', 'quicknav'];
+              const activeMinis = miniKeys.filter(k => dashboardWidgets.includes(k));
+              if (activeMinis.length === 0) return null;
               const ms = getDashboardMarketStatus();
               const timeStr = dashboardClock.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
               const dateStr = dashboardClock.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
               return (
-                <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3" style={{ order: dashboardWidgets.indexOf('clock') }}>
-                  {/* Live Clock */}
-                  <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3">
-                    <div className="p-2 bg-violet-500/15 rounded-lg">
-                      <Clock className="w-4 h-4 text-violet-400" />
+                <div className="mb-4 space-y-3">
+                  {/* Clock & Market Status Row */}
+                  {dashboardWidgets.includes('clock') && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {/* Live Clock */}
+                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all">
+                        <div className="p-2 bg-violet-500/15 rounded-lg">
+                          <Clock className="w-4 h-4 text-violet-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold font-mono tracking-wide">{timeStr}</div>
+                          <div className="text-[10px] text-slate-500">{dateStr}</div>
+                        </div>
+                      </div>
+                      {/* Market Status */}
+                      <div className={`rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all ${ms.bg}`}>
+                        <div className={`p-2 rounded-lg ${ms.status === 'open' ? 'bg-emerald-500/15' : ms.status === 'pre' ? 'bg-amber-500/15' : ms.status === 'after' ? 'bg-blue-500/15' : 'bg-red-500/15'}`}>
+                          <Globe className="w-4 h-4" style={{ color: ms.status === 'open' ? '#34d399' : ms.status === 'pre' ? '#fbbf24' : ms.status === 'after' ? '#60a5fa' : '#f87171' }} />
+                        </div>
+                        <div>
+                          <div className={`text-sm font-bold ${ms.color}`}>{ms.label}</div>
+                          <div className="text-[10px] text-slate-500">{ms.sublabel}</div>
+                        </div>
+                      </div>
+                      {/* Win Rate */}
+                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all">
+                        <div className="p-2 bg-blue-500/15 rounded-lg">
+                          <Target className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <div className={`text-sm font-bold ${performanceMetrics.winRate >= 50 ? 'text-emerald-400' : performanceMetrics.totalTrades > 0 ? 'text-red-400' : 'text-slate-400'}`}>{performanceMetrics.totalTrades > 0 ? `${performanceMetrics.winRate.toFixed(0)}%` : '--'}</div>
+                          <div className="text-[10px] text-slate-500">Win Rate</div>
+                        </div>
+                      </div>
+                      {/* Alerts Count */}
+                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all">
+                        <div className="p-2 bg-orange-500/15 rounded-lg">
+                          <Bell className="w-4 h-4 text-orange-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">{enabledAlertCount} <span className="text-slate-400 font-normal text-xs">active</span></div>
+                          <div className="text-[10px] text-slate-500">{alerts.length} total alerts</div>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm font-bold font-mono tracking-wide">{timeStr}</div>
-                      <div className="text-[10px] text-slate-500">{dateStr}</div>
+                  )}
+                  {/* Quick Stats Row */}
+                  {dashboardWidgets.includes('quickstats') && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {/* Total P&L */}
+                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all">
+                        <div className="p-2 bg-emerald-500/15 rounded-lg">
+                          <TrendingUp className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <div>
+                          <div className={`text-sm font-bold ${performanceMetrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{performanceMetrics.totalPnL >= 0 ? '+' : ''}${(performanceMetrics.totalPnL || 0).toFixed(0)}</div>
+                          <div className="text-[10px] text-slate-500">Total P&L</div>
+                        </div>
+                      </div>
+                      {/* Portfolio */}
+                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all">
+                        <div className="p-2 bg-amber-500/15 rounded-lg">
+                          <Wallet className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">{portfolio.length} <span className="text-slate-400 font-normal text-xs">positions</span></div>
+                          <div className="text-[10px] text-slate-500">{watchlist.length} watching</div>
+                        </div>
+                      </div>
+                      {/* Total Trades */}
+                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all">
+                        <div className="p-2 bg-cyan-500/15 rounded-lg">
+                          <BarChart3 className="w-4 h-4 text-cyan-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">{performanceMetrics.totalTrades || 0}</div>
+                          <div className="text-[10px] text-slate-500">Total Trades</div>
+                        </div>
+                      </div>
+                      {/* Profit Factor */}
+                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 hover:border-slate-600/30 transition-all">
+                        <div className="p-2 bg-violet-500/15 rounded-lg">
+                          <Zap className="w-4 h-4 text-violet-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">{performanceMetrics.totalTrades > 0 ? (performanceMetrics.profitFactor === Infinity ? '∞' : performanceMetrics.profitFactor.toFixed(2)) : '--'}</div>
+                          <div className="text-[10px] text-slate-500">Profit Factor</div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  {/* Market Status */}
-                  <div className={`rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 ${ms.bg}`}>
-                    <div className={`p-2 rounded-lg ${ms.status === 'open' ? 'bg-emerald-500/15' : ms.status === 'pre' ? 'bg-amber-500/15' : ms.status === 'after' ? 'bg-blue-500/15' : 'bg-red-500/15'}`}>
-                      <Globe className="w-4 h-4" style={{ color: ms.status === 'open' ? '#34d399' : ms.status === 'pre' ? '#fbbf24' : ms.status === 'after' ? '#60a5fa' : '#f87171' }} />
+                  )}
+                  {/* Quick Navigation Row */}
+                  {dashboardWidgets.includes('quicknav') && (
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                      {[
+                        { label: 'Analyze Chart', icon: <Camera className="w-3.5 h-3.5" />, tab: 'upload', color: 'text-violet-400 bg-violet-500/15' },
+                        { label: 'Live Ticker', icon: <LineChart className="w-3.5 h-3.5" />, tab: 'ticker', color: 'text-cyan-400 bg-cyan-500/15' },
+                        { label: 'Daily Pick', icon: <Star className="w-3.5 h-3.5" />, tab: 'daily', color: 'text-yellow-400 bg-yellow-500/15' },
+                        { label: 'Ask AI', icon: <MessageCircle className="w-3.5 h-3.5" />, tab: 'ask', color: 'text-purple-400 bg-purple-500/15' },
+                        { label: 'Scanner', icon: <Search className="w-3.5 h-3.5" />, tab: 'hotstocks', color: 'text-orange-400 bg-orange-500/15' },
+                        { label: 'Journal', icon: <Pencil className="w-3.5 h-3.5" />, tab: 'journal', color: 'text-emerald-400 bg-emerald-500/15' },
+                      ].map(item => (
+                        <button key={item.tab} onClick={() => setActiveTab(item.tab)} className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-2.5 flex items-center gap-2 hover:bg-slate-700/40 hover:border-slate-600/30 transition-all group">
+                          <div className={`p-1.5 rounded-lg ${item.color}`}>{item.icon}</div>
+                          <span className="text-xs font-medium text-slate-400 group-hover:text-white transition-colors truncate">{item.label}</span>
+                        </button>
+                      ))}
                     </div>
-                    <div>
-                      <div className={`text-sm font-bold ${ms.color}`}>{ms.label}</div>
-                      <div className="text-[10px] text-slate-500">{ms.sublabel}</div>
-                    </div>
-                  </div>
-                  {/* Quick Stats */}
-                  <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3">
-                    <div className="p-2 bg-emerald-500/15 rounded-lg">
-                      <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className={`text-sm font-bold ${performanceMetrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{performanceMetrics.totalPnL >= 0 ? '+' : ''}${(performanceMetrics.totalPnL || 0).toFixed(0)}</div>
-                      <div className="text-[10px] text-slate-500">Total P&L</div>
-                    </div>
-                  </div>
-                  {/* Portfolio Value */}
-                  <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3">
-                    <div className="p-2 bg-amber-500/15 rounded-lg">
-                      <Wallet className="w-4 h-4 text-amber-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold">{portfolio.length} <span className="text-slate-400 font-normal text-xs">positions</span></div>
-                      <div className="text-[10px] text-slate-500">{watchlist.length} watching</div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })()}
 
             {/* Widget Grid - Ordered by dashboardWidgets array */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {dashboardWidgets.filter(k => k !== 'clock').map((widgetKey) => {
+              {dashboardWidgets.filter(k => !['clock', 'quickstats', 'quicknav'].includes(k)).map((widgetKey) => {
                 const wrapProps = {
                   key: widgetKey,
                   draggable: true,
@@ -18142,58 +18259,39 @@ OUTPUT JSON:
                           <div className="p-6">
                             <div className="space-y-3 md:space-y-4">
                               {chartAnswer.split('\n\n').map((block, blockIdx) => {
-                                if (block.startsWith('**') && block.endsWith('**')) {
-                                  const headerText = block.replace(/\*\*/g, '');
-                                  return (
-                                    <h3 key={blockIdx} className="text-lg font-bold text-white flex items-center gap-2 mt-2">
-                                      <div className="w-1 h-5 bg-violet-500 rounded-full" />
-                                      {headerText}
-                                    </h3>
-                                  );
+                                const formatInline = (text) => text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                                  if (part.startsWith('**') && part.endsWith('**')) {
+                                    return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                                  }
+                                  return part;
+                                });
+                                if (block.match(/^#{1,3}\s+/)) {
+                                  return <h3 key={blockIdx} className="text-lg font-bold text-white flex items-center gap-2 mt-3"><div className="w-1 h-5 bg-violet-500 rounded-full" />{block.replace(/^#{1,3}\s+/, '').replace(/\*\*/g, '')}</h3>;
                                 }
-                                if (block.includes('\n•') || block.includes('\n-') || block.startsWith('•') || block.startsWith('-')) {
+                                if (block.startsWith('**') && block.endsWith('**') && !block.slice(2, -2).includes('**')) {
+                                  return <h3 key={blockIdx} className="text-lg font-bold text-white flex items-center gap-2 mt-2"><div className="w-1 h-5 bg-violet-500 rounded-full" />{block.replace(/\*\*/g, '')}</h3>;
+                                }
+                                const hasListItems = block.includes('\n•') || block.includes('\n-') || block.startsWith('•') || block.startsWith('-') || /\n\d+[\.\)]\s/.test(block) || /^\d+[\.\)]\s/.test(block);
+                                if (hasListItems) {
                                   const lines = block.split('\n');
                                   return (
                                     <div key={blockIdx} className="space-y-2">
                                       {lines.map((line, lineIdx) => {
                                         const trimmed = line.trim();
                                         if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-                                          const bulletText = trimmed.replace(/^[•-]\s*/, '');
-                                          const formatted = bulletText.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-                                            if (part.startsWith('**') && part.endsWith('**')) {
-                                              return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
-                                            }
-                                            return part;
-                                          });
-                                          return (
-                                            <div key={lineIdx} className="flex items-start gap-3 pl-2">
-                                              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-2 flex-shrink-0" />
-                                              <span className="text-slate-300 text-sm leading-relaxed">{formatted}</span>
-                                            </div>
-                                          );
-                                        } else if (trimmed) {
-                                          const formatted = trimmed.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-                                            if (part.startsWith('**') && part.endsWith('**')) {
-                                              return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
-                                            }
-                                            return part;
-                                          });
-                                          return <p key={lineIdx} className="text-slate-200 font-medium">{formatted}</p>;
+                                          return <div key={lineIdx} className="flex items-start gap-3 pl-2"><div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-2 flex-shrink-0" /><span className="text-slate-300 text-sm leading-relaxed">{formatInline(trimmed.replace(/^[•-]\s*/, ''))}</span></div>;
                                         }
+                                        const numMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)/);
+                                        if (numMatch) {
+                                          return <div key={lineIdx} className="flex items-start gap-3 pl-2"><span className="text-xs font-bold text-violet-400 bg-violet-500/15 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">{numMatch[1]}</span><span className="text-slate-300 text-sm leading-relaxed">{formatInline(numMatch[2])}</span></div>;
+                                        }
+                                        if (trimmed) return <p key={lineIdx} className="text-slate-200 font-medium">{formatInline(trimmed)}</p>;
                                         return null;
                                       })}
                                     </div>
                                   );
                                 }
-                                const formatted = block.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-                                  if (part.startsWith('**') && part.endsWith('**')) {
-                                    return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
-                                  }
-                                  return part;
-                                });
-                                return (
-                                  <p key={blockIdx} className="text-slate-300 text-sm leading-relaxed">{formatted}</p>
-                                );
+                                return <p key={blockIdx} className="text-slate-300 text-sm leading-relaxed">{formatInline(block)}</p>;
                               })}
                             </div>
                           </div>
@@ -20114,8 +20212,26 @@ OUTPUT JSON:
                     {/* Formatted response with markdown parsing */}
                     <div className="space-y-3 md:space-y-4">
                       {answer.split('\n\n').map((block, blockIdx) => {
-                        // Handle headers (lines starting with **)
-                        if (block.startsWith('**') && block.endsWith('**')) {
+                        const formatInline = (text) => text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                          if (part.startsWith('**') && part.endsWith('**')) {
+                            return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                          }
+                          return part;
+                        });
+
+                        // Handle markdown ### headers
+                        if (block.match(/^#{1,3}\s+/)) {
+                          const headerText = block.replace(/^#{1,3}\s+/, '').replace(/\*\*/g, '');
+                          return (
+                            <h3 key={blockIdx} className="text-lg font-bold text-white flex items-center gap-2 mt-3">
+                              <div className="w-1 h-5 bg-violet-500 rounded-full" />
+                              {headerText}
+                            </h3>
+                          );
+                        }
+
+                        // Handle bold-only headers (lines starting AND ending with **)
+                        if (block.startsWith('**') && block.endsWith('**') && !block.slice(2, -2).includes('**')) {
                           const headerText = block.replace(/\*\*/g, '');
                           return (
                             <h3 key={blockIdx} className="text-lg font-bold text-white flex items-center gap-2 mt-2">
@@ -20125,37 +20241,36 @@ OUTPUT JSON:
                           );
                         }
 
-                        // Handle bullet lists
-                        if (block.includes('\n•') || block.includes('\n-') || block.startsWith('•') || block.startsWith('-')) {
+                        // Handle bullet or numbered lists
+                        const hasListItems = block.includes('\n•') || block.includes('\n-') || block.startsWith('•') || block.startsWith('-') || /\n\d+[\.\)]\s/.test(block) || /^\d+[\.\)]\s/.test(block);
+                        if (hasListItems) {
                           const lines = block.split('\n');
                           return (
                             <div key={blockIdx} className="space-y-2">
                               {lines.map((line, lineIdx) => {
                                 const trimmed = line.trim();
+                                // Bullet items
                                 if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
                                   const bulletText = trimmed.replace(/^[•-]\s*/, '');
-                                  // Handle bold within bullet
-                                  const formatted = bulletText.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-                                    if (part.startsWith('**') && part.endsWith('**')) {
-                                      return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
-                                    }
-                                    return part;
-                                  });
                                   return (
                                     <div key={lineIdx} className="flex items-start gap-3 pl-2">
                                       <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-2 flex-shrink-0" />
-                                      <span className="text-slate-300 text-sm leading-relaxed">{formatted}</span>
+                                      <span className="text-slate-300 text-sm leading-relaxed">{formatInline(bulletText)}</span>
                                     </div>
                                   );
-                                } else if (trimmed) {
-                                  // Non-bullet line in the block (like a header)
-                                  const formatted = trimmed.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-                                    if (part.startsWith('**') && part.endsWith('**')) {
-                                      return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
-                                    }
-                                    return part;
-                                  });
-                                  return <p key={lineIdx} className="text-slate-200 font-medium">{formatted}</p>;
+                                }
+                                // Numbered items (1. or 1))
+                                const numMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)/);
+                                if (numMatch) {
+                                  return (
+                                    <div key={lineIdx} className="flex items-start gap-3 pl-2">
+                                      <span className="text-xs font-bold text-violet-400 bg-violet-500/15 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">{numMatch[1]}</span>
+                                      <span className="text-slate-300 text-sm leading-relaxed">{formatInline(numMatch[2])}</span>
+                                    </div>
+                                  );
+                                }
+                                if (trimmed) {
+                                  return <p key={lineIdx} className="text-slate-200 font-medium">{formatInline(trimmed)}</p>;
                                 }
                                 return null;
                               })}
@@ -20163,17 +20278,10 @@ OUTPUT JSON:
                           );
                         }
 
-                        // Regular paragraph - handle inline bold
-                        const formatted = block.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-                          if (part.startsWith('**') && part.endsWith('**')) {
-                            return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
-                          }
-                          return part;
-                        });
-
+                        // Regular paragraph
                         return (
                           <p key={blockIdx} className="text-slate-300 text-sm leading-relaxed">
-                            {formatted}
+                            {formatInline(block)}
                           </p>
                         );
                       })}
