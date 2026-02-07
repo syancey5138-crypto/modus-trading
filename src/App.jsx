@@ -10,7 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -1604,11 +1604,92 @@ function App() {
   const [dashboardWidgets, setDashboardWidgets] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('modus_dashboard_widgets')) || [
-        'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary'
+        'clock', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary'
       ];
-    } catch { return ['dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary']; }
+    } catch { return ['clock', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary']; }
   });
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
+  const [draggedWidget, setDraggedWidget] = useState(null);
+  const [dashboardClock, setDashboardClock] = useState(new Date());
+
+  // Live clock for dashboard
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return;
+    const clockInterval = setInterval(() => setDashboardClock(new Date()), 1000);
+    return () => clearInterval(clockInterval);
+  }, [activeTab]);
+
+  // Widget reorder helpers
+  const moveWidget = (key, direction) => {
+    setDashboardWidgets(prev => {
+      const idx = prev.indexOf(key);
+      if (idx === -1) return prev;
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+  };
+
+  const handleWidgetDragStart = (e, key) => {
+    setDraggedWidget(key);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', key);
+  };
+
+  const handleWidgetDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleWidgetDrop = (e, targetKey) => {
+    e.preventDefault();
+    if (!draggedWidget || draggedWidget === targetKey) { setDraggedWidget(null); return; }
+    setDashboardWidgets(prev => {
+      const arr = [...prev];
+      const fromIdx = arr.indexOf(draggedWidget);
+      const toIdx = arr.indexOf(targetKey);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, draggedWidget);
+      return arr;
+    });
+    setDraggedWidget(null);
+  };
+
+  // Dashboard market status helper (rich version)
+  const getDashboardMarketStatus = () => {
+    const now = new Date();
+    const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const day = et.getDay();
+    const hours = et.getHours();
+    const minutes = et.getMinutes();
+    const timeNum = hours * 60 + minutes;
+    const isWeekend = day === 0 || day === 6;
+    const marketOpen = 9 * 60 + 30; // 9:30 AM ET
+    const marketClose = 16 * 60; // 4:00 PM ET
+    const preMarketOpen = 4 * 60; // 4:00 AM ET
+    const afterHoursClose = 20 * 60; // 8:00 PM ET
+
+    if (isWeekend) return { status: 'closed', label: 'Closed', sublabel: 'Opens Monday 9:30 AM ET', color: 'text-red-400', bg: 'bg-red-500/10' };
+    if (timeNum >= marketOpen && timeNum < marketClose) {
+      const minsLeft = marketClose - timeNum;
+      const h = Math.floor(minsLeft / 60);
+      const m = minsLeft % 60;
+      return { status: 'open', label: 'Market Open', sublabel: `Closes in ${h}h ${m}m`, color: 'text-emerald-400', bg: 'bg-emerald-500/10' };
+    }
+    if (timeNum >= preMarketOpen && timeNum < marketOpen) {
+      const minsLeft = marketOpen - timeNum;
+      const h = Math.floor(minsLeft / 60);
+      const m = minsLeft % 60;
+      return { status: 'pre', label: 'Pre-Market', sublabel: `Opens in ${h}h ${m}m`, color: 'text-amber-400', bg: 'bg-amber-500/10' };
+    }
+    if (timeNum >= marketClose && timeNum < afterHoursClose) {
+      return { status: 'after', label: 'After Hours', sublabel: 'Regular hours closed', color: 'text-blue-400', bg: 'bg-blue-500/10' };
+    }
+    return { status: 'closed', label: 'Closed', sublabel: 'Opens 9:30 AM ET', color: 'text-red-400', bg: 'bg-red-500/10' };
+  };
 
   useEffect(() => {
     try { localStorage.setItem('modus_dashboard_widgets', JSON.stringify(dashboardWidgets)); } catch {}
@@ -10343,9 +10424,9 @@ OUTPUT JSON:
     }
   };
 
-  // Load news when tab is active
+  // Load news when tab is active (news tab or dashboard with news widget)
   useEffect(() => {
-    if (activeTab === "news" && newsFeed.length === 0) {
+    if (newsFeed.length === 0 && (activeTab === "news" || (activeTab === "dashboard" && dashboardWidgets.includes('news')))) {
       generateNewsFeed();
     }
   }, [activeTab]);
@@ -12959,324 +13040,455 @@ OUTPUT JSON:
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
           <div className="p-4 md:p-8 animate-fadeIn">
-            <div className="flex items-center justify-between mb-6">
+            {/* Dashboard Header */}
+            <div className="flex items-center justify-between mb-5">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {(() => { const h = new Date().getHours(); return h < 12 ? 'Good Morning' : h < 17 ? 'Good Afternoon' : 'Good Evening'; })()}
+                  {currentUser?.displayName ? `, ${currentUser.displayName.split(' ')[0]}` : ''}
+                </h1>
                 <p className="text-slate-400 text-sm mt-1">Your personalized trading overview</p>
               </div>
-              <button
-                onClick={() => setShowDashboardConfig(!showDashboardConfig)}
-                className="px-3 py-1.5 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg text-xs text-slate-400 hover:text-white transition-all border border-slate-700/30 flex items-center gap-2"
-              >
-                <Settings className="w-3.5 h-3.5" />
-                Customize
-              </button>
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const ms = getDashboardMarketStatus();
+                  return (
+                    <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${ms.bg} border border-slate-700/20`}>
+                      <span className={`w-2 h-2 rounded-full ${ms.status === 'open' ? 'bg-emerald-400 animate-pulse' : ms.status === 'pre' ? 'bg-amber-400 animate-pulse' : ms.status === 'after' ? 'bg-blue-400' : 'bg-red-400'}`} />
+                      <span className={ms.color}>{ms.label}</span>
+                    </div>
+                  );
+                })()}
+                <button
+                  onClick={() => setShowDashboardConfig(!showDashboardConfig)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 border ${showDashboardConfig ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-800/50 hover:bg-slate-700/70 text-slate-400 hover:text-white border-slate-700/30'}`}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Customize
+                </button>
+              </div>
             </div>
 
             {/* Widget Config Panel */}
-            {showDashboardConfig && (
-              <div className="mb-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700/20">
-                <h3 className="text-sm font-bold mb-3">Choose Widgets</h3>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: 'dailytip', label: 'Daily Tip', icon: '💡' },
-                    { key: 'watchlist', label: 'Watchlist', icon: '👁️' },
-                    { key: 'dailypick', label: 'Daily Pick', icon: '⭐' },
-                    { key: 'portfolio', label: 'Portfolio P&L', icon: '💰' },
-                    { key: 'alerts', label: 'Active Alerts', icon: '🔔' },
-                    { key: 'performance', label: 'Performance', icon: '📊' },
-                    { key: 'marketsummary', label: 'Market Summary', icon: '📈' },
-                    { key: 'news', label: 'Latest News', icon: '📰' },
-                    { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥' },
-                  ].map(w => (
-                    <button
-                      key={w.key}
-                      onClick={() => setDashboardWidgets(prev =>
-                        prev.includes(w.key) ? prev.filter(k => k !== w.key) : [...prev, w.key]
-                      )}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                        dashboardWidgets.includes(w.key)
-                          ? 'bg-violet-600 text-white'
-                          : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <span>{w.icon}</span> {w.label}
-                    </button>
-                  ))}
+            {showDashboardConfig && (() => {
+              const allWidgetDefs = [
+                { key: 'clock', label: 'Clock & Status', icon: '🕐', mini: true },
+                { key: 'dailytip', label: 'Daily Tip', icon: '💡' },
+                { key: 'watchlist', label: 'Watchlist', icon: '👁️' },
+                { key: 'dailypick', label: 'Daily Pick', icon: '⭐' },
+                { key: 'portfolio', label: 'Portfolio P&L', icon: '💰' },
+                { key: 'alerts', label: 'Active Alerts', icon: '🔔' },
+                { key: 'performance', label: 'Performance', icon: '📊' },
+                { key: 'marketsummary', label: 'Market Summary', icon: '📈' },
+                { key: 'news', label: 'Latest News', icon: '📰' },
+                { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥' },
+              ];
+              const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
+              const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
+              return (
+                <div className="mb-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700/20 animate-fadeIn">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold">Widgets & Layout</h3>
+                    <span className="text-[10px] text-slate-500">Drag widgets or use arrows to reorder</span>
+                  </div>
+                  {/* Active widgets - ordered */}
+                  <div className="space-y-1.5 mb-4">
+                    {orderedActive.map((w, idx) => (
+                      <div key={w.key} className="flex items-center gap-2 px-3 py-2 bg-slate-700/30 rounded-lg group hover:bg-slate-700/50 transition-all">
+                        <GripVertical className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 cursor-grab" />
+                        <span className="text-sm">{w.icon}</span>
+                        <span className="text-xs font-medium text-white flex-1">{w.label}</span>
+                        {w.mini && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded">MINI</span>}
+                        <div className="flex items-center gap-0.5">
+                          <button onClick={() => moveWidget(w.key, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-slate-600/50 text-slate-500 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-all">
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => moveWidget(w.key, 'down')} disabled={idx === orderedActive.length - 1} className="p-1 rounded hover:bg-slate-600/50 text-slate-500 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-all">
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setDashboardWidgets(prev => prev.filter(k => k !== w.key))} className="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all ml-1">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Inactive widgets */}
+                  {inactive.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Available widgets</p>
+                      <div className="flex flex-wrap gap-2">
+                        {inactive.map(w => (
+                          <button key={w.key} onClick={() => setDashboardWidgets(prev => [...prev, w.key])} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/50 text-slate-400 hover:bg-violet-600/30 hover:text-violet-300 transition-all flex items-center gap-1.5 border border-slate-700/20 border-dashed">
+                            <Plus className="w-3 h-3" /> <span>{w.icon}</span> {w.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {/* Widget Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {/* Daily Tip Widget */}
-              {dashboardWidgets.includes('dailytip') && (() => {
-                const tradingTips = [
-                  { cat: 'Risk', color: 'rose', tip: 'Never risk more than 1-2% of your total account on a single trade. This keeps you in the game even during losing streaks.' },
-                  { cat: 'Psychology', color: 'violet', tip: 'Stick to your trading plan. Emotional decisions during market hours are the #1 account killer for retail traders.' },
-                  { cat: 'Technical', color: 'cyan', tip: 'Volume confirms price moves. A breakout on low volume is suspect — wait for volume to validate before entering.' },
-                  { cat: 'Strategy', color: 'amber', tip: 'Define your exit before you enter. Know your stop-loss and take-profit levels BEFORE clicking buy.' },
-                  { cat: 'Risk', color: 'rose', tip: 'Use position sizing formulas. If your stop is 5% away, and you risk 1% of capital, your position should be 20% of your account.' },
-                  { cat: 'Psychology', color: 'violet', tip: 'Take breaks after big wins or losses. Both euphoria and despair cloud judgment equally.' },
-                  { cat: 'Technical', color: 'cyan', tip: 'The 200-day moving average is the most-watched indicator by institutions. Price above it = bullish bias, below = bearish.' },
-                  { cat: 'Fundamentals', color: 'emerald', tip: 'Earnings surprises move stocks more than earnings themselves. Focus on the delta between expectations and results.' },
-                  { cat: 'Strategy', color: 'amber', tip: 'Trade the first pullback, not the first breakout. Let others test the waters — then follow the confirmed direction.' },
-                  { cat: 'Risk', color: 'rose', tip: 'Correlation kills diversification. Holding 10 tech stocks is not diversified — check sector exposure regularly.' },
-                  { cat: 'Psychology', color: 'violet', tip: 'Journal every trade. The pattern you keep repeating (and losing on) only becomes visible when you write it down.' },
-                  { cat: 'Technical', color: 'cyan', tip: 'RSI divergence is one of the most reliable reversal signals. When price makes new highs but RSI doesn\'t, momentum is fading.' },
-                  { cat: 'Strategy', color: 'amber', tip: 'Scale into positions rather than going all-in. Start with 1/3, add on confirmation, and save dry powder for dips.' },
-                  { cat: 'Fundamentals', color: 'emerald', tip: 'Free cash flow matters more than revenue growth. A company that generates real cash can survive almost anything.' },
-                  { cat: 'Risk', color: 'rose', tip: 'Set a daily loss limit. If you lose 3% in a day, step away. Tomorrow is a new opportunity with a fresh mindset.' },
-                  { cat: 'Technical', color: 'cyan', tip: 'Support and resistance levels work because everyone watches them. Self-fulfilling prophecy is real in markets.' },
-                  { cat: 'Psychology', color: 'violet', tip: 'FOMO is not a strategy. The market offers new opportunities every single day — missing one trade won\'t make or break you.' },
-                  { cat: 'Strategy', color: 'amber', tip: 'The best trade setups have multiple confluences: trend, volume, support/resistance, and a catalyst all aligning.' },
-                  { cat: 'Fundamentals', color: 'emerald', tip: 'Watch insider buying more than insider selling. Insiders sell for many reasons, but they buy for only one: they expect the stock to go up.' },
-                  { cat: 'Risk', color: 'rose', tip: 'Never average down on a losing trade without a plan. Adding to losers is how small losses become account-ending disasters.' },
-                  { cat: 'Psychology', color: 'violet', tip: 'Your win rate doesn\'t matter as much as your risk-reward ratio. You can be wrong 60% of the time and still be profitable.' },
-                  { cat: 'Technical', color: 'cyan', tip: 'VWAP (Volume Weighted Average Price) acts like a magnet during the trading day. Institutional traders use it as a benchmark.' },
-                  { cat: 'Strategy', color: 'amber', tip: 'Trade with the trend on higher timeframes. A 5-minute buy signal against the daily downtrend is fighting the current.' },
-                  { cat: 'Fundamentals', color: 'emerald', tip: 'Debt-to-equity ratio above 2x is a red flag for most industries. High leverage amplifies both gains and losses.' },
-                  { cat: 'Risk', color: 'rose', tip: 'Keep a cash reserve of at least 20-30%. Dry powder lets you capitalize on sudden opportunities instead of watching from the sidelines.' },
-                  { cat: 'Psychology', color: 'violet', tip: 'The market doesn\'t care about your entry price. Making decisions based on what you "need" the stock to do is a recipe for disaster.' },
-                  { cat: 'Technical', color: 'cyan', tip: 'Candlestick patterns are most reliable at key support/resistance levels. A doji in the middle of a range means nothing.' },
-                  { cat: 'Strategy', color: 'amber', tip: 'Paper trade new strategies for at least 2 weeks before risking real money. Your live results will always be worse than paper.' },
-                  { cat: 'Fundamentals', color: 'emerald', tip: 'Compare P/E ratios within the same sector, not across sectors. A 30 P/E tech stock and a 30 P/E utility stock are very different.' },
-                  { cat: 'Psychology', color: 'violet', tip: 'Consistency beats intensity. Trading less with higher quality setups will outperform overtrading every time.' },
-                ];
-                const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-                const todayTip = tradingTips[dayOfYear % tradingTips.length];
-                const colorMap = { rose: 'from-rose-500/20 to-rose-600/5 border-rose-500/20 text-rose-400', violet: 'from-violet-500/20 to-violet-600/5 border-violet-500/20 text-violet-400', cyan: 'from-cyan-500/20 to-cyan-600/5 border-cyan-500/20 text-cyan-400', amber: 'from-amber-500/20 to-amber-600/5 border-amber-500/20 text-amber-400', emerald: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20 text-emerald-400' };
-                const badgeMap = { rose: 'bg-rose-500/20 text-rose-400', violet: 'bg-violet-500/20 text-violet-400', cyan: 'bg-cyan-500/20 text-cyan-400', amber: 'bg-amber-500/20 text-amber-400', emerald: 'bg-emerald-500/20 text-emerald-400' };
-                return (
-                  <div className={`bg-gradient-to-br ${colorMap[todayTip.color]} rounded-xl border p-4 relative overflow-hidden`}>
-                    <div className="absolute top-2 right-3 text-3xl opacity-10">💡</div>
-                    <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4" /> Daily Tip
-                      <span className={`text-[10px] ${badgeMap[todayTip.color]} px-1.5 py-0.5 rounded-full ml-auto font-semibold`}>{todayTip.cat}</span>
-                    </h3>
-                    <p className="text-xs text-slate-200 leading-relaxed">{todayTip.tip}</p>
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className="text-[10px] text-slate-500">Tip #{(dayOfYear % tradingTips.length) + 1} of {tradingTips.length}</span>
-                      <button
-                        onClick={() => {
-                          const nextTip = tradingTips[(dayOfYear + Math.floor(Math.random() * (tradingTips.length - 1)) + 1) % tradingTips.length];
-                          setToast({ type: 'success', message: `💡 ${nextTip.cat}: ${nextTip.tip}` });
-                        }}
-                        className="text-[10px] text-slate-400 hover:text-white transition-colors"
-                      >
-                        Random tip ↻
-                      </button>
+            {/* Mini Widgets Row */}
+            {dashboardWidgets.includes('clock') && (() => {
+              const ms = getDashboardMarketStatus();
+              const timeStr = dashboardClock.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              const dateStr = dashboardClock.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              return (
+                <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3" style={{ order: dashboardWidgets.indexOf('clock') }}>
+                  {/* Live Clock */}
+                  <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3">
+                    <div className="p-2 bg-violet-500/15 rounded-lg">
+                      <Clock className="w-4 h-4 text-violet-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold font-mono tracking-wide">{timeStr}</div>
+                      <div className="text-[10px] text-slate-500">{dateStr}</div>
                     </div>
                   </div>
-                );
-              })()}
+                  {/* Market Status */}
+                  <div className={`rounded-xl border border-slate-700/20 p-3 flex items-center gap-3 ${ms.bg}`}>
+                    <div className={`p-2 rounded-lg ${ms.status === 'open' ? 'bg-emerald-500/15' : ms.status === 'pre' ? 'bg-amber-500/15' : ms.status === 'after' ? 'bg-blue-500/15' : 'bg-red-500/15'}`}>
+                      <Globe className="w-4 h-4" style={{ color: ms.status === 'open' ? '#34d399' : ms.status === 'pre' ? '#fbbf24' : ms.status === 'after' ? '#60a5fa' : '#f87171' }} />
+                    </div>
+                    <div>
+                      <div className={`text-sm font-bold ${ms.color}`}>{ms.label}</div>
+                      <div className="text-[10px] text-slate-500">{ms.sublabel}</div>
+                    </div>
+                  </div>
+                  {/* Quick Stats */}
+                  <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/15 rounded-lg">
+                      <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className={`text-sm font-bold ${performanceMetrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{performanceMetrics.totalPnL >= 0 ? '+' : ''}${(performanceMetrics.totalPnL || 0).toFixed(0)}</div>
+                      <div className="text-[10px] text-slate-500">Total P&L</div>
+                    </div>
+                  </div>
+                  {/* Portfolio Value */}
+                  <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-3 flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/15 rounded-lg">
+                      <Wallet className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">{portfolio.length} <span className="text-slate-400 font-normal text-xs">positions</span></div>
+                      <div className="text-[10px] text-slate-500">{watchlist.length} watching</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
-              {/* Watchlist Widget */}
-              {dashboardWidgets.includes('watchlist') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Eye className="w-4 h-4 text-violet-400" /> Watchlist
-                    <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{watchlist.length}</span>
-                  </h3>
-                  {watchlist.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-4 text-center">No symbols tracked</p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                      {watchlist.slice(0, 8).map(sym => {
-                        const p = watchlistPrices[sym];
-                        return (
-                          <div key={sym} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-800/50 cursor-pointer" onClick={() => { setActiveTab('ticker'); }}>
-                            <span className="text-sm font-medium">{sym}</span>
-                            <div className="text-right">
-                              {p?.price > 0 && <span className="text-xs font-mono">${p.price.toFixed(2)}</span>}
-                              {p?.changePercent !== undefined && (
-                                <span className={`text-[10px] ml-1 ${p.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {p.changePercent >= 0 ? '+' : ''}{p.changePercent.toFixed(2)}%
-                                </span>
-                              )}
+            {/* Widget Grid - Ordered by dashboardWidgets array */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {dashboardWidgets.filter(k => k !== 'clock').map((widgetKey) => {
+                const wrapProps = {
+                  key: widgetKey,
+                  draggable: true,
+                  onDragStart: (e) => handleWidgetDragStart(e, widgetKey),
+                  onDragOver: handleWidgetDragOver,
+                  onDrop: (e) => handleWidgetDrop(e, widgetKey),
+                  onDragEnd: () => setDraggedWidget(null),
+                  className: `transition-all duration-200 ${draggedWidget === widgetKey ? 'opacity-40 scale-95' : 'opacity-100'} ${draggedWidget && draggedWidget !== widgetKey ? 'hover:ring-2 hover:ring-violet-500/40 hover:ring-offset-1 hover:ring-offset-slate-900' : ''}`,
+                };
+
+                switch(widgetKey) {
+                  // ─── Daily Tip ─────────────────────
+                  case 'dailytip': {
+                    const tradingTips = [
+                      { cat: 'Risk', color: 'rose', tip: 'Never risk more than 1-2% of your total account on a single trade. This keeps you in the game even during losing streaks.' },
+                      { cat: 'Psychology', color: 'violet', tip: 'Stick to your trading plan. Emotional decisions during market hours are the #1 account killer for retail traders.' },
+                      { cat: 'Technical', color: 'cyan', tip: 'Volume confirms price moves. A breakout on low volume is suspect — wait for volume to validate before entering.' },
+                      { cat: 'Strategy', color: 'amber', tip: 'Define your exit before you enter. Know your stop-loss and take-profit levels BEFORE clicking buy.' },
+                      { cat: 'Risk', color: 'rose', tip: 'Use position sizing formulas. If your stop is 5% away, and you risk 1% of capital, your position should be 20% of your account.' },
+                      { cat: 'Psychology', color: 'violet', tip: 'Take breaks after big wins or losses. Both euphoria and despair cloud judgment equally.' },
+                      { cat: 'Technical', color: 'cyan', tip: 'The 200-day moving average is the most-watched indicator by institutions. Price above it = bullish bias, below = bearish.' },
+                      { cat: 'Fundamentals', color: 'emerald', tip: 'Earnings surprises move stocks more than earnings themselves. Focus on the delta between expectations and results.' },
+                      { cat: 'Strategy', color: 'amber', tip: 'Trade the first pullback, not the first breakout. Let others test the waters — then follow the confirmed direction.' },
+                      { cat: 'Risk', color: 'rose', tip: 'Correlation kills diversification. Holding 10 tech stocks is not diversified — check sector exposure regularly.' },
+                      { cat: 'Psychology', color: 'violet', tip: 'Journal every trade. The pattern you keep repeating (and losing on) only becomes visible when you write it down.' },
+                      { cat: 'Technical', color: 'cyan', tip: 'RSI divergence is one of the most reliable reversal signals. When price makes new highs but RSI doesn\'t, momentum is fading.' },
+                      { cat: 'Strategy', color: 'amber', tip: 'Scale into positions rather than going all-in. Start with 1/3, add on confirmation, and save dry powder for dips.' },
+                      { cat: 'Fundamentals', color: 'emerald', tip: 'Free cash flow matters more than revenue growth. A company that generates real cash can survive almost anything.' },
+                      { cat: 'Risk', color: 'rose', tip: 'Set a daily loss limit. If you lose 3% in a day, step away. Tomorrow is a new opportunity with a fresh mindset.' },
+                      { cat: 'Technical', color: 'cyan', tip: 'Support and resistance levels work because everyone watches them. Self-fulfilling prophecy is real in markets.' },
+                      { cat: 'Psychology', color: 'violet', tip: 'FOMO is not a strategy. The market offers new opportunities every single day — missing one trade won\'t make or break you.' },
+                      { cat: 'Strategy', color: 'amber', tip: 'The best trade setups have multiple confluences: trend, volume, support/resistance, and a catalyst all aligning.' },
+                      { cat: 'Fundamentals', color: 'emerald', tip: 'Watch insider buying more than insider selling. Insiders sell for many reasons, but they buy for only one: they expect the stock to go up.' },
+                      { cat: 'Risk', color: 'rose', tip: 'Never average down on a losing trade without a plan. Adding to losers is how small losses become account-ending disasters.' },
+                      { cat: 'Psychology', color: 'violet', tip: 'Your win rate doesn\'t matter as much as your risk-reward ratio. You can be wrong 60% of the time and still be profitable.' },
+                      { cat: 'Technical', color: 'cyan', tip: 'VWAP (Volume Weighted Average Price) acts like a magnet during the trading day. Institutional traders use it as a benchmark.' },
+                      { cat: 'Strategy', color: 'amber', tip: 'Trade with the trend on higher timeframes. A 5-minute buy signal against the daily downtrend is fighting the current.' },
+                      { cat: 'Fundamentals', color: 'emerald', tip: 'Debt-to-equity ratio above 2x is a red flag for most industries. High leverage amplifies both gains and losses.' },
+                      { cat: 'Risk', color: 'rose', tip: 'Keep a cash reserve of at least 20-30%. Dry powder lets you capitalize on sudden opportunities instead of watching from the sidelines.' },
+                      { cat: 'Psychology', color: 'violet', tip: 'The market doesn\'t care about your entry price. Making decisions based on what you "need" the stock to do is a recipe for disaster.' },
+                      { cat: 'Technical', color: 'cyan', tip: 'Candlestick patterns are most reliable at key support/resistance levels. A doji in the middle of a range means nothing.' },
+                      { cat: 'Strategy', color: 'amber', tip: 'Paper trade new strategies for at least 2 weeks before risking real money. Your live results will always be worse than paper.' },
+                      { cat: 'Fundamentals', color: 'emerald', tip: 'Compare P/E ratios within the same sector, not across sectors. A 30 P/E tech stock and a 30 P/E utility stock are very different.' },
+                      { cat: 'Psychology', color: 'violet', tip: 'Consistency beats intensity. Trading less with higher quality setups will outperform overtrading every time.' },
+                    ];
+                    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+                    const todayTip = tradingTips[dayOfYear % tradingTips.length];
+                    const colorMap = { rose: 'from-rose-500/20 to-rose-600/5 border-rose-500/20 text-rose-400', violet: 'from-violet-500/20 to-violet-600/5 border-violet-500/20 text-violet-400', cyan: 'from-cyan-500/20 to-cyan-600/5 border-cyan-500/20 text-cyan-400', amber: 'from-amber-500/20 to-amber-600/5 border-amber-500/20 text-amber-400', emerald: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20 text-emerald-400' };
+                    const badgeMap = { rose: 'bg-rose-500/20 text-rose-400', violet: 'bg-violet-500/20 text-violet-400', cyan: 'bg-cyan-500/20 text-cyan-400', amber: 'bg-amber-500/20 text-amber-400', emerald: 'bg-emerald-500/20 text-emerald-400' };
+                    return (
+                      <div {...wrapProps}>
+                        <div className={`bg-gradient-to-br ${colorMap[todayTip.color]} rounded-xl border p-4 relative overflow-hidden h-full`}>
+                          <div className="absolute top-2 right-3 text-3xl opacity-10">💡</div>
+                          <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
+                            <Lightbulb className="w-4 h-4" /> Daily Tip
+                            <span className={`text-[10px] ${badgeMap[todayTip.color]} px-1.5 py-0.5 rounded-full ml-auto font-semibold`}>{todayTip.cat}</span>
+                          </h3>
+                          <p className="text-xs text-slate-200 leading-relaxed">{todayTip.tip}</p>
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="text-[10px] text-slate-500">Tip #{(dayOfYear % tradingTips.length) + 1} of {tradingTips.length}</span>
+                            <button onClick={() => { const nextTip = tradingTips[(dayOfYear + Math.floor(Math.random() * (tradingTips.length - 1)) + 1) % tradingTips.length]; setToast({ type: 'success', message: `💡 ${nextTip.cat}: ${nextTip.tip}` }); }} className="text-[10px] text-slate-400 hover:text-white transition-colors">Random tip ↻</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Watchlist ─────────────────────
+                  case 'watchlist': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-violet-400" /> Watchlist
+                          <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{watchlist.length}</span>
+                        </h3>
+                        {watchlist.length === 0 ? (
+                          <p className="text-xs text-slate-500 py-4 text-center">No symbols tracked</p>
+                        ) : (
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {watchlist.slice(0, 8).map(sym => {
+                              const p = watchlistPrices[sym];
+                              return (
+                                <div key={sym} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-800/50 cursor-pointer" onClick={() => { setActiveTab('ticker'); }}>
+                                  <span className="text-sm font-medium">{sym}</span>
+                                  <div className="text-right">
+                                    {p?.price > 0 && <span className="text-xs font-mono">${p.price.toFixed(2)}</span>}
+                                    {p?.changePercent !== undefined && (
+                                      <span className={`text-[10px] ml-1 ${p.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {p.changePercent >= 0 ? '+' : ''}{p.changePercent.toFixed(2)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Daily Pick ─────────────────────
+                  case 'dailypick': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <Star className="w-4 h-4 text-yellow-400" /> Daily Pick
+                        </h3>
+                        {dailyPick ? (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-lg font-bold">{dailyPick.asset || dailyPick.symbol}</span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${dailyPick.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {dailyPick.direction}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-400 space-y-1">
+                              <div>Entry: <span className="text-white font-medium">${parseFloat(dailyPick.entry || 0).toFixed(2)}</span></div>
+                              <div>Confidence: <span className="text-violet-400 font-medium">{dailyPick.confidence || 0}%</span></div>
+                            </div>
+                            <button onClick={() => setActiveTab('daily')} className="mt-3 text-xs text-violet-400 hover:text-violet-300 transition-colors">View full analysis →</button>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="text-xs text-slate-500">No pick generated today</p>
+                            <button onClick={() => setActiveTab('daily')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">Generate Daily Pick →</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Portfolio ─────────────────────
+                  case 'portfolio': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-emerald-400" /> Portfolio
+                          <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{portfolio.length} positions</span>
+                        </h3>
+                        {portfolio.length > 0 ? (
+                          <div>
+                            {portfolio.slice(0, 5).map(pos => (
+                              <div key={pos.symbol} className="flex items-center justify-between py-1.5 text-sm">
+                                <span className="font-medium">{pos.symbol}</span>
+                                <span className="text-xs text-slate-400">{pos.quantity} @ ${parseFloat(pos.avgPrice || 0).toFixed(2)}</span>
+                              </div>
+                            ))}
+                            <button onClick={() => setActiveTab('portfolio')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">View all →</button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 py-4 text-center">No positions tracked</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Active Alerts ─────────────────────
+                  case 'alerts': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-orange-400" /> Active Alerts
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full ml-auto">{enabledAlertCount} active</span>
+                        </h3>
+                        {alerts.filter(a => a.enabled).length > 0 ? (
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {alerts.filter(a => a.enabled).slice(0, 5).map(alert => (
+                              <div key={alert.id} className="flex items-center justify-between px-2 py-1.5 bg-slate-800/30 rounded-lg text-xs">
+                                <span className="font-medium">{alert.symbol}</span>
+                                <span className="text-slate-400">{alert.condition} ${parseFloat(alert.price || 0).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 py-4 text-center">No active alerts</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Performance ─────────────────────
+                  case 'performance': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-blue-400" /> Performance
+                        </h3>
+                        {performanceMetrics.totalTrades > 0 ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <div className="text-[10px] text-slate-500 uppercase">Win Rate</div>
+                              <div className={`text-lg font-bold ${performanceMetrics.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>{performanceMetrics.winRate.toFixed(1)}%</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-500 uppercase">Total P&L</div>
+                              <div className={`text-lg font-bold ${performanceMetrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {performanceMetrics.totalPnL >= 0 ? '+' : ''}${performanceMetrics.totalPnL.toFixed(0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-500 uppercase">Trades</div>
+                              <div className="text-lg font-bold text-white">{performanceMetrics.totalTrades}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-500 uppercase">Profit Factor</div>
+                              <div className="text-lg font-bold text-white">{performanceMetrics.profitFactor === Infinity ? '∞' : performanceMetrics.profitFactor.toFixed(2)}</div>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Daily Pick Widget */}
-              {dashboardWidgets.includes('dailypick') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Star className="w-4 h-4 text-yellow-400" /> Daily Pick
-                  </h3>
-                  {dailyPick ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-lg font-bold">{dailyPick.asset || dailyPick.symbol}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${dailyPick.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                          {dailyPick.direction}
-                        </span>
+                        ) : (
+                          <p className="text-xs text-slate-500 py-4 text-center">Log trades to see performance</p>
+                        )}
                       </div>
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <div>Entry: <span className="text-white font-medium">${parseFloat(dailyPick.entry || 0).toFixed(2)}</span></div>
-                        <div>Confidence: <span className="text-violet-400 font-medium">{dailyPick.confidence || 0}%</span></div>
-                      </div>
-                      <button onClick={() => setActiveTab('daily')} className="mt-3 text-xs text-violet-400 hover:text-violet-300 transition-colors">View full analysis →</button>
                     </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-xs text-slate-500">No pick generated today</p>
-                      <button onClick={() => setActiveTab('daily')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">Generate Daily Pick →</button>
-                    </div>
-                  )}
-                </div>
-              )}
+                  );
 
-              {/* Portfolio P&L Widget */}
-              {dashboardWidgets.includes('portfolio') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-emerald-400" /> Portfolio
-                    <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{portfolio.length} positions</span>
-                  </h3>
-                  {portfolio.length > 0 ? (
-                    <div>
-                      {portfolio.slice(0, 5).map(pos => (
-                        <div key={pos.symbol} className="flex items-center justify-between py-1.5 text-sm">
-                          <span className="font-medium">{pos.symbol}</span>
-                          <span className="text-xs text-slate-400">{pos.quantity} @ ${parseFloat(pos.avgPrice || 0).toFixed(2)}</span>
-                        </div>
-                      ))}
-                      <button onClick={() => setActiveTab('portfolio')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">View all →</button>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 py-4 text-center">No positions tracked</p>
-                  )}
-                </div>
-              )}
-
-              {/* Active Alerts Widget */}
-              {dashboardWidgets.includes('alerts') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-orange-400" /> Active Alerts
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full ml-auto">{enabledAlertCount} active</span>
-                  </h3>
-                  {alerts.filter(a => a.enabled).length > 0 ? (
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {alerts.filter(a => a.enabled).slice(0, 5).map(alert => (
-                        <div key={alert.id} className="flex items-center justify-between px-2 py-1.5 bg-slate-800/30 rounded-lg text-xs">
-                          <span className="font-medium">{alert.symbol}</span>
-                          <span className="text-slate-400">{alert.condition} ${parseFloat(alert.price || 0).toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 py-4 text-center">No active alerts</p>
-                  )}
-                </div>
-              )}
-
-              {/* Performance Widget */}
-              {dashboardWidgets.includes('performance') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-blue-400" /> Performance
-                  </h3>
-                  {performanceMetrics.totalTrades > 0 ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-[10px] text-slate-500 uppercase">Win Rate</div>
-                        <div className={`text-lg font-bold ${performanceMetrics.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>{performanceMetrics.winRate.toFixed(1)}%</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500 uppercase">Total P&L</div>
-                        <div className={`text-lg font-bold ${performanceMetrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {performanceMetrics.totalPnL >= 0 ? '+' : ''}${performanceMetrics.totalPnL.toFixed(0)}
+                  // ─── Market Summary ─────────────────────
+                  case 'marketsummary': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-cyan-400" /> Market Summary
+                        </h3>
+                        <div className="space-y-2">
+                          {['SPY', 'QQQ', 'DIA', 'IWM'].map(idx => {
+                            const d = marketData.indices[idx];
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <span className="font-medium text-white">{idx}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono">${(d?.price || 0).toFixed(2)}</span>
+                                  <span className={`font-medium ${(d?.changePercent || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {(d?.changePercent || 0) >= 0 ? '+' : ''}{(d?.changePercent || 0).toFixed(2)}%
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500 uppercase">Trades</div>
-                        <div className="text-lg font-bold text-white">{performanceMetrics.totalTrades}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500 uppercase">Profit Factor</div>
-                        <div className="text-lg font-bold text-white">{performanceMetrics.profitFactor === Infinity ? '∞' : performanceMetrics.profitFactor.toFixed(2)}</div>
-                      </div>
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 py-4 text-center">Log trades to see performance</p>
-                  )}
-                </div>
-              )}
+                  );
 
-              {/* Market Summary Widget */}
-              {dashboardWidgets.includes('marketsummary') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-cyan-400" /> Market Summary
-                  </h3>
-                  <div className="space-y-2">
-                    {['SPY', 'QQQ', 'DIA', 'IWM'].map(idx => {
-                      const d = marketData.indices[idx];
-                      return (
-                        <div key={idx} className="flex items-center justify-between text-xs">
-                          <span className="font-medium text-white">{idx}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono">${(d?.price || 0).toFixed(2)}</span>
-                            <span className={`font-medium ${(d?.changePercent || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                              {(d?.changePercent || 0) >= 0 ? '+' : ''}{(d?.changePercent || 0).toFixed(2)}%
-                            </span>
+                  // ─── Latest News ─────────────────────
+                  case 'news': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <Newspaper className="w-4 h-4 text-blue-400" /> Latest News
+                          <button onClick={() => generateNewsFeed()} className="ml-auto p-1 rounded hover:bg-slate-700/50 text-slate-500 hover:text-white transition-all" title="Refresh news">
+                            <RefreshCw className={`w-3 h-3 ${loadingNews ? 'animate-spin' : ''}`} />
+                          </button>
+                        </h3>
+                        {loadingNews ? (
+                          <div className="flex items-center justify-center py-6 gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-violet-400" />
+                            <span className="text-xs text-slate-500">Fetching news...</span>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* News Widget */}
-              {dashboardWidgets.includes('news') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Newspaper className="w-4 h-4 text-slate-400" /> Latest News
-                  </h3>
-                  {newsFeed.length > 0 ? (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {newsFeed.slice(0, 4).map((item, i) => (
-                        <div key={i} className="text-xs text-slate-300 py-1.5 border-b border-slate-800/30 last:border-0">
-                          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${item.sentiment === 'bullish' ? 'bg-emerald-400' : item.sentiment === 'bearish' ? 'bg-red-400' : 'bg-slate-500'}`} />
-                          {item.title?.substring(0, 80)}{item.title?.length > 80 ? '...' : ''}
-                        </div>
-                      ))}
+                        ) : newsFeed.length > 0 ? (
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {newsFeed.slice(0, 5).map((item, i) => (
+                              <div key={i} className="text-xs text-slate-300 py-1.5 border-b border-slate-800/30 last:border-0 flex items-start gap-1.5">
+                                <span className={`inline-block w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${item.sentiment === 'bullish' ? 'bg-emerald-400' : item.sentiment === 'bearish' ? 'bg-red-400' : 'bg-slate-500'}`} />
+                                <span className="leading-relaxed">{(item.headline || item.title || '').substring(0, 90)}{(item.headline || item.title || '').length > 90 ? '...' : ''}</span>
+                              </div>
+                            ))}
+                            <button onClick={() => setActiveTab('news')} className="text-xs text-violet-400 hover:text-violet-300 mt-1">View all news →</button>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="text-xs text-slate-500 mb-2">No news loaded yet</p>
+                            <button onClick={() => generateNewsFeed()} className="text-xs text-violet-400 hover:text-violet-300">Load news →</button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 py-4 text-center">Load news from the News tab</p>
-                  )}
-                </div>
-              )}
+                  );
 
-              {/* Hot Stocks Widget */}
-              {dashboardWidgets.includes('hotstocks') && (
-                <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-orange-400" /> Hot Stocks
-                  </h3>
-                  {hotStocks.gainers?.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {hotStocks.gainers.slice(0, 5).map((s, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="font-medium">{s.symbol}</span>
-                          <span className="text-emerald-400 font-medium">+{(s.changePercent || 0).toFixed(2)}%</span>
-                        </div>
-                      ))}
-                      <button onClick={() => setActiveTab('hotstocks')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">View all →</button>
+                  // ─── Hot Stocks ─────────────────────
+                  case 'hotstocks': return (
+                    <div {...wrapProps}>
+                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <Flame className="w-4 h-4 text-orange-400" /> Hot Stocks
+                        </h3>
+                        {hotStocks.gainers?.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {hotStocks.gainers.slice(0, 5).map((s, i) => (
+                              <div key={i} className="flex items-center justify-between text-xs">
+                                <span className="font-medium">{s.symbol}</span>
+                                <span className="text-emerald-400 font-medium">+{(s.changePercent || 0).toFixed(2)}%</span>
+                              </div>
+                            ))}
+                            <button onClick={() => setActiveTab('hotstocks')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">View all →</button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 py-4 text-center">Scan from Market Scanner tab</p>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 py-4 text-center">Scan from Market Scanner tab</p>
-                  )}
-                </div>
-              )}
+                  );
+
+                  default: return null;
+                }
+              })}
             </div>
           </div>
         )}
