@@ -1592,6 +1592,7 @@ function App() {
   // NEW: Info Pages State
   const [showInfoPage, setShowInfoPage] = useState(null); // 'terms', 'privacy', 'features', null — FOOTER OVERLAY ONLY
   const [infoSubTab, setInfoSubTab] = useState('features'); // Inline Info tab sub-navigation
+  const [vocabSearch, setVocabSearch] = useState(''); // Vocabulary search
 
   // NEW: Keyboard Shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -6988,21 +6989,10 @@ OUTPUT JSON:
       // Try API call
       const data = await callAPI([{
         role: "user",
-        content: `You are an expert trading education assistant with deep knowledge of stocks, options, technical analysis, order types, risk management, market mechanics, and trading psychology.
+        content: `You are an expert trading assistant. RULES: Address EVERY part of the question — if multiple concepts are asked about, cover each one individually with a definition, example with numbers, and when to use it. Use **bold** for headers and • for lists. Be thorough (300-600 words).
 
-CRITICAL INSTRUCTIONS:
-1. READ THE ENTIRE QUESTION CAREFULLY. If the user asks about multiple things (e.g. multiple order types, multiple strategies, multiple concepts), you MUST address EVERY SINGLE ONE individually. Do NOT skip or gloss over any part of their question.
-2. For each concept, provide: a clear definition, how it works mechanically, a practical real-world example with specific numbers, and when to use it vs. when not to.
-3. If the user asks about differences between things, create a clear comparison showing how each one differs from the others.
-4. Use **bold** for key terms and headers. Use bullet points (•) for lists. Use numbered sections for multi-part answers.
-5. Be thorough and detailed. A good answer is typically 400-800 words. Never give a surface-level answer when the user is asking a detailed question.
-6. End with a practical takeaway or summary if the answer covers multiple topics.
-
-USER QUESTION:
-${question}
-
-Remember: Address EVERY part of the question above. Do not cherry-pick only one topic to answer. The user expects a complete, thorough response covering everything they asked about.`
-      }], 3500);
+${question}`
+      }], 2500);
 
       const answerText = data.content[0].text;
       setAnswer(answerText);
@@ -13352,7 +13342,7 @@ INSTRUCTIONS:
                     const badgeMap = { rose: 'bg-rose-500/20 text-rose-400', violet: 'bg-violet-500/20 text-violet-400', cyan: 'bg-cyan-500/20 text-cyan-400', amber: 'bg-amber-500/20 text-amber-400', emerald: 'bg-emerald-500/20 text-emerald-400' };
                     return (
                       <div {...wrapProps}>
-                        <div className={`bg-gradient-to-br ${colorMap[todayTip.color]} rounded-xl border p-4 relative overflow-hidden h-full`}>
+                        <div className={`bg-gradient-to-br ${colorMap[todayTip.color] || colorMap.violet} rounded-xl border p-4 relative overflow-hidden h-full`}>
                           <div className="absolute top-2 right-3 text-3xl opacity-10">💡</div>
                           <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
                             <Lightbulb className="w-4 h-4" /> Daily Tip
@@ -14859,21 +14849,23 @@ INSTRUCTIONS:
                                 </div>
                                 
                                 {/* RSI Line */}
-                                <svg 
-                                  className="absolute inset-0 w-full h-full" 
-                                  viewBox={`0 0 ${validRSI.length} 100`}
+                                <svg
+                                  className="absolute inset-0 w-full h-full"
+                                  viewBox={`0 0 ${validRSI.length + 2} 100`}
                                   preserveAspectRatio="none"
                                 >
                                   <polyline
-                                    points={validRSI.map((val, i) => `${i},${100 - val}`).join(' ')}
+                                    points={validRSI.map((val, i) => `${i + 1},${100 - val}`).join(' ')}
                                     fill="none"
                                     stroke="#8b5cf6"
-                                    strokeWidth="2"
+                                    strokeWidth="1.5"
                                     vectorEffect="non-scaling-stroke"
+                                    strokeLinejoin="round"
+                                    strokeLinecap="round"
                                   />
                                   {/* Current value dot */}
                                   <circle
-                                    cx={validRSI.length - 1}
+                                    cx={validRSI.length}
                                     cy={100 - currentRSI}
                                     r="3"
                                     fill="#8b5cf6"
@@ -15907,7 +15899,8 @@ INSTRUCTIONS:
                       }
                       if (analysis.tradeSetup?.immediateEntry?.riskRewardRatio) {
                         const rrParts = analysis.tradeSetup.immediateEntry.riskRewardRatio.split(':');
-                        if (rrParts[1] && parseFloat(rrParts[1]) < 2) {
+                        const rrVal = parseFloat(rrParts[1]);
+                        if (!isNaN(rrVal) && rrVal < 2) {
                           reasons.push(`Risk/reward ratio is suboptimal (${analysis.tradeSetup.immediateEntry.riskRewardRatio})`);
                         }
                       }
@@ -15999,7 +15992,7 @@ INSTRUCTIONS:
                                 ? "The trend is SIDEWAYS/unclear - wait for a directional breakout before entering."
                                 : analysis.final.confidenceScore < 50
                                 ? "Confidence is too low for a high-probability trade. Wait for better setup."
-                                : analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.includes("1:1") || parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]) < 2
+                                : analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.includes("1:1") || (() => { const rr = parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]); return !isNaN(rr) && rr < 2; })()
                                 ? "Risk/reward ratio is unfavorable. Wait for better entry or clearer levels."
                                 : "Mixed signals detected. Technical indicators conflict with price action or trend."}
                             </span>
@@ -16043,7 +16036,7 @@ INSTRUCTIONS:
                       <div className="text-4xl font-bold text-violet-400">
                         {analysis.final.calculatedConfidence || analysis.final.confidenceScore}%
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">Setup Quality: {analysis.final.setupQuality}</div>
+                      <div className="text-xs text-slate-500 mt-1">Setup Quality: {analysis.final.setupQuality || '—'}</div>
                       {analysis.final.directionalBias && (
                         <div
                           className="relative inline-block"
@@ -16093,7 +16086,7 @@ INSTRUCTIONS:
                     <div className="bg-slate-800/50 rounded-xl p-4">
                       <div className="text-xs text-slate-500 mb-1">Timeframe</div>
                       <div className="font-bold text-lg">{analysis.context.timeframe}</div>
-                      <div className="text-xs text-slate-400">{analysis.tradeSetup.timeHorizon}</div>
+                      <div className="text-xs text-slate-400">{analysis.tradeSetup.timeHorizon || '—'}</div>
                     </div>
                     <div className="bg-slate-800/50 rounded-xl p-4">
                       <div className="text-xs text-slate-500 mb-1">
@@ -16113,7 +16106,7 @@ INSTRUCTIONS:
                         {analysis.autoDetectedStyle?.icon || ''} {analysis.tradeSetup.tradeType || 'Swing Trade'}
                       </div>
                       <div className="text-xs text-slate-400">
-                        {analysis.tradeSetup.tradeDirection}
+                        {analysis.tradeSetup.tradeDirection || 'NEUTRAL'}
                       </div>
                     </div>
                     <div className="bg-slate-800/50 rounded-xl p-4">
@@ -16124,10 +16117,10 @@ INSTRUCTIONS:
                     <div className="bg-slate-800/50 rounded-xl p-4">
                       <div className="text-xs text-slate-500 mb-1">Risk:Reward</div>
                       <div className="font-bold text-lg text-violet-400">
-                        {analysis.tradeSetup.immediateEntry?.riskRewardRatio}
+                        {analysis.tradeSetup.immediateEntry?.riskRewardRatio || '—'}
                       </div>
                       <div className="text-xs text-slate-400">
-                        {analysis.tradeSetup.immediateEntry?.winProbability}% Win Rate
+                        {analysis.tradeSetup.immediateEntry?.winProbability ? `${analysis.tradeSetup.immediateEntry.winProbability}% Win Rate` : '—'}
                       </div>
                     </div>
                   </div>
@@ -16341,10 +16334,10 @@ INSTRUCTIONS:
                           <span className="text-slate-300">Confidence above 60%</span>
                         </div>
                         <div className={`flex items-center gap-2 p-2 rounded ${
-                          parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]) >= 2 ? 'bg-emerald-500/10' : 'bg-amber-500/10'
+                          (() => { const rr = parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]); return !isNaN(rr) && rr >= 2; })() ? 'bg-emerald-500/10' : 'bg-amber-500/10'
                         }`}>
-                          <span className={parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]) >= 2 ? 'text-emerald-400' : 'text-amber-400'}>
-                            {parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]) >= 2 ? '✓' : '⚠'}
+                          <span className={(() => { const rr = parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]); return !isNaN(rr) && rr >= 2; })() ? 'text-emerald-400' : 'text-amber-400'}>
+                            {(() => { const rr = parseFloat(analysis.tradeSetup?.immediateEntry?.riskRewardRatio?.split(':')[1]); return !isNaN(rr) && rr >= 2; })() ? '✓' : '⚠'}
                           </span>
                           <span className="text-slate-300">Risk:Reward at least 1:2</span>
                         </div>
@@ -16478,7 +16471,30 @@ INSTRUCTIONS:
                   )}
 
                   {/* Trade Instruction */}
-                  {analysis.final.tradeInstruction && (
+                  {analysis.final.tradeInstruction && (() => {
+                    const ti = analysis.final.tradeInstruction;
+                    const ts = analysis.tradeSetup || {};
+                    const ie = ts.immediateEntry || {};
+                    const entryPrice = parseFloat(ti.action?.match(/[\d.]+/)?.[0] || ie.entryPrice || analysis.context?.currentPrice || 0);
+                    const stopPrice = parseFloat(String(ti.stop || ie.stopLoss || '').replace(/[^0-9.]/g, '')) || null;
+                    const targetPrice = parseFloat(String(ti.target || ie.targetPrice || '').replace(/[^0-9.]/g, '')) || null;
+                    const isBuy = ti.action?.toUpperCase().includes('BUY') || analysis.final.directionalBias === 'LONG';
+                    const riskPerShare = stopPrice && entryPrice ? Math.abs(entryPrice - stopPrice) : null;
+                    const rewardPerShare = targetPrice && entryPrice ? Math.abs(targetPrice - entryPrice) : null;
+
+                    // Determine recommended order types
+                    const orderTooltips = {
+                      'Market': 'Executes immediately at the current market price. Best for highly liquid stocks when you need instant execution.',
+                      'Limit': 'Sets a maximum price (buy) or minimum price (sell). Only fills at your price or better. Use when you want a specific entry price.',
+                      'Stop Loss': 'Triggers a market sell when price falls to your stop price. Protects against large losses. Essential risk management tool.',
+                      'Stop Limit': 'Like a Stop Loss but converts to a Limit order instead of Market. Gives price control but may not fill in fast-moving markets.',
+                      'Trailing Stop Loss ($)': 'Stop price trails the market price by a fixed dollar amount. Locks in profits as price rises while protecting downside.',
+                      'Trailing Stop Loss (%)': 'Stop price trails by a percentage. Better for volatile stocks where a fixed dollar amount might be too tight or too loose.',
+                      'Trailing Stop Limit ($)': 'Combines trailing stop with limit order. Trails by a dollar amount but converts to a limit order (may not fill in gaps).',
+                      'Trailing Stop Limit (%)': 'Combines trailing stop with limit order using a percentage trail. Good for volatile stocks with limit price protection.',
+                    };
+
+                    return (
                     <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-5 mb-6">
                       <h4 className="font-semibold mb-3 text-violet-300 flex items-center gap-2">
                         <Target className="w-5 h-5" />
@@ -16487,31 +16503,90 @@ INSTRUCTIONS:
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <div className="text-xs text-slate-500 mb-1">Action</div>
-                          <div className="font-bold text-lg">{analysis.final.tradeInstruction.action}</div>
+                          <div className="font-bold text-lg">{ti.action || (isBuy ? `BUY at ${entryPrice.toFixed(2)}` : `SELL at ${entryPrice.toFixed(2)}`)}</div>
                         </div>
                         <div>
                           <div className="text-xs text-slate-500 mb-1">Stop Loss</div>
-                          <div className="font-bold text-lg text-red-400">{analysis.final.tradeInstruction.stop}</div>
+                          <div className="font-bold text-lg text-red-400">{stopPrice ? `$${stopPrice.toFixed(2)}` : (ti.stop || 'Use support level')}</div>
                         </div>
                         <div>
                           <div className="text-xs text-slate-500 mb-1">Target</div>
-                          <div className="font-bold text-lg text-green-400">{analysis.final.tradeInstruction.target}</div>
+                          <div className="font-bold text-lg text-green-400">{targetPrice ? `$${targetPrice.toFixed(2)}` : (ti.target || 'Use resistance level')}</div>
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t border-violet-500/20">
-                        <div className="flex items-center justify-between">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
-                            <div className="text-xs text-slate-500 mb-1">Position Size</div>
-                            <div className="font-semibold">{analysis.final.tradeInstruction.risk}</div>
+                            <div className="text-xs text-slate-500 mb-1">Entry Price</div>
+                            <div className="font-semibold">{entryPrice > 0 ? `$${entryPrice.toFixed(2)}` : '--'}</div>
                           </div>
-                          <div className="text-right">
+                          <div>
+                            <div className="text-xs text-slate-500 mb-1">Risk/Share</div>
+                            <div className="font-semibold text-red-400">{riskPerShare ? `$${riskPerShare.toFixed(2)}` : '--'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500 mb-1">Reward/Share</div>
+                            <div className="font-semibold text-emerald-400">{rewardPerShare ? `$${rewardPerShare.toFixed(2)}` : '--'}</div>
+                          </div>
+                          <div>
                             <div className="text-xs text-slate-500 mb-1">Invalidation</div>
-                            <div className="font-semibold text-amber-400">{analysis.final.invalidationPrice}</div>
+                            <div className="font-semibold text-amber-400">{analysis.final.invalidationPrice || (stopPrice ? `close below $${stopPrice.toFixed(2)}` : '--')}</div>
                           </div>
                         </div>
                       </div>
+
+                      {/* Recommended Order Types */}
+                      <div className="mt-4 pt-4 border-t border-violet-500/20">
+                        <div className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Recommended Order Types</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {[
+                            { type: 'Limit', rec: true, desc: isBuy ? `Buy Limit at $${entryPrice > 0 ? entryPrice.toFixed(2) : '--'}` : `Sell Limit at $${entryPrice > 0 ? entryPrice.toFixed(2) : '--'}` },
+                            { type: 'Stop Loss', rec: true, desc: stopPrice ? `Stop at $${stopPrice.toFixed(2)}` : 'Set at support' },
+                            { type: 'Trailing Stop Loss (%)', rec: riskPerShare && entryPrice ? true : false, desc: riskPerShare && entryPrice ? `Trail ${((riskPerShare / entryPrice) * 100).toFixed(1)}%` : 'Based on volatility' },
+                            { type: 'Stop Limit', rec: false, desc: stopPrice ? `Stop $${stopPrice.toFixed(2)}, Limit $${(stopPrice * (isBuy ? 0.995 : 1.005)).toFixed(2)}` : 'For gap protection' },
+                          ].map(order => (
+                            <div key={order.type} className="group relative">
+                              <div className={`p-2.5 rounded-lg text-xs border transition-all ${order.rec ? 'bg-violet-500/15 border-violet-500/30 text-violet-300' : 'bg-slate-800/40 border-slate-700/20 text-slate-400'}`}>
+                                <div className="font-semibold flex items-center gap-1">
+                                  {order.type}
+                                  {order.rec && <span className="text-[8px] bg-violet-500/30 text-violet-300 px-1 rounded">REC</span>}
+                                  <HelpCircle className="w-3 h-3 text-slate-500 ml-auto" />
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">{order.desc}</div>
+                              </div>
+                              <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                                <div className="font-semibold text-violet-400 mb-1">{order.type}</div>
+                                <p>{orderTooltips[order.type]}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {[
+                            { type: 'Market', desc: 'Instant execution' },
+                            { type: 'Trailing Stop Loss ($)', desc: riskPerShare ? `Trail $${riskPerShare.toFixed(2)}` : 'Trail by $ amount' },
+                            { type: 'Trailing Stop Limit ($)', desc: riskPerShare ? `Trail $${riskPerShare.toFixed(2)}, limit` : 'Trail with limit' },
+                            { type: 'Trailing Stop Limit (%)', desc: riskPerShare && entryPrice ? `Trail ${((riskPerShare / entryPrice) * 100).toFixed(1)}%, limit` : 'Trail % with limit' },
+                          ].map(order => (
+                            <div key={order.type} className="group relative">
+                              <div className="p-2.5 rounded-lg text-xs bg-slate-800/40 border border-slate-700/20 text-slate-400 transition-all">
+                                <div className="font-semibold flex items-center gap-1">
+                                  {order.type}
+                                  <HelpCircle className="w-3 h-3 text-slate-500 ml-auto" />
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">{order.desc}</div>
+                              </div>
+                              <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                                <div className="font-semibold text-violet-400 mb-1">{order.type}</div>
+                                <p>{orderTooltips[order.type]}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Position Size Calculator for Analysis */}
                   {analysis.final?.tradeInstruction && (
@@ -17575,176 +17650,277 @@ INSTRUCTIONS:
                     </div>
                   )}
 
-                  {analysisTab === "setups" && (
+                  {analysisTab === "setups" && (() => {
+                    // Derive setup data from multiple sources for resilience
+                    const setup = analysis.tradeSetup || {};
+                    const entry = setup.immediateEntry || {};
+                    const final = analysis.final || {};
+                    const rec = (final.recommendation || '').replace(/_/g, ' ');
+                    const isBuy = rec.includes('BUY');
+                    const isSell = rec.includes('SELL');
+                    const hasDirection = setup.tradeDirection && setup.tradeDirection !== 'NEUTRAL';
+                    const hasEntryData = entry.entry || entry.stop || entry.target1;
+                    const hasAnySetup = hasDirection || hasEntryData || isBuy || isSell;
+
+                    // Derive direction from recommendation if tradeDirection is NEUTRAL
+                    const effectiveDirection = hasDirection ? setup.tradeDirection : isBuy ? 'LONG' : isSell ? 'SHORT' : 'NEUTRAL';
+                    const isLong = effectiveDirection === 'LONG';
+
+                    // Fallback entry price from context
+                    const currentPrice = analysis.context?.currentPrice || entry.entry;
+                    const entryPrice = entry.entry || currentPrice || 'N/A';
+                    const stopPrice = entry.stop || 'N/A';
+                    const target1 = entry.target1 || 'N/A';
+                    const rrRatio = entry.riskRewardRatio || 'N/A';
+
+                    // Parse entry/stop/target for order type calculations
+                    const entryNum = parseFloat(entryPrice) || 0;
+                    const stopNum = parseFloat(stopPrice) || 0;
+                    const riskPerShare = entryNum && stopNum ? Math.abs(entryNum - stopNum) : 0;
+                    const trailingPct = entryNum && riskPerShare ? ((riskPerShare / entryNum) * 100).toFixed(1) : '2.0';
+
+                    // Order type definitions for the setups tab
+                    const setupOrderTypes = [
+                      { name: 'Market Order', rec: true, desc: `Execute immediately at ~$${entryNum ? entryNum.toFixed(2) : '—'}. Guaranteed fill, price may vary slightly.`, tip: 'Executes at the best available current price. Use when speed matters more than exact price.' },
+                      { name: 'Limit Order', rec: true, desc: `Set limit at $${entryNum ? entryNum.toFixed(2) : '—'} to control your entry price. Only fills at your price or better.`, tip: 'Only fills at your specified price or better. Use for precise entries.' },
+                      { name: 'Stop Loss', rec: true, desc: `Place at $${stopNum ? stopNum.toFixed(2) : '—'} to cap your downside risk.`, tip: 'Triggers a market sell when price hits your stop level. Essential for risk management.' },
+                      { name: 'Stop Limit', rec: false, desc: `Stop at $${stopNum ? stopNum.toFixed(2) : '—'} with limit to avoid slippage on exit.`, tip: 'Like a stop loss but converts to a limit order. Avoids slippage but may not fill in fast moves.' },
+                      { name: `Trailing Stop Loss ($)`, rec: false, desc: `Trail by $${riskPerShare ? riskPerShare.toFixed(2) : '—'} — locks in profits as price moves favorably.`, tip: 'A stop loss that moves up with the price by a fixed dollar amount. Great for riding trends.' },
+                      { name: `Trailing Stop Loss (%)`, rec: false, desc: `Trail by ${trailingPct}% — adapts to price level automatically.`, tip: 'A stop loss that trails by a percentage. Adapts better to different price levels than fixed dollar.' },
+                      { name: `Trailing Stop Limit ($)`, rec: false, desc: `Trail $${riskPerShare ? riskPerShare.toFixed(2) : '—'} with limit order protection.`, tip: 'Combines trailing stop with limit order. More control but risks not filling in fast markets.' },
+                      { name: `Trailing Stop Limit (%)`, rec: false, desc: `Trail ${trailingPct}% with limit protection on exit.`, tip: 'Percentage-based trailing stop with limit order. Best of both worlds but may miss fast drops.' },
+                    ];
+
+                    return (
                     <div className="space-y-4 md:space-y-6">
-                      {analysis.tradeSetup.tradeDirection !== "NEUTRAL" ? (
+                      {hasAnySetup ? (
                         <>
+                          {/* Direction Banner */}
+                          <div className={`rounded-xl p-4 flex items-center gap-3 ${isLong ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${isLong ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+                              {isLong ? '📈' : '📉'}
+                            </div>
+                            <div>
+                              <div className={`font-bold text-lg ${isLong ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {effectiveDirection} — {isLong ? 'Buy Setup' : 'Sell/Short Setup'}
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                {setup.confidence ? `${setup.confidence} confidence` : ''}{setup.confidence && setup.timeHorizon ? ' · ' : ''}{setup.timeHorizon || ''}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Entry/Exit Grid */}
                           <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-6">
                             <h4 className="font-semibold mb-4 text-violet-300 flex items-center gap-2">
                               <Zap className="w-5 h-5" />
-                              Immediate Entry Setup
+                              Entry & Exit Levels
                             </h4>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div>
-                                <div className="text-xs text-slate-500 mb-1">Entry</div>
-                                <div className="font-bold text-lg text-violet-400">
-                                  {analysis.tradeSetup.immediateEntry?.entry}
-                                </div>
+                                <div className="text-xs text-slate-500 mb-1">Entry Price</div>
+                                <div className="font-bold text-lg text-violet-400">{entryPrice !== 'N/A' ? `$${parseFloat(entryPrice).toFixed(2)}` : 'Market'}</div>
                               </div>
                               <div>
                                 <div className="text-xs text-slate-500 mb-1">Stop Loss</div>
-                                <div className="font-bold text-lg text-red-400">
-                                  {analysis.tradeSetup.immediateEntry?.stop}
-                                </div>
+                                <div className="font-bold text-lg text-red-400">{stopPrice !== 'N/A' ? `$${parseFloat(stopPrice).toFixed(2)}` : '—'}</div>
+                                {riskPerShare > 0 && <div className="text-[10px] text-red-400/60">Risk: ${riskPerShare.toFixed(2)}/share</div>}
                               </div>
                               <div>
                                 <div className="text-xs text-slate-500 mb-1">Target 1</div>
-                                <div className="font-bold text-lg text-green-400">
-                                  {analysis.tradeSetup.immediateEntry?.target1}
-                                </div>
+                                <div className="font-bold text-lg text-green-400">{target1 !== 'N/A' ? `$${parseFloat(target1).toFixed(2)}` : '—'}</div>
                               </div>
                               <div>
-                                <div className="text-xs text-slate-500 mb-1">R:R Ratio</div>
-                                <div className="font-bold text-lg text-emerald-400">
-                                  {analysis.tradeSetup.immediateEntry?.riskRewardRatio}
-                                </div>
+                                <div className="text-xs text-slate-500 mb-1">Risk:Reward</div>
+                                <div className={`font-bold text-lg ${(() => { const rr = parseFloat(rrRatio.split(':')[1]); return !isNaN(rr) && rr >= 2; })() ? 'text-emerald-400' : 'text-amber-400'}`}>{rrRatio}</div>
                               </div>
                             </div>
-                            <div className="mt-4 pt-4 border-t border-violet-500/20 grid grid-cols-2 gap-4">
-                              <div>
-                                <div className="text-xs text-slate-500 mb-1">Win Probability</div>
-                                <div className="font-semibold text-lg">{analysis.tradeSetup.immediateEntry?.winProbability}%</div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-slate-500 mb-1">Position Size</div>
-                                <div className="font-semibold text-lg">{analysis.tradeSetup.immediateEntry?.positionSize}</div>
-                              </div>
-                            </div>
-                            {analysis.tradeSetup.immediateEntry?.target2 && (
-                              <div className="mt-4 grid grid-cols-2 gap-4">
+                            {/* Extra targets + details */}
+                            <div className="mt-4 pt-4 border-t border-violet-500/20 grid grid-cols-2 md:grid-cols-4 gap-4">
+                              {entry.target2 && (
                                 <div>
                                   <div className="text-xs text-slate-500 mb-1">Target 2</div>
-                                  <div className="font-semibold">{analysis.tradeSetup.immediateEntry.target2}</div>
+                                  <div className="font-semibold text-green-400">${parseFloat(entry.target2).toFixed(2)}</div>
                                 </div>
-                                {analysis.tradeSetup.immediateEntry?.target3 && (
-                                  <div>
-                                    <div className="text-xs text-slate-500 mb-1">Target 3</div>
-                                    <div className="font-semibold">{analysis.tradeSetup.immediateEntry.target3}</div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                              )}
+                              {entry.target3 && (
+                                <div>
+                                  <div className="text-xs text-slate-500 mb-1">Target 3</div>
+                                  <div className="font-semibold text-green-400">${parseFloat(entry.target3).toFixed(2)}</div>
+                                </div>
+                              )}
+                              {entry.winProbability && (
+                                <div>
+                                  <div className="text-xs text-slate-500 mb-1">Win Probability</div>
+                                  <div className="font-semibold">{entry.winProbability}%</div>
+                                </div>
+                              )}
+                              {entry.positionSize && entry.positionSize !== 'null' && (
+                                <div>
+                                  <div className="text-xs text-slate-500 mb-1">Position Size</div>
+                                  <div className="font-semibold">{entry.positionSize}</div>
+                                </div>
+                              )}
+                            </div>
                           </div>
 
-                          {analysis.tradeSetup.pullbackEntry && (
+                          {/* Pullback Entry */}
+                          {setup.pullbackEntry && (
                             <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
                               <h4 className="font-semibold mb-4 text-blue-300 flex items-center gap-2">
                                 <Target className="w-5 h-5" />
-                                Pullback Entry Setup (Better R:R)
+                                Pullback Entry (Better R:R)
                               </h4>
                               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 <div>
                                   <div className="text-xs text-slate-500 mb-1">Entry Zone</div>
-                                  <div className="font-semibold">{analysis.tradeSetup.pullbackEntry.entryZone}</div>
+                                  <div className="font-semibold">{setup.pullbackEntry.entryZone}</div>
                                 </div>
                                 <div>
                                   <div className="text-xs text-slate-500 mb-1">Stop Loss</div>
-                                  <div className="font-semibold text-red-400">{analysis.tradeSetup.pullbackEntry.stop}</div>
+                                  <div className="font-semibold text-red-400">{setup.pullbackEntry.stop}</div>
                                 </div>
                                 <div>
                                   <div className="text-xs text-slate-500 mb-1">R:R Ratio</div>
-                                  <div className="font-semibold text-emerald-400">{analysis.tradeSetup.pullbackEntry.riskRewardRatio}</div>
+                                  <div className="font-semibold text-emerald-400">{setup.pullbackEntry.riskRewardRatio}</div>
                                 </div>
                               </div>
-                              {analysis.tradeSetup.pullbackEntry.triggerCondition && (
+                              {setup.pullbackEntry.triggerCondition && (
                                 <div className="mt-4 pt-4 border-t border-blue-500/20">
                                   <div className="text-xs text-slate-500 mb-1">Trigger Condition</div>
-                                  <div className="text-sm">{analysis.tradeSetup.pullbackEntry.triggerCondition}</div>
+                                  <div className="text-sm">{setup.pullbackEntry.triggerCondition}</div>
                                 </div>
                               )}
                             </div>
                           )}
 
+                          {/* Recommended Order Types for this setup */}
+                          <div className="bg-slate-800/30 border border-slate-700/20 rounded-xl p-6">
+                            <h4 className="font-semibold mb-1 flex items-center gap-2">
+                              <DollarSign className="w-5 h-5 text-violet-400" />
+                              Brokerage Order Types
+                            </h4>
+                            <p className="text-xs text-slate-500 mb-4">How to execute this trade in your brokerage. Hover for details.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {setupOrderTypes.map(ot => (
+                                <div key={ot.name} className="group relative">
+                                  <div className={`p-3 rounded-lg border transition-all ${ot.rec ? 'bg-violet-500/5 border-violet-500/20 hover:border-violet-500/40' : 'bg-slate-800/40 border-slate-700/20 hover:border-slate-600/40'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-semibold text-sm text-white">{ot.name}</span>
+                                      {ot.rec && <span className="text-[9px] font-bold bg-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded">REC</span>}
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 leading-relaxed">{ot.desc}</p>
+                                  </div>
+                                  {/* Tooltip */}
+                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                                    <div className="font-semibold text-violet-300 mb-1">{ot.name}</div>
+                                    <p>{ot.tip}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Invalidation + Trade Info */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {analysis.tradeSetup.invalidation && (
+                            {setup.invalidation && (
                               <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-5">
                                 <h5 className="font-semibold mb-3 text-amber-400">Setup Invalidation</h5>
                                 <div className="text-sm space-y-2">
-                                  {analysis.tradeSetup.invalidation.longInvalidation && (
+                                  {setup.invalidation.longInvalidation && (
                                     <div>
-                                      <span className="text-slate-400">Long:</span>
-                                      <span className="ml-2 font-semibold">{analysis.tradeSetup.invalidation.longInvalidation}</span>
+                                      <span className="text-slate-400">Long invalid below:</span>
+                                      <span className="ml-2 font-semibold">{setup.invalidation.longInvalidation}</span>
                                     </div>
                                   )}
-                                  {analysis.tradeSetup.invalidation.shortInvalidation && (
+                                  {setup.invalidation.shortInvalidation && (
                                     <div>
-                                      <span className="text-slate-400">Short:</span>
-                                      <span className="ml-2 font-semibold">{analysis.tradeSetup.invalidation.shortInvalidation}</span>
+                                      <span className="text-slate-400">Short invalid above:</span>
+                                      <span className="ml-2 font-semibold">{setup.invalidation.shortInvalidation}</span>
                                     </div>
                                   )}
                                 </div>
                               </div>
                             )}
-
                             <div className="bg-slate-800/30 rounded-lg p-5">
                               <h5 className="font-semibold mb-3">Trade Details</h5>
                               <div className="text-sm space-y-2">
                                 <div className="flex justify-between">
-                                  <span className="text-slate-400">Time Horizon:</span>
-                                  <span className="font-semibold">{analysis.tradeSetup.timeHorizon}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-400">Confidence:</span>
-                                  <span className={`font-semibold ${
-                                    analysis.tradeSetup.confidence === "HIGH" ? "text-green-400" :
-                                    analysis.tradeSetup.confidence === "MEDIUM" ? "text-yellow-400" :
-                                    "text-red-400"
-                                  }`}>
-                                    {analysis.tradeSetup.confidence}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
                                   <span className="text-slate-400">Direction:</span>
-                                  <span
-                                    className="relative"
-                                    onMouseEnter={() => setActiveTooltip('tradedir')}
-                                    onMouseLeave={() => setActiveTooltip(null)}
-                                  >
-                                    <span
-                                      className={`font-semibold cursor-help ${
-                                        analysis.tradeSetup.tradeDirection === "LONG" ? "text-green-400" : "text-red-400"
-                                      }`}
-                                    >
-                                      {analysis.tradeSetup.tradeDirection} <span className="text-xs opacity-60">ⓘ</span>
-                                    </span>
-                                    {/* State-based Tooltip */}
-                                    {activeTooltip === 'tradedir' && (
-                                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl pointer-events-none" style={{ zIndex: 9999 }}>
-                                        <div className={`font-semibold mb-1 ${analysis.tradeSetup.tradeDirection === 'LONG' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                          {analysis.tradeSetup.tradeDirection === 'LONG' ? '📈 LONG Position' : '📉 SHORT Position'}
-                                        </div>
-                                        <p>{analysis.tradeSetup.tradeDirection === 'LONG'
-                                          ? "Buy position. You profit when the price goes UP."
-                                          : "Sell position. You profit when the price goes DOWN."}</p>
-                                      </div>
-                                    )}
-                                  </span>
+                                  <span className={`font-semibold ${isLong ? 'text-green-400' : 'text-red-400'}`}>{effectiveDirection}</span>
+                                </div>
+                                {setup.timeHorizon && (
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-400">Time Horizon:</span>
+                                    <span className="font-semibold">{setup.timeHorizon}</span>
+                                  </div>
+                                )}
+                                {setup.confidence && (
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-400">Confidence:</span>
+                                    <span className={`font-semibold ${setup.confidence === 'HIGH' ? 'text-green-400' : setup.confidence === 'MEDIUM' ? 'text-yellow-400' : 'text-red-400'}`}>{setup.confidence}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">Setup Grade:</span>
+                                  <span className="font-semibold">{final.setupQuality || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">Overall Score:</span>
+                                  <span className="font-semibold">{final.confidenceScore ? `${Math.round(final.confidenceScore)}%` : 'N/A'}</span>
                                 </div>
                               </div>
                             </div>
                           </div>
+
+                          {/* Key Factors */}
+                          {(final.bullishFactors?.length > 0 || final.bearishFactors?.length > 0) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {final.bullishFactors?.length > 0 && (
+                                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4">
+                                  <h5 className="font-semibold text-emerald-400 mb-2 text-sm">Bullish Factors</h5>
+                                  <div className="space-y-1">
+                                    {final.bullishFactors.slice(0, 5).map((f, i) => (
+                                      <div key={i} className="text-xs text-slate-300 flex items-start gap-2">
+                                        <span className="text-emerald-400 mt-0.5">+</span> {typeof f === 'string' ? f : f.factor || f.description || JSON.stringify(f)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {final.bearishFactors?.length > 0 && (
+                                <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-4">
+                                  <h5 className="font-semibold text-red-400 mb-2 text-sm">Bearish Factors</h5>
+                                  <div className="space-y-1">
+                                    {final.bearishFactors.slice(0, 5).map((f, i) => (
+                                      <div key={i} className="text-xs text-slate-300 flex items-start gap-2">
+                                        <span className="text-red-400 mt-0.5">−</span> {typeof f === 'string' ? f : f.factor || f.description || JSON.stringify(f)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="text-center py-12">
                           <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
                           <h3 className="text-xl font-semibold mb-2">No Clear Setup</h3>
-                          <p className="text-slate-400 max-w-md mx-auto">
-                            The analysis did not identify a high-probability trade setup. Consider waiting for clearer signals or checking a different timeframe.
+                          <p className="text-slate-400 max-w-md mx-auto mb-4">
+                            The analysis shows a NEUTRAL stance — no high-probability trade setup was identified. Consider waiting for clearer signals or checking a different timeframe.
                           </p>
+                          {final.summary && (
+                            <div className="bg-slate-800/30 rounded-lg p-4 max-w-lg mx-auto text-left">
+                              <div className="text-xs text-slate-500 mb-1">Analysis Summary</div>
+                              <p className="text-sm text-slate-300">{final.summary}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {analysisTab === "predictions" && analysis.recommendations && (
                     <div className="space-y-4 md:space-y-6">
@@ -25010,6 +25186,7 @@ INSTRUCTIONS:
               <div className="flex gap-2 mb-8 border-b border-slate-800/50 pb-3">
                 {[
                   { key: 'features', label: 'All Features', icon: '⚡' },
+                  { key: 'vocab', label: 'Vocabulary', icon: '📖' },
                   { key: 'terms', label: 'Terms of Service', icon: '📜' },
                   { key: 'privacy', label: 'Privacy Policy', icon: '🔒' }
                 ].map(tab => (
@@ -25027,6 +25204,139 @@ INSTRUCTIONS:
                   </button>
                 ))}
               </div>
+
+              {/* VOCABULARY / GLOSSARY */}
+              {infoSubTab === 'vocab' && (() => {
+                const vocabCategories = [
+                  { title: 'Order Types', color: 'violet', terms: [
+                    { term: 'Market Order', def: 'An order to buy or sell a stock immediately at the best available current price. Guarantees execution but not price. Best for highly liquid stocks when you need instant fills.' },
+                    { term: 'Limit Order', def: 'An order to buy or sell at a specific price or better. A buy limit order executes at the limit price or lower; a sell limit order executes at the limit price or higher. May not fill if the price never reaches your limit.' },
+                    { term: 'Stop Loss Order', def: 'An order that becomes a market order once the stock hits a specified price (the stop price). Used to limit losses on a position. For example, if you buy at $100 and set a stop at $95, the stock auto-sells if it drops to $95.' },
+                    { term: 'Stop Limit Order', def: 'Combines a stop order with a limit order. When the stop price is reached, it places a limit order instead of a market order. Offers more price control but may not fill if the stock gaps through your limit price.' },
+                    { term: 'Trailing Stop Loss ($)', def: 'A stop order that follows the stock price upward by a fixed dollar amount. If you set a $5 trailing stop and the stock rises from $100 to $120, the stop moves from $95 to $115. Locks in profits while protecting against downside.' },
+                    { term: 'Trailing Stop Loss (%)', def: 'Same as dollar trailing stop but uses a percentage. A 5% trail on a $100 stock sets the stop at $95. If it rises to $120, stop is at $114. Better for volatile stocks where a fixed dollar amount may be too tight.' },
+                    { term: 'Trailing Stop Limit ($)', def: 'A trailing stop that converts to a limit order instead of a market order when triggered. Gives price control on the exit, but in a fast-moving market, the limit order may not fill, leaving you still in the position.' },
+                    { term: 'Trailing Stop Limit (%)', def: 'Same as dollar trailing stop limit but uses a percentage-based trail distance. Combines the benefits of automatic trailing with limit order protection against poor fills.' },
+                    { term: 'Good Till Canceled (GTC)', def: 'An order that remains active until it\'s either executed or you manually cancel it. Most brokers auto-cancel GTC orders after 60-90 days.' },
+                    { term: 'Day Order', def: 'An order that expires at the end of the trading day if not filled. This is the default order duration at most brokers.' },
+                    { term: 'Fill or Kill (FOK)', def: 'An order that must be executed immediately in its entirety or canceled completely. No partial fills are allowed. Used for large orders where partial execution is undesirable.' },
+                  ]},
+                  { title: 'Position & Direction', color: 'emerald', terms: [
+                    { term: 'Long Position', def: 'Buying a stock with the expectation that its price will rise. You profit when the price goes up. "Going long" simply means buying.' },
+                    { term: 'Short Position (Shorting)', def: 'Selling borrowed shares with the expectation that the price will fall. You profit when the price goes down, then buy back at a lower price. Carries unlimited risk since a stock can theoretically rise forever.' },
+                    { term: 'Short Squeeze', def: 'When a heavily shorted stock rises rapidly, forcing short sellers to buy back shares to cover their positions, which drives the price even higher in a feedback loop.' },
+                    { term: 'Covering', def: 'Buying back shares to close a short position. "Short covering" can cause rapid price increases if many shorts close at once.' },
+                    { term: 'Position Sizing', def: 'Determining how many shares to buy based on your risk tolerance. Formula: (Account Risk $) ÷ (Risk Per Share) = Number of Shares. Example: $200 risk ÷ $5 risk per share = 40 shares.' },
+                    { term: 'Margin', def: 'Borrowed money from your broker used to buy securities. Margin trading amplifies both gains and losses. A "margin call" occurs when your account equity drops below the minimum requirement.' },
+                    { term: 'Leverage', def: 'Using borrowed money or financial instruments to amplify potential returns. 2:1 leverage means you control $2 of stock for every $1 of your own money.' },
+                  ]},
+                  { title: 'Technical Analysis', color: 'cyan', terms: [
+                    { term: 'Support Level', def: 'A price level where buying pressure is strong enough to prevent the price from falling further. Think of it as a "floor" — the more times price bounces off a support level, the stronger it is.' },
+                    { term: 'Resistance Level', def: 'A price level where selling pressure is strong enough to prevent the price from rising further. Think of it as a "ceiling." When resistance is broken, it often becomes new support.' },
+                    { term: 'RSI (Relative Strength Index)', def: 'A momentum oscillator (0-100) that measures the speed and magnitude of recent price changes. Above 70 = overbought (may pull back), below 30 = oversold (may bounce). Uses a 14-period default.' },
+                    { term: 'MACD', def: 'Moving Average Convergence Divergence. Shows the relationship between two moving averages. MACD Line (12 EMA - 26 EMA) crossing above the Signal Line (9 EMA of MACD) is bullish; crossing below is bearish.' },
+                    { term: 'Moving Average (MA)', def: 'The average price over a set number of periods. SMA (Simple) weights all periods equally; EMA (Exponential) weights recent prices more heavily. Common periods: 20, 50, 200 days.' },
+                    { term: 'Bollinger Bands', def: 'Three lines: a 20-period SMA in the middle, with upper and lower bands 2 standard deviations away. When price touches the upper band, it may be overbought; lower band, oversold. Band squeeze indicates low volatility before a big move.' },
+                    { term: 'VWAP', def: 'Volume Weighted Average Price. The average price weighted by volume throughout the day. Institutional traders use VWAP as a benchmark — buying below VWAP is considered "good" execution.' },
+                    { term: 'Candlestick', def: 'A price chart element showing open, high, low, and close for a time period. Green/white candle = close above open (bullish). Red/black = close below open (bearish). Wicks show price extremes.' },
+                    { term: 'Doji', def: 'A candlestick where open and close are nearly equal, creating a cross shape. Signals indecision in the market. Often precedes a reversal, especially at support/resistance levels.' },
+                    { term: 'Head and Shoulders', def: 'A bearish reversal pattern with three peaks: left shoulder, head (highest), right shoulder. The "neckline" connects the lows. A break below the neckline confirms the reversal. Target = head-to-neckline distance.' },
+                    { term: 'Double Top / Double Bottom', def: 'Reversal patterns where price tests a level twice and fails. Double top (bearish): two highs at similar prices then drops. Double bottom (bullish): two lows at similar prices then rises.' },
+                    { term: 'Divergence', def: 'When price moves one direction but an indicator (like RSI) moves the opposite. Bullish divergence: price makes lower lows but RSI makes higher lows. Often signals an upcoming reversal.' },
+                    { term: 'Breakout', def: 'When price moves above resistance or below support with increased volume. Breakouts signal the start of a new trend. Confirmed by volume — a breakout on low volume is suspect.' },
+                    { term: 'Pullback', def: 'A temporary price decline within an uptrend, or a temporary rally within a downtrend. Pullbacks to support/moving averages are often viewed as buying opportunities in a bullish trend.' },
+                    { term: 'Gap', def: 'A space on a chart where no trading occurred — price jumps from one level to another. Gap up = bullish, gap down = bearish. "Gap fills" happen when price returns to fill the empty space.' },
+                  ]},
+                  { title: 'Risk Management', color: 'rose', terms: [
+                    { term: 'Risk/Reward Ratio (R:R)', def: 'The ratio of potential loss to potential gain. If risking $5 to make $15, R:R is 1:3. Generally, only take trades with at least 1:2 R:R. Even with a 40% win rate, 1:3 R:R is profitable.' },
+                    { term: 'Stop Loss', def: 'A predetermined price at which you exit a losing trade to limit losses. Should be set BEFORE entering a trade. Common placement: below recent swing low (longs) or above recent swing high (shorts).' },
+                    { term: 'Take Profit', def: 'A predetermined price at which you exit a winning trade to lock in gains. Can be based on resistance levels, Fibonacci extensions, or a fixed R:R multiple of your risk.' },
+                    { term: 'Drawdown', def: 'The peak-to-trough decline in your account value. Max drawdown is the largest percentage drop from a peak. Professional traders try to keep max drawdown under 20%.' },
+                    { term: 'Risk Per Trade', def: 'The maximum percentage of your account you\'re willing to lose on one trade. The "1-2% rule" means never risking more than 1-2% of total account value on a single trade.' },
+                    { term: 'Win Rate', def: 'The percentage of trades that are profitable. A 60% win rate means 6 out of 10 trades are winners. Win rate alone doesn\'t determine profitability — R:R ratio matters equally.' },
+                    { term: 'Profit Factor', def: 'Gross profit divided by gross loss. A profit factor above 1.0 means your strategy is profitable. Above 2.0 is considered very good. Example: $10,000 in gains ÷ $5,000 in losses = 2.0 profit factor.' },
+                    { term: 'Volatility', def: 'The degree of price variation over time. High volatility = large price swings (more risk but more opportunity). Measured by ATR (Average True Range) or standard deviation. VIX measures market-wide volatility.' },
+                  ]},
+                  { title: 'Market Fundamentals', color: 'amber', terms: [
+                    { term: 'Bull Market', def: 'A market condition where prices are rising or expected to rise, typically defined as a 20%+ increase from recent lows. Characterized by optimism, investor confidence, and economic growth.' },
+                    { term: 'Bear Market', def: 'A market condition where prices are falling or expected to fall, typically defined as a 20%+ decline from recent highs. Characterized by pessimism and economic contraction.' },
+                    { term: 'Market Cap', def: 'Total value of a company\'s outstanding shares. Calculated as share price × shares outstanding. Large cap: $10B+, Mid cap: $2-10B, Small cap: $300M-2B, Micro cap: under $300M.' },
+                    { term: 'P/E Ratio', def: 'Price-to-Earnings ratio. Stock price divided by earnings per share. Shows how much investors pay per dollar of earnings. High P/E may mean overvalued or high growth expected. Average S&P 500 P/E is ~20-25.' },
+                    { term: 'EPS (Earnings Per Share)', def: 'Company\'s net profit divided by shares outstanding. Higher EPS = more profitable. EPS growth over time is a key measure of company health. "EPS beat" means actual EPS exceeded analyst estimates.' },
+                    { term: 'Volume', def: 'The number of shares traded in a given period. High volume confirms price moves — a breakout on high volume is more reliable than one on low volume. Average daily volume helps gauge liquidity.' },
+                    { term: 'Liquidity', def: 'How easily a stock can be bought or sold without significantly affecting its price. High volume stocks are more liquid. Low liquidity = wider spreads and harder exits during volatile periods.' },
+                    { term: 'Bid-Ask Spread', def: 'The difference between the highest price a buyer will pay (bid) and the lowest price a seller will accept (ask). Tight spread = liquid stock. Wide spread = illiquid, costs you more to enter/exit.' },
+                    { term: 'Dividend', def: 'A portion of company profits paid to shareholders, usually quarterly. Dividend yield = annual dividend ÷ stock price. Companies with consistent dividend growth are often more stable long-term investments.' },
+                    { term: 'Float', def: 'The number of shares available for public trading (total shares minus restricted/insider shares). Low float stocks are more volatile because fewer shares are available — small volume can cause big price moves.' },
+                    { term: 'Catalyst', def: 'An event that causes a significant price move. Examples: earnings reports, FDA approvals, mergers, product launches, analyst upgrades. Catalysts can be planned (known dates) or unexpected.' },
+                    { term: 'Pre-Market / After-Hours', def: 'Trading sessions outside regular market hours (9:30 AM - 4:00 PM ET). Pre-market: 4:00-9:30 AM. After-hours: 4:00-8:00 PM. Lower liquidity and wider spreads. Often reacts to earnings and news.' },
+                  ]},
+                  { title: 'Trading Psychology', color: 'purple', terms: [
+                    { term: 'FOMO (Fear of Missing Out)', def: 'The anxiety that you\'re missing a profitable trade, causing impulsive entries without proper analysis. One of the most common reasons retail traders lose money. Antidote: stick to your trading plan.' },
+                    { term: 'Revenge Trading', def: 'Taking impulsive trades to "win back" losses from a previous bad trade. Usually leads to larger losses and emotional decision-making. Solution: set a daily loss limit and walk away when hit.' },
+                    { term: 'Confirmation Bias', def: 'Seeking only information that supports your existing view while ignoring contradictory evidence. Leads to holding losing positions too long or ignoring sell signals.' },
+                    { term: 'Paper Hands / Diamond Hands', def: 'Paper hands: selling too early out of fear. Diamond hands: holding through volatility with conviction. Neither extreme is ideal — having a plan with predetermined exits is best.' },
+                    { term: 'Averaging Down', def: 'Buying more shares of a losing position to lower your average cost. Can be a valid strategy with a plan, but dangerous without one — it\'s how small losses become account-ending disasters.' },
+                    { term: 'Overtrading', def: 'Taking too many trades, often driven by boredom, FOMO, or the need for action. Quality over quantity — fewer, well-planned trades typically outperform high-frequency impulsive trading.' },
+                  ]},
+                ];
+
+                const filteredCategories = vocabSearch.length > 1
+                  ? vocabCategories.map(cat => ({
+                      ...cat,
+                      terms: cat.terms.filter(t => t.term.toLowerCase().includes(vocabSearch.toLowerCase()) || t.def.toLowerCase().includes(vocabSearch.toLowerCase()))
+                    })).filter(cat => cat.terms.length > 0)
+                  : vocabCategories;
+                const totalTerms = vocabCategories.reduce((sum, cat) => sum + cat.terms.length, 0);
+
+                return (
+                  <div className="space-y-6 animate-fadeIn">
+                    <div className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-xl p-6">
+                      <h2 className="text-xl font-bold mb-2 flex items-center gap-3">
+                        <span className="text-2xl">📖</span> Trading Vocabulary
+                      </h2>
+                      <p className="text-slate-400 text-sm mb-4">{totalTerms} essential trading terms across {vocabCategories.length} categories — from order types to psychology.</p>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          type="text"
+                          value={vocabSearch}
+                          onChange={(e) => setVocabSearch(e.target.value)}
+                          placeholder="Search terms..."
+                          className="w-full bg-slate-800/50 border border-slate-700/30 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder:text-slate-500"
+                        />
+                      </div>
+                    </div>
+
+                    {filteredCategories.map(cat => {
+                      const colorMap = { violet: 'border-violet-500/30 text-violet-400', emerald: 'border-emerald-500/30 text-emerald-400', cyan: 'border-cyan-500/30 text-cyan-400', rose: 'border-rose-500/30 text-rose-400', amber: 'border-amber-500/30 text-amber-400', purple: 'border-purple-500/30 text-purple-400' };
+                      const bgMap = { violet: 'bg-violet-500/10', emerald: 'bg-emerald-500/10', cyan: 'bg-cyan-500/10', rose: 'bg-rose-500/10', amber: 'bg-amber-500/10', purple: 'bg-purple-500/10' };
+                      return (
+                        <div key={cat.title}>
+                          <h3 className={`text-sm font-bold mb-3 flex items-center gap-2 ${colorMap[cat.color]?.split(' ')[1] || 'text-white'}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${bgMap[cat.color]?.replace('/10', '/60') || 'bg-white'}`} style={{ backgroundColor: cat.color === 'violet' ? '#8b5cf6' : cat.color === 'emerald' ? '#34d399' : cat.color === 'cyan' ? '#22d3ee' : cat.color === 'rose' ? '#fb7185' : cat.color === 'amber' ? '#fbbf24' : '#a78bfa' }} />
+                            {cat.title} <span className="text-[10px] text-slate-500 font-normal">({cat.terms.length} terms)</span>
+                          </h3>
+                          <div className="space-y-2">
+                            {cat.terms.map(t => (
+                              <div key={t.term} className={`${bgMap[cat.color]} border ${colorMap[cat.color]?.split(' ')[0] || 'border-slate-700/20'} rounded-lg p-4`}>
+                                <div className="font-semibold text-white text-sm mb-1">{t.term}</div>
+                                <p className="text-xs text-slate-300 leading-relaxed">{t.def}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {filteredCategories.length === 0 && (
+                      <div className="text-center py-8 text-slate-500">
+                        <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No terms found for "{vocabSearch}"</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* FEATURES CONTENT — DETAILED VERSION */}
               {infoSubTab === 'features' && (

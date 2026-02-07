@@ -2,7 +2,7 @@
 // Faster endpoint for text-only questions without image processing
 
 export const config = {
-  maxDuration: 30,
+  maxDuration: 60,
 };
 
 // Allowed origins
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
     }
 
     // Cap tokens between reasonable bounds
-    const tokenLimit = Math.min(Math.max(maxTokens, 200), 2000);
+    const tokenLimit = Math.min(Math.max(maxTokens, 200), 3000);
 
     const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
           },
         ],
       }),
-    }, 25000);
+    }, 55000);
 
     if (!response.ok) {
       const errorText = await response.text();
