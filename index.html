@@ -2,8 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
     <title>MODUS - AI Trading Dashboard</title>
     <meta name="description" content="Professional AI-powered trading analysis dashboard with chart pattern recognition and SMS alerts" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,14 +14,93 @@
       * {
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
       }
-      body {
+      html, body, #root {
         margin: 0;
         padding: 0;
         background: #0f172a;
+        min-height: 100vh;
+      }
+      /* Loading splash screen */
+      #splash {
+        position: fixed;
+        inset: 0;
+        background: #0f172a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+      }
+      #splash.fade-out {
+        opacity: 0;
+        visibility: hidden;
+      }
+      #splash .logo-ring {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+        animation: pulse-glow 2s ease-in-out infinite;
+      }
+      #splash .logo-ring svg {
+        width: 28px;
+        height: 28px;
+      }
+      #splash .brand {
+        font-size: 20px;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: 3px;
+        margin-bottom: 4px;
+      }
+      #splash .tagline {
+        font-size: 11px;
+        color: #64748b;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      #splash .loader {
+        width: 120px;
+        height: 2px;
+        background: #1e293b;
+        border-radius: 2px;
+        margin-top: 24px;
+        overflow: hidden;
+      }
+      #splash .loader-bar {
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(90deg, #7c3aed, #a78bfa);
+        border-radius: 2px;
+        animation: slide 1.2s ease-in-out infinite;
+      }
+      @keyframes slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(350%); }
+      }
+      @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.3); }
+        50% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.6); }
       }
     </style>
   </head>
   <body>
+    <!-- Loading splash shown instantly, hidden when React mounts -->
+    <div id="splash">
+      <div class="logo-ring">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      </div>
+      <div class="brand">MODUS</div>
+      <div class="tagline">Trading Platform</div>
+      <div class="loader"><div class="loader-bar"></div></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

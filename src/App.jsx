@@ -485,6 +485,12 @@ function App() {
       `;
       document.head.appendChild(styleSheet);
     }
+    // Dismiss splash screen once React has mounted
+    const splash = document.getElementById('splash');
+    if (splash) {
+      splash.classList.add('fade-out');
+      setTimeout(() => splash.remove(), 500);
+    }
   }, []);
 
   // Reusable Skeleton Loader Component
@@ -14851,7 +14857,7 @@ INSTRUCTIONS:
                                 {/* RSI Line */}
                                 <svg
                                   className="absolute inset-0 w-full h-full"
-                                  viewBox={`0 0 ${validRSI.length + 2} 100`}
+                                  viewBox={`0 0 ${validRSI.length + 4} 100`}
                                   preserveAspectRatio="none"
                                 >
                                   <polyline
@@ -14863,15 +14869,16 @@ INSTRUCTIONS:
                                     strokeLinejoin="round"
                                     strokeLinecap="round"
                                   />
-                                  {/* Current value dot */}
-                                  <circle
-                                    cx={validRSI.length}
-                                    cy={100 - currentRSI}
-                                    r="3"
-                                    fill="#8b5cf6"
-                                    vectorEffect="non-scaling-stroke"
-                                  />
                                 </svg>
+                                {/* Current value dot - CSS positioned to avoid SVG distortion */}
+                                <div
+                                  className="absolute w-2 h-2 bg-violet-500 rounded-full shadow-lg shadow-violet-500/50"
+                                  style={{
+                                    right: `${(3 / (validRSI.length + 4)) * 100}%`,
+                                    top: `${100 - currentRSI}%`,
+                                    transform: 'translate(50%, -50%)',
+                                  }}
+                                />
                               </div>
                             </div>
                           );
@@ -16535,6 +16542,29 @@ INSTRUCTIONS:
                         </div>
                       </div>
 
+                      {/* Entry Conditions */}
+                      {(analysis.recommendations?.scenarioAnalysis?.bullishScenario?.requiredConditions?.length > 0 ||
+                        analysis.recommendations?.scenarioAnalysis?.bearishScenario?.requiredConditions?.length > 0 ||
+                        setup.pullbackEntry?.triggerCondition) && (
+                        <div className="mt-4 pt-4 border-t border-violet-500/20">
+                          <div className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Entry Conditions</div>
+                          <div className="space-y-1.5">
+                            {setup.pullbackEntry?.triggerCondition && (
+                              <div className="flex items-start gap-2 text-xs">
+                                <span className="text-violet-400 mt-0.5">▸</span>
+                                <span className="text-slate-300">{setup.pullbackEntry.triggerCondition}</span>
+                              </div>
+                            )}
+                            {(isBuy ? analysis.recommendations?.scenarioAnalysis?.bullishScenario?.requiredConditions : analysis.recommendations?.scenarioAnalysis?.bearishScenario?.requiredConditions)?.slice(0, 4).map((cond, i) => (
+                              <div key={i} className="flex items-start gap-2 text-xs">
+                                <span className="text-violet-400 mt-0.5">▸</span>
+                                <span className="text-slate-300">{typeof cond === 'string' ? cond : cond?.condition || JSON.stringify(cond)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Recommended Order Types */}
                       <div className="mt-4 pt-4 border-t border-violet-500/20">
                         <div className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Recommended Order Types</div>
@@ -16579,6 +16609,44 @@ INSTRUCTIONS:
                               <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
                                 <div className="font-semibold text-violet-400 mb-1">{order.type}</div>
                                 <p>{orderTooltips[order.type]}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Time in Force */}
+                      <div className="mt-4 pt-4 border-t border-violet-500/20">
+                        <div className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider flex items-center gap-1">
+                          Time in Force
+                          <span className="group relative inline-flex">
+                            <HelpCircle className="w-3 h-3 text-slate-500 cursor-help" />
+                            <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-xs text-slate-300 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none font-normal normal-case tracking-normal" style={{ zIndex: 9999 }}>
+                              <span className="font-semibold text-violet-400 block mb-1">Time in Force (TIF)</span>
+                              Tells your broker how long an order should remain active before it's automatically canceled. Choose based on your trading urgency and strategy.
+                            </span>
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                          {[
+                            { name: 'Day Order', rec: true, short: 'Cancels at market close', tip: 'Your order is only active for the current trading day. If not filled by 4:00 PM ET, it is automatically canceled. This is the default at most brokers and works best for active day traders.' },
+                            { name: 'Good \'til Canceled', rec: true, short: 'Active up to 180 days', tip: 'Your order stays active until it executes or you cancel it (most brokers auto-cancel after 60-180 days). Best for swing traders who want to set entries/exits at specific prices and wait.' },
+                            { name: 'Fill or Kill', rec: false, short: 'All or nothing, instant', tip: 'The entire order must be filled immediately and completely, or it is canceled entirely. No partial fills allowed. Used for large orders where incomplete execution would be problematic.' },
+                            { name: 'Immediate or Cancel', rec: false, short: 'Fill what you can, cancel rest', tip: 'Fills as many shares as possible immediately, then cancels any unfilled portion. Unlike Fill or Kill, partial fills ARE allowed. Good when you want quick execution but can accept fewer shares.' },
+                            { name: 'On the Open', rec: false, short: 'Fills at opening price', tip: 'Your order executes only at the market opening price. Must be placed between 4:15 PM and 9:28 AM ET (pre-market). Useful for reacting to overnight news at the first available price.' },
+                          ].map(tif => (
+                            <div key={tif.name} className="group relative">
+                              <div className={`p-2.5 rounded-lg text-xs border transition-all ${tif.rec ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' : 'bg-slate-800/40 border-slate-700/20 text-slate-400'}`}>
+                                <div className="font-semibold flex items-center gap-1">
+                                  {tif.name}
+                                  {tif.rec && <span className="text-[8px] bg-cyan-500/30 text-cyan-300 px-1 rounded">REC</span>}
+                                  <HelpCircle className="w-3 h-3 text-slate-500 ml-auto" />
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">{tif.short}</div>
+                              </div>
+                              <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                                <div className="font-semibold text-cyan-400 mb-1">{tif.name}</div>
+                                <p>{tif.tip}</p>
                               </div>
                             </div>
                           ))}
@@ -17821,6 +17889,45 @@ INSTRUCTIONS:
                             </div>
                           </div>
 
+                          {/* Time in Force */}
+                          <div className="bg-slate-800/30 border border-slate-700/20 rounded-xl p-6">
+                            <h4 className="font-semibold mb-1 flex items-center gap-2">
+                              <Clock className="w-5 h-5 text-cyan-400" />
+                              Time in Force
+                              <span className="group relative inline-flex">
+                                <HelpCircle className="w-3.5 h-3.5 text-slate-500 cursor-help" />
+                                <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-xs text-slate-300 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none" style={{ zIndex: 9999 }}>
+                                  <span className="font-semibold text-cyan-400 block mb-1">Time in Force (TIF)</span>
+                                  Tells your broker how long an order should remain active before it's automatically canceled. Choose based on your trading urgency and strategy.
+                                </span>
+                              </span>
+                            </h4>
+                            <p className="text-xs text-slate-500 mb-4">How long your order stays active. Hover for details.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {[
+                                { name: 'Day Order', rec: true, desc: 'Cancels at market close if not executed. Default at most brokers.', tip: 'Your order is only active for the current trading day. If not filled by 4:00 PM ET, it is automatically canceled. This is the default at most brokers and best for active day traders.' },
+                                { name: 'Good \'til Canceled (GTC)', rec: true, desc: 'Stays active up to 180 days until filled or manually canceled.', tip: 'Your order stays active until it executes or you cancel it (most brokers auto-cancel after 60-180 days). Best for swing traders setting entries/exits at specific price levels.' },
+                                { name: 'Fill or Kill (FOK)', rec: false, desc: 'Must fill completely and immediately, or cancels entirely.', tip: 'The entire order must be filled immediately in its entirety, or it is canceled completely. No partial fills allowed. Used for large orders where incomplete execution would be a problem.' },
+                                { name: 'Immediate or Cancel (IOC)', rec: false, desc: 'Fills as many shares as possible, cancels the remainder.', tip: 'Fills as many shares as it can immediately, then cancels any unfilled portion. Unlike FOK, partial fills ARE allowed. Good when you want quick execution but can accept fewer shares than requested.' },
+                                { name: 'On the Open (OPG)', rec: false, desc: 'Fills only at the opening price. Submit 4:15 PM - 9:28 AM ET.', tip: 'Your order executes only at the market opening price. Must be placed between 4:15 PM and 9:28 AM ET. Useful for reacting to overnight news with execution at the first available price.' },
+                              ].map(tif => (
+                                <div key={tif.name} className="group relative">
+                                  <div className={`p-3 rounded-lg border transition-all ${tif.rec ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/40' : 'bg-slate-800/40 border-slate-700/20 hover:border-slate-600/40'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-semibold text-sm text-white">{tif.name}</span>
+                                      {tif.rec && <span className="text-[9px] font-bold bg-cyan-500/30 text-cyan-300 px-1.5 py-0.5 rounded">REC</span>}
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 leading-relaxed">{tif.desc}</p>
+                                  </div>
+                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-slate-900 border border-slate-500 rounded-lg p-3 text-xs text-slate-200 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none" style={{ zIndex: 9999 }}>
+                                    <div className="font-semibold text-cyan-300 mb-1">{tif.name}</div>
+                                    <p>{tif.tip}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
                           {/* Invalidation + Trade Info */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {setup.invalidation && (
@@ -18486,7 +18593,7 @@ INSTRUCTIONS:
                             {chartQaHistory.slice().reverse().map((item, i) => (
                               <div key={i} className="bg-slate-800/30 rounded-xl p-4 hover:bg-slate-800/50 transition-colors">
                                 <p className="font-medium text-slate-200 mb-2">{item.q}</p>
-                                <p className="text-xs text-slate-400 line-clamp-3">{item.a.slice(0, 200)}...</p>
+                                <p className="text-xs text-slate-400 line-clamp-3">{(item.a || '').replace(/\*\*/g, '').replace(/#{1,3}\s+/g, '').replace(/[•●]\s*/g, '').slice(0, 200)}...</p>
                               </div>
                             ))}
                           </div>
@@ -20482,7 +20589,7 @@ INSTRUCTIONS:
                     {qaHistory.slice().reverse().map((item, i) => (
                       <div key={i} className="bg-slate-800/30 rounded-xl p-4 hover:bg-slate-800/50 transition-colors">
                         <p className="font-medium text-slate-200 mb-2">{item.q}</p>
-                        <p className="text-xs text-slate-400 line-clamp-3">{item.a.slice(0, 200)}...</p>
+                        <p className="text-xs text-slate-400 line-clamp-3">{(item.a || '').replace(/\*\*/g, '').replace(/#{1,3}\s+/g, '').replace(/[•●]\s*/g, '').slice(0, 200)}...</p>
                         <p className="text-xs text-slate-600 mt-2">{new Date(item.time).toLocaleString()}</p>
                       </div>
                     ))}
@@ -25217,9 +25324,12 @@ INSTRUCTIONS:
                     { term: 'Trailing Stop Loss (%)', def: 'Same as dollar trailing stop but uses a percentage. A 5% trail on a $100 stock sets the stop at $95. If it rises to $120, stop is at $114. Better for volatile stocks where a fixed dollar amount may be too tight.' },
                     { term: 'Trailing Stop Limit ($)', def: 'A trailing stop that converts to a limit order instead of a market order when triggered. Gives price control on the exit, but in a fast-moving market, the limit order may not fill, leaving you still in the position.' },
                     { term: 'Trailing Stop Limit (%)', def: 'Same as dollar trailing stop limit but uses a percentage-based trail distance. Combines the benefits of automatic trailing with limit order protection against poor fills.' },
-                    { term: 'Good Till Canceled (GTC)', def: 'An order that remains active until it\'s either executed or you manually cancel it. Most brokers auto-cancel GTC orders after 60-90 days.' },
-                    { term: 'Day Order', def: 'An order that expires at the end of the trading day if not filled. This is the default order duration at most brokers.' },
-                    { term: 'Fill or Kill (FOK)', def: 'An order that must be executed immediately in its entirety or canceled completely. No partial fills are allowed. Used for large orders where partial execution is undesirable.' },
+                    { term: 'Time in Force (TIF)', def: 'A special instruction attached to an order that tells your broker how long the order should remain active before being automatically canceled. Time in Force determines the lifespan of your order — from seconds (Fill or Kill) to months (Good \'til Canceled). Choosing the right TIF is critical: use Day Orders for active trading, GTC for passive entries at target prices, and FOK/IOC for large institutional-size orders. Always match your TIF to your strategy and timeframe.' },
+                    { term: 'Day Order', def: 'An order that is only valid for the current trading session and automatically cancels at 4:00 PM ET if not executed. This is the default Time in Force setting at most brokerages. Best for day traders who want a clean slate each session — no leftover orders that might fill unexpectedly the next morning on a gap.' },
+                    { term: 'Good \'til Canceled (GTC)', def: 'An order that stays active until it either executes or you manually cancel it. Most brokers auto-cancel GTC orders after 60-180 days depending on the platform. Ideal for swing traders setting limit orders at specific support/resistance levels where you\'re willing to wait days or weeks for your price to be hit.' },
+                    { term: 'Fill or Kill (FOK)', def: 'An order that must be executed immediately in its entirety — every single share — or it is canceled completely. No partial fills are allowed. Primarily used for large institutional orders where getting only half the shares would ruin the intended position sizing or hedging strategy. Rarely used by retail traders.' },
+                    { term: 'Immediate or Cancel (IOC)', def: 'An order that attempts to fill as many shares as possible immediately at the specified price, then cancels any remaining unfilled portion. Unlike Fill or Kill, partial fills ARE accepted. Useful when you want speed and are okay getting 80 of 100 shares rather than waiting. Good for less liquid stocks where full immediate fills are unlikely.' },
+                    { term: 'On the Open (OPG)', def: 'An order that executes only at the official market opening price. Must be submitted during a specific window — typically between 4:15 PM and 9:28 AM ET. Used by traders who want to react to overnight news, earnings announcements, or pre-market catalysts and get in at the very first traded price of the session.' },
                   ]},
                   { title: 'Position & Direction', color: 'emerald', terms: [
                     { term: 'Long Position', def: 'Buying a stock with the expectation that its price will rise. You profit when the price goes up. "Going long" simply means buying.' },
