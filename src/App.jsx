@@ -563,6 +563,88 @@ function App() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [stockApiKeyInput, setStockApiKeyInput] = useState(""); // NEW
 
+  // Changelog / Updates notification system
+  const [showChangelog, setShowChangelog] = useState(false);
+  const changelogEntries = [
+    {
+      version: '1.6.0',
+      date: '2026-02-07',
+      title: 'Time in Force, Vocabulary & Splash Screen',
+      changes: [
+        { type: 'feature', text: 'Added Time in Force section (Day, GTC, FOK, IOC, OPG) to Trade Setup with tooltips' },
+        { type: 'feature', text: 'Added comprehensive Vocabulary/Glossary tab with 60+ trading terms and search' },
+        { type: 'feature', text: 'Added branded loading splash screen with animated MODUS logo' },
+        { type: 'feature', text: 'Added Entry Conditions section to Trade Setup overview' },
+        { type: 'fix', text: 'Fixed RSI chart blob artifact at the end of the line' },
+        { type: 'fix', text: 'Fixed Previous Questions showing raw markdown instead of clean text' },
+        { type: 'improvement', text: 'Custom MODUS favicon replaces default Vite icon' },
+        { type: 'improvement', text: 'Mobile browser chrome bar now matches dark theme' },
+      ]
+    },
+    {
+      version: '1.5.0',
+      date: '2026-02-07',
+      title: 'AI Improvements, Trade Setup Overhaul & Bug Fixes',
+      changes: [
+        { type: 'fix', text: 'Fixed Ask AI timeout error — increased server limits and optimized prompts' },
+        { type: 'fix', text: 'Fixed RSI chart rendering artifact at the end' },
+        { type: 'feature', text: 'Rewrote Trade Setups tab — now shows setup even when direction is NEUTRAL' },
+        { type: 'feature', text: 'Added all 8 brokerage order types with hover tooltips (Market, Limit, Stop, Trailing)' },
+        { type: 'fix', text: 'Fixed Trade Setup showing blank/null fields (R:R, direction, win probability)' },
+        { type: 'fix', text: 'Fixed R:R ratio parsing bug causing false warnings on N/A values' },
+        { type: 'fix', text: 'Fixed React hooks violation in Vocabulary tab' },
+        { type: 'improvement', text: 'Offline answer interceptor no longer hijacks detailed questions (>80 chars)' },
+      ]
+    },
+    {
+      version: '1.4.0',
+      date: '2026-02-06',
+      title: 'AI Quality, Mini Widgets & Dashboard Config',
+      changes: [
+        { type: 'fix', text: 'Fixed Ask AI returning generic offline answers for detailed multi-part questions' },
+        { type: 'feature', text: 'Enhanced markdown rendering — numbered lists, ### headers, better formatting' },
+        { type: 'feature', text: 'Added Quick Stats, Quick Navigation, and Clock mini widgets' },
+        { type: 'improvement', text: 'Organized widget config into categories (Mini, Trading, Data)' },
+        { type: 'improvement', text: 'Enhanced Ask AI and Ask About Chart prompts for more thorough answers' },
+      ]
+    },
+    {
+      version: '1.3.0',
+      date: '2026-02-06',
+      title: 'Dashboard Overhaul & Widget Reordering',
+      changes: [
+        { type: 'fix', text: 'Fixed Latest News widget not updating — was using wrong field name' },
+        { type: 'feature', text: 'Added drag-and-drop widget reordering on dashboard' },
+        { type: 'feature', text: 'Added mini widgets row: Clock, Market Status, Win Rate, Alert Count' },
+        { type: 'feature', text: 'Added time-based greeting in dashboard header' },
+        { type: 'feature', text: 'Added Daily Tip widget with rotating trading wisdom' },
+        { type: 'improvement', text: 'Dashboard widgets now persist order in localStorage' },
+      ]
+    },
+    {
+      version: '1.2.0',
+      date: '2026-02-05',
+      title: 'Live Ticker Stability & Stock Screener',
+      changes: [
+        { type: 'fix', text: 'Fixed Live Ticker chart jumping/resetting on auto-refresh' },
+        { type: 'fix', text: 'Smart merge strategy keeps chart stable, only updates price + last candle' },
+        { type: 'improvement', text: 'Cleaned up Stock Screener — removed redundant buttons, added Buy the Dip' },
+        { type: 'fix', text: 'Fixed Daily Pick render crash (normalizeDailyPick, ChevronUp import)' },
+        { type: 'fix', text: 'Fixed Ask About Chart UI — switched to text-only API for reliability' },
+      ]
+    },
+  ];
+  const changelogLastRead = (() => {
+    try { return localStorage.getItem('modus_changelog_read') || ''; } catch { return ''; }
+  })();
+  const unreadChangelog = changelogEntries.filter(e => e.version > changelogLastRead).length;
+  const markChangelogRead = () => {
+    try {
+      const latest = changelogEntries[0]?.version || '';
+      localStorage.setItem('modus_changelog_read', latest);
+    } catch {}
+  };
+
   // Backend API Mode - When true, uses Vercel serverless functions instead of direct API calls
   const [useBackendApi, setUseBackendApi] = useState(true); // Default to backend mode
   const [backendUrl, setBackendUrl] = useState(""); // Auto-detected or custom
@@ -12927,6 +13009,70 @@ INSTRUCTIONS:
                 )}
               </button>
 
+              {/* Changelog / Updates */}
+              <div className="relative">
+                <button
+                  onClick={() => { setShowChangelog(!showChangelog); if (!showChangelog) markChangelogRead(); }}
+                  className="p-2 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-slate-600/50 relative"
+                  title="Updates & Changelog"
+                >
+                  <Sparkles className="w-4 h-4 text-slate-400" />
+                  {unreadChangelog > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-violet-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
+                      {unreadChangelog}
+                    </span>
+                  )}
+                </button>
+
+                {/* Changelog Popup */}
+                {showChangelog && (
+                  <>
+                    <div className="fixed inset-0 z-[98]" onClick={() => setShowChangelog(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[520px] bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-[99] overflow-hidden" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+                      <div className="px-4 py-3 border-b border-slate-700/30 bg-gradient-to-r from-violet-500/10 to-purple-500/10">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-bold text-sm flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-violet-400" />
+                            Updates & Changelog
+                          </h3>
+                          <button onClick={() => setShowChangelog(false)} className="text-slate-500 hover:text-white transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Latest improvements to MODUS</p>
+                      </div>
+                      <div className="overflow-y-auto max-h-[440px] p-3 space-y-3">
+                        {changelogEntries.map((entry, idx) => (
+                          <div key={entry.version} className={`rounded-lg border p-3 ${idx === 0 ? 'bg-violet-500/5 border-violet-500/20' : 'bg-slate-800/30 border-slate-700/20'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${idx === 0 ? 'bg-violet-500/20 text-violet-300' : 'bg-slate-700/50 text-slate-400'}`}>v{entry.version}</span>
+                                <span className="font-semibold text-xs text-white">{entry.title}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-500">{new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            </div>
+                            <div className="space-y-1">
+                              {entry.changes.map((c, i) => (
+                                <div key={i} className="flex items-start gap-2 text-[11px]">
+                                  <span className={`mt-0.5 flex-shrink-0 w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-bold ${
+                                    c.type === 'feature' ? 'bg-emerald-500/20 text-emerald-400' :
+                                    c.type === 'fix' ? 'bg-red-500/20 text-red-400' :
+                                    'bg-blue-500/20 text-blue-400'
+                                  }`}>
+                                    {c.type === 'feature' ? '✦' : c.type === 'fix' ? '✗' : '↑'}
+                                  </span>
+                                  <span className="text-slate-300 leading-relaxed">{c.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={() => setShowApiKeyModal(true)}
                 className="p-2 bg-slate-800/50 hover:bg-slate-700/70 rounded-lg transition-all border border-slate-700/30 hover:border-slate-600/50"
@@ -12989,27 +13135,61 @@ INSTRUCTIONS:
                   </button>
 
                   {showUserMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900/98 backdrop-blur-xl border border-slate-700/40 rounded-xl shadow-2xl shadow-black/50 z-[55] overflow-hidden">
-                      <div className="p-3 border-b border-slate-800">
-                        <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
-                        <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
-                        {lastSyncTime && (
-                          <p className="text-[10px] text-slate-600 mt-1 flex items-center gap-1">
-                            <Cloud className="w-3 h-3" />
-                            Synced: {lastSyncTime.toLocaleTimeString()}
-                          </p>
-                        )}
+                    <>
+                      <div className="fixed inset-0 z-[54]" onClick={() => setShowUserMenu(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900/98 backdrop-blur-xl border border-slate-700/40 rounded-xl shadow-2xl shadow-black/50 z-[55] overflow-hidden" style={{ animation: 'fadeIn 0.15s ease-out' }}>
+                        <div className="p-4 border-b border-slate-800 bg-gradient-to-r from-violet-500/5 to-purple-500/5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-sm font-bold text-white shadow-lg">
+                              {userProfile?.displayName?.[0]?.toUpperCase() || currentUser.email?.[0]?.toUpperCase() || 'U'}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
+                              <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-3 px-1">
+                            <div className={`w-1.5 h-1.5 rounded-full ${cloudSyncStatus === 'synced' ? 'bg-emerald-400' : cloudSyncStatus === 'syncing' ? 'bg-amber-400 animate-pulse' : 'bg-slate-500'}`} />
+                            <span className="text-[10px] text-slate-500">
+                              {cloudSyncStatus === 'synced' ? `Synced${lastSyncTime ? ` at ${lastSyncTime.toLocaleTimeString()}` : ''}` :
+                               cloudSyncStatus === 'syncing' ? 'Syncing...' : 'Offline'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-1.5">
+                          <button
+                            onClick={() => { setShowUserMenu(false); setShowApiKeyModal(true); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/70 rounded-lg transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-slate-400" />
+                            Settings & API Keys
+                          </button>
+                          <button
+                            onClick={() => { setShowUserMenu(false); setActiveTab('info'); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/70 rounded-lg transition-colors"
+                          >
+                            <HelpCircle className="w-4 h-4 text-slate-400" />
+                            Help & Info
+                          </button>
+                          <button
+                            onClick={() => { setShowUserMenu(false); setShowChangelog(true); markChangelogRead(); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/70 rounded-lg transition-colors"
+                          >
+                            <Sparkles className="w-4 h-4 text-slate-400" />
+                            What's New
+                            {unreadChangelog > 0 && <span className="ml-auto text-[9px] bg-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded-full font-bold">{unreadChangelog}</span>}
+                          </button>
+                          <div className="my-1 border-t border-slate-800/50" />
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Sign Out
+                          </button>
+                        </div>
                       </div>
-                      <div className="p-1.5">
-                        <button
-                          onClick={handleLogout}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Sign Out
-                        </button>
-                      </div>
-                    </div>
+                    </>
                   )}
                 </div>
               ) : (
@@ -13293,6 +13473,60 @@ INSTRUCTIONS:
                 </div>
               );
             })()}
+
+            {/* Quick Analyze Bar */}
+            <div className="bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-slate-900/0 border border-violet-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="p-2.5 bg-violet-500/20 rounded-lg">
+                  <Zap className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Quick Analyze</h4>
+                  <p className="text-[10px] text-slate-500">Enter a ticker to jump straight to analysis</p>
+                </div>
+              </div>
+              <div className="flex-1 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. AAPL, TSLA, NVDA..."
+                  className="flex-1 bg-slate-800/60 border border-slate-700/30 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/30 placeholder:text-slate-600 uppercase"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      setTickerSymbol(e.target.value.trim().toUpperCase());
+                      setActiveTab('ticker');
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    const input = document.querySelector('[placeholder="e.g. AAPL, TSLA, NVDA..."]');
+                    if (input?.value?.trim()) {
+                      setTickerSymbol(input.value.trim().toUpperCase());
+                      setActiveTab('ticker');
+                      input.value = '';
+                    }
+                  }}
+                  className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  <span className="hidden sm:inline">Go</span>
+                </button>
+              </div>
+              {watchlist.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {watchlist.slice(0, 4).map(sym => (
+                    <button
+                      key={sym}
+                      onClick={() => { setTickerSymbol(sym); setActiveTab('ticker'); }}
+                      className="px-2 py-1 text-[10px] font-semibold bg-slate-800/60 hover:bg-violet-500/20 border border-slate-700/20 hover:border-violet-500/30 rounded-lg text-slate-400 hover:text-violet-300 transition-all"
+                    >
+                      {sym}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Widget Grid - Ordered by dashboardWidgets array */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
