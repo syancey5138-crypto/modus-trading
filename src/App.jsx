@@ -10,7 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -1604,9 +1604,9 @@ function App() {
   const [dashboardWidgets, setDashboardWidgets] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('modus_dashboard_widgets')) || [
-        'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary'
+        'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary'
       ];
-    } catch { return ['watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary']; }
+    } catch { return ['dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary']; }
   });
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
 
@@ -12979,6 +12979,7 @@ OUTPUT JSON:
                 <h3 className="text-sm font-bold mb-3">Choose Widgets</h3>
                 <div className="flex flex-wrap gap-2">
                   {[
+                    { key: 'dailytip', label: 'Daily Tip', icon: '💡' },
                     { key: 'watchlist', label: 'Watchlist', icon: '👁️' },
                     { key: 'dailypick', label: 'Daily Pick', icon: '⭐' },
                     { key: 'portfolio', label: 'Portfolio P&L', icon: '💰' },
@@ -13008,6 +13009,68 @@ OUTPUT JSON:
 
             {/* Widget Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {/* Daily Tip Widget */}
+              {dashboardWidgets.includes('dailytip') && (() => {
+                const tradingTips = [
+                  { cat: 'Risk', color: 'rose', tip: 'Never risk more than 1-2% of your total account on a single trade. This keeps you in the game even during losing streaks.' },
+                  { cat: 'Psychology', color: 'violet', tip: 'Stick to your trading plan. Emotional decisions during market hours are the #1 account killer for retail traders.' },
+                  { cat: 'Technical', color: 'cyan', tip: 'Volume confirms price moves. A breakout on low volume is suspect — wait for volume to validate before entering.' },
+                  { cat: 'Strategy', color: 'amber', tip: 'Define your exit before you enter. Know your stop-loss and take-profit levels BEFORE clicking buy.' },
+                  { cat: 'Risk', color: 'rose', tip: 'Use position sizing formulas. If your stop is 5% away, and you risk 1% of capital, your position should be 20% of your account.' },
+                  { cat: 'Psychology', color: 'violet', tip: 'Take breaks after big wins or losses. Both euphoria and despair cloud judgment equally.' },
+                  { cat: 'Technical', color: 'cyan', tip: 'The 200-day moving average is the most-watched indicator by institutions. Price above it = bullish bias, below = bearish.' },
+                  { cat: 'Fundamentals', color: 'emerald', tip: 'Earnings surprises move stocks more than earnings themselves. Focus on the delta between expectations and results.' },
+                  { cat: 'Strategy', color: 'amber', tip: 'Trade the first pullback, not the first breakout. Let others test the waters — then follow the confirmed direction.' },
+                  { cat: 'Risk', color: 'rose', tip: 'Correlation kills diversification. Holding 10 tech stocks is not diversified — check sector exposure regularly.' },
+                  { cat: 'Psychology', color: 'violet', tip: 'Journal every trade. The pattern you keep repeating (and losing on) only becomes visible when you write it down.' },
+                  { cat: 'Technical', color: 'cyan', tip: 'RSI divergence is one of the most reliable reversal signals. When price makes new highs but RSI doesn\'t, momentum is fading.' },
+                  { cat: 'Strategy', color: 'amber', tip: 'Scale into positions rather than going all-in. Start with 1/3, add on confirmation, and save dry powder for dips.' },
+                  { cat: 'Fundamentals', color: 'emerald', tip: 'Free cash flow matters more than revenue growth. A company that generates real cash can survive almost anything.' },
+                  { cat: 'Risk', color: 'rose', tip: 'Set a daily loss limit. If you lose 3% in a day, step away. Tomorrow is a new opportunity with a fresh mindset.' },
+                  { cat: 'Technical', color: 'cyan', tip: 'Support and resistance levels work because everyone watches them. Self-fulfilling prophecy is real in markets.' },
+                  { cat: 'Psychology', color: 'violet', tip: 'FOMO is not a strategy. The market offers new opportunities every single day — missing one trade won\'t make or break you.' },
+                  { cat: 'Strategy', color: 'amber', tip: 'The best trade setups have multiple confluences: trend, volume, support/resistance, and a catalyst all aligning.' },
+                  { cat: 'Fundamentals', color: 'emerald', tip: 'Watch insider buying more than insider selling. Insiders sell for many reasons, but they buy for only one: they expect the stock to go up.' },
+                  { cat: 'Risk', color: 'rose', tip: 'Never average down on a losing trade without a plan. Adding to losers is how small losses become account-ending disasters.' },
+                  { cat: 'Psychology', color: 'violet', tip: 'Your win rate doesn\'t matter as much as your risk-reward ratio. You can be wrong 60% of the time and still be profitable.' },
+                  { cat: 'Technical', color: 'cyan', tip: 'VWAP (Volume Weighted Average Price) acts like a magnet during the trading day. Institutional traders use it as a benchmark.' },
+                  { cat: 'Strategy', color: 'amber', tip: 'Trade with the trend on higher timeframes. A 5-minute buy signal against the daily downtrend is fighting the current.' },
+                  { cat: 'Fundamentals', color: 'emerald', tip: 'Debt-to-equity ratio above 2x is a red flag for most industries. High leverage amplifies both gains and losses.' },
+                  { cat: 'Risk', color: 'rose', tip: 'Keep a cash reserve of at least 20-30%. Dry powder lets you capitalize on sudden opportunities instead of watching from the sidelines.' },
+                  { cat: 'Psychology', color: 'violet', tip: 'The market doesn\'t care about your entry price. Making decisions based on what you "need" the stock to do is a recipe for disaster.' },
+                  { cat: 'Technical', color: 'cyan', tip: 'Candlestick patterns are most reliable at key support/resistance levels. A doji in the middle of a range means nothing.' },
+                  { cat: 'Strategy', color: 'amber', tip: 'Paper trade new strategies for at least 2 weeks before risking real money. Your live results will always be worse than paper.' },
+                  { cat: 'Fundamentals', color: 'emerald', tip: 'Compare P/E ratios within the same sector, not across sectors. A 30 P/E tech stock and a 30 P/E utility stock are very different.' },
+                  { cat: 'Psychology', color: 'violet', tip: 'Consistency beats intensity. Trading less with higher quality setups will outperform overtrading every time.' },
+                ];
+                const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+                const todayTip = tradingTips[dayOfYear % tradingTips.length];
+                const colorMap = { rose: 'from-rose-500/20 to-rose-600/5 border-rose-500/20 text-rose-400', violet: 'from-violet-500/20 to-violet-600/5 border-violet-500/20 text-violet-400', cyan: 'from-cyan-500/20 to-cyan-600/5 border-cyan-500/20 text-cyan-400', amber: 'from-amber-500/20 to-amber-600/5 border-amber-500/20 text-amber-400', emerald: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20 text-emerald-400' };
+                const badgeMap = { rose: 'bg-rose-500/20 text-rose-400', violet: 'bg-violet-500/20 text-violet-400', cyan: 'bg-cyan-500/20 text-cyan-400', amber: 'bg-amber-500/20 text-amber-400', emerald: 'bg-emerald-500/20 text-emerald-400' };
+                return (
+                  <div className={`bg-gradient-to-br ${colorMap[todayTip.color]} rounded-xl border p-4 relative overflow-hidden`}>
+                    <div className="absolute top-2 right-3 text-3xl opacity-10">💡</div>
+                    <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4" /> Daily Tip
+                      <span className={`text-[10px] ${badgeMap[todayTip.color]} px-1.5 py-0.5 rounded-full ml-auto font-semibold`}>{todayTip.cat}</span>
+                    </h3>
+                    <p className="text-xs text-slate-200 leading-relaxed">{todayTip.tip}</p>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-500">Tip #{(dayOfYear % tradingTips.length) + 1} of {tradingTips.length}</span>
+                      <button
+                        onClick={() => {
+                          const nextTip = tradingTips[(dayOfYear + Math.floor(Math.random() * (tradingTips.length - 1)) + 1) % tradingTips.length];
+                          setToast({ type: 'success', message: `💡 ${nextTip.cat}: ${nextTip.tip}` });
+                        }}
+                        className="text-[10px] text-slate-400 hover:text-white transition-colors"
+                      >
+                        Random tip ↻
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Watchlist Widget */}
               {dashboardWidgets.includes('watchlist') && (
                 <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
@@ -22620,72 +22683,25 @@ OUTPUT JSON:
 
             <div className="bg-slate-900/50 rounded-lg p-6 border border-slate-700">
               <h3 className="text-lg font-semibold mb-4">Quick Scans</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <button
                   onClick={async () => {
                     setLoadingScanner(true);
-                    setSelectedScanPreset('bullish_momentum');
                     try {
                       const results = await scanRealMarket();
-                      if (results && results.gainers && results.gainers.length > 0) {
-                        setScanResults(results.gainers.slice(0, 5));
-                      } else {
-                        alert("No momentum stocks found right now. Try again later!");
-                        setScanResults([]);
-                      }
-                    } catch (err) {
-                      console.error("[Momentum Scan] Error:", err);
-                      alert("Scan failed. Check console for details.");
-                      setScanResults([]);
-                    } finally {
-                      setLoadingScanner(false);
-                    }
-                  }}
-                  disabled={loadingScanner}
-                  className="bg-gradient-to-br from-emerald-900/20 to-emerald-800/10 border border-emerald-600/30 hover:border-emerald-600/50 p-4 rounded-lg text-left transition-all disabled:opacity-50"
-                >
-                  <div className="text-emerald-400 font-semibold mb-1">🚀 Momentum</div>
-                  <div className="text-xs text-slate-400">Strong uptrend + volume</div>
-                </button>
-                
-                <button
-                  onClick={async () => {
-                    setLoadingScanner(true);
-                    try {
-                      // Scan for stocks near highs
-                      const stockPool = ['TSLA', 'NVDA', 'AMD', 'COIN', 'PLTR', 'SHOP'];
-                      const results = [];
-                      
-                      for (const symbol of stockPool) {
-                        try {
-                          const quote = await fetchCurrentQuote(symbol);
-                          if (quote && quote.price) {
-                            results.push({
-                              symbol,
-                              price: quote.price,
-                              change: quote.changePercent || 0,
-                              volume: '---',
-                              rsi: 50 + (quote.changePercent || 0) * 3
-                            });
-                          }
-                        } catch (e) {
-                          continue;
-                        }
-                      }
-                      
-                      setScanResults(results.slice(0, 5));
-                    } catch (err) {
-                      console.error("[Breakout Scan] Error:", err);
-                      setScanResults([]);
-                    } finally {
-                      setLoadingScanner(false);
-                    }
+                      if (results?.gainers?.length > 0) {
+                        const breakouts = results.gainers.filter(s => (s.aboveSMA20 || (s.rsi || 0) > 55) && (s.changePercent || s.change || 0) > 0);
+                        setScanResults(breakouts.length > 0 ? breakouts.slice(0, 10) : results.gainers.slice(0, 5));
+                        setToast({ type: 'success', message: `Found ${breakouts.length || results.gainers.length} breakout candidates` });
+                      } else { setScanResults([]); setToast({ type: 'info', message: 'No breakout stocks found right now' }); }
+                    } catch (err) { console.error("[Breakout Scan]", err); setScanResults([]); setToast({ type: 'error', message: 'Scan failed — try again' }); }
+                    finally { setLoadingScanner(false); }
                   }}
                   disabled={loadingScanner}
                   className="bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-600/30 hover:border-blue-600/50 p-4 rounded-lg text-left transition-all disabled:opacity-50"
                 >
                   <div className="text-blue-400 font-semibold mb-1">📈 Breakouts</div>
-                  <div className="text-xs text-slate-400">Above resistance</div>
+                  <div className="text-xs text-slate-400">Trending above SMA</div>
                 </button>
 
                 <button
@@ -22693,19 +22709,13 @@ OUTPUT JSON:
                     setLoadingScanner(true);
                     try {
                       const results = await scanRealMarket();
-                      if (results && results.losers && results.losers.length > 0) {
-                        // Filter for RSI < 40 (oversold)
+                      if (results?.losers?.length > 0) {
                         const oversold = results.losers.filter(s => (s.rsi || 50) < 40);
-                        setScanResults(oversold.length > 0 ? oversold : results.losers.slice(0, 3));
-                      } else {
-                        setScanResults([]);
-                      }
-                    } catch (err) {
-                      console.error("[Oversold Scan] Error:", err);
-                      setScanResults([]);
-                    } finally {
-                      setLoadingScanner(false);
-                    }
+                        setScanResults(oversold.length > 0 ? oversold.slice(0, 10) : results.losers.slice(0, 5));
+                        setToast({ type: 'success', message: `Found ${oversold.length || results.losers.length} oversold stocks` });
+                      } else { setScanResults([]); setToast({ type: 'info', message: 'No oversold stocks found' }); }
+                    } catch (err) { console.error("[Oversold Scan]", err); setScanResults([]); setToast({ type: 'error', message: 'Scan failed — try again' }); }
+                    finally { setLoadingScanner(false); }
                   }}
                   disabled={loadingScanner}
                   className="bg-gradient-to-br from-violet-900/20 to-violet-800/10 border border-violet-600/30 hover:border-violet-600/50 p-4 rounded-lg text-left transition-all disabled:opacity-50"
@@ -22719,19 +22729,13 @@ OUTPUT JSON:
                     setLoadingScanner(true);
                     try {
                       const results = await scanRealMarket();
-                      if (results && results.gainers) {
-                        // Filter for RSI > 70 (overbought)
+                      if (results?.gainers?.length > 0) {
                         const overbought = results.gainers.filter(s => (s.rsi || 50) > 70);
-                        setScanResults(overbought.length > 0 ? overbought : results.gainers.slice(0, 3));
-                      } else {
-                        setScanResults([]);
-                      }
-                    } catch (err) {
-                      console.error("[Overbought Scan] Error:", err);
-                      setScanResults([]);
-                    } finally {
-                      setLoadingScanner(false);
-                    }
+                        setScanResults(overbought.length > 0 ? overbought.slice(0, 10) : results.gainers.slice(0, 5));
+                        setToast({ type: 'success', message: `Found ${overbought.length || results.gainers.length} overbought stocks` });
+                      } else { setScanResults([]); setToast({ type: 'info', message: 'No overbought stocks found' }); }
+                    } catch (err) { console.error("[Overbought Scan]", err); setScanResults([]); setToast({ type: 'error', message: 'Scan failed — try again' }); }
+                    finally { setLoadingScanner(false); }
                   }}
                   disabled={loadingScanner}
                   className="bg-gradient-to-br from-orange-900/20 to-orange-800/10 border border-orange-600/30 hover:border-orange-600/50 p-4 rounded-lg text-left transition-all disabled:opacity-50"
@@ -22745,17 +22749,12 @@ OUTPUT JSON:
                     setLoadingScanner(true);
                     try {
                       const results = await scanRealMarket();
-                      if (results && results.volume) {
-                        setScanResults(results.volume);
-                      } else {
-                        setScanResults([]);
-                      }
-                    } catch (err) {
-                      console.error("[Volume Scan] Error:", err);
-                      setScanResults([]);
-                    } finally {
-                      setLoadingScanner(false);
-                    }
+                      if (results?.volume?.length > 0) {
+                        setScanResults(results.volume.slice(0, 10));
+                        setToast({ type: 'success', message: `Found ${results.volume.length} high-volume stocks` });
+                      } else { setScanResults([]); setToast({ type: 'info', message: 'No high volume stocks found' }); }
+                    } catch (err) { console.error("[Volume Scan]", err); setScanResults([]); setToast({ type: 'error', message: 'Scan failed — try again' }); }
+                    finally { setLoadingScanner(false); }
                   }}
                   disabled={loadingScanner}
                   className="bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-600/30 hover:border-red-600/50 p-4 rounded-lg text-left transition-all disabled:opacity-50"
@@ -22768,39 +22767,20 @@ OUTPUT JSON:
                   onClick={async () => {
                     setLoadingScanner(true);
                     try {
-                      const stockPool = ['JPM', 'BAC', 'WFC', 'GS', 'MS', 'C'];
-                      const results = [];
-                      
-                      for (const symbol of stockPool) {
-                        try {
-                          const quote = await fetchCurrentQuote(symbol);
-                          if (quote && quote.price) {
-                            results.push({
-                              symbol,
-                              price: quote.price,
-                              change: quote.changePercent || 0,
-                              volume: '---',
-                              rsi: 50 + Math.random() * 10
-                            });
-                          }
-                        } catch (e) {
-                          continue;
-                        }
-                      }
-                      
-                      setScanResults(results.slice(0, 5));
-                    } catch (err) {
-                      console.error("[Value Scan] Error:", err);
-                      setScanResults([]);
-                    } finally {
-                      setLoadingScanner(false);
-                    }
+                      const results = await scanRealMarket();
+                      if (results?.losers?.length > 0) {
+                        const dips = results.losers.filter(s => (s.rsi || 50) < 45 && (s.rsi || 50) > 20);
+                        setScanResults(dips.length > 0 ? dips.slice(0, 10) : results.losers.slice(0, 5));
+                        setToast({ type: 'success', message: `Found ${dips.length || results.losers.length} dip candidates` });
+                      } else { setScanResults([]); setToast({ type: 'info', message: 'No dip opportunities found' }); }
+                    } catch (err) { console.error("[Dip Scan]", err); setScanResults([]); setToast({ type: 'error', message: 'Scan failed — try again' }); }
+                    finally { setLoadingScanner(false); }
                   }}
                   disabled={loadingScanner}
-                  className="bg-gradient-to-br from-green-900/20 to-green-800/10 border border-green-600/30 hover:border-green-600/50 p-4 rounded-lg text-left transition-all disabled:opacity-50"
+                  className="bg-gradient-to-br from-emerald-900/20 to-emerald-800/10 border border-emerald-600/30 hover:border-emerald-600/50 p-4 rounded-lg text-left transition-all disabled:opacity-50"
                 >
-                  <div className="text-green-400 font-semibold mb-1">🏦 Value</div>
-                  <div className="text-xs text-slate-400">Financial stocks</div>
+                  <div className="text-emerald-400 font-semibold mb-1">🛒 Buy the Dip</div>
+                  <div className="text-xs text-slate-400">Quality stocks pulling back</div>
                 </button>
               </div>
             </div>
