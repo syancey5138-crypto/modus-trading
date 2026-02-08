@@ -692,27 +692,45 @@ function sectionTypeInfo(type) {
 
 // ═══ EACH VERSION ═══
 versions.forEach((ver, vi) => {
-  // Version header
-  children.push(
-    new Paragraph({
-      spacing: { before: vi === 0 ? 0 : 300, after: 100 },
-      children: [
-        new TextRun({ text: `${ver.version}`, font: "Arial", size: 32, bold: true, color: VIOLET }),
-        new TextRun({ text: `  \u2014  ${ver.date}`, font: "Arial", size: 22, color: SLATE }),
-      ]
-    }),
-    new Paragraph({
-      spacing: { after: 200 },
-      children: [new TextRun({ text: ver.title, font: "Arial", size: 24, italics: true, color: SLATE })]
-    }),
-  );
+  // Build ALL rows including header rows
+  const allRows = [];
 
-  // Build table rows from all sections
-  const rows = [];
+  // Navy blue header row (full width)
+  allRows.push(new TableRow({
+    children: [
+      new TableCell({
+        borders,
+        width: { size: 9360, type: WidthType.DXA },
+        columnSpan: 2,
+        shading: { fill: "0F172A", type: ShadingType.CLEAR },
+        margins: { top: 120, bottom: 120, left: 160, right: 160 },
+        children: [new Paragraph({ children: [
+          new TextRun({ text: ver.version, font: "Arial", size: 28, bold: true, color: "FFFFFF" }),
+          new TextRun({ text: `   \u2014   ${ver.date}`, font: "Arial", size: 20, color: "94A3B8" }),
+        ] })]
+      })
+    ]
+  }));
+
+  // Light blue subtitle row
+  allRows.push(new TableRow({
+    children: [
+      new TableCell({
+        borders,
+        width: { size: 9360, type: WidthType.DXA },
+        columnSpan: 2,
+        shading: { fill: "EFF6FF", type: ShadingType.CLEAR },
+        margins: { top: 80, bottom: 80, left: 160, right: 160 },
+        children: [new Paragraph({ children: [new TextRun({ text: ver.title, font: "Arial", size: 22, italics: true, color: SLATE })] })]
+      })
+    ]
+  }));
+
+  // Change rows (same as before)
   ver.sections.forEach(section => {
     const info = sectionTypeInfo(section.type);
     section.items.forEach(item => {
-      rows.push(new TableRow({
+      allRows.push(new TableRow({
         children: [
           new TableCell({
             borders,
@@ -742,13 +760,12 @@ versions.forEach((ver, vi) => {
     new Table({
       width: { size: 9360, type: WidthType.DXA },
       columnWidths: [1200, 8160],
-      rows
+      rows: allRows
     }),
   );
 
-  // Separator / page break
   if (vi < versions.length - 1) {
-    children.push(new Paragraph({ spacing: { before: 200, after: 200 }, children: [] }));
+    children.push(new Paragraph({ spacing: { before: 300, after: 300 }, children: [] }));
   }
 });
 
@@ -771,7 +788,7 @@ children.push(
     spacing: { after: 200 },
     children: [
       new TextRun({ text: "Last updated: ", font: "Arial", size: 20, color: SLATE }),
-      new TextRun({ text: "February 8, 2026 at 2:30 PM EST", font: "Arial", size: 20, bold: true, color: VIOLET }),
+      new TextRun({ text: "February 8, 2026 at " + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' }) + " EST", font: "Arial", size: 20, bold: true, color: VIOLET }),
     ]
   }),
 );

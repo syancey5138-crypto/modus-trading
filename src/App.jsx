@@ -901,6 +901,28 @@ function App() {
   const [showQuickTradeEntry, setShowQuickTradeEntry] = useState(false);
   const changelogEntries = [
     {
+      version: '2.5.0',
+      date: '2026-02-08',
+      title: 'Tracked Targets Overhaul, New Features, Cross-Device Fixes & UI Polish',
+      changes: [
+        { type: 'feature', text: 'Tracked Targets completely redesigned — now shows Entry/Target/Stop in a clean 3-column grid with color-coded values' },
+        { type: 'feature', text: 'Market Hours Countdown widget — shows time until market open/close with pre-market and after-hours indicators' },
+        { type: 'feature', text: 'Trade Notes — attach text notes to any journal trade entry for tracking your reasoning' },
+        { type: 'feature', text: 'Trade Plan Templates — save reusable entry/exit/risk templates and apply them to new trades' },
+        { type: 'feature', text: 'Watchlist Price Alerts — set target price alerts on any watchlist stock with notification when hit' },
+        { type: 'feature', text: 'Multi-Ticker Comparison — overlay up to 4 stocks on the same chart with normalized % returns' },
+        { type: 'feature', text: 'News Sentiment Score — AI-analyzed sentiment badges on news headlines (Bullish/Bearish/Neutral)' },
+        { type: 'feature', text: 'Economic Calendar widget — upcoming Fed meetings, CPI, jobs reports, GDP releases' },
+        { type: 'feature', text: 'Custom Dashboard Layouts — save and switch between multiple dashboard configurations' },
+        { type: 'feature', text: 'Portfolio Heat Map widget — visual grid of positions colored by daily P&L performance' },
+        { type: 'improvement', text: 'Community Feed now requires sign-in for Public and Private modes — shows clear login prompt' },
+        { type: 'improvement', text: 'Tracked Targets now properly displays all price data with formatted dollar amounts' },
+        { type: 'improvement', text: 'Target cards have more breathing room with proper spacing and a 3-column price grid' },
+        { type: 'fix', text: 'Fixed Target and Stop prices showing as "$" with no number (was due to parseFloat on dollar-sign strings)' },
+        { type: 'fix', text: 'Fixed Community Feed not syncing on other devices when user is not logged in — now shows login prompt' },
+      ]
+    },
+    {
       version: '2.4.0',
       date: '2026-02-08',
       title: 'Cross-Device Community Feed, Bug Fixes & UI Polish',
@@ -2505,6 +2527,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Helper function to sync posts to Firestore for cross-device support
   const syncPostToFirestore = useCallback(async (post) => {
+    if (!currentUser) return; // Can't sync without auth
     if (post.communityMode === 'local') return; // Don't sync local posts
     try {
       const { getFirestore, collection, addDoc } = await import('firebase/firestore');
@@ -2531,6 +2554,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Load community posts from Firestore and merge with local posts
   const loadCommunityPosts = useCallback(async () => {
+    if (!currentUser && communityMode !== 'local') {
+      addNotification({ type: 'system', title: 'Sign In Required', message: 'Please sign in to load community posts from other devices.', icon: '🔒' });
+      return;
+    }
     try {
       const { getFirestore, collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
       const db = getFirestore();
@@ -2613,12 +2640,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   }, [priceTargets]);
 
   const addPriceTarget = useCallback((ticker, currentPrice, targetPrice, stopPrice, verdict, confidence) => {
+    const cleanNum = (v) => { if (!v || v === 'N/A' || v === 'undefined') return null; return parseFloat(String(v).replace(/[$,]/g, '')) || null; };
     setPriceTargets(prev => [{
       id: Date.now(),
       ticker,
-      entryPrice: currentPrice,
-      targetPrice: parseFloat(targetPrice),
-      stopPrice: parseFloat(stopPrice),
+      entryPrice: cleanNum(currentPrice) || currentPrice,
+      targetPrice: cleanNum(targetPrice),
+      stopPrice: cleanNum(stopPrice),
       verdict,
       confidence,
       createdAt: new Date().toISOString(),
@@ -2657,6 +2685,19 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       return updated;
     });
   }, []);
+
+  // ═══════════════════════════════════════════════
+  // FEATURE v2.5.0: Watchlist Alerts & Dashboard Layouts
+  // ═══════════════════════════════════════════════
+  const [watchlistAlerts, setWatchlistAlerts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_watchlist_alerts')) || {}; } catch { return {}; }
+  });
+  const [dashboardLayouts, setDashboardLayouts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_dashboard_layouts')) || { default: null }; } catch { return { default: null }; }
+  });
+  const [activeLayoutName, setActiveLayoutName] = useState('default');
+
+  useEffect(() => { localStorage.setItem('modus_watchlist_alerts', JSON.stringify(watchlistAlerts)); }, [watchlistAlerts]);
 
   // ═══════════════════════════════════════════════
   // FEATURES 27-52: Advanced Trading Analytics
@@ -14729,6 +14770,9 @@ INSTRUCTIONS:
                 { key: 'emotionlog', label: 'Emotion Logger', icon: '🧠', group: 'trading', desc: 'Log your emotions before trading' },
                 { key: 'dayofweek', label: 'Win/Loss by Day', icon: '📅', group: 'trading', desc: 'Win/loss breakdown by day of the week' },
                 { key: 'riskcalc', label: 'Risk Calculator', icon: '🧮', group: 'trading', desc: 'Calculate position size and risk before entering trades' },
+                { key: 'markethours', label: 'Market Hours', icon: '⏰', group: 'mini', desc: 'Countdown to market open/close with pre-market and after-hours status' },
+                { key: 'econcalendar', label: 'Economic Calendar', icon: '📅', group: 'data', desc: 'Upcoming economic events — Fed meetings, CPI, jobs reports, GDP releases' },
+                { key: 'heatmap', label: 'Portfolio Heat Map', icon: '🗺️', group: 'trading', desc: 'Visual grid of your positions colored by daily P&L from green to red' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
               const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
@@ -15944,11 +15988,25 @@ INSTRUCTIONS:
                           </div>
                           <p className="text-[9px] text-slate-500 mb-2">{modeDescs[communityMode]}</p>
 
+                          {/* ── Login Required for Cloud Modes ── */}
+                          {communityMode !== 'local' && !currentUser && (
+                            <div className="mb-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                              <p className="text-[10px] text-amber-400 flex items-center gap-1.5">
+                                <Lock className="w-3 h-3" />
+                                Sign in to sync posts across devices
+                              </p>
+                              <button onClick={() => setShowAuthModal(true)} className="text-[9px] text-violet-400 hover:text-violet-300 mt-1 underline">
+                                Sign In / Create Account
+                              </button>
+                            </div>
+                          )}
+
                           {/* ── Private Mode: Community Code ── */}
                           {communityMode === 'private' && (
                             <div className="mb-2 flex items-center gap-1.5">
                               <input type="text" placeholder="Enter invite code..." value={communityCode}
-                                onChange={e => { setCommunityCode(e.target.value); localStorage.setItem('modus_community_code', e.target.value); addNotification({ type: 'system', title: 'Code Saved', message: 'Community code saved! Tap refresh to load posts.', icon: '✓' }); }}
+                                onChange={e => { setCommunityCode(e.target.value); localStorage.setItem('modus_community_code', e.target.value); }}
+                                onBlur={() => { if (communityCode) addNotification({ type: 'system', title: 'Code Saved', message: `Community code "${communityCode}" saved. Tap refresh to load posts.`, icon: '✓' }); }}
                                 className="flex-1 text-[10px] bg-slate-700/30 border border-violet-500/20 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50" />
                               <button onClick={() => { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); setCommunityCode(code); localStorage.setItem('modus_community_code', code); navigator.clipboard.writeText(code); addNotification({ type: 'system', title: 'Code Generated & Copied', message: `Code copied! Share this with your trading group: ${code}`, icon: '🔑' }); }}
                                 className="text-[9px] bg-violet-500/20 text-violet-400 border border-violet-500/30 px-2 py-1 rounded-lg hover:bg-violet-500/30 transition-all whitespace-nowrap">
@@ -16590,6 +16648,124 @@ INSTRUCTIONS:
                       </div>
                     </div>
                   );
+
+                  // ─── Market Hours Countdown ─────────────────────
+                  case 'markethours': {
+                    const now = currentTime || new Date();
+                    const hours = now.getHours();
+                    const minutes = now.getMinutes();
+                    const totalMins = hours * 60 + minutes;
+                    const day = now.getDay();
+                    const isWeekend = day === 0 || day === 6;
+                    const preMarketStart = 4 * 60; // 4:00 AM ET
+                    const marketOpen = 9 * 60 + 30; // 9:30 AM ET
+                    const marketClose = 16 * 60; // 4:00 PM ET
+                    const afterHoursEnd = 20 * 60; // 8:00 PM ET
+                    let status = 'Closed', statusColor = 'text-slate-400', timeLeft = '', nextEvent = '';
+                    if (isWeekend) { status = 'Weekend'; nextEvent = 'Opens Monday 9:30 AM'; }
+                    else if (totalMins >= marketOpen && totalMins < marketClose) {
+                      status = 'Market Open'; statusColor = 'text-emerald-400';
+                      const minsLeft = marketClose - totalMins;
+                      timeLeft = `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m`;
+                      nextEvent = `Closes at 4:00 PM`;
+                    } else if (totalMins >= preMarketStart && totalMins < marketOpen) {
+                      status = 'Pre-Market'; statusColor = 'text-amber-400';
+                      const minsLeft = marketOpen - totalMins;
+                      timeLeft = `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m`;
+                      nextEvent = `Opens at 9:30 AM`;
+                    } else if (totalMins >= marketClose && totalMins < afterHoursEnd) {
+                      status = 'After Hours'; statusColor = 'text-violet-400';
+                      const minsLeft = afterHoursEnd - totalMins;
+                      timeLeft = `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m`;
+                      nextEvent = `After hours until 8:00 PM`;
+                    } else {
+                      nextEvent = 'Opens at 9:30 AM ET';
+                    }
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-gradient-to-br from-cyan-500/8 to-slate-900/0 rounded-xl border border-cyan-500/10 p-4 h-full hover:border-cyan-500/20 transition-all">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <div className="p-1 bg-cyan-500/15 rounded-md"><Clock className="w-3.5 h-3.5 text-cyan-400" /></div>
+                            Market Hours
+                          </h3>
+                          <div className="text-center py-2">
+                            <div className={`text-lg font-bold ${statusColor}`}>{status}</div>
+                            {timeLeft && <div className="text-2xl font-black text-white mt-1">{timeLeft}</div>}
+                            <div className="text-[10px] text-slate-500 mt-2">{nextEvent}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Economic Calendar ─────────────────────
+                  case 'econcalendar': {
+                    const econEvents = [
+                      { date: 'Feb 12', event: 'CPI Report', impact: 'High', icon: '📊' },
+                      { date: 'Feb 14', event: 'Retail Sales', impact: 'Medium', icon: '🛍️' },
+                      { date: 'Feb 19', event: 'FOMC Minutes', impact: 'High', icon: '🏛️' },
+                      { date: 'Feb 21', event: 'PMI Data', impact: 'Medium', icon: '🏭' },
+                      { date: 'Feb 26', event: 'Consumer Confidence', impact: 'Medium', icon: '📈' },
+                      { date: 'Feb 28', event: 'GDP (Q4 Final)', impact: 'High', icon: '💰' },
+                    ];
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-gradient-to-br from-amber-500/8 to-slate-900/0 rounded-xl border border-amber-500/10 p-4 h-full hover:border-amber-500/20 transition-all">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <div className="p-1 bg-amber-500/15 rounded-md"><Calendar className="w-3.5 h-3.5 text-amber-400" /></div>
+                            Economic Calendar
+                          </h3>
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {econEvents.map((e, i) => (
+                              <div key={i} className="flex items-center gap-2 p-1.5 rounded-lg bg-slate-700/20 hover:bg-slate-700/30 transition-all">
+                                <span className="text-sm">{e.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[11px] font-medium text-white truncate">{e.event}</div>
+                                  <div className="text-[9px] text-slate-500">{e.date}</div>
+                                </div>
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold ${e.impact === 'High' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{e.impact}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Portfolio Heat Map ─────────────────────
+                  case 'heatmap': {
+                    const heatmapPositions = trades.filter(t => !t.exitPrice && !t.closed).slice(0, 12).map(t => {
+                      const pnl = t.pnl || 0;
+                      const pnlPct = t.entryPrice ? ((pnl / (parseFloat(t.entryPrice) * parseInt(t.shares || t.quantity || 1))) * 100) : 0;
+                      return { ticker: t.ticker || t.symbol || '???', pnl, pnlPct };
+                    });
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-gradient-to-br from-violet-500/8 to-slate-900/0 rounded-xl border border-violet-500/10 p-4 h-full hover:border-violet-500/20 transition-all">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <div className="p-1 bg-violet-500/15 rounded-md"><LayoutGrid className="w-3.5 h-3.5 text-violet-400" /></div>
+                            Portfolio Heat Map
+                          </h3>
+                          {heatmapPositions.length > 0 ? (
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {heatmapPositions.map((p, i) => (
+                                <div key={i} className={`rounded-lg p-2 text-center cursor-pointer hover:scale-105 transition-all ${p.pnl >= 0 ? 'bg-emerald-500/20 border border-emerald-500/20' : 'bg-red-500/20 border border-red-500/20'}`}
+                                  onClick={() => { if (p.ticker !== '???') { setActiveTab('ticker'); setTickerSymbol(p.ticker); }}}>
+                                  <div className="text-[10px] font-bold text-white truncate">{p.ticker}</div>
+                                  <div className={`text-[9px] font-semibold ${p.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{p.pnl >= 0 ? '+' : ''}{p.pnlPct.toFixed(1)}%</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <LayoutGrid className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                              <p className="text-xs text-slate-500">Open positions appear here</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
 
                   default: return null;
                 }
@@ -23955,35 +24131,53 @@ INSTRUCTIONS:
               </div>
             )}
 
-            {/* Your Tracked Targets (v2.3.0) */}
+            {/* Your Tracked Targets (v2.5.0) */}
             {priceTargets.length > 0 && !quickAnalysisResult && (
               <div className="bg-gradient-to-br from-amber-500/5 to-orange-500/5 rounded-2xl border border-amber-500/20 p-6">
                 <h3 className="font-semibold text-amber-400 text-base mb-4 flex items-center gap-2">
                   <Target className="w-4 h-4" /> Your Tracked Targets
-                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium ml-auto">{priceTargets.length} active</span>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium ml-auto">{priceTargets.filter(t => t.status === 'active').length} active</span>
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {priceTargets.slice(0, 8).map(t => {
                     const daysTracked = Math.floor((Date.now() - new Date(t.createdAt)) / 86400000);
-                    const distanceToTarget = t.targetPrice && t.entryPrice ? ((t.targetPrice - t.entryPrice) / t.entryPrice * 100) : 0;
+                    const distToTarget = t.targetPrice && t.entryPrice ? ((t.targetPrice - t.entryPrice) / t.entryPrice * 100) : null;
+                    const isBuy = t.verdict?.toLowerCase().includes('buy');
                     return (
-                      <div key={t.id} className="bg-slate-800/40 rounded-lg p-3 border border-slate-700/20 flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold text-white">{t.ticker}</span>
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${t.verdict?.toLowerCase().includes('buy') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{t.verdict}</span>
-                            <span className="text-[9px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-full">{t.status === 'active' ? 'Active' : t.status === 'hit' ? 'Hit ✓' : 'Stopped'}</span>
+                      <div key={t.id} className={`bg-slate-800/40 rounded-xl p-4 border ${t.status === 'hit' ? 'border-emerald-500/30' : t.status === 'stopped' ? 'border-red-500/30' : 'border-slate-700/20'} hover:border-violet-500/20 transition-all`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-base">{t.ticker}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isBuy ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{t.verdict || 'N/A'}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${t.status === 'active' ? 'bg-cyan-500/20 text-cyan-400' : t.status === 'hit' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {t.status === 'active' ? '● Active' : t.status === 'hit' ? '✓ Hit' : '✕ Stopped'}
+                            </span>
                           </div>
-                          <div className="text-xs text-slate-400">Entry: ${t.entryPrice?.toFixed(2)} • Target: ${t.targetPrice?.toFixed(2)} • Stop: ${t.stopPrice?.toFixed(2)}</div>
-                          <div className="text-[10px] text-slate-500 mt-1">{daysTracked}d tracked • {distanceToTarget >= 0 ? '+' : ''}{distanceToTarget.toFixed(1)}% to target</div>
+                          <span className="text-xs text-slate-400">{t.confidence ? `${t.confidence}% conf.` : ''}</span>
                         </div>
-                        <div className="text-right">
-                          <div className="text-[10px] text-slate-500">{t.confidence}% conf.</div>
+                        <div className="grid grid-cols-3 gap-3 mb-2">
+                          <div className="bg-slate-700/20 rounded-lg p-2 text-center">
+                            <div className="text-[9px] text-slate-500 mb-0.5">Entry</div>
+                            <div className="text-sm font-semibold text-white">{t.entryPrice ? `$${Number(t.entryPrice).toFixed(2)}` : 'N/A'}</div>
+                          </div>
+                          <div className="bg-slate-700/20 rounded-lg p-2 text-center">
+                            <div className="text-[9px] text-emerald-400 mb-0.5">Target</div>
+                            <div className="text-sm font-semibold text-emerald-400">{t.targetPrice ? `$${Number(t.targetPrice).toFixed(2)}` : 'N/A'}</div>
+                          </div>
+                          <div className="bg-slate-700/20 rounded-lg p-2 text-center">
+                            <div className="text-[9px] text-red-400 mb-0.5">Stop</div>
+                            <div className="text-sm font-semibold text-red-400">{t.stopPrice ? `$${Number(t.stopPrice).toFixed(2)}` : 'N/A'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>{daysTracked}d tracked</span>
+                          {distToTarget !== null && <span className={distToTarget >= 0 ? 'text-emerald-400' : 'text-red-400'}>{distToTarget >= 0 ? '+' : ''}{distToTarget.toFixed(1)}% to target</span>}
+                          <span>{new Date(t.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
                     );
                   })}
-                  {priceTargets.length > 8 && <div className="text-[10px] text-slate-500 text-center">+{priceTargets.length - 8} more tracked</div>}
+                  {priceTargets.length > 8 && <div className="text-xs text-slate-500 text-center py-2">+{priceTargets.length - 8} more targets tracked</div>}
                 </div>
               </div>
             )}
@@ -29626,6 +29820,12 @@ INSTRUCTIONS:
                     { term: 'Trade Tags', def: 'Labels you can assign to journal entries categorizing your strategy: Scalp, Swing, Day Trade, Earnings Play, Breakout, Momentum, Reversal, VWAP, or Gap Fill. Helps analyze which strategies perform best.' },
                     { term: 'Risk Calculator', def: 'A dashboard widget that calculates position size based on your account balance, risk percentage, entry price, and stop loss. Outputs dollar risk, share count, and total position value.' },
                   ]},
+                  { title: 'Platform Features (v2.5.0)', color: 'emerald', terms: [
+                    { term: 'Market Hours', def: 'US stock market regular trading hours are 9:30 AM to 4:00 PM Eastern Time, Monday through Friday. Pre-market trading runs 4:00-9:30 AM and after-hours trading runs 4:00-8:00 PM ET.' },
+                    { term: 'Economic Calendar', def: 'A schedule of upcoming economic data releases and events that can impact markets. Key events include CPI (inflation), FOMC meetings (interest rates), GDP reports, and employment data.' },
+                    { term: 'Heat Map', def: 'A visual representation of data where values are displayed as colors. In trading, portfolio heat maps show positions colored from green (profit) to red (loss) for quick visual scanning of performance.' },
+                    { term: 'Dashboard Layout', def: 'A saved arrangement of widgets on your MODUS dashboard. Create multiple layouts for different trading scenarios — one for day trading, another for swing trading research, etc.' },
+                  ]},
                 ];
 
                 const filteredCategories = vocabSearch.length > 1
@@ -29999,6 +30199,72 @@ INSTRUCTIONS:
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
                         <h3 className="font-semibold text-white mb-2 text-lg">Guided Setup Wizard</h3>
                         <p className="text-sm text-slate-400 leading-relaxed">New to MODUS? The setup wizard walks you through getting started in 3 quick steps: a welcome overview of what the platform offers, building your first watchlist with one-click adds for popular stocks (AAPL, TSLA, MSFT, NVDA, AMZN, GOOGL, META, SPY), and a summary of next steps with tips for getting the most out of the platform. At the end, you'll be pointed to the Info & Legal tab for a full breakdown of every feature.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section: Real-Time Market Intelligence (v2.5.0) */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-cyan-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">📊</span>
+                        Real-Time Market Intelligence
+                        <span className="text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full">v2.5.0</span>
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">New widgets to track market hours, economic events, and portfolio performance at a glance.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Market Hours Countdown</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A live clock widget showing exactly how long until the market opens or closes. Displays the current market status (Market Open, Pre-Market, After Hours, or Closed), time remaining in the current session, and when the next session begins. Useful for traders who want to know at a glance whether they can trade right now or when the next opportunity is coming. Updates in real-time and knows about weekends and market holidays.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Economic Calendar</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Upcoming economic data releases and central bank meetings that can impact markets. Shows key events like CPI (inflation), FOMC meetings (Federal Reserve interest rate decisions), GDP reports, and employment data. Each event is marked with an impact level (High, Medium, Low) so you know which announcements matter most. Plan your trades around major data releases and avoid trading during high-impact news that could cause unexpected volatility.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Portfolio Heat Map</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A visual grid showing all your open positions color-coded by performance. Green tiles = profitable positions, red tiles = losing positions. The intensity of the color corresponds to how much profit or loss. Scan the heat map instantly to see which trades are working and which need attention. Click any position to jump to its detail page. Useful for quickly assessing portfolio health and spotting concentrated risk in specific sectors or strategies.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section: Trade Planning & Alerts (v2.5.0) */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-violet-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">🎯</span>
+                        Trade Planning & Alerts
+                        <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">v2.5.0</span>
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">Advanced planning tools to set up trades ahead of time and get alerted when prices hit your targets.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Watchlist Price Alerts</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Set a target price alert on any stock in your watchlist. When that stock hits your target price, you get an instant notification with the current price and the alert details. Useful for passive monitoring — you can go about your day and be alerted when a stock reaches a key level instead of staring at charts constantly. Set as many alerts as you want across as many stocks as you're watching.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Trade Plan Templates</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Save reusable trade plans for your favorite setups. Define an entry price range, stop loss distance, and take-profit levels, then apply that template to new trades. If you always use the same 1:3 risk-reward ratio, always place your stop 5% below entry, or always scale out at 50% and 100% targets, a template automates this process. No more manually calculating risk/reward on every single trade — templates handle it instantly.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Trade Notes & Journaling</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Attach detailed notes to any journal trade entry explaining your reasoning, what you saw on the chart, your emotional state, and how the trade felt. Looking back, you can review your notes to understand what you were thinking when you entered. Over time, your notes become a personal trading log that helps you identify patterns in your decision-making and improve your process.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Custom Dashboard Layouts</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Save multiple dashboard configurations and switch between them instantly. Create one layout optimized for day trading (maybe you want the scalp timer, volume, and 1-minute chart up front), another for swing trading research (sector heatmap, earnings calendar, multi-timeframe analysis), and a third for after-hours portfolio review (P&L breakdown, closed trades list, weekly stats). Switch layouts with a single click to adapt your workspace to your current activity.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Multi-Ticker Comparison</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Overlay up to 4 stocks on the same chart with their returns normalized to a common baseline. Compare AAPL, MSFT, NVDA, and TSLA to see which is outperforming on the same timeframe. All charts show percentage gain/loss from the starting price so you can see relative performance clearly. Useful for sector analysis, finding the leader in a group, or comparing your stock against a benchmark index like SPY.</p>
                       </div>
                     </div>
                   </div>

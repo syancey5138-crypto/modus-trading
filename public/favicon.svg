@@ -1,39 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#8b5cf6"/>
-      <stop offset="50%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#6d28d9"/>
+    <linearGradient id="violetGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6d28d9;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#e0e7ff"/>
-      <stop offset="50%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#c4b5fd"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="1.2" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
-    <filter id="innerShadow">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
-      <feOffset dx="0" dy="1"/>
-      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
-      <feFlood flood-color="#4c1d95" flood-opacity="0.4"/>
-      <feComposite in2="SourceGraphic" operator="in"/>
-      <feComposite in="SourceGraphic"/>
-    </filter>
   </defs>
-  <!-- Background with subtle inner shadow -->
-  <rect width="32" height="32" rx="7" fill="url(#bg)" filter="url(#innerShadow)"/>
-  <!-- Subtle grid lines -->
-  <line x1="6" y1="12" x2="26" y2="12" stroke="#a78bfa" stroke-opacity="0.12" stroke-width="0.5"/>
-  <line x1="6" y1="16" x2="26" y2="16" stroke="#a78bfa" stroke-opacity="0.12" stroke-width="0.5"/>
-  <line x1="6" y1="20" x2="26" y2="20" stroke="#a78bfa" stroke-opacity="0.12" stroke-width="0.5"/>
-  <!-- Glow behind the chart line -->
-  <polyline points="5 19 9 17 12 20 16 10 20 15 24 8 27 12" fill="none" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#glow)"/>
-  <!-- Main chart line -->
-  <polyline points="5 19 9 17 12 20 16 10 20 15 24 8 27 12" fill="none" stroke="url(#line)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Endpoint dot -->
-  <circle cx="27" cy="12" r="2" fill="white" opacity="0.9"/>
-  <circle cx="27" cy="12" r="1" fill="#8b5cf6"/>
+
+  <!-- Rounded square background with violet gradient -->
+  <rect x="1" y="1" width="30" height="30" rx="4" ry="4" fill="url(#violetGradient)" />
+
+  <!-- Subtle grid lines separating the 2x2 quadrants -->
+  <line x1="16" y1="2" x2="16" y2="30" stroke="white" stroke-width="0.5" opacity="0.2" />
+  <line x1="2" y1="16" x2="30" y2="16" stroke="white" stroke-width="0.5" opacity="0.2" />
+
+  <!-- Top-left: Tiny upward line chart (2-3 segments) in white -->
+  <g>
+    <!-- Line chart path showing upward trend -->
+    <polyline points="4,12 7,10 10,11 13,8" fill="none" stroke="white" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Small dots at data points -->
+    <circle cx="4" cy="12" r="0.6" fill="white" />
+    <circle cx="7" cy="10" r="0.6" fill="white" />
+    <circle cx="10" cy="11" r="0.6" fill="white" />
+    <circle cx="13" cy="8" r="0.6" fill="white" />
+  </g>
+
+  <!-- Top-right: 3 tiny bar chart bars of ascending height in cyan -->
+  <g>
+    <rect x="19" y="11" width="1.2" height="4" fill="#06B6D4" rx="0.3" />
+    <rect x="21.5" y="9" width="1.2" height="6" fill="#06B6D4" rx="0.3" />
+    <rect x="24" y="7" width="1.2" height="8" fill="#06B6D4" rx="0.3" />
+  </g>
+
+  <!-- Bottom-left: Tiny pie/donut segment in amber/yellow -->
+  <g>
+    <!-- Donut ring background (light gray) -->
+    <circle cx="8" cy="23" r="2.5" fill="none" stroke="#e5e7eb" stroke-width="0.8" />
+    <!-- Amber segment (about 70 degrees) -->
+    <path d="M 8 20.5 A 2.5 2.5 0 0 1 9.8 22.7 L 9.2 22.5 A 1.5 1.5 0 0 0 8 21.3 Z" fill="#F59E0B" />
+  </g>
+
+  <!-- Bottom-right: Upward arrow in emerald/green -->
+  <g>
+    <!-- Arrow shaft -->
+    <rect x="26" y="24" width="0.8" height="3" fill="#10B981" rx="0.2" />
+    <!-- Arrow head (triangle) -->
+    <polygon points="26.4,21 25.2,23.5 27.6,23.5" fill="#10B981" />
+  </g>
 </svg>
