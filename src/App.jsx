@@ -26767,7 +26767,7 @@ INSTRUCTIONS:
                     <p className="text-lg text-slate-300 leading-relaxed mb-4">MODUS is an all-in-one trading analysis platform built for traders who want real tools — not gimmicks. Whether you are brand new to trading and learning the basics, or an experienced day trader looking for an edge, MODUS gives you institutional-grade analysis, smart automation, and a complete trading workflow in one place.</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
-                        <div className="text-2xl font-bold text-violet-400">30+</div>
+                        <div className="text-2xl font-bold text-violet-400">35+</div>
                         <div className="text-xs text-slate-400">Built-in Tools</div>
                       </div>
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
@@ -26822,6 +26822,15 @@ INSTRUCTIONS:
                         <p className="text-sm text-slate-400 leading-relaxed mb-3">Every day, the AI runs a comprehensive scan of over 220 stocks across 15 sectors using parallel batch processing. It evaluates each stock on multiple technical indicators — RSI (14-period), MACD histogram, SMA20/SMA50 crossovers, trend detection, and volume analysis — to identify the single best trade opportunity of the day.</p>
                         <p className="text-sm text-slate-400 leading-relaxed">The daily pick comes with a complete analysis: confidence score, specific entry price, stop loss level, target prices, risk/reward ratio, and a detailed explanation of why this stock was selected. The scan results are cached for 5 minutes to prevent excessive API calls while keeping data fresh.</p>
                       </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Quick Analysis</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Enter any stock ticker and get an instant AI-powered buy/sell/hold verdict in seconds. Quick Analysis fetches live data via an 8-proxy fallback chain to Yahoo Finance, computes technical indicators (RSI, SMA20/50, MACD, volume trends), and sends everything to the AI for a comprehensive verdict with confidence score, target price, stop loss, support/resistance levels, and risk:reward ratio.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">The "Tell Me More" button expands into a structured deep-dive with 5 organized cards: Technical Analysis (indicator signals with Bullish/Bearish/Neutral badges), Entry &amp; Exit Strategy (order type, sizing, flow steps), Risk Assessment (severity matrix, max loss, warning signals), Sector &amp; Market Context (catalysts vs headwinds), and Scenario Analysis (bull/base/bear cases with probability and targets).</p>
+                        <div className="bg-slate-800/40 rounded-lg px-4 py-3 text-xs text-slate-500 border border-slate-700/30">
+                          <span className="text-violet-400 font-semibold">How to use:</span> Go to the Quick Analysis tab (or press "q"), type a ticker, and hit Analyze. Popular tickers are also available as one-click buttons. Your last 10 analyses are saved for easy comparison with color-coded confidence bars.
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -26857,6 +26866,16 @@ INSTRUCTIONS:
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
                         <h3 className="font-semibold text-white mb-2 text-lg">News & Sentiment Feed</h3>
                         <p className="text-sm text-slate-400 leading-relaxed">Aggregated financial news from multiple sources with real-time updates. Each headline includes AI-powered sentiment analysis classifying it as bullish, bearish, or neutral. You can filter news by sentiment type or by your watchlist stocks to see only the headlines that matter to your positions. This helps you stay ahead of market-moving events and understand the narrative driving price action.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Top Movers Ticker Strip</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A live scrolling bar on the dashboard showing the top 5 gainers and top 3 losers from the market scanner, with symbol, change percentage, and color-coded badges (green for gainers, red for losers). Click any symbol to instantly navigate to its live chart. The strip is populated automatically when the market scanner runs and updates with the latest scan data.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Market Mood (Fear &amp; Greed Estimate)</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A dashboard widget that estimates overall market sentiment on a 0-100 scale. The score is computed from three data points: the VIX volatility index (low VIX = greed, high VIX = fear), SPY daily performance, and the ratio of gainers to losers in the market scanner. The result is classified as Extreme Fear, Fear, Neutral, Greed, or Extreme Greed with a color-coded progress bar from red to green. Displays live VIX and SPY change values for transparency.</p>
                       </div>
                     </div>
                   </div>
@@ -26927,6 +26946,11 @@ INSTRUCTIONS:
                         <h3 className="font-semibold text-white mb-2 text-lg">Backtesting & Accuracy Tracking</h3>
                         <p className="text-sm text-slate-400 leading-relaxed">After you've built up a history of AI analyses, the backtesting feature lets you measure how accurate those analyses were. It compares the AI's predicted direction and targets against what actually happened in the market. This gives you a real win rate for the AI's recommendations, helping you calibrate your trust in the system and adjust your strategy accordingly.</p>
                       </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Trading Streak Widget</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A dashboard widget that tracks your consecutive trading journal entries, encouraging daily accountability. The streak counts how many consecutive days you have logged at least one trade. Visual milestones unlock emoji badges: 3 days gets a fire badge, 7 days a star, 14 days a rocket, and 30+ days a trophy. Below the streak counter, you can see your total trade count and win count from your last 10 trades. If your streak is at zero, a "Log a trade to start" button takes you directly to the journal.</p>
+                      </div>
                     </div>
                   </div>
 
@@ -26986,9 +27010,30 @@ INSTRUCTIONS:
                       </div>
 
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
-                        <h3 className="font-semibold text-white mb-2 text-lg">CSV Export, Keyboard Shortcuts & Mobile Support</h3>
-                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Export your trade journal or portfolio data as CSV files for use in Excel, Google Sheets, or your own analysis tools. Full keyboard shortcut support lets power users navigate without touching the mouse — press "?" at any time to see all available shortcuts. Mac users get native key symbols (⌘/⌥/⇧). Shortcuts include quick tab switching (1-9), chart capture (Ctrl+Enter), PDF export (Ctrl+E), sidebar toggle (Ctrl+B), and more.</p>
+                        <h3 className="font-semibold text-white mb-2 text-lg">CSV Export & Mobile Support</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Export your trade journal or portfolio data as CSV files for use in Excel, Google Sheets, or your own analysis tools.</p>
                         <p className="text-sm text-slate-400 leading-relaxed">On mobile devices, a fixed bottom navigation bar provides quick access to all major sections (Dashboard, Ticker, Analysis, Daily Pick, Alerts, Journal) with a clean touch-friendly interface optimized for smaller screens.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Keyboard Shortcuts</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Full keyboard shortcut support lets power users navigate MODUS without touching the mouse. Press "?" at any time to see all available shortcuts. Mac users get native key symbols (⌘/⌥/⇧).</p>
+                        <div className="bg-slate-800/40 rounded-lg px-4 py-3 text-xs text-slate-500 border border-slate-700/30 space-y-1.5">
+                          <p><span className="text-violet-400 font-semibold">Dashboard shortcuts:</span> Press <kbd className="px-1 py-0.5 bg-slate-700/60 rounded text-[10px] font-mono border border-slate-600/30">/</kbd> to focus the Quick Analyze search bar instantly</p>
+                          <p><span className="text-violet-400 font-semibold">Quick navigation:</span> Press <kbd className="px-1 py-0.5 bg-slate-700/60 rounded text-[10px] font-mono border border-slate-600/30">q</kbd> to jump to Quick Analysis tab from anywhere</p>
+                          <p><span className="text-violet-400 font-semibold">Tab switching:</span> Number keys 1-9 to switch between tabs</p>
+                          <p><span className="text-violet-400 font-semibold">Actions:</span> Ctrl+Enter to capture chart, Ctrl+E for PDF export, Ctrl+B to toggle sidebar</p>
+                        </div>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Vocabulary / Glossary</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A comprehensive glossary of 60+ trading terms organized into 6 categories: Order Types, Position &amp; Direction, Technical Analysis, Risk Management, Market Fundamentals, and Trading Styles. Each term includes a detailed, beginner-friendly definition with real examples, formulas, and practical tips. Searchable by keyword — type any term in the search bar to filter instantly. Available in the Info &amp; Legal tab.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Daily Trading Tip</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A fresh trading tip every day on the dashboard, rotating through 30 curated tips across 5 categories: Risk Management, Psychology, Technical Analysis, Strategy, and Fundamentals. Each tip card is color-coded by category with a gradient background. Click "Random tip" for a bonus tip as a toast notification. Tips are educational, actionable, and designed to reinforce good trading habits over time.</p>
                       </div>
 
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
@@ -27298,7 +27343,7 @@ INSTRUCTIONS:
             {/* FEATURES PAGE */}
             {showInfoPage === 'features' && (
               <div className="space-y-8">
-                <p className="text-lg text-slate-300 leading-relaxed">MODUS is a comprehensive trading analysis platform with 22+ tools designed for traders at every level. Here's everything included:</p>
+                <p className="text-lg text-slate-300 leading-relaxed">MODUS is a comprehensive trading analysis platform with 35+ tools designed for traders at every level. Here's everything included:</p>
 
                 {[
                   {
@@ -27310,7 +27355,7 @@ INSTRUCTIONS:
                       { name: 'Multi-Timeframe Analysis', desc: 'Analyze the same stock across multiple timeframes simultaneously (1m, 5m, 15m, 1h, 4h, Daily) to confirm trend alignment and find high-probability entries.' },
                       { name: 'Ask AI Trading Assistant', desc: 'Natural language trading assistant that can answer any trading question, explain strategies, analyze market conditions, and help you understand technical indicators.' },
                       { name: 'Daily AI Pick', desc: 'Every day, the AI scans the market and delivers a top trade recommendation with full analysis, confidence score, entry/exit levels, and risk/reward ratio.' },
-                      { name: 'Quick Analysis', desc: 'Enter any stock ticker and get an instant AI-powered buy/sell/hold verdict with confidence score, price targets, stop loss, technical indicators (RSI, SMA, MACD, volume), bullish/bearish factors, and a detailed "Tell Me More" breakdown. Uses live Yahoo Finance data for real-time accuracy.' }
+                      { name: 'Quick Analysis', desc: 'Enter any stock ticker and get an instant AI-powered buy/sell/hold verdict with confidence score, price targets, stop loss, support/resistance levels, risk:reward ratio, technical indicators (RSI, SMA, MACD, volume), bullish/bearish factors, and a detailed "Tell Me More" structured breakdown with 5 sections (Technical Analysis, Entry/Exit Strategy, Risk Assessment, Sector Context, Scenario Analysis). Uses live Yahoo Finance data with 8-proxy fallback for real-time accuracy.' }
                     ]
                   },
                   {
@@ -27321,8 +27366,9 @@ INSTRUCTIONS:
                       { name: 'Live Stock Ticker', desc: 'Real-time stock data with candlestick charts, volume analysis, RSI, MACD, and Bollinger Bands. Supports any US stock symbol with automatic multi-API fallback.' },
                       { name: 'Stock Screener', desc: 'Scan 220+ stocks with 8 preset strategies (RSI Oversold, Volume Breakout, Bullish Momentum, Golden Cross, and more) or create custom filters by price, volume, and RSI range.' },
                       { name: 'Market Scanner', desc: 'Real-time market overview showing top gainers, losers, and volume leaders. Identifies the most active and volatile stocks of the day.' },
-                      { name: 'Market Overview', desc: 'Dashboard showing major indices (SPY, QQQ, DIA, IWM), VIX, and all 11 S&P sectors with live performance data.' },
-                      { name: 'News & Sentiment Feed', desc: 'Aggregated financial news with sentiment analysis. Filter by bullish, bearish, or your watchlist stocks.' }
+                      { name: 'Market Overview', desc: 'Dashboard showing major indices (SPY, QQQ, DIA, IWM), VIX, and all 11 S&P sectors with live performance data. Indices are clickable to open live charts.' },
+                      { name: 'News & Sentiment Feed', desc: 'Aggregated financial news with sentiment analysis. Filter by bullish, bearish, or your watchlist stocks.' },
+                      { name: 'Top Movers Ticker', desc: 'Live scrolling bar on the dashboard showing the top 5 gainers and top 3 losers from the market scanner. Click any symbol to instantly open its live chart.' }
                     ]
                   },
                   {
@@ -27346,7 +27392,9 @@ INSTRUCTIONS:
                       { name: 'Performance Dashboard', desc: 'Visualize your trading performance with win rate, average P&L, profit factor, and equity curve. Compare your results over time.' },
                       { name: 'Trade Planner', desc: 'Plan trades with detailed risk/reward calculations before entering. Calculate recommended shares, expected profit, max loss, and risk per share.' },
                       { name: 'Backtesting', desc: 'Test your analysis accuracy against historical outcomes. Track win rates across all your past analyses.' },
-                      { name: 'Alert Performance', desc: 'Track how your price alerts perform after triggering. See which alerts led to profitable opportunities.' }
+                      { name: 'Alert Performance', desc: 'Track how your price alerts perform after triggering. See which alerts led to profitable opportunities.' },
+                      { name: 'Trading Streak', desc: 'Dashboard widget tracking your consecutive journal entries. Build streaks and stay accountable with emoji milestones at 3, 7, 14, and 30+ day streaks.' },
+                      { name: 'Market Mood (Fear & Greed)', desc: 'Dashboard widget estimating market sentiment on a 0-100 scale using VIX, SPY performance, and scanner breadth. Shows Extreme Fear, Fear, Neutral, Greed, or Extreme Greed with a color-coded bar.' }
                     ]
                   },
                   {
@@ -27369,7 +27417,11 @@ INSTRUCTIONS:
                       { name: 'Social Sharing', desc: 'Share your analyses on Twitter/X, Reddit, or copy to clipboard. Formatted summaries with score, recommendation, and key metrics.' },
                       { name: 'Trade Ideas Generator', desc: 'AI-generated trade ideas with full setups including entry, stop loss, targets, and reasoning. Scan for opportunities you might have missed.' },
                       { name: 'Cloud Sync', desc: 'Sign in with Google or email to sync your data across devices. Watchlists, trades, alerts, and settings stored securely in Firebase.' },
-                      { name: 'CSV Export', desc: 'Export your trade journal and portfolio data as CSV files for use in Excel, Google Sheets, or other analysis tools.' }
+                      { name: 'CSV Export', desc: 'Export your trade journal and portfolio data as CSV files for use in Excel, Google Sheets, or other analysis tools.' },
+                      { name: 'Keyboard Shortcuts', desc: 'Power-user shortcuts for fast navigation: press "/" on the dashboard to focus Quick Analyze, "q" to jump to Quick Analysis, number keys to switch tabs, Ctrl+Enter to capture charts, Ctrl+E for PDF export, Ctrl+B to toggle sidebar, and more. Press "?" to see all shortcuts.' },
+                      { name: 'Vocabulary / Glossary', desc: 'Comprehensive glossary of 60+ trading terms organized by category (Order Types, Technical Analysis, Risk Management, Market Fundamentals, Trading Styles). Each term includes a detailed, beginner-friendly definition with real examples.' },
+                      { name: 'Daily Trading Tip', desc: 'A fresh trading tip every day on the dashboard, rotating through 30 tips across 5 categories: Risk Management, Psychology, Technical Analysis, Strategy, and Fundamentals. Click "Random tip" for a bonus one.' },
+                      { name: 'Guided Setup Wizard', desc: 'First-time setup wizard that walks you through a 3-step onboarding: welcome overview, building your initial watchlist, and next steps. Available any time from Settings.' }
                     ]
                   }
                 ].map((section, idx) => (
