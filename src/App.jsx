@@ -3614,10 +3614,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         }
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event) => {
         setVoiceListening(false);
         setShowVoiceOverlay(false);
-        addNotification({ type: 'system', title: 'Voice Error', message: 'Could not understand. Try again.', icon: '🎤' });
+        const errMsg = event.error === 'not-allowed'
+          ? 'Microphone permission denied. Click the lock icon in your address bar to allow microphone access.'
+          : event.error === 'no-speech'
+          ? 'No speech detected. Click the mic and speak clearly.'
+          : event.error === 'network'
+          ? 'Network error — voice commands require an internet connection.'
+          : `Voice error: ${event.error}. Try again.`;
+        addNotification({ type: 'system', title: 'Voice Command', message: errMsg, icon: '🎤' });
       };
 
       recognition.onend = () => {
@@ -3628,84 +3635,115 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
   }, []);
 
-  const startVoiceCommand = useCallback(() => {
-    if (voiceRecognitionRef.current && !voiceListening) {
+  const startVoiceCommand = useCallback(async () => {
+    if (!voiceRecognitionRef.current || voiceListening) return;
+
+    // First, request microphone permission explicitly — this triggers the browser popup
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Permission granted — stop the stream (we only needed the prompt)
+      stream.getTracks().forEach(t => t.stop());
+    } catch (err) {
+      // Permission denied or no microphone
+      addNotification({
+        type: 'system',
+        title: 'Microphone Access Denied',
+        message: 'MODUS needs microphone permission for voice commands. Check your browser settings and allow microphone access for this site.',
+        icon: '🎤'
+      });
+      return;
+    }
+
+    // Now start recognition
+    try {
       setVoiceTranscript('');
       setVoiceListening(true);
       setShowVoiceOverlay(true);
       voiceRecognitionRef.current.start();
+    } catch (err) {
+      setVoiceListening(false);
+      setShowVoiceOverlay(false);
+      addNotification({
+        type: 'system',
+        title: 'Voice Error',
+        message: err.message?.includes('already started') ? 'Voice is already listening.' : 'Could not start voice recognition. Try again.',
+        icon: '🎤'
+      });
     }
   }, [voiceListening]);
 
   const stopVoiceCommand = useCallback(() => {
-    if (voiceRecognitionRef.current && voiceListening) {
-      voiceRecognitionRef.current.stop();
-      setVoiceListening(false);
-      setShowVoiceOverlay(false);
+    if (voiceRecognitionRef.current) {
+      try { voiceRecognitionRef.current.stop(); } catch {}
     }
-  }, [voiceListening]);
+    setVoiceListening(false);
+    setShowVoiceOverlay(false);
+  }, []);
 
   const processVoiceCommand = useCallback((cmd) => {
-    // Navigation commands
-    if (cmd.includes('dashboard') || cmd.includes('home')) {
-      setActiveTab('dashboard');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Navigating to Dashboard', icon: '🎤' });
-    } else if (cmd.includes('journal') || cmd.includes('trade log')) {
-      setActiveTab('journal');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Navigating to Journal', icon: '🎤' });
-    } else if (cmd.includes('quick analysis') || cmd.includes('analyze') || cmd.includes('analysis')) {
-      const tickerMatch = cmd.match(/(?:analyze|analysis|look at|check)\s+([a-z]{1,5})/i);
-      if (tickerMatch) {
-        const ticker = tickerMatch[1].toUpperCase();
-        setQuickAnalysisTicker(ticker);
-        setActiveTab('quickanalysis');
-        addNotification({ type: 'success', title: 'Voice Command', message: `Analyzing ${ticker}`, icon: '🎤' });
-      } else {
-        setActiveTab('quickanalysis');
-        addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Quick Analysis', icon: '🎤' });
+    const c = cmd.toLowerCase().trim();
+    let matched = false;
+    const act = (msg, fn) => { fn(); addNotification({ type: 'success', title: 'Voice Command', message: msg, icon: '🎤' }); matched = true; };
+
+    // Ticker analysis — try to extract a ticker from the command first
+    const tickerMatch = c.match(/(?:analyze|analysis|analyse|look at|check|search|pull up|show me|what about|how is|how's)\s+([a-z]{1,5})/i);
+    if (tickerMatch && !c.includes('dashboard') && !c.includes('journal')) {
+      const ticker = tickerMatch[1].toUpperCase();
+      // Reject common non-ticker words
+      if (!['THE','AND','FOR','THIS','THAT','WITH','FROM','ABOUT','SOME','DARK','LIGHT'].includes(ticker)) {
+        act(`Analyzing ${ticker}`, () => { setQuickAnalysisTicker(ticker); setActiveTab('quickanalysis'); });
       }
-    } else if (cmd.includes('portfolio')) {
-      setActiveTab('portfolio');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Navigating to Portfolio', icon: '🎤' });
-    } else if (cmd.includes('screener') || cmd.includes('scanner')) {
-      setActiveTab('screener');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Screener', icon: '🎤' });
-    } else if (cmd.includes('paper trad')) {
-      setActiveTab('papertrading');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Paper Trading', icon: '🎤' });
-    } else if (cmd.includes('news') || cmd.includes('market news')) {
-      setActiveTab('news');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening News', icon: '🎤' });
-    } else if (cmd.includes('performance')) {
-      setActiveTab('performance');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Performance', icon: '🎤' });
-    } else if (cmd.includes('settings') || cmd.includes('api key')) {
-      setShowApiKeyModal(true);
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Settings', icon: '🎤' });
     }
-    // Theme commands
-    else if (cmd.includes('dark mode') || cmd.includes('dark theme')) {
-      setThemeMode('dark');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Switched to Dark theme', icon: '🎤' });
-    } else if (cmd.includes('light mode') || cmd.includes('light theme')) {
-      setThemeMode('light');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Switched to Light theme', icon: '🎤' });
-    } else if (cmd.includes('midnight') || cmd.includes('default theme')) {
-      setThemeMode('midnight');
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Switched to Midnight theme', icon: '🎤' });
-    }
-    // Action commands
-    else if (cmd.includes('new trade') || cmd.includes('add trade') || cmd.includes('log trade')) {
-      setShowQuickTradeEntry(true);
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Quick Trade Entry', icon: '🎤' });
-    } else if (cmd.includes('shortcut') || cmd.includes('keyboard')) {
-      setShowShortcutsOverlay(true);
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Showing Keyboard Shortcuts', icon: '🎤' });
-    } else if (cmd.includes('what\'s new') || cmd.includes('changelog') || cmd.includes('updates')) {
-      setShowChangelog(true);
-      addNotification({ type: 'success', title: 'Voice Command', message: 'Showing Changelog', icon: '🎤' });
-    } else {
-      addNotification({ type: 'system', title: 'Voice Command', message: `Didn't recognize: "${cmd}"`, icon: '🎤' });
+
+    if (!matched) {
+      // Navigation commands — flexible matching
+      if (c.includes('dashboard') || c.includes('home') || c.includes('main page')) {
+        act('Navigating to Dashboard', () => setActiveTab('dashboard'));
+      } else if (c.includes('journal') || c.includes('trade log') || c.includes('trades') || c.includes('my trades')) {
+        act('Navigating to Journal', () => setActiveTab('journal'));
+      } else if (c.includes('quick analysis') || c.includes('analyze') || c.includes('analysis') || c.includes('analyse')) {
+        act('Opening Quick Analysis', () => setActiveTab('quickanalysis'));
+      } else if (c.includes('portfolio') || c.includes('my stocks') || c.includes('holdings')) {
+        act('Navigating to Portfolio', () => setActiveTab('portfolio'));
+      } else if (c.includes('screener') || c.includes('scanner') || c.includes('screen')) {
+        act('Opening Screener', () => setActiveTab('screener'));
+      } else if (c.includes('paper trad') || c.includes('simulator') || c.includes('practice')) {
+        act('Opening Paper Trading', () => setActiveTab('papertrading'));
+      } else if (c.includes('news') || c.includes('headlines') || c.includes('market news')) {
+        act('Opening News', () => setActiveTab('news'));
+      } else if (c.includes('performance') || c.includes('stats') || c.includes('statistics')) {
+        act('Opening Performance', () => setActiveTab('performance'));
+      } else if (c.includes('community') || c.includes('feed') || c.includes('social')) {
+        act('Opening Community', () => setActiveTab('community'));
+      } else if (c.includes('info') || c.includes('help') || c.includes('guide')) {
+        act('Opening Info & Help', () => setActiveTab('info'));
+      } else if (c.includes('setting') || c.includes('api key') || c.includes('config')) {
+        act('Opening Settings', () => setShowApiKeyModal(true));
+      }
+      // Theme commands
+      else if (c.includes('dark mode') || c.includes('dark theme') || c.includes('go dark')) {
+        act('Switched to Dark theme', () => setThemeMode('dark'));
+      } else if (c.includes('light mode') || c.includes('light theme') || c.includes('go light') || c.includes('bright')) {
+        act('Switched to Light theme', () => setThemeMode('light'));
+      } else if (c.includes('midnight') || c.includes('default theme') || c.includes('purple')) {
+        act('Switched to Midnight theme', () => setThemeMode('midnight'));
+      }
+      // Action commands
+      else if (c.includes('new trade') || c.includes('add trade') || c.includes('log trade') || c.includes('enter trade')) {
+        act('Opening Quick Trade Entry', () => setShowQuickTradeEntry(true));
+      } else if (c.includes('shortcut') || c.includes('keyboard') || c.includes('hotkey')) {
+        act('Showing Keyboard Shortcuts', () => setShowShortcutsOverlay(true));
+      } else if (c.includes('what\'s new') || c.includes('changelog') || c.includes('updates') || c.includes('change log')) {
+        act('Showing Changelog', () => setShowChangelog(true));
+      } else if (c.includes('theme') || c.includes('customize')) {
+        act('Opening Theme Builder', () => setShowThemeBuilder(true));
+      } else if (c.includes('alert') || c.includes('notification')) {
+        act('Opening Alerts', () => { setShowNotificationCenter(true); });
+      }
+      // Didn't match anything
+      else {
+        addNotification({ type: 'system', title: 'Voice Command', message: `Didn't recognize: "${cmd}". Try "analyze AAPL" or "go to dashboard"`, icon: '🎤' });
+      }
     }
   }, []);
 
@@ -33038,17 +33076,41 @@ INSTRUCTIONS:
 
       {/* Voice Command Overlay */}
       {showVoiceOverlay && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[70] animate-fadeIn" onClick={stopVoiceCommand}>
-          <div className="text-center" onClick={e => e.stopPropagation()}>
-            <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${voiceListening ? 'bg-red-500/30 animate-pulse' : 'bg-violet-500/30'}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-lg flex items-center justify-center z-[70] animate-fadeIn" onClick={stopVoiceCommand}>
+          <div className="text-center max-w-lg w-full px-6" onClick={e => e.stopPropagation()}>
+            {/* Mic animation */}
+            <div className={`w-28 h-28 mx-auto mb-6 rounded-full flex items-center justify-center transition-all duration-300 ${voiceListening ? 'bg-red-500/25 shadow-[0_0_60px_rgba(239,68,68,0.3)]' : 'bg-violet-500/25 shadow-[0_0_60px_rgba(139,92,246,0.3)]'}`}>
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center ${voiceListening ? 'bg-red-500/30 animate-pulse' : 'bg-violet-500/30'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">{voiceListening ? 'Listening...' : 'Processing...'}</h2>
+
+            <h2 className="text-2xl font-bold text-white mb-1">{voiceListening ? 'Listening...' : 'Processing...'}</h2>
+            <p className="text-sm text-slate-400 mb-4">Speak a command naturally</p>
+
+            {/* Live transcript */}
             {voiceTranscript && (
-              <p className="text-lg text-violet-300 mb-4 max-w-md mx-auto">"{voiceTranscript}"</p>
+              <div className="bg-slate-800/60 border border-violet-500/30 rounded-xl px-4 py-3 mb-5 mx-auto max-w-sm">
+                <p className="text-lg text-violet-300 font-medium">"{voiceTranscript}"</p>
+              </div>
             )}
-            <p className="text-sm text-slate-400 mb-6">Try: "Analyze AAPL" · "Go to journal" · "Dark mode" · "New trade"</p>
-            <button onClick={stopVoiceCommand} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-300 transition-all">
+
+            {/* Command examples grid */}
+            <div className="grid grid-cols-2 gap-2 mb-6 text-left max-w-md mx-auto">
+              {[
+                { cat: 'Navigate', cmds: '"Go to dashboard" · "Open journal" · "Paper trading"' },
+                { cat: 'Analyze', cmds: '"Analyze AAPL" · "Check TSLA" · "Look at NVDA"' },
+                { cat: 'Theme', cmds: '"Dark mode" · "Light theme" · "Midnight"' },
+                { cat: 'Actions', cmds: '"New trade" · "Settings" · "What\'s new"' },
+              ].map(g => (
+                <div key={g.cat} className="bg-slate-800/30 rounded-lg p-2.5 border border-slate-700/20">
+                  <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-1">{g.cat}</div>
+                  <div className="text-[10px] text-slate-400 leading-relaxed">{g.cmds}</div>
+                </div>
+              ))}
+            </div>
+
+            <button onClick={stopVoiceCommand} className="px-8 py-2.5 bg-slate-800/80 hover:bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-300 transition-all">
               Cancel
             </button>
           </div>
