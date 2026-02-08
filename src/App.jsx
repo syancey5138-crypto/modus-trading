@@ -3607,11 +3607,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [marketBreadth, setMarketBreadth] = useState(null);
   const [loadingBreadth, setLoadingBreadth] = useState(false);
   
-  // PHASE 3: Drawing Tools (main state at line ~2593)
-  // const [drawings] already declared above with localStorage persistence
-  const [activeTool, setActiveTool] = useState(null);
-  const [showDrawingToolbar, setShowDrawingToolbar] = useState(false);
-  
+  // Drawing Tools — now integrated as chart overlay on Live Ticker tab (state at line ~2731)
+
   // PHASE 3: Multi-Timeframe View
   const [multiTimeframeMode, setMultiTimeframeMode] = useState(false);
   const [timeframeGrid, setTimeframeGrid] = useState([
@@ -3735,19 +3732,20 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // VOICE COMMAND SYSTEM
   // =================================================================
   const voiceRecognitionRef = useRef(null);
+  const voiceActiveRef = useRef(false); // Tracks whether we WANT to be listening (survives re-renders & closures)
+  const voiceCommandMatchedRef = useRef(false); // Tracks whether a command was matched (to prevent restart)
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       setVoiceSupported(true);
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      recognition.continuous = false; // Use single-shot + auto-restart (more reliable than continuous mode in Chrome)
       recognition.interimResults = true;
       recognition.lang = 'en-US';
       recognition.maxAlternatives = 3;
 
       recognition.onresult = (event) => {
-        // Get the latest result (continuous mode produces multiple results)
         const lastResult = event.results[event.results.length - 1];
         const transcript = lastResult[0].transcript;
         const confidence = lastResult[0].confidence;
@@ -3757,28 +3755,26 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           // Try all alternatives if primary confidence is low
           let bestTranscript = transcript;
           if (confidence < 0.5 && lastResult.length > 1) {
-            // Check alternative transcripts for better matches
             for (let a = 0; a < lastResult.length; a++) {
               if (lastResult[a].confidence > confidence) {
                 bestTranscript = lastResult[a].transcript;
               }
             }
           }
-          // Accept anything with confidence > 0.15 (browser often reports 0 for valid speech)
-          if (confidence > 0.15 || confidence === 0) {
-            processVoiceCommand(bestTranscript.toLowerCase().trim());
-            try { recognition.stop(); } catch {}
-            setTimeout(() => { setVoiceListening(false); setShowVoiceOverlay(false); }, 1500);
-          }
+          // Accept anything (Chrome often reports confidence 0 for valid speech)
+          voiceCommandMatchedRef.current = true;
+          voiceActiveRef.current = false; // Stop listening after command
+          processVoiceCommand(bestTranscript.toLowerCase().trim());
+          try { recognition.stop(); } catch {}
+          setTimeout(() => { setVoiceListening(false); setShowVoiceOverlay(false); }, 1500);
         }
       };
 
       recognition.onerror = (event) => {
-        // Don't close overlay on no-speech — let user keep trying
-        if (event.error === 'no-speech' || event.error === 'aborted') {
-          // Silently restart if still in listening mode
-          return;
-        }
+        // no-speech and aborted are normal — just let onend handle restart
+        if (event.error === 'no-speech' || event.error === 'aborted') return;
+        // Real errors — stop everything
+        voiceActiveRef.current = false;
         setVoiceListening(false);
         setShowVoiceOverlay(false);
         const errMsg = event.error === 'not-allowed'
@@ -3792,7 +3788,18 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       };
 
       recognition.onend = () => {
-        setVoiceListening(false);
+        // Auto-restart if we're still supposed to be listening
+        // This is the KEY fix — Chrome's speech recognition stops after each phrase or no-speech timeout
+        // We restart it automatically so the mic stays hot until the user cancels or a command matches
+        if (voiceActiveRef.current && !voiceCommandMatchedRef.current) {
+          try {
+            setTimeout(() => {
+              if (voiceActiveRef.current) recognition.start();
+            }, 100);
+          } catch {}
+        } else {
+          setVoiceListening(false);
+        }
       };
 
       voiceRecognitionRef.current = recognition;
@@ -3837,16 +3844,23 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       setVoiceTranscript('');
       setVoiceListening(true);
       setShowVoiceOverlay(true);
+      voiceActiveRef.current = true;
+      voiceCommandMatchedRef.current = false;
       voiceRecognitionRef.current.start();
-      // Auto-stop after 15 seconds if no command matched
+      // Auto-stop after 20 seconds if no command matched
       setTimeout(() => {
-        if (voiceRecognitionRef.current) {
-          try { voiceRecognitionRef.current.stop(); } catch {}
+        if (voiceActiveRef.current) {
+          voiceActiveRef.current = false;
+          if (voiceRecognitionRef.current) {
+            try { voiceRecognitionRef.current.stop(); } catch {}
+          }
+          setVoiceListening(false);
+          setShowVoiceOverlay(false);
+          addNotification({ type: 'system', title: 'Voice Timeout', message: 'No command detected. Tap the mic to try again.', icon: '🎤' });
         }
-        setVoiceListening(false);
-        setShowVoiceOverlay(false);
-      }, 15000);
+      }, 20000);
     } catch (err) {
+      voiceActiveRef.current = false;
       setVoiceListening(false);
       setShowVoiceOverlay(false);
       addNotification({
@@ -3859,6 +3873,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   }, [voiceListening]);
 
   const stopVoiceCommand = useCallback(() => {
+    voiceActiveRef.current = false;
     if (voiceRecognitionRef.current) {
       try { voiceRecognitionRef.current.stop(); } catch {}
     }
@@ -15517,7 +15532,7 @@ INSTRUCTIONS:
                 { key: 'econcalendar', label: 'Economic Calendar', icon: '📅', group: 'data', desc: 'Upcoming economic events — Fed meetings, CPI, jobs reports, GDP releases' },
                 { key: 'heatmap', label: 'Portfolio Heat Map', icon: '🗺️', group: 'trading', desc: 'Visual grid of your positions colored by daily P&L from green to red' },
                 { key: 'crypto', label: 'Crypto Prices', icon: '₿', group: 'data', desc: 'Live cryptocurrency prices from CoinGecko — Bitcoin, Ethereum, and more' },
-                // Drawing Tools removed from widget panel — drag-to-draw conflicts with widget drag-to-reorder. Will be integrated as a dedicated chart overlay in a future version.
+                // Drawing Tools removed from widget panel — now integrated as chart overlay on Live Ticker tab (click "Draw" button in chart overlays).
                 { key: 'morningbrief', label: 'Morning Briefing', icon: '☀️', group: 'data', desc: 'AI-generated daily market briefing with key events and stocks to watch' },
                 { key: 'tradeplan', label: 'Trade Plan', icon: '📋', group: 'trading', desc: 'Set and enforce daily trade limits, max loss, and trading rules' },
                 { key: 'sectorrotation', label: 'Sector Rotation', icon: '🔄', group: 'data', desc: 'Live sector ETF momentum — shows which sectors are leading and lagging' },
@@ -17868,186 +17883,7 @@ INSTRUCTIONS:
                     );
                   }
 
-                  // ─── Chart Drawing Tools ─────────────────────
-                  case 'drawingtools': {
-                    const ticker = tickerSymbol || 'default';
-                    const tickerDrawings = drawings[ticker] || [];
-                    const canvasW = 400;
-                    const canvasH = 250;
-                    return (
-                      <div {...wrapProps}>
-                        <div className="bg-gradient-to-br from-violet-500/10 to-slate-900/0 rounded-xl border border-violet-500/20 p-4 h-full hover:border-violet-500/30 transition-all">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                            <Pencil className="w-4 h-4 text-violet-400" /> Chart Drawing Tools
-                            {tickerSymbol && <span className="text-[10px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-medium">{tickerSymbol}</span>}
-                          </h3>
-                          <div className="flex items-center gap-1">
-                            {tickerDrawings.length > 0 && (
-                              <button onClick={() => clearDrawings()} className="text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-all">Clear All</button>
-                            )}
-                            <span className="text-[10px] text-slate-500">{tickerDrawings.length} drawing{tickerDrawings.length !== 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
-
-                        {/* Tool Selector */}
-                        <div className="flex gap-1.5 mb-3">
-                          {[
-                            { mode: 'line', icon: '📈', label: 'Trendline' },
-                            { mode: 'horizontal', icon: '➖', label: 'H-Line' },
-                            { mode: 'fibonacci', icon: '🔢', label: 'Fib' },
-                            { mode: 'rectangle', icon: '▢', label: 'Rectangle' },
-                            { mode: 'text', icon: '💬', label: 'Text' },
-                          ].map(tool => (
-                            <button key={tool.mode}
-                              onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
-                              className={`px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 ${
-                                drawingMode === tool.mode
-                                  ? 'bg-violet-600 text-white border border-violet-500'
-                                  : 'bg-slate-700/30 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/20'
-                              }`}
-                              title={tool.label}
-                            >
-                              <span>{tool.icon}</span> {tool.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Color Picker */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-[10px] text-slate-500">Color:</span>
-                          {['#8b5cf6', '#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#ec4899'].map(c => (
-                            <button key={c} onClick={() => setDrawingColor(c)}
-                              className={`w-5 h-5 rounded-full transition-all ${drawingColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : 'hover:scale-110'}`}
-                              style={{ background: c }} />
-                          ))}
-                        </div>
-
-                        {/* Drawing Canvas */}
-                        <div className="relative bg-slate-900/60 rounded-lg border border-slate-700/30 overflow-hidden" style={{ cursor: drawingMode ? 'crosshair' : 'default' }}>
-                          <svg ref={drawingCanvasRef} width="100%" height={canvasH} viewBox={`0 0 ${canvasW} ${canvasH}`}
-                            onMouseDown={e => {
-                              if (!drawingMode) return;
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const x = ((e.clientX - rect.left) / rect.width) * canvasW;
-                              const y = ((e.clientY - rect.top) / rect.height) * canvasH;
-
-                              if (drawingMode === 'text') {
-                                const text = window.prompt('Enter annotation text:');
-                                if (text && text.trim()) addDrawing('text', { x, y, text: text.trim() });
-                                return;
-                              }
-                              if (drawingMode === 'horizontal') {
-                                addDrawing('horizontal', { y });
-                                return;
-                              }
-                              setDrawingStart({ x, y });
-                            }}
-                            onMouseUp={e => {
-                              if (!drawingMode || !drawingStart) return;
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const x = ((e.clientX - rect.left) / rect.width) * canvasW;
-                              const y = ((e.clientY - rect.top) / rect.height) * canvasH;
-
-                              if (drawingMode === 'line') {
-                                addDrawing('line', { x1: drawingStart.x, y1: drawingStart.y, x2: x, y2: y });
-                              } else if (drawingMode === 'rectangle') {
-                                addDrawing('rectangle', { x1: drawingStart.x, y1: drawingStart.y, x2: x, y2: y });
-                              } else if (drawingMode === 'fibonacci') {
-                                const high = Math.min(drawingStart.y, y);
-                                const low = Math.max(drawingStart.y, y);
-                                addDrawing('fibonacci', { high, low, x1: drawingStart.x, x2: x });
-                              }
-                              setDrawingStart(null);
-                            }}
-                          >
-                            {/* Grid */}
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <line key={`h${i}`} x1={0} y1={i * (canvasH / 5)} x2={canvasW} y2={i * (canvasH / 5)} stroke="rgba(148,163,184,0.08)" strokeWidth="1" />
-                            ))}
-                            {Array.from({ length: 8 }).map((_, i) => (
-                              <line key={`v${i}`} x1={i * (canvasW / 8)} y1={0} x2={i * (canvasW / 8)} y2={canvasH} stroke="rgba(148,163,184,0.08)" strokeWidth="1" />
-                            ))}
-
-                            {/* Simulated Price Line */}
-                            <polyline fill="none" stroke="rgba(139,92,246,0.4)" strokeWidth="2"
-                              points={Array.from({ length: 50 }).map((_, i) => {
-                                const x = (i / 49) * canvasW;
-                                const y = canvasH / 2 + Math.sin(i * 0.3) * 40 + Math.sin(i * 0.7) * 20 + Math.cos(i * 0.15) * 30;
-                                return `${x},${y}`;
-                              }).join(' ')} />
-
-                            {/* Rendered Drawings */}
-                            {tickerDrawings.map(d => {
-                              if (d.type === 'line') {
-                                return <line key={d.id} x1={d.x1} y1={d.y1} x2={d.x2} y2={d.y2} stroke={d.color} strokeWidth="2" strokeLinecap="round" />;
-                              }
-                              if (d.type === 'horizontal') {
-                                return <line key={d.id} x1={0} y1={d.y} x2={canvasW} y2={d.y} stroke={d.color} strokeWidth="1.5" strokeDasharray="6,4" />;
-                              }
-                              if (d.type === 'rectangle') {
-                                const x = Math.min(d.x1, d.x2), y = Math.min(d.y1, d.y2);
-                                const w = Math.abs(d.x2 - d.x1), h = Math.abs(d.y2 - d.y1);
-                                return <rect key={d.id} x={x} y={y} width={w} height={h} fill={d.color + '15'} stroke={d.color} strokeWidth="1.5" rx="2" />;
-                              }
-                              if (d.type === 'fibonacci') {
-                                const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-                                const range = d.low - d.high;
-                                return (
-                                  <g key={d.id}>
-                                    {levels.map((l, i) => {
-                                      const y = d.high + range * l;
-                                      return (
-                                        <g key={i}>
-                                          <line x1={0} y1={y} x2={canvasW} y2={y} stroke={d.color} strokeWidth="1" strokeDasharray="4,3" opacity={0.6 + l * 0.3} />
-                                          <text x={5} y={y - 3} fill={d.color} fontSize="9" opacity="0.8">{(l * 100).toFixed(1)}%</text>
-                                        </g>
-                                      );
-                                    })}
-                                  </g>
-                                );
-                              }
-                              if (d.type === 'text') {
-                                return (
-                                  <g key={d.id}>
-                                    <rect x={d.x - 2} y={d.y - 12} width={d.text.length * 6 + 8} height={16} rx="3" fill={d.color + '30'} stroke={d.color} strokeWidth="0.5" />
-                                    <text x={d.x + 2} y={d.y} fill={d.color} fontSize="10" fontWeight="bold">{d.text}</text>
-                                  </g>
-                                );
-                              }
-                              return null;
-                            })}
-                          </svg>
-
-                          {/* Drawing Mode Indicator */}
-                          {drawingMode && (
-                            <div className="absolute top-2 left-2 bg-violet-600/90 text-white text-[10px] px-2 py-1 rounded-lg font-medium flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                              Drawing: {drawingMode} — Click to place
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Saved Drawings List */}
-                        {tickerDrawings.length > 0 && (
-                          <div className="mt-3 space-y-1">
-                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Saved Drawings</div>
-                            {tickerDrawings.slice(-5).reverse().map(d => (
-                              <div key={d.id} className="flex items-center gap-2 text-[10px] text-slate-400 px-2 py-1 bg-slate-700/20 rounded">
-                                <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
-                                <span className="capitalize">{d.type}</span>
-                                <span className="text-slate-600">{new Date(d.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                <button onClick={() => setDrawings(prev => ({
-                                  ...prev, [ticker]: (prev[ticker] || []).filter(dd => dd.id !== d.id)
-                                }))} className="ml-auto text-red-500 hover:text-red-400">×</button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        </div>
-                      </div>
-                    );
-                  }
+                  // Drawing Tools widget REMOVED — now integrated as chart overlay on Live Ticker tab
 
                   // ─── XP/Gamification System (v3.0.0) ─────────────────────
                   case 'xp':
