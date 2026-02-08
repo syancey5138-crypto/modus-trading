@@ -3744,14 +3744,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     setVoiceDebugLog(prev => [...prev.slice(-8), `${new Date().toLocaleTimeString()} ${msg}`]);
   }, []);
 
-  // Detect browsers that have SpeechRecognition constructor but no actual backend service
+  // Detect browsers that actually support Web Speech API
+  // Chrome, Edge → full Google-backed SpeechRecognition
+  // Safari 14.1+ → supports webkitSpeechRecognition natively
+  // Opera, Brave, Firefox → NOT supported (no backend speech service)
   const isRealSpeechSupported = useCallback(() => {
     const ua = navigator.userAgent || '';
-    // Chrome and Edge work. Opera, Brave, Vivaldi, Samsung Internet are Chromium-based
-    // but may not route audio to Google's speech servers.
     const isChrome = /Chrome\//.test(ua) && !/OPR\/|Opera|Brave|Vivaldi/.test(ua);
     const isEdge = /Edg\//.test(ua);
-    return isChrome || isEdge;
+    // Safari has its own speech recognition backend since 14.1
+    const isSafari = /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium\//.test(ua);
+    return isChrome || isEdge || isSafari;
   }, []);
 
   const startVoiceCommand = useCallback(() => {
@@ -3765,15 +3768,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
     // Check for browsers that have the API but don't actually support it
     if (!isRealSpeechSupported()) {
-      addNotification({
-        type: 'system',
-        title: 'Browser Not Supported',
-        message: 'Voice commands require Google Chrome or Microsoft Edge. Opera, Brave, Safari, and Firefox do not support the Web Speech API. Please open MODUS in Chrome to use voice commands.',
-        icon: '🎤'
-      });
-      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Your browser (Opera/other) does not support speech recognition. Use Chrome or Edge.`]);
+      // Show the overlay with text command input instead of blocking entirely
+      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Voice not available in this browser — use text commands below`]);
       setShowVoiceOverlay(true);
-      setTimeout(() => setShowVoiceOverlay(false), 5000);
       return;
     }
 
@@ -15484,7 +15481,7 @@ INSTRUCTIONS:
                 {voiceSupported && (
                   <button
                     onClick={voiceListening ? stopVoiceCommand : startVoiceCommand}
-                    title={voiceListening ? "Stop listening" : "Voice Command (Chrome/Edge only)"}
+                    title={voiceListening ? "Stop listening" : "Voice / Text Commands"}
                     className={`p-2 rounded-lg transition-all flex items-center gap-1.5 border ${
                       voiceListening
                         ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse'
@@ -33685,16 +33682,59 @@ INSTRUCTIONS:
       {showVoiceOverlay && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-lg flex items-center justify-center z-[70] animate-fadeIn" onClick={stopVoiceCommand}>
           <div className="text-center max-w-lg w-full px-6" onClick={e => e.stopPropagation()}>
-            {/* Mic animation */}
+            {/* Mic / Command icon animation */}
             <div className={`w-28 h-28 mx-auto mb-6 rounded-full flex items-center justify-center transition-all duration-300 ${voiceListening ? 'bg-red-500/25 shadow-[0_0_60px_rgba(239,68,68,0.3)]' : 'bg-violet-500/25 shadow-[0_0_60px_rgba(139,92,246,0.3)]'}`}>
               <div className={`w-20 h-20 rounded-full flex items-center justify-center ${voiceListening ? 'bg-red-500/30 animate-pulse' : 'bg-violet-500/30'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                {isRealSpeechSupported() ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                )}
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold text-white mb-1">{voiceListening ? 'Listening...' : 'Processing...'}</h2>
-            <p className="text-sm text-slate-400 mb-1">Speak a command clearly — try "go to dashboard" or "analyze AAPL"</p>
-            <p className="text-[10px] text-slate-600 mb-4">Requires Google Chrome or Microsoft Edge</p>
+            <h2 className="text-2xl font-bold text-white mb-1">
+              {voiceListening ? 'Listening...' : isRealSpeechSupported() ? 'Processing...' : 'Command Center'}
+            </h2>
+            <p className="text-sm text-slate-400 mb-1">
+              {isRealSpeechSupported()
+                ? 'Speak a command clearly — try "go to dashboard" or "analyze AAPL"'
+                : 'Type a command below — try "dashboard" or "analyze AAPL"'}
+            </p>
+            <p className="text-[10px] text-slate-600 mb-4">
+              {isRealSpeechSupported() ? 'Voice: Chrome, Edge, Safari' : 'Voice requires Chrome, Edge, or Safari — text input available for all browsers'}
+            </p>
+
+            {/* Text command input — always shown for unsupported browsers, available as fallback for supported ones */}
+            <div className="bg-slate-800/60 border border-violet-500/30 rounded-xl px-4 py-3 mb-4 mx-auto max-w-sm">
+              <p className="text-[10px] text-violet-400 uppercase tracking-wider mb-2 font-bold">
+                {isRealSpeechSupported() ? 'Or type a command:' : 'Type a command:'}
+              </p>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const input = e.target.elements.voiceTextInput;
+                const cmd = input.value.trim();
+                if (cmd) {
+                  vLog(`Command: "${cmd}"`);
+                  processVoiceCommand(cmd);
+                  input.value = '';
+                  // Close overlay after a brief delay so user sees the notification
+                  setTimeout(() => { setShowVoiceOverlay(false); setVoiceListening(false); }, 600);
+                }
+              }} className="flex gap-2">
+                <input
+                  name="voiceTextInput"
+                  type="text"
+                  placeholder='e.g. "dashboard", "analyze AAPL", "dark mode"'
+                  autoFocus={!isRealSpeechSupported()}
+                  className="flex-1 bg-slate-900/80 border border-slate-600/40 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none"
+                  onClick={e => e.stopPropagation()}
+                />
+                <button type="submit" className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm text-white font-medium transition-colors">
+                  Go
+                </button>
+              </form>
+            </div>
 
             {/* Live transcript */}
             {voiceTranscript ? (
