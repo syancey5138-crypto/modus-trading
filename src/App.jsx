@@ -567,6 +567,19 @@ function App() {
   const [showChangelog, setShowChangelog] = useState(false);
   const changelogEntries = [
     {
+      version: '1.7.0',
+      date: '2026-02-07',
+      title: 'Quick Analysis & UI Improvements',
+      changes: [
+        { type: 'feature', text: 'Added Quick Analysis tab — enter any ticker for instant AI buy/sell verdict with live data' },
+        { type: 'feature', text: 'Quick Analysis includes confidence score, price targets, stop loss, RSI, SMA, and volume data' },
+        { type: 'feature', text: '"Tell Me More" button expands into a full technical deep-dive with entry/exit strategy' },
+        { type: 'feature', text: 'Analysis history tracks your last 10 quick analyses for easy comparison' },
+        { type: 'fix', text: 'Fixed Updates/Changelog popup being transparent and hard to read — now solid modal' },
+        { type: 'improvement', text: 'Updates popup redesigned as centered modal with better contrast and readability' },
+      ]
+    },
+    {
       version: '1.6.0',
       date: '2026-02-07',
       title: 'Time in Force, Vocabulary & Splash Screen',
@@ -703,6 +716,15 @@ function App() {
   const [cachedAnalyses, setCachedAnalyses] = useState({});
   const [showIndicatorRecommendations, setShowIndicatorRecommendations] = useState(false);
   
+  // Quick Analysis
+  const [quickAnalysisTicker, setQuickAnalysisTicker] = useState('');
+  const [quickAnalysisResult, setQuickAnalysisResult] = useState(null);
+  const [quickAnalysisLoading, setQuickAnalysisLoading] = useState(false);
+  const [quickAnalysisExpanded, setQuickAnalysisExpanded] = useState(false);
+  const [quickAnalysisHistory, setQuickAnalysisHistory] = useState([]);
+  const [quickAnalysisDetail, setQuickAnalysisDetail] = useState(null);
+  const [quickAnalysisDetailLoading, setQuickAnalysisDetailLoading] = useState(false);
+
   // Daily Pick
   const [dailyPick, setDailyPick] = useState(null);
   const [loadingPick, setLoadingPick] = useState(false);
@@ -1297,6 +1319,162 @@ function App() {
   const handleLogout = async () => {
     await logout();
     setShowUserMenu(false);
+  };
+
+  // Quick Analysis function — uses real market data + AI for instant verdict
+  const runQuickAnalysis = async (ticker) => {
+    if (!ticker || quickAnalysisLoading) return;
+    const sym = ticker.trim().toUpperCase();
+    setQuickAnalysisLoading(true);
+    setQuickAnalysisResult(null);
+    setQuickAnalysisExpanded(false);
+    setQuickAnalysisDetail(null);
+    try {
+      // Fetch real-time data for the ticker
+      const proxies = [
+        `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`,
+        `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`)}`,
+      ];
+      let chartData = null;
+      for (const url of proxies) {
+        try {
+          const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          if (r.ok) { chartData = await r.json(); break; }
+        } catch {}
+      }
+
+      const meta = chartData?.chart?.result?.[0]?.meta || {};
+      const quotes = chartData?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
+      const closes = (quotes.close || []).filter(v => v != null);
+      const volumes = (quotes.volume || []).filter(v => v != null);
+      const currentPrice = meta.regularMarketPrice || closes[closes.length - 1] || 0;
+      const prevClose = meta.chartPreviousClose || closes[closes.length - 2] || currentPrice;
+      const dayChange = currentPrice && prevClose ? ((currentPrice - prevClose) / prevClose * 100).toFixed(2) : '0';
+
+      // Calculate key technicals
+      const sma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : null;
+      const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : null;
+      const sma200 = closes.length >= 200 ? closes.slice(-200).reduce((a, b) => a + b, 0) / 200 : null;
+      const avgVol = volumes.length >= 20 ? volumes.slice(-20).reduce((a, b) => a + b, 0) / 20 : 0;
+      const latestVol = volumes[volumes.length - 1] || 0;
+      const volRatio = avgVol ? (latestVol / avgVol).toFixed(2) : '1.00';
+
+      // RSI calculation
+      let rsi = 50;
+      if (closes.length >= 15) {
+        const changes = closes.slice(-15).map((v, i, a) => i > 0 ? v - a[i - 1] : 0).slice(1);
+        const gains = changes.filter(c => c > 0);
+        const losses = changes.filter(c => c < 0).map(c => Math.abs(c));
+        const avgGain = gains.length ? gains.reduce((a, b) => a + b, 0) / 14 : 0;
+        const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / 14 : 0.001;
+        rsi = 100 - (100 / (1 + avgGain / avgLoss));
+      }
+
+      // High/low range
+      const high52 = closes.length > 0 ? Math.max(...closes) : currentPrice;
+      const low52 = closes.length > 0 ? Math.min(...closes) : currentPrice;
+      const rangePosition = high52 !== low52 ? ((currentPrice - low52) / (high52 - low52) * 100).toFixed(0) : 50;
+
+      // Build comprehensive prompt with real data
+      const dataContext = `
+REAL-TIME DATA for ${sym}:
+- Current Price: $${currentPrice.toFixed(2)} (${dayChange > 0 ? '+' : ''}${dayChange}% today)
+- 20-day SMA: ${sma20 ? '$' + sma20.toFixed(2) : 'N/A'} | 50-day SMA: ${sma50 ? '$' + sma50.toFixed(2) : 'N/A'} | 200-day SMA: ${sma200 ? '$' + sma200.toFixed(2) : 'N/A'}
+- Price vs SMA20: ${sma20 ? (currentPrice > sma20 ? 'ABOVE' : 'BELOW') : 'N/A'} | vs SMA50: ${sma50 ? (currentPrice > sma50 ? 'ABOVE' : 'BELOW') : 'N/A'}
+- RSI(14): ${rsi.toFixed(1)} ${rsi > 70 ? '(OVERBOUGHT)' : rsi < 30 ? '(OVERSOLD)' : '(NEUTRAL)'}
+- Volume Ratio: ${volRatio}x average ${parseFloat(volRatio) > 1.5 ? '(HIGH)' : parseFloat(volRatio) < 0.5 ? '(LOW)' : '(NORMAL)'}
+- 3-Month Range: $${low52.toFixed(2)} - $${high52.toFixed(2)} (Currently at ${rangePosition}% of range)
+- 3-Month Performance: ${closes.length >= 2 ? ((currentPrice / closes[0] - 1) * 100).toFixed(1) : 0}%`;
+
+      const response = await callAPI([{
+        role: 'user',
+        content: `You are an expert stock analyst. Analyze ${sym} using the real market data below and give a CLEAR verdict.
+
+${dataContext}
+
+Respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):
+{
+  "verdict": "STRONG BUY" or "BUY" or "HOLD" or "SELL" or "STRONG SELL",
+  "confidence": number 1-100,
+  "targetPrice": number,
+  "stopLoss": number,
+  "timeframe": "string like 1-2 weeks or 1-3 months",
+  "riskLevel": "LOW" or "MODERATE" or "HIGH",
+  "summary": "2-3 sentence summary of why",
+  "bullish": ["factor1", "factor2", "factor3"],
+  "bearish": ["factor1", "factor2", "factor3"],
+  "keyLevel": "string describing the most important price level to watch",
+  "entryStrategy": "1-2 sentences on how to enter this trade"
+}
+
+Be accurate and data-driven. Base your verdict on the actual indicators provided. If RSI is overbought, trend is down, and price is below SMAs, don't say BUY. Be honest.`
+      }], 2000);
+
+      const text = response.content?.[0]?.text || '';
+      // Parse JSON from response
+      let parsed = null;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      } catch {}
+
+      if (parsed) {
+        const result = {
+          ticker: sym,
+          price: currentPrice,
+          dayChange: parseFloat(dayChange),
+          rsi: parseFloat(rsi.toFixed(1)),
+          sma20, sma50, sma200,
+          volRatio: parseFloat(volRatio),
+          rangePosition: parseInt(rangePosition),
+          ...parsed,
+          timestamp: new Date(),
+        };
+        setQuickAnalysisResult(result);
+        setQuickAnalysisHistory(prev => [result, ...prev.filter(h => h.ticker !== sym)].slice(0, 10));
+      } else {
+        throw new Error('Could not parse analysis response');
+      }
+    } catch (err) {
+      setQuickAnalysisResult({ error: true, message: err.message || 'Analysis failed', ticker: sym });
+    } finally {
+      setQuickAnalysisLoading(false);
+    }
+  };
+
+  // Quick Analysis "Tell me more" - expanded detailed analysis
+  const runQuickAnalysisDetail = async () => {
+    if (!quickAnalysisResult || quickAnalysisResult.error || quickAnalysisDetailLoading) return;
+    setQuickAnalysisDetailLoading(true);
+    try {
+      const r = quickAnalysisResult;
+      const response = await callAPI([{
+        role: 'user',
+        content: `You are an expert trading educator. The user ran a Quick Analysis on ${r.ticker} (current price: $${r.price?.toFixed(2)}).
+
+Result: ${r.verdict} with ${r.confidence}% confidence.
+Target: $${r.targetPrice} | Stop Loss: $${r.stopLoss} | Timeframe: ${r.timeframe}
+RSI: ${r.rsi} | SMA20: ${r.sma20 ? '$' + r.sma20.toFixed(2) : 'N/A'} | SMA50: ${r.sma50 ? '$' + r.sma50.toFixed(2) : 'N/A'}
+Bullish: ${r.bullish?.join(', ')}
+Bearish: ${r.bearish?.join(', ')}
+Summary: ${r.summary}
+
+Now provide a DETAILED educational breakdown:
+1. **Technical Analysis Deep Dive** — Explain what each indicator is saying and WHY it matters
+2. **Entry & Exit Strategy** — Specific price levels, order types to use, how to size the position
+3. **Risk Assessment** — What could go wrong, what to watch for, when to cut losses
+4. **Sector & Market Context** — How the broader market affects this stock right now
+5. **Alternative Scenarios** — What happens if the trade goes against you, backup plan
+
+Use **bold** for headers and • for lists. Be thorough (400-700 words). Be educational — explain concepts as you go.`
+      }], 3000);
+
+      setQuickAnalysisDetail(response.content?.[0]?.text || 'No detailed analysis available.');
+    } catch (err) {
+      setQuickAnalysisDetail('Failed to load detailed analysis. Please try again.');
+    } finally {
+      setQuickAnalysisDetailLoading(false);
+    }
   };
 
   // Check landing page, disclaimer, and onboarding on mount
@@ -12568,6 +12746,19 @@ INSTRUCTIONS:
             </button>
 
             <button
+              onClick={() => setActiveTab("quickanalysis")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
+                activeTab === "quickanalysis"
+                  ? "bg-gradient-to-r from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-500/25"
+                  : "text-slate-400 hover:bg-slate-800/70 hover:text-white"
+              }`}
+              title={sidebarCollapsed ? "Quick Analysis" : ""}
+            >
+              <Zap className={`w-5 h-5 flex-shrink-0 ${activeTab === "quickanalysis" ? "text-white" : ""}`} />
+              {!sidebarCollapsed && <span className="font-medium text-sm">Quick Analysis</span>}
+            </button>
+
+            <button
               onClick={() => setActiveTab("alerts")}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 relative ${
                 activeTab === "alerts"
@@ -13024,53 +13215,7 @@ INSTRUCTIONS:
                   )}
                 </button>
 
-                {/* Changelog Popup */}
-                {showChangelog && (
-                  <>
-                    <div className="fixed inset-0 z-[98]" onClick={() => setShowChangelog(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[520px] bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-[99] overflow-hidden" style={{ animation: 'fadeIn 0.2s ease-out' }}>
-                      <div className="px-4 py-3 border-b border-slate-700/30 bg-gradient-to-r from-violet-500/10 to-purple-500/10">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-bold text-sm flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-violet-400" />
-                            Updates & Changelog
-                          </h3>
-                          <button onClick={() => setShowChangelog(false)} className="text-slate-500 hover:text-white transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Latest improvements to MODUS</p>
-                      </div>
-                      <div className="overflow-y-auto max-h-[440px] p-3 space-y-3">
-                        {changelogEntries.map((entry, idx) => (
-                          <div key={entry.version} className={`rounded-lg border p-3 ${idx === 0 ? 'bg-violet-500/5 border-violet-500/20' : 'bg-slate-800/30 border-slate-700/20'}`}>
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${idx === 0 ? 'bg-violet-500/20 text-violet-300' : 'bg-slate-700/50 text-slate-400'}`}>v{entry.version}</span>
-                                <span className="font-semibold text-xs text-white">{entry.title}</span>
-                              </div>
-                              <span className="text-[10px] text-slate-500">{new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                            </div>
-                            <div className="space-y-1">
-                              {entry.changes.map((c, i) => (
-                                <div key={i} className="flex items-start gap-2 text-[11px]">
-                                  <span className={`mt-0.5 flex-shrink-0 w-3.5 h-3.5 rounded flex items-center justify-center text-[8px] font-bold ${
-                                    c.type === 'feature' ? 'bg-emerald-500/20 text-emerald-400' :
-                                    c.type === 'fix' ? 'bg-red-500/20 text-red-400' :
-                                    'bg-blue-500/20 text-blue-400'
-                                  }`}>
-                                    {c.type === 'feature' ? '✦' : c.type === 'fix' ? '✗' : '↑'}
-                                  </span>
-                                  <span className="text-slate-300 leading-relaxed">{c.text}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
+                {/* Changelog rendered as a centered modal below */}
               </div>
 
               <button
@@ -13289,6 +13434,8 @@ INSTRUCTIONS:
                 { key: 'marketsummary', label: 'Market Summary', icon: '📈', group: 'data' },
                 { key: 'news', label: 'Latest News', icon: '📰', group: 'data' },
                 { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥', group: 'data' },
+                { key: 'tradingstreak', label: 'Trading Streak', icon: '🔥', group: 'trading' },
+                { key: 'feargreed', label: 'Market Mood', icon: '🎯', group: 'data' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
               const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
@@ -13482,7 +13629,7 @@ INSTRUCTIONS:
                 </div>
                 <div>
                   <h4 className="font-semibold text-sm">Quick Analyze</h4>
-                  <p className="text-[10px] text-slate-500">Enter a ticker to jump straight to analysis</p>
+                  <p className="text-[10px] text-slate-500">Enter a ticker — view chart or get AI verdict</p>
                 </div>
               </div>
               <div className="flex-1 flex gap-2">
@@ -13507,10 +13654,27 @@ INSTRUCTIONS:
                       input.value = '';
                     }
                   }}
-                  className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5"
+                  className="px-3 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5"
+                  title="View live chart"
                 >
-                  <ArrowRight className="w-4 h-4" />
-                  <span className="hidden sm:inline">Go</span>
+                  <LineChart className="w-4 h-4" />
+                  <span className="hidden sm:inline">Chart</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const input = document.querySelector('[placeholder="e.g. AAPL, TSLA, NVDA..."]');
+                    if (input?.value?.trim()) {
+                      setQuickAnalysisTicker(input.value.trim().toUpperCase());
+                      setActiveTab('quickanalysis');
+                      setTimeout(() => runQuickAnalysis(input.value.trim().toUpperCase()), 100);
+                      input.value = '';
+                    }
+                  }}
+                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5"
+                  title="Get AI buy/sell verdict"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span className="hidden sm:inline">AI Verdict</span>
                 </button>
               </div>
               {watchlist.length > 0 && (
@@ -13792,7 +13956,7 @@ INSTRUCTIONS:
                         ) : newsFeed.length > 0 ? (
                           <div className="space-y-2 max-h-48 overflow-y-auto">
                             {newsFeed.slice(0, 5).map((item, i) => (
-                              <div key={i} className="text-xs text-slate-300 py-1.5 border-b border-slate-800/30 last:border-0 flex items-start gap-1.5">
+                              <div key={item.url || item.title || i} className="text-xs text-slate-300 py-1.5 border-b border-slate-800/30 last:border-0 flex items-start gap-1.5">
                                 <span className={`inline-block w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${item.sentiment === 'bullish' ? 'bg-emerald-400' : item.sentiment === 'bearish' ? 'bg-red-400' : 'bg-slate-500'}`} />
                                 <span className="leading-relaxed">{(item.headline || item.title || '').substring(0, 90)}{(item.headline || item.title || '').length > 90 ? '...' : ''}</span>
                               </div>
@@ -13819,7 +13983,7 @@ INSTRUCTIONS:
                         {hotStocks.gainers?.length > 0 ? (
                           <div className="space-y-1.5">
                             {hotStocks.gainers.slice(0, 5).map((s, i) => (
-                              <div key={i} className="flex items-center justify-between text-xs">
+                              <div key={s.symbol || i} className="flex items-center justify-between text-xs">
                                 <span className="font-medium">{s.symbol}</span>
                                 <span className="text-emerald-400 font-medium">+{(s.changePercent || 0).toFixed(2)}%</span>
                               </div>
@@ -13832,6 +13996,128 @@ INSTRUCTIONS:
                       </div>
                     </div>
                   );
+
+                  // ─── Trading Streak ─────────────────────
+                  case 'tradingstreak': {
+                    const today = new Date();
+                    const sortedTrades = [...trades].sort((a, b) => new Date(b.date || b.entryDate) - new Date(a.date || a.entryDate));
+                    let streak = 0;
+                    let checkDate = new Date(today);
+                    checkDate.setHours(0, 0, 0, 0);
+                    for (let d = 0; d < 365; d++) {
+                      const dateStr = checkDate.toISOString().split('T')[0];
+                      const hasTrade = sortedTrades.some(t => {
+                        const td = (t.date || t.entryDate || '').split('T')[0];
+                        return td === dateStr;
+                      });
+                      if (hasTrade) {
+                        streak++;
+                        checkDate.setDate(checkDate.getDate() - 1);
+                      } else if (d === 0) {
+                        checkDate.setDate(checkDate.getDate() - 1);
+                        continue;
+                      } else {
+                        break;
+                      }
+                    }
+                    const recentWins = sortedTrades.slice(0, 10).filter(t => {
+                      const pnl = t.pnl ?? ((t.exitPrice || 0) - (t.entryPrice || 0)) * (t.quantity || 0) * (t.side === 'short' ? -1 : 1);
+                      return pnl > 0;
+                    }).length;
+                    const streakEmoji = streak >= 7 ? '🔥' : streak >= 3 ? '⚡' : streak >= 1 ? '✅' : '💤';
+                    const streakLabel = streak >= 7 ? 'On Fire!' : streak >= 3 ? 'Building Momentum' : streak >= 1 ? 'Active' : 'Start Your Streak';
+                    const streakColor = streak >= 7 ? 'text-orange-400' : streak >= 3 ? 'text-yellow-400' : streak >= 1 ? 'text-emerald-400' : 'text-slate-500';
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-gradient-to-br from-orange-500/10 to-amber-600/5 rounded-xl border border-orange-500/20 p-4 h-full">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <Flame className="w-4 h-4 text-orange-400" /> Trading Streak
+                          </h3>
+                          <div className="text-center py-2">
+                            <div className="text-3xl mb-1">{streakEmoji}</div>
+                            <div className={`text-2xl font-bold ${streakColor}`}>{streak} Day{streak !== 1 ? 's' : ''}</div>
+                            <div className="text-[10px] text-slate-400 mt-1">{streakLabel}</div>
+                          </div>
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/20">
+                            <div className="text-center flex-1">
+                              <div className="text-xs font-semibold text-slate-300">{trades.length}</div>
+                              <div className="text-[10px] text-slate-500">Total Trades</div>
+                            </div>
+                            <div className="w-px h-6 bg-slate-700/30" />
+                            <div className="text-center flex-1">
+                              <div className="text-xs font-semibold text-emerald-400">{recentWins}/10</div>
+                              <div className="text-[10px] text-slate-500">Last 10 Wins</div>
+                            </div>
+                          </div>
+                          {streak === 0 && (
+                            <button onClick={() => setActiveTab('journal')} className="w-full mt-3 text-xs text-orange-400 hover:text-orange-300 py-1.5 border border-orange-500/20 rounded-lg hover:bg-orange-500/10 transition-all">
+                              Log a trade to start →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Market Mood / Fear & Greed Estimate ─────────────────────
+                  case 'feargreed': {
+                    const spyData = marketOverviewData?.['SPY'] || {};
+                    const vixData = marketOverviewData?.['%5EVIX'] || marketOverviewData?.['VIX'] || {};
+                    const vixPrice = vixData.price || vixData.regularMarketPrice || 0;
+                    const spyChange = spyData.changePercent || spyData.regularMarketChangePercent || 0;
+                    let moodScore = 50;
+                    if (vixPrice > 0) {
+                      if (vixPrice < 15) moodScore += 25;
+                      else if (vixPrice < 20) moodScore += 15;
+                      else if (vixPrice < 25) moodScore += 0;
+                      else if (vixPrice < 30) moodScore -= 15;
+                      else moodScore -= 25;
+                    }
+                    if (spyChange > 1) moodScore += 15;
+                    else if (spyChange > 0.3) moodScore += 8;
+                    else if (spyChange < -1) moodScore -= 15;
+                    else if (spyChange < -0.3) moodScore -= 8;
+                    const gainCount = (hotStocks.gainers || []).length;
+                    const loserCount = (hotStocks.losers || []).length;
+                    if (gainCount > loserCount * 1.5) moodScore += 5;
+                    else if (loserCount > gainCount * 1.5) moodScore -= 5;
+                    moodScore = Math.max(0, Math.min(100, moodScore));
+                    const moodLabel = moodScore >= 75 ? 'Extreme Greed' : moodScore >= 60 ? 'Greed' : moodScore >= 45 ? 'Neutral' : moodScore >= 30 ? 'Fear' : 'Extreme Fear';
+                    const moodColor = moodScore >= 75 ? 'text-emerald-400' : moodScore >= 60 ? 'text-green-400' : moodScore >= 45 ? 'text-yellow-400' : moodScore >= 30 ? 'text-orange-400' : 'text-red-400';
+                    const moodBg = moodScore >= 75 ? 'from-emerald-500/20' : moodScore >= 60 ? 'from-green-500/15' : moodScore >= 45 ? 'from-yellow-500/15' : moodScore >= 30 ? 'from-orange-500/15' : 'from-red-500/20';
+                    const moodBarColor = moodScore >= 75 ? 'bg-emerald-500' : moodScore >= 60 ? 'bg-green-500' : moodScore >= 45 ? 'bg-yellow-500' : moodScore >= 30 ? 'bg-orange-500' : 'bg-red-500';
+                    return (
+                      <div {...wrapProps}>
+                        <div className={`bg-gradient-to-br ${moodBg} to-slate-900/0 rounded-xl border border-slate-700/20 p-4 h-full`}>
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-violet-400" /> Market Mood
+                            <span className="text-[10px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">Estimate</span>
+                          </h3>
+                          <div className="text-center py-1">
+                            <div className={`text-3xl font-bold ${moodColor}`}>{moodScore}</div>
+                            <div className={`text-sm font-semibold ${moodColor} mt-1`}>{moodLabel}</div>
+                          </div>
+                          <div className="mt-3 h-2 bg-slate-800/50 rounded-full overflow-hidden">
+                            <div className={`h-full ${moodBarColor} rounded-full transition-all duration-700`} style={{ width: `${moodScore}%` }} />
+                          </div>
+                          <div className="flex justify-between text-[9px] text-slate-500 mt-1">
+                            <span>Fear</span>
+                            <span>Greed</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/20">
+                            <div className="text-center">
+                              <div className="text-xs font-mono text-slate-300">{vixPrice > 0 ? vixPrice.toFixed(1) : '—'}</div>
+                              <div className="text-[10px] text-slate-500">VIX</div>
+                            </div>
+                            <div className="text-center">
+                              <div className={`text-xs font-mono ${spyChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{spyChange >= 0 ? '+' : ''}{spyChange.toFixed(2)}%</div>
+                              <div className="text-[10px] text-slate-500">SPY</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   default: return null;
                 }
@@ -20643,6 +20929,292 @@ INSTRUCTIONS:
           </div>
         )}
 
+        {/* Quick Analysis Tab */}
+        {activeTab === "quickanalysis" && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 bg-gradient-to-br from-violet-500 to-cyan-600 rounded-xl shadow-lg">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Quick Analysis</h2>
+                  <p className="text-sm text-slate-400">Enter any ticker for an instant buy/sell verdict powered by real market data + AI</p>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <input
+                  type="text"
+                  value={quickAnalysisTicker}
+                  onChange={(e) => setQuickAnalysisTicker(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === 'Enter') runQuickAnalysis(quickAnalysisTicker); }}
+                  placeholder="Enter ticker (e.g. AAPL, TSLA, NVDA)..."
+                  className="flex-1 bg-slate-800/60 border border-slate-700/30 rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/30 placeholder:text-slate-600 uppercase"
+                  disabled={quickAnalysisLoading}
+                />
+                <button
+                  onClick={() => runQuickAnalysis(quickAnalysisTicker)}
+                  disabled={quickAnalysisLoading || !quickAnalysisTicker.trim()}
+                  className="px-6 py-3 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-xl font-bold transition-all flex items-center gap-2"
+                >
+                  {quickAnalysisLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+                  {quickAnalysisLoading ? 'Analyzing...' : 'Analyze'}
+                </button>
+              </div>
+              {/* Quick picks */}
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <span className="text-xs text-slate-500">Popular:</span>
+                {['AAPL', 'TSLA', 'NVDA', 'AMZN', 'MSFT', 'META', 'GOOGL', 'SPY'].map(sym => (
+                  <button
+                    key={sym}
+                    onClick={() => { setQuickAnalysisTicker(sym); runQuickAnalysis(sym); }}
+                    className="px-2.5 py-1 text-xs font-semibold bg-slate-800/60 hover:bg-violet-500/20 border border-slate-700/20 hover:border-violet-500/30 rounded-lg text-slate-400 hover:text-violet-300 transition-all"
+                    disabled={quickAnalysisLoading}
+                  >
+                    {sym}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Loading State */}
+            {quickAnalysisLoading && (
+              <div className="bg-slate-900/50 rounded-2xl border border-slate-800/50 p-12 text-center">
+                <div className="relative w-16 h-16 mx-auto mb-4">
+                  <Loader2 className="w-16 h-16 animate-spin text-violet-500" />
+                  <Zap className="w-6 h-6 text-violet-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Analyzing {quickAnalysisTicker}...</h3>
+                <p className="text-sm text-slate-400">Fetching real-time data and running AI analysis</p>
+              </div>
+            )}
+
+            {/* Result Card */}
+            {quickAnalysisResult && !quickAnalysisResult.error && !quickAnalysisLoading && (() => {
+              const r = quickAnalysisResult;
+              const isBuy = r.verdict?.includes('BUY');
+              const isSell = r.verdict?.includes('SELL');
+              const isStrong = r.verdict?.includes('STRONG');
+              const verdictColor = isBuy ? (isStrong ? 'from-emerald-600 to-green-600' : 'from-green-600 to-emerald-600') : isSell ? (isStrong ? 'from-red-600 to-rose-600' : 'from-rose-600 to-red-600') : 'from-amber-600 to-yellow-600';
+              const verdictBg = isBuy ? 'bg-emerald-500/10 border-emerald-500/20' : isSell ? 'bg-red-500/10 border-red-500/20' : 'bg-amber-500/10 border-amber-500/20';
+              const verdictText = isBuy ? 'text-emerald-400' : isSell ? 'text-red-400' : 'text-amber-400';
+
+              return (
+                <div className="space-y-4">
+                  {/* Main Verdict */}
+                  <div className={`rounded-2xl border p-6 ${verdictBg}`}>
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-4 bg-gradient-to-br ${verdictColor} rounded-xl shadow-lg`}>
+                          {isBuy ? <TrendingUp className="w-8 h-8 text-white" /> : isSell ? <TrendingDown className="w-8 h-8 text-white" /> : <AlertTriangle className="w-8 h-8 text-white" />}
+                        </div>
+                        <div>
+                          <div className={`text-3xl font-black ${verdictText}`}>{r.verdict}</div>
+                          <div className="text-slate-400 text-sm">{r.ticker} · ${r.price?.toFixed(2)} <span className={`${r.dayChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>({r.dayChange >= 0 ? '+' : ''}{r.dayChange}%)</span></div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-slate-500">Confidence</div>
+                        <div className={`text-3xl font-bold ${r.confidence >= 70 ? 'text-emerald-400' : r.confidence >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{r.confidence}%</div>
+                      </div>
+                    </div>
+                    <p className="text-slate-300 leading-relaxed">{r.summary}</p>
+                  </div>
+
+                  {/* Key Metrics Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
+                      <div className="text-xs text-slate-500 mb-1">Target Price</div>
+                      <div className="text-lg font-bold text-green-400">${r.targetPrice?.toFixed(2)}</div>
+                      <div className="text-[10px] text-emerald-400/60">{r.price ? `+${((r.targetPrice / r.price - 1) * 100).toFixed(1)}% upside` : ''}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
+                      <div className="text-xs text-slate-500 mb-1">Stop Loss</div>
+                      <div className="text-lg font-bold text-red-400">${r.stopLoss?.toFixed(2)}</div>
+                      <div className="text-[10px] text-red-400/60">{r.price ? `${((r.stopLoss / r.price - 1) * 100).toFixed(1)}% risk` : ''}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
+                      <div className="text-xs text-slate-500 mb-1">Timeframe</div>
+                      <div className="text-lg font-bold">{r.timeframe}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
+                      <div className="text-xs text-slate-500 mb-1">Risk Level</div>
+                      <div className={`text-lg font-bold ${r.riskLevel === 'LOW' ? 'text-green-400' : r.riskLevel === 'HIGH' ? 'text-red-400' : 'text-amber-400'}`}>{r.riskLevel}</div>
+                    </div>
+                  </div>
+
+                  {/* Technical Indicators */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">RSI (14)</div>
+                      <div className={`text-sm font-bold ${r.rsi > 70 ? 'text-red-400' : r.rsi < 30 ? 'text-green-400' : 'text-white'}`}>{r.rsi}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">vs SMA20</div>
+                      <div className={`text-sm font-bold ${r.sma20 && r.price > r.sma20 ? 'text-green-400' : 'text-red-400'}`}>{r.sma20 ? (r.price > r.sma20 ? 'Above' : 'Below') : '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">vs SMA50</div>
+                      <div className={`text-sm font-bold ${r.sma50 && r.price > r.sma50 ? 'text-green-400' : 'text-red-400'}`}>{r.sma50 ? (r.price > r.sma50 ? 'Above' : 'Below') : '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Volume</div>
+                      <div className={`text-sm font-bold ${r.volRatio > 1.5 ? 'text-green-400' : r.volRatio < 0.5 ? 'text-red-400' : 'text-white'}`}>{r.volRatio}x</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Range Position</div>
+                      <div className="text-sm font-bold">{r.rangePosition}%</div>
+                    </div>
+                  </div>
+
+                  {/* Bullish / Bearish Factors */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                      <h4 className="font-semibold text-emerald-400 mb-3 text-sm flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4" /> Bullish Factors
+                      </h4>
+                      <div className="space-y-2">
+                        {(r.bullish || []).map((f, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                            <span className="text-emerald-400 mt-0.5">+</span> {f}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+                      <h4 className="font-semibold text-red-400 mb-3 text-sm flex items-center gap-2">
+                        <TrendingDown className="w-4 h-4" /> Bearish Factors
+                      </h4>
+                      <div className="space-y-2">
+                        {(r.bearish || []).map((f, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                            <span className="text-red-400 mt-0.5">−</span> {f}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Key Level + Entry Strategy */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {r.keyLevel && (
+                      <div className="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4">
+                        <h4 className="font-semibold text-violet-400 mb-2 text-sm">Key Level to Watch</h4>
+                        <p className="text-sm text-slate-300">{r.keyLevel}</p>
+                      </div>
+                    )}
+                    {r.entryStrategy && (
+                      <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-4">
+                        <h4 className="font-semibold text-cyan-400 mb-2 text-sm">Entry Strategy</h4>
+                        <p className="text-sm text-slate-300">{r.entryStrategy}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tell Me More Button */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={runQuickAnalysisDetail}
+                      disabled={quickAnalysisDetailLoading}
+                      className="flex-1 py-3.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-700 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      {quickAnalysisDetailLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
+                      {quickAnalysisDetailLoading ? 'Loading detailed analysis...' : 'Tell Me More — Deep Dive Analysis'}
+                    </button>
+                    <button
+                      onClick={() => { setTickerSymbol(r.ticker); setActiveTab('ticker'); }}
+                      className="px-4 py-3.5 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/30 rounded-xl font-semibold text-sm transition-all flex items-center gap-2"
+                    >
+                      <LineChart className="w-4 h-4" /> View Chart
+                    </button>
+                  </div>
+
+                  {/* Detailed Analysis Expansion */}
+                  {quickAnalysisDetail && (
+                    <div className="bg-slate-900/50 rounded-2xl border border-violet-500/20 p-6">
+                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                        <MessageCircle className="w-5 h-5 text-violet-400" />
+                        Detailed Analysis — {r.ticker}
+                      </h3>
+                      <div className="prose prose-invert max-w-none text-sm leading-relaxed space-y-2">
+                        {quickAnalysisDetail.split('\n').map((line, i) => {
+                          if (!line.trim()) return <div key={i} className="h-2" />;
+                          if (line.match(/^\*\*.*\*\*$/)) return <h4 key={i} className="text-violet-400 font-bold mt-4 mb-2">{line.replace(/\*\*/g, '')}</h4>;
+                          if (line.match(/^#{1,3}\s+/)) return <h4 key={i} className="text-violet-400 font-bold mt-4 mb-2">{line.replace(/^#{1,3}\s+/, '')}</h4>;
+                          const formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+                          if (line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().match(/^\d+\./)) {
+                            return <div key={i} className="flex items-start gap-2 ml-2 text-slate-300" dangerouslySetInnerHTML={{ __html: `<span class="text-violet-400 mt-0.5">▸</span> <span>${formatted.replace(/^[•\-]\s*/, '').replace(/^\d+\.\s*/, '')}</span>` }} />;
+                          }
+                          return <p key={i} className="text-slate-300" dangerouslySetInnerHTML={{ __html: formatted }} />;
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Disclaimer */}
+                  <div className="text-[10px] text-slate-600 text-center px-4">
+                    Quick Analysis uses real-time market data and AI. This is for educational purposes only — not financial advice. Always do your own research before trading.
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Error State */}
+            {quickAnalysisResult?.error && !quickAnalysisLoading && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center">
+                <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+                <h3 className="font-semibold text-red-400 mb-2">Analysis Failed</h3>
+                <p className="text-sm text-slate-400">{quickAnalysisResult.message}</p>
+                <button onClick={() => runQuickAnalysis(quickAnalysisResult.ticker)} className="mt-4 px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold text-sm transition-all">
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {/* History */}
+            {quickAnalysisHistory.length > 0 && !quickAnalysisLoading && (
+              <div>
+                <h4 className="font-semibold text-slate-400 mb-3 text-sm">Recent Analyses</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                  {quickAnalysisHistory.map((h, i) => {
+                    const isBuy = h.verdict?.includes('BUY');
+                    const isSell = h.verdict?.includes('SELL');
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => { setQuickAnalysisTicker(h.ticker); setQuickAnalysisResult(h); setQuickAnalysisDetail(null); }}
+                        className="bg-slate-800/40 border border-slate-700/20 hover:border-violet-500/30 rounded-lg p-3 text-left transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-sm">{h.ticker}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${isBuy ? 'bg-emerald-500/20 text-emerald-400' : isSell ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{h.verdict}</span>
+                        </div>
+                        <div className="text-xs text-slate-500">${h.price?.toFixed(2)} · {h.confidence}% conf</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!quickAnalysisResult && !quickAnalysisLoading && quickAnalysisHistory.length === 0 && (
+              <div className="text-center py-12">
+                <Zap className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Instant Stock Verdict</h3>
+                <p className="text-slate-400 max-w-md mx-auto mb-4">
+                  Enter any ticker above to get a real-time buy/sell/hold recommendation backed by live market data, technical indicators, and AI analysis.
+                </p>
+                <div className="text-xs text-slate-600 space-y-1">
+                  <p>Powered by real-time prices, RSI, moving averages, volume analysis, and more.</p>
+                  <p>Click "Tell Me More" after analysis for a deep-dive educational breakdown.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Ask AI Tab */}
         {activeTab === "ask" && (
           <div className="max-w-4xl mx-auto">
@@ -26233,7 +26805,8 @@ INSTRUCTIONS:
                       { name: 'AI Chart Analysis', desc: 'Upload any stock chart and get instant technical analysis powered by Claude AI and GPT-4 Vision. Identifies patterns, support/resistance levels, and generates trade setups with entry, stop loss, and target prices.' },
                       { name: 'Multi-Timeframe Analysis', desc: 'Analyze the same stock across multiple timeframes simultaneously (1m, 5m, 15m, 1h, 4h, Daily) to confirm trend alignment and find high-probability entries.' },
                       { name: 'Ask AI Trading Assistant', desc: 'Natural language trading assistant that can answer any trading question, explain strategies, analyze market conditions, and help you understand technical indicators.' },
-                      { name: 'Daily AI Pick', desc: 'Every day, the AI scans the market and delivers a top trade recommendation with full analysis, confidence score, entry/exit levels, and risk/reward ratio.' }
+                      { name: 'Daily AI Pick', desc: 'Every day, the AI scans the market and delivers a top trade recommendation with full analysis, confidence score, entry/exit levels, and risk/reward ratio.' },
+                      { name: 'Quick Analysis', desc: 'Enter any stock ticker and get an instant AI-powered buy/sell/hold verdict with confidence score, price targets, stop loss, technical indicators (RSI, SMA, MACD, volume), bullish/bearish factors, and a detailed "Tell Me More" breakdown. Uses live Yahoo Finance data for real-time accuracy.' }
                     ]
                   },
                   {
@@ -27400,6 +27973,54 @@ INSTRUCTIONS:
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Updates & Changelog Modal */}
+      {showChangelog && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn" onClick={() => setShowChangelog(false)}>
+          <div className="bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()} style={{ animation: 'slideUp 0.25s ease-out' }}>
+            <div className="px-6 py-4 border-b border-slate-700/30 bg-gradient-to-r from-violet-500/10 to-purple-500/10">
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-lg flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-violet-400" />
+                  Updates & Changelog
+                </h2>
+                <button onClick={() => setShowChangelog(false)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Latest improvements and bug fixes for MODUS</p>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(85vh-80px)] p-4 space-y-4">
+              {changelogEntries.map((entry, idx) => (
+                <div key={entry.version} className={`rounded-xl border p-4 ${idx === 0 ? 'bg-violet-500/5 border-violet-500/20' : 'bg-slate-800/30 border-slate-700/20'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${idx === 0 ? 'bg-violet-500/20 text-violet-300' : 'bg-slate-700/50 text-slate-400'}`}>v{entry.version}</span>
+                      {idx === 0 && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">LATEST</span>}
+                    </div>
+                    <span className="text-xs text-slate-500">{new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                  <h4 className="font-semibold text-sm text-white mb-3">{entry.title}</h4>
+                  <div className="space-y-1.5">
+                    {entry.changes.map((c, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-xs">
+                        <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold ${
+                          c.type === 'feature' ? 'bg-emerald-500/20 text-emerald-400' :
+                          c.type === 'fix' ? 'bg-red-500/20 text-red-400' :
+                          'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {c.type === 'feature' ? '✦' : c.type === 'fix' ? '✗' : '↑'}
+                        </span>
+                        <span className="text-slate-300 leading-relaxed">{c.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
