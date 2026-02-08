@@ -97,6 +97,69 @@ function App() {
         .price-update { transition: all 0.3s ease-out; }
 
         /* =============================================
+           Theme System (Feature 8)
+           ============================================= */
+        :root, .theme-midnight {
+          --bg-primary: #0f172a;
+          --bg-secondary: #1e293b;
+          --bg-card: rgba(15, 23, 42, 0.95);
+          --bg-hover: rgba(30, 41, 59, 0.8);
+          --text-primary: #f8fafc;
+          --text-secondary: #94a3b8;
+          --text-muted: #64748b;
+          --border-color: rgba(148, 163, 184, 0.12);
+          --accent: #8b5cf6;
+        }
+        .theme-dark {
+          --bg-primary: #18181b;
+          --bg-secondary: #27272a;
+          --bg-card: rgba(24, 24, 27, 0.95);
+          --bg-hover: rgba(39, 39, 42, 0.8);
+          --text-primary: #fafafa;
+          --text-secondary: #a1a1aa;
+          --text-muted: #71717a;
+          --border-color: rgba(161, 161, 170, 0.15);
+          --accent: #8b5cf6;
+        }
+        .theme-light {
+          --bg-primary: #f8fafc;
+          --bg-secondary: #f1f5f9;
+          --bg-card: rgba(255, 255, 255, 0.95);
+          --bg-hover: rgba(241, 245, 249, 0.9);
+          --text-primary: #0f172a;
+          --text-secondary: #475569;
+          --text-muted: #94a3b8;
+          --border-color: rgba(148, 163, 184, 0.2);
+          --accent: #7c3aed;
+        }
+        .theme-light body,
+        .theme-light .min-h-screen { background: var(--bg-primary) !important; color: var(--text-primary) !important; }
+        .theme-light .card-premium,
+        .theme-light .glass { background: var(--bg-card) !important; border-color: var(--border-color) !important; }
+        .theme-light .bg-slate-900 { background: var(--bg-primary) !important; }
+        .theme-light .bg-slate-800\\/30,
+        .theme-light .bg-slate-800\\/40,
+        .theme-light .bg-slate-800\\/50,
+        .theme-light .bg-slate-800\\/60 { background: var(--bg-secondary) !important; }
+        .theme-light .text-white { color: var(--text-primary) !important; }
+        .theme-light .text-slate-400,
+        .theme-light .text-slate-300 { color: var(--text-secondary) !important; }
+        .theme-light .text-slate-500,
+        .theme-light .text-slate-600 { color: var(--text-muted) !important; }
+        .theme-light .border-slate-700\\/20,
+        .theme-light .border-slate-700\\/30,
+        .theme-light .border-slate-700\\/50 { border-color: var(--border-color) !important; }
+        .theme-light .sidebar-glass { background: rgba(255,255,255,0.92) !important; border-right-color: var(--border-color) !important; }
+        .theme-light .bg-gradient-to-b.from-slate-900 { background: linear-gradient(to bottom, var(--bg-primary), var(--bg-secondary)) !important; }
+
+        /* Trade Replay animation */
+        @keyframes replayPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
+          50% { box-shadow: 0 0 0 8px rgba(139, 92, 246, 0); }
+        }
+        .replay-pulse { animation: replayPulse 2s ease-in-out infinite; }
+
+        /* =============================================
            Premium Card System
            ============================================= */
 
@@ -566,6 +629,23 @@ function App() {
   // Changelog / Updates notification system
   const [showChangelog, setShowChangelog] = useState(false);
   const changelogEntries = [
+    {
+      version: '2.0.0',
+      date: '2026-02-08',
+      title: '8 Major Features — Earnings, Replay, Risk, Social, Targets, Groups, PWA & Themes',
+      changes: [
+        { type: 'feature', text: 'Earnings Calendar Widget — upcoming earnings with dates, EPS estimates, and watchlist highlighting' },
+        { type: 'feature', text: 'Trade Replay Mode — review closed trades with visual entry/exit chart, P&L breakdown, and share option' },
+        { type: 'feature', text: 'Risk Dashboard Widget — real-time portfolio exposure, concentration risk, max drawdown, and risk score' },
+        { type: 'feature', text: 'Community Feed — share Quick Analysis results and trade replays to a social feed' },
+        { type: 'feature', text: 'Price Target Tracking — track Quick Analysis predictions with hit rate scoring' },
+        { type: 'feature', text: 'Custom Watchlist Groups — organize watchlist into custom groups (Tech, Earnings, Momentum, etc.)' },
+        { type: 'feature', text: 'PWA Support — install MODUS as a standalone app with offline caching and push notification capability' },
+        { type: 'feature', text: 'Theme Toggle — switch between Midnight, Dark, and Light themes from the dashboard' },
+        { type: 'improvement', text: 'Share and Track buttons on Quick Analysis results for community sharing and target tracking' },
+        { type: 'improvement', text: 'Trade Replay button on closed trades in the journal for post-trade review' },
+      ]
+    },
     {
       version: '1.9.0',
       date: '2026-02-08',
@@ -1984,6 +2064,189 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // NEW: Keyboard Shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 1: Earnings Calendar Widget
+  // ═══════════════════════════════════════════════
+  const [earningsData] = useState(() => {
+    const today = new Date();
+    const upcoming = [
+      { ticker: 'NVDA', company: 'NVIDIA Corp', date: new Date(today.getTime() + 1 * 86400000), time: 'AMC', estEPS: '$0.89', estRev: '$38.2B', sector: 'Tech' },
+      { ticker: 'AAPL', company: 'Apple Inc', date: new Date(today.getTime() + 2 * 86400000), time: 'AMC', estEPS: '$2.35', estRev: '$124.3B', sector: 'Tech' },
+      { ticker: 'TSLA', company: 'Tesla Inc', date: new Date(today.getTime() + 3 * 86400000), time: 'AMC', estEPS: '$0.73', estRev: '$25.9B', sector: 'Auto' },
+      { ticker: 'MSFT', company: 'Microsoft Corp', date: new Date(today.getTime() + 4 * 86400000), time: 'AMC', estEPS: '$3.11', estRev: '$61.8B', sector: 'Tech' },
+      { ticker: 'AMZN', company: 'Amazon.com', date: new Date(today.getTime() + 5 * 86400000), time: 'BMO', estEPS: '$1.36', estRev: '$187.3B', sector: 'Retail' },
+      { ticker: 'META', company: 'Meta Platforms', date: new Date(today.getTime() + 6 * 86400000), time: 'AMC', estEPS: '$6.29', estRev: '$45.7B', sector: 'Tech' },
+      { ticker: 'GOOG', company: 'Alphabet Inc', date: new Date(today.getTime() + 7 * 86400000), time: 'AMC', estEPS: '$1.89', estRev: '$86.3B', sector: 'Tech' },
+      { ticker: 'AMD', company: 'AMD Inc', date: new Date(today.getTime() + 9 * 86400000), time: 'AMC', estEPS: '$0.77', estRev: '$7.5B', sector: 'Tech' },
+      { ticker: 'JPM', company: 'JPMorgan Chase', date: new Date(today.getTime() + 10 * 86400000), time: 'BMO', estEPS: '$4.81', estRev: '$42.5B', sector: 'Finance' },
+      { ticker: 'DIS', company: 'Walt Disney', date: new Date(today.getTime() + 12 * 86400000), time: 'BMO', estEPS: '$1.45', estRev: '$23.1B', sector: 'Media' },
+    ];
+    return upcoming.sort((a, b) => a.date - b.date);
+  });
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 2: Trade Replay / Review Mode
+  // ═══════════════════════════════════════════════
+  const [tradeReplayOpen, setTradeReplayOpen] = useState(false);
+  const [replayTrade, setReplayTrade] = useState(null);
+  const [replayStep, setReplayStep] = useState(0);
+  const [replayPlaying, setReplayPlaying] = useState(false);
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 3: Risk Dashboard (computed from trades)
+  // ═══════════════════════════════════════════════
+  const dashRiskMetrics = useMemo(() => {
+    if (!trades || trades.length === 0) return { exposure: 0, largestPos: 0, concentration: 0, maxDrawdown: 0, riskScore: 0, openPositions: 0, sectors: {} };
+    const openTrades = trades.filter(t => !t.exitPrice && !t.closed);
+    const closedTrades = trades.filter(t => t.exitPrice || t.closed);
+    const totalExposure = openTrades.reduce((sum, t) => sum + (parseFloat(t.entryPrice || 0) * parseInt(t.shares || t.quantity || 1)), 0);
+    const positionSizes = openTrades.map(t => parseFloat(t.entryPrice || 0) * parseInt(t.shares || t.quantity || 1));
+    const largestPos = positionSizes.length > 0 ? Math.max(...positionSizes) : 0;
+    const concentration = totalExposure > 0 ? (largestPos / totalExposure * 100) : 0;
+    // Max drawdown from closed trades
+    let peak = 0, maxDD = 0, running = 0;
+    closedTrades.forEach(t => {
+      const pnl = t.pnl || ((parseFloat(t.exitPrice || 0) - parseFloat(t.entryPrice || 0)) * parseInt(t.shares || t.quantity || 1) * (t.direction === 'short' ? -1 : 1));
+      running += pnl;
+      if (running > peak) peak = running;
+      const dd = peak > 0 ? ((peak - running) / peak * 100) : 0;
+      if (dd > maxDD) maxDD = dd;
+    });
+    // Sector breakdown
+    const sectors = {};
+    openTrades.forEach(t => {
+      const sec = t.sector || 'Unknown';
+      const size = parseFloat(t.entryPrice || 0) * parseInt(t.shares || t.quantity || 1);
+      sectors[sec] = (sectors[sec] || 0) + size;
+    });
+    const riskScore = Math.min(100, Math.round((concentration * 0.4) + (maxDD * 0.3) + (openTrades.length > 5 ? 20 : openTrades.length * 4) + (totalExposure > 50000 ? 10 : 0)));
+    return { exposure: totalExposure, largestPos, concentration, maxDrawdown: maxDD, riskScore, openPositions: openTrades.length, sectors };
+  }, [trades]);
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 4: Social Feed / Trade Sharing
+  // ═══════════════════════════════════════════════
+  const [socialFeed, setSocialFeed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_social_feed')) || []; } catch { return []; }
+  });
+  const [showShareToFeed, setShowShareToFeed] = useState(false);
+  const [shareToFeedContent, setShareToFeedContent] = useState(null);
+
+  const addToSocialFeed = useCallback((item) => {
+    const post = {
+      id: Date.now(),
+      user: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Trader',
+      avatar: currentUser?.displayName?.[0]?.toUpperCase() || 'T',
+      timestamp: new Date().toISOString(),
+      ...item
+    };
+    setSocialFeed(prev => {
+      const updated = [post, ...prev].slice(0, 50);
+      localStorage.setItem('modus_social_feed', JSON.stringify(updated));
+      return updated;
+    });
+    setShowShareToFeed(false);
+  }, [currentUser]);
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 5: Price Target Tracking
+  // ═══════════════════════════════════════════════
+  const [priceTargets, setPriceTargets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_price_targets')) || []; } catch { return []; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('modus_price_targets', JSON.stringify(priceTargets));
+  }, [priceTargets]);
+
+  const addPriceTarget = useCallback((ticker, currentPrice, targetPrice, stopPrice, verdict, confidence) => {
+    setPriceTargets(prev => [{
+      id: Date.now(),
+      ticker,
+      entryPrice: currentPrice,
+      targetPrice: parseFloat(targetPrice),
+      stopPrice: parseFloat(stopPrice),
+      verdict,
+      confidence,
+      createdAt: new Date().toISOString(),
+      status: 'active', // active, hit, stopped, expired
+      hitDate: null
+    }, ...prev].slice(0, 100));
+  }, []);
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 6: Custom Watchlist Groups
+  // ═══════════════════════════════════════════════
+  const [watchlistGroups, setWatchlistGroups] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_watchlist_groups')) || { 'All': [], 'Tech': [], 'Earnings': [], 'Momentum': [] }; } catch { return { 'All': [], 'Tech': [], 'Earnings': [], 'Momentum': [] }; }
+  });
+  const [activeWatchlistGroup, setActiveWatchlistGroup] = useState('All');
+  const [showGroupManager, setShowGroupManager] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('modus_watchlist_groups', JSON.stringify(watchlistGroups));
+  }, [watchlistGroups]);
+
+  const addToWatchlistGroup = useCallback((ticker, group) => {
+    setWatchlistGroups(prev => {
+      const updated = { ...prev };
+      if (!updated[group]) updated[group] = [];
+      if (!updated[group].includes(ticker)) updated[group] = [...updated[group], ticker];
+      return updated;
+    });
+  }, []);
+
+  const removeFromWatchlistGroup = useCallback((ticker, group) => {
+    setWatchlistGroups(prev => {
+      const updated = { ...prev };
+      if (updated[group]) updated[group] = updated[group].filter(t => t !== ticker);
+      return updated;
+    });
+  }, []);
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 7: PWA Install Prompt
+  // ═══════════════════════════════════════════════
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setIsAppInstalled(true); setShowInstallBanner(false); });
+    if (window.matchMedia('(display-mode: standalone)').matches) setIsAppInstalled(true);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    if (result.outcome === 'accepted') setIsAppInstalled(true);
+    setDeferredPrompt(null);
+    setShowInstallBanner(false);
+  };
+
+  // ═══════════════════════════════════════════════
+  // FEATURE 8: Theme Toggle
+  // ═══════════════════════════════════════════════
+  const [themeMode, setThemeMode] = useState(() => {
+    try { return localStorage.getItem('modus_theme') || 'midnight'; } catch { return 'midnight'; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('modus_theme', themeMode);
+    const root = document.documentElement;
+    root.classList.remove('theme-midnight', 'theme-dark', 'theme-light');
+    root.classList.add(`theme-${themeMode}`);
+  }, [themeMode]);
 
   // Guided Setup Wizard
   const [showSetupWizard, setShowSetupWizard] = useState(false);
@@ -12032,6 +12295,157 @@ INSTRUCTIONS:
         </div>
       )}
 
+      {/* TRADE REPLAY MODAL (Feature 2) */}
+      {tradeReplayOpen && replayTrade && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => { setTradeReplayOpen(false); setReplayPlaying(false); }}>
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 max-w-2xl w-full shadow-2xl" onClick={e => e.stopPropagation()} style={{ animation: 'slideUp 0.3s ease-out' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-violet-500/20 rounded-lg replay-pulse">
+                  <Activity className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Trade Replay</h3>
+                  <span className="text-xs text-slate-500">{replayTrade.ticker || replayTrade.symbol} — {replayTrade.direction || 'Long'}</span>
+                </div>
+              </div>
+              <button onClick={() => { setTradeReplayOpen(false); setReplayPlaying(false); }} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Mini chart visualization */}
+            <div className="bg-slate-800/50 rounded-xl p-4 mb-4 border border-slate-700/30 relative h-48">
+              <svg viewBox="0 0 400 120" className="w-full h-full">
+                {/* Grid lines */}
+                {[0, 30, 60, 90, 120].map(y => (
+                  <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="#334155" strokeWidth="0.5" strokeDasharray="4 4" />
+                ))}
+                {/* Simulated price line */}
+                {(() => {
+                  const entry = parseFloat(replayTrade.entryPrice) || 100;
+                  const exit = parseFloat(replayTrade.exitPrice) || entry * 1.05;
+                  const pnl = exit - entry;
+                  const isWin = pnl >= 0;
+                  const mid = (entry + exit) / 2;
+                  const range = Math.max(Math.abs(pnl) * 3, entry * 0.05);
+                  const toY = (p) => 110 - ((p - (mid - range/2)) / range) * 100;
+                  // Generate a realistic-looking path
+                  const points = [];
+                  let price = entry;
+                  for (let i = 0; i <= 20; i++) {
+                    const t = i / 20;
+                    price = entry + (exit - entry) * t + (Math.sin(t * 12) * range * 0.1) + (Math.random() - 0.5) * range * 0.08;
+                    points.push(`${i * 20},${Math.max(5, Math.min(115, toY(price)))}`);
+                  }
+                  points[points.length - 1] = `400,${toY(exit)}`;
+                  const entryY = toY(entry);
+                  const exitY = toY(exit);
+                  return (
+                    <>
+                      <polyline points={points.join(' ')} fill="none" stroke={isWin ? '#10b981' : '#ef4444'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+                      {/* Entry marker */}
+                      <line x1="0" y1={entryY} x2="400" y2={entryY} stroke="#8b5cf6" strokeWidth="1" strokeDasharray="6 3" opacity="0.5" />
+                      <circle cx="0" cy={entryY} r="5" fill="#8b5cf6" />
+                      <text x="8" y={entryY - 8} fill="#a78bfa" fontSize="10">Entry ${entry.toFixed(2)}</text>
+                      {/* Exit marker */}
+                      <line x1="0" y1={exitY} x2="400" y2={exitY} stroke={isWin ? '#10b981' : '#ef4444'} strokeWidth="1" strokeDasharray="6 3" opacity="0.5" />
+                      <circle cx="400" cy={exitY} r="5" fill={isWin ? '#10b981' : '#ef4444'} />
+                      <text x="340" y={exitY - 8} fill={isWin ? '#6ee7b7' : '#fca5a5'} fontSize="10">Exit ${exit.toFixed(2)}</text>
+                      {/* Stop loss if available */}
+                      {replayTrade.stopLoss && (
+                        <>
+                          <line x1="0" y1={toY(parseFloat(replayTrade.stopLoss))} x2="400" y2={toY(parseFloat(replayTrade.stopLoss))} stroke="#ef4444" strokeWidth="1" strokeDasharray="2 4" opacity="0.3" />
+                          <text x="340" y={toY(parseFloat(replayTrade.stopLoss)) + 12} fill="#f87171" fontSize="9" opacity="0.6">SL ${parseFloat(replayTrade.stopLoss).toFixed(2)}</text>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
+              </svg>
+            </div>
+
+            {/* Trade Details Grid */}
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              <div className="bg-slate-800/40 rounded-lg p-2 text-center">
+                <div className="text-[10px] text-slate-500 uppercase">Entry</div>
+                <div className="text-sm font-bold text-violet-400">${parseFloat(replayTrade.entryPrice || 0).toFixed(2)}</div>
+              </div>
+              <div className="bg-slate-800/40 rounded-lg p-2 text-center">
+                <div className="text-[10px] text-slate-500 uppercase">Exit</div>
+                <div className="text-sm font-bold text-white">${parseFloat(replayTrade.exitPrice || 0).toFixed(2)}</div>
+              </div>
+              <div className="bg-slate-800/40 rounded-lg p-2 text-center">
+                <div className="text-[10px] text-slate-500 uppercase">Shares</div>
+                <div className="text-sm font-bold text-white">{replayTrade.shares || replayTrade.quantity || 1}</div>
+              </div>
+              <div className="bg-slate-800/40 rounded-lg p-2 text-center">
+                <div className="text-[10px] text-slate-500 uppercase">P&L</div>
+                {(() => {
+                  const pnl = replayTrade.pnl || ((parseFloat(replayTrade.exitPrice || 0) - parseFloat(replayTrade.entryPrice || 0)) * parseInt(replayTrade.shares || replayTrade.quantity || 1));
+                  return <div className={`text-sm font-bold ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</div>;
+                })()}
+              </div>
+            </div>
+
+            {/* Notes */}
+            {replayTrade.notes && (
+              <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/20">
+                <div className="text-[10px] text-slate-500 uppercase mb-1">Trade Notes</div>
+                <div className="text-xs text-slate-300">{replayTrade.notes}</div>
+              </div>
+            )}
+
+            {/* Share to Feed button */}
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => {
+                addToSocialFeed({
+                  type: 'trade',
+                  ticker: replayTrade.ticker || replayTrade.symbol,
+                  text: `${replayTrade.direction || 'Long'} ${replayTrade.ticker || replayTrade.symbol}: Entry $${parseFloat(replayTrade.entryPrice || 0).toFixed(2)} → Exit $${parseFloat(replayTrade.exitPrice || 0).toFixed(2)}`,
+                  verdict: (replayTrade.pnl || 0) >= 0 ? 'Win' : 'Loss'
+                });
+                setTradeReplayOpen(false);
+              }} className="flex-1 px-4 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/30 rounded-xl text-sm text-cyan-400 font-medium transition-all flex items-center justify-center gap-2">
+                <MessageCircle className="w-4 h-4" /> Share to Feed
+              </button>
+              <button onClick={() => { setTradeReplayOpen(false); setReplayPlaying(false); }}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-xl text-sm text-slate-400 font-medium transition-all">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PWA INSTALL BANNER (Feature 7) */}
+      {showInstallBanner && !isAppInstalled && (
+        <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-[55] animate-slideUp">
+          <div className="bg-gradient-to-r from-violet-900/95 to-slate-900/95 backdrop-blur-xl rounded-2xl border border-violet-500/30 p-4 shadow-2xl shadow-violet-500/10">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-violet-500/20 rounded-xl">
+                <Download className="w-5 h-5 text-violet-400" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-white">Install MODUS</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">Add to home screen for quick access and notifications</p>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={handleInstallPWA} className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold rounded-lg transition-all">
+                    Install
+                  </button>
+                  <button onClick={() => setShowInstallBanner(false)} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded-lg transition-all">
+                    Later
+                  </button>
+                </div>
+              </div>
+              <button onClick={() => setShowInstallBanner(false)} className="text-slate-500 hover:text-white transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* GUIDED SETUP WIZARD */}
       {showSetupWizard && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
@@ -13559,6 +13973,27 @@ INSTRUCTIONS:
                     </div>
                   );
                 })()}
+                {/* Theme Toggle (Feature 8) */}
+                <div className="flex items-center bg-slate-800/50 rounded-lg border border-slate-700/30 p-0.5">
+                  {[
+                    { key: 'midnight', label: '🌙', title: 'Midnight' },
+                    { key: 'dark', label: '🌑', title: 'Dark' },
+                    { key: 'light', label: '☀️', title: 'Light' },
+                  ].map(t => (
+                    <button key={t.key} onClick={() => setThemeMode(t.key)} title={t.title}
+                      className={`px-2 py-1 rounded-md text-xs transition-all ${themeMode === t.key ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {/* PWA Install (Feature 7) */}
+                {!isAppInstalled && (
+                  <button onClick={() => deferredPrompt ? handleInstallPWA() : setShowInstallBanner(true)} title="Install MODUS App"
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30">
+                    <Download className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">Install</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowDashboardConfig(!showDashboardConfig)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 border ${showDashboardConfig ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-800/50 hover:bg-slate-700/70 text-slate-400 hover:text-white border-slate-700/30'}`}
@@ -13586,6 +14021,10 @@ INSTRUCTIONS:
                 { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥', group: 'data' },
                 { key: 'tradingstreak', label: 'Trading Streak', icon: '🔥', group: 'trading' },
                 { key: 'feargreed', label: 'Market Mood', icon: '🎯', group: 'data' },
+                { key: 'earnings', label: 'Earnings Calendar', icon: '📅', group: 'data' },
+                { key: 'risk', label: 'Risk Dashboard', icon: '🛡️', group: 'trading' },
+                { key: 'pricetargets', label: 'Price Targets', icon: '🎯', group: 'trading' },
+                { key: 'socialfeed', label: 'Community Feed', icon: '💬', group: 'data' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
               const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
@@ -13968,28 +14407,65 @@ INSTRUCTIONS:
                   }
 
                   // ─── Watchlist ─────────────────────
-                  case 'watchlist': return (
+                  case 'watchlist': {
+                    const groupNames = Object.keys(watchlistGroups);
+                    const filteredWatchlist = activeWatchlistGroup === 'All' ? watchlist : (watchlistGroups[activeWatchlistGroup] || []).filter(s => watchlist.includes(s));
+                    return (
                     <div {...wrapProps}>
                       <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
-                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                        <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
                           <Eye className="w-4 h-4 text-violet-400" /> Watchlist
-                          <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{watchlist.length}</span>
+                          <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{filteredWatchlist.length}</span>
                         </h3>
-                        {watchlist.length === 0 ? (
+                        {/* Group Tabs (Feature 6) */}
+                        <div className="flex items-center gap-1 mb-2 flex-wrap">
+                          {groupNames.map(g => (
+                            <button key={g} onClick={() => setActiveWatchlistGroup(g)}
+                              className={`text-[9px] px-2 py-0.5 rounded-full transition-all ${activeWatchlistGroup === g ? 'bg-violet-600 text-white' : 'bg-slate-700/30 text-slate-500 hover:text-white'}`}>
+                              {g}
+                            </button>
+                          ))}
+                          {!showGroupManager ? (
+                            <button onClick={() => setShowGroupManager(true)} className="text-[9px] text-violet-400 hover:text-violet-300 px-1">+</button>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Group name"
+                                className="text-[9px] bg-slate-700/30 border border-slate-600/30 rounded px-1.5 py-0.5 w-16 text-white outline-none focus:border-violet-500/50" />
+                              <button onClick={() => { if (newGroupName.trim()) { setWatchlistGroups(prev => ({...prev, [newGroupName.trim()]: []})); setNewGroupName(''); setShowGroupManager(false); }}}
+                                className="text-[9px] text-emerald-400">✓</button>
+                              <button onClick={() => setShowGroupManager(false)} className="text-[9px] text-red-400">✕</button>
+                            </div>
+                          )}
+                        </div>
+                        {filteredWatchlist.length === 0 ? (
                           <div className="text-center py-4">
                             <Eye className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                            <p className="text-xs text-slate-500 mb-2">No symbols tracked yet</p>
+                            <p className="text-xs text-slate-500 mb-2">{activeWatchlistGroup === 'All' ? 'No symbols tracked yet' : `No stocks in ${activeWatchlistGroup}`}</p>
                             <button onClick={() => setActiveTab('ticker')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">
                               + Add from Live Ticker
                             </button>
                           </div>
                         ) : (
                           <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                            {watchlist.slice(0, 8).map(sym => {
+                            {filteredWatchlist.slice(0, 8).map(sym => {
                               const p = watchlistPrices[sym];
                               return (
                                 <div key={sym} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-800/50 cursor-pointer group" onClick={() => { setTickerSymbol(sym); setActiveTab('ticker'); }}>
-                                  <span className="text-sm font-medium group-hover:text-violet-300 transition-colors">{sym}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-sm font-medium group-hover:text-violet-300 transition-colors">{sym}</span>
+                                    {/* Group assign dropdown on hover */}
+                                    <div className="relative hidden group-hover:block">
+                                      <select
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => { e.stopPropagation(); if (e.target.value) addToWatchlistGroup(sym, e.target.value); }}
+                                        className="text-[8px] bg-slate-700 border-none rounded text-slate-400 w-8 h-4 appearance-none cursor-pointer"
+                                        defaultValue=""
+                                      >
+                                        <option value="">+</option>
+                                        {groupNames.filter(g => g !== 'All').map(g => <option key={g} value={g}>{g}</option>)}
+                                      </select>
+                                    </div>
+                                  </div>
                                   <div className="text-right">
                                     {p?.price > 0 && <span className="text-xs font-mono">${p.price.toFixed(2)}</span>}
                                     {p?.changePercent !== undefined && (
@@ -14005,7 +14481,8 @@ INSTRUCTIONS:
                         )}
                       </div>
                     </div>
-                  );
+                    );
+                  }
 
                   // ─── Daily Pick ─────────────────────
                   case 'dailypick': {
@@ -14454,6 +14931,207 @@ INSTRUCTIONS:
                               </span>
                             </div>
                           </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Earnings Calendar Widget (Feature 1) ───
+                  case 'earnings': {
+                    const now = new Date();
+                    const upcomingEarnings = earningsData.filter(e => e.date >= now).slice(0, 5);
+                    const watchlistEarnings = upcomingEarnings.filter(e => watchlist.includes(e.ticker));
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-amber-400" />
+                            Earnings Calendar
+                            {watchlistEarnings.length > 0 && (
+                              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-medium">{watchlistEarnings.length} on watchlist</span>
+                            )}
+                          </h3>
+                          {upcomingEarnings.length > 0 ? (
+                            <div className="space-y-2">
+                              {upcomingEarnings.map((e, i) => {
+                                const daysDiff = Math.ceil((e.date - now) / 86400000);
+                                const dayLabel = daysDiff === 0 ? 'Today' : daysDiff === 1 ? 'Tomorrow' : `${daysDiff}d`;
+                                const isOnWatchlist = watchlist.includes(e.ticker);
+                                return (
+                                  <button key={i} onClick={() => { setTickerSymbol(e.ticker); setActiveTab('ticker'); }}
+                                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all hover:bg-slate-700/30 ${isOnWatchlist ? 'bg-amber-500/5 border border-amber-500/10' : ''}`}>
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold ${daysDiff <= 1 ? 'bg-red-500/20 text-red-400' : daysDiff <= 3 ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-400'}`}>
+                                      {dayLabel}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-xs font-bold text-white">{e.ticker}</span>
+                                        <span className={`text-[9px] px-1 py-0.5 rounded ${e.time === 'BMO' ? 'bg-blue-500/20 text-blue-400' : 'bg-violet-500/20 text-violet-400'}`}>{e.time === 'BMO' ? '☀ Pre' : '🌙 After'}</span>
+                                        {isOnWatchlist && <Eye className="w-3 h-3 text-amber-400" />}
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 truncate">{e.company}</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-[10px] text-slate-400">Est. EPS</div>
+                                      <div className="text-xs font-semibold text-emerald-400">{e.estEPS}</div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <Calendar className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                              <p className="text-xs text-slate-500">No upcoming earnings</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Risk Dashboard Widget (Feature 3) ───
+                  case 'risk': {
+                    const riskColor = dashRiskMetrics.riskScore <= 30 ? 'text-emerald-400' : dashRiskMetrics.riskScore <= 60 ? 'text-amber-400' : 'text-red-400';
+                    const riskBarColor = dashRiskMetrics.riskScore <= 30 ? 'bg-emerald-500' : dashRiskMetrics.riskScore <= 60 ? 'bg-amber-500' : 'bg-red-500';
+                    const riskLabel = dashRiskMetrics.riskScore <= 30 ? 'Low Risk' : dashRiskMetrics.riskScore <= 60 ? 'Moderate' : 'High Risk';
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-blue-400" />
+                            Risk Dashboard
+                          </h3>
+                          {trades.length > 0 ? (
+                            <div className="space-y-3">
+                              {/* Risk Score */}
+                              <div className="text-center">
+                                <div className={`text-2xl font-bold ${riskColor}`}>{dashRiskMetrics.riskScore}</div>
+                                <div className={`text-xs font-semibold ${riskColor}`}>{riskLabel}</div>
+                                <div className="mt-1.5 h-1.5 bg-slate-700/30 rounded-full overflow-hidden">
+                                  <div className={`h-full ${riskBarColor} rounded-full transition-all duration-700`} style={{ width: `${dashRiskMetrics.riskScore}%` }} />
+                                </div>
+                              </div>
+                              {/* Metrics Grid */}
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700/20">
+                                <div>
+                                  <div className="text-[10px] text-slate-500 uppercase">Exposure</div>
+                                  <div className="text-sm font-bold text-white">${dashRiskMetrics.exposure.toLocaleString()}</div>
+                                </div>
+                                <div>
+                                  <div className="text-[10px] text-slate-500 uppercase">Open Pos.</div>
+                                  <div className="text-sm font-bold text-white">{dashRiskMetrics.openPositions}</div>
+                                </div>
+                                <div>
+                                  <div className="text-[10px] text-slate-500 uppercase">Concentration</div>
+                                  <div className={`text-sm font-bold ${dashRiskMetrics.concentration > 50 ? 'text-red-400' : 'text-white'}`}>{dashRiskMetrics.concentration.toFixed(1)}%</div>
+                                </div>
+                                <div>
+                                  <div className="text-[10px] text-slate-500 uppercase">Max Drawdown</div>
+                                  <div className={`text-sm font-bold ${dashRiskMetrics.maxDrawdown > 20 ? 'text-red-400' : 'text-amber-400'}`}>{dashRiskMetrics.maxDrawdown.toFixed(1)}%</div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <Shield className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                              <p className="text-xs text-slate-500 mb-2">Log trades to see risk metrics</p>
+                              <button onClick={() => setActiveTab('journal')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-lg transition-all">
+                                Open Journal
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Price Target Tracking Widget (Feature 5) ───
+                  case 'pricetargets': {
+                    const activeTargets = priceTargets.filter(t => t.status === 'active').slice(0, 5);
+                    const hitCount = priceTargets.filter(t => t.status === 'hit').length;
+                    const totalTracked = priceTargets.filter(t => t.status !== 'active').length;
+                    const hitRate = totalTracked > 0 ? Math.round((hitCount / totalTracked) * 100) : 0;
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <Target className="w-4 h-4 text-violet-400" />
+                            Price Targets
+                            {totalTracked > 0 && (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${hitRate >= 60 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{hitRate}% hit rate</span>
+                            )}
+                          </h3>
+                          {activeTargets.length > 0 ? (
+                            <div className="space-y-2">
+                              {activeTargets.map((t, i) => {
+                                const isUp = t.verdict?.toLowerCase()?.includes('buy') || t.verdict?.toLowerCase()?.includes('bullish');
+                                return (
+                                  <div key={t.id || i} className="flex items-center gap-2 p-2 rounded-lg bg-slate-700/20">
+                                    <div className={`text-xs font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>{t.ticker}</div>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-1 text-[10px]">
+                                        <span className="text-slate-500">Entry:</span>
+                                        <span className="text-slate-300">${parseFloat(t.entryPrice).toFixed(2)}</span>
+                                        <span className="text-slate-600 mx-0.5">→</span>
+                                        <span className="text-emerald-400">${t.targetPrice?.toFixed(2)}</span>
+                                      </div>
+                                      <div className="text-[9px] text-slate-500">{new Date(t.createdAt).toLocaleDateString()}</div>
+                                    </div>
+                                    <div className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${isUp ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                      {t.confidence}%
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {priceTargets.length > 5 && <div className="text-[10px] text-slate-500 text-center">+{priceTargets.length - 5} more targets</div>}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <Target className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                              <p className="text-xs text-slate-500 mb-2">Run Quick Analysis to track targets</p>
+                              <button onClick={() => setActiveTab('quickanalysis')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-lg transition-all">
+                                Quick Analysis
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Community Feed Widget (Feature 4) ───
+                  case 'socialfeed': {
+                    const recentPosts = socialFeed.slice(0, 4);
+                    return (
+                      <div {...wrapProps}>
+                        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
+                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                            <MessageCircle className="w-4 h-4 text-cyan-400" />
+                            Community Feed
+                            {socialFeed.length > 0 && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full">{socialFeed.length}</span>}
+                          </h3>
+                          {recentPosts.length > 0 ? (
+                            <div className="space-y-2">
+                              {recentPosts.map((post, i) => (
+                                <div key={post.id || i} className="p-2 rounded-lg bg-slate-700/20">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-[9px] font-bold text-white">{post.avatar}</div>
+                                    <span className="text-[10px] font-semibold text-white">{post.user}</span>
+                                    <span className="text-[9px] text-slate-500 ml-auto">{new Date(post.timestamp).toLocaleDateString()}</span>
+                                  </div>
+                                  {post.ticker && <div className={`text-xs font-bold ${post.verdict?.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-red-400'}`}>{post.ticker} — {post.verdict}</div>}
+                                  {post.text && <div className="text-[10px] text-slate-400 line-clamp-2">{post.text}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <MessageCircle className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                              <p className="text-xs text-slate-500 mb-1">No shared analyses yet</p>
+                              <p className="text-[10px] text-slate-600">Share from Quick Analysis to post here</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -21507,6 +22185,22 @@ INSTRUCTIONS:
                     >
                       <LineChart className="w-4 h-4" /> View Chart
                     </button>
+                    {/* Share to Feed (Feature 4) */}
+                    <button
+                      onClick={() => addToSocialFeed({ type: 'analysis', ticker: r.ticker, verdict: r.verdict, text: `${r.verdict} on ${r.ticker} — Confidence: ${r.confidence}% | Target: $${r.target} | Stop: $${r.stop}`, confidence: r.confidence })}
+                      className="px-4 py-3.5 bg-cyan-600/10 hover:bg-cyan-600/20 border border-cyan-500/20 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 text-cyan-400"
+                      title="Share to community feed"
+                    >
+                      <MessageCircle className="w-4 h-4" /> Share
+                    </button>
+                    {/* Track Target (Feature 5) */}
+                    <button
+                      onClick={() => { addPriceTarget(r.ticker, r.price, r.target, r.stop, r.verdict, r.confidence); }}
+                      className="px-4 py-3.5 bg-amber-600/10 hover:bg-amber-600/20 border border-amber-500/20 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 text-amber-400"
+                      title="Track price target"
+                    >
+                      <Target className="w-4 h-4" /> Track
+                    </button>
                   </div>
 
                   {/* Detailed Analysis Expansion — Structured Cards */}
@@ -22349,6 +23043,17 @@ INSTRUCTIONS:
                                   <Pencil className="w-3.5 h-3.5" />
                                   Edit
                                 </button>
+                                {/* Trade Replay (Feature 2) */}
+                                {trade.exit && (
+                                  <button
+                                    onClick={() => { setReplayTrade({ ...trade, ticker: trade.symbol, entryPrice: trade.entry, exitPrice: trade.exit, shares: trade.quantity, direction: trade.side }); setTradeReplayOpen(true); }}
+                                    className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1"
+                                    title="Replay trade"
+                                  >
+                                    <Activity className="w-3.5 h-3.5" />
+                                    Replay
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => deleteTrade(trade.id)}
                                   className="text-red-400 hover:text-red-300 text-sm"

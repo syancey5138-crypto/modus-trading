@@ -1,0 +1,21 @@
+{
+  "name": "MODUS Trading Platform",
+  "short_name": "MODUS",
+  "description": "AI-powered trading analysis platform with real-time market data, chart analysis, and smart alerts",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#8b5cf6",
+  "orientation": "any",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
