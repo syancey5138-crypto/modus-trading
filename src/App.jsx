@@ -3806,40 +3806,16 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
   }, []);
 
-  const startVoiceCommand = useCallback(async () => {
+  const startVoiceCommand = useCallback(() => {
     if (voiceListening) return;
     if (!voiceRecognitionRef.current) {
-      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Voice commands require Chrome or Edge. Make sure your browser supports the Web Speech API.', icon: '🎤' });
+      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Voice commands require Chrome or Edge with Web Speech API support.', icon: '🎤' });
       return;
     }
 
-    // Check if mediaDevices API is available (requires HTTPS or localhost)
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Microphone access requires HTTPS. Voice commands are not available on insecure (HTTP) connections.', icon: '🎤' });
-      return;
-    }
-
-    // First, request microphone permission explicitly — this triggers the browser popup
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Permission granted — stop the stream (we only needed the prompt)
-      stream.getTracks().forEach(t => t.stop());
-    } catch (err) {
-      // Permission denied or no microphone
-      addNotification({
-        type: 'system',
-        title: 'Microphone Access Denied',
-        message: err.name === 'NotAllowedError'
-          ? 'Microphone permission was denied. Click the lock/site-settings icon in your address bar to allow microphone access.'
-          : err.name === 'NotFoundError'
-          ? 'No microphone detected. Please connect a microphone and try again.'
-          : 'Could not access microphone: ' + (err.message || err.name),
-        icon: '🎤'
-      });
-      return;
-    }
-
-    // Now start recognition
+    // Start recognition directly — SpeechRecognition handles its own mic permissions.
+    // DO NOT use getUserMedia() before this — stopping that stream kills the mic
+    // before recognition.start() can claim it, which silently breaks everything.
     try {
       setVoiceTranscript('');
       setVoiceListening(true);
@@ -3863,12 +3839,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       voiceActiveRef.current = false;
       setVoiceListening(false);
       setShowVoiceOverlay(false);
-      addNotification({
-        type: 'system',
-        title: 'Voice Error',
-        message: err.message?.includes('already started') ? 'Voice is already listening — speak your command.' : 'Could not start voice recognition: ' + (err.message || 'Unknown error'),
-        icon: '🎤'
-      });
+      const errMsg = err.message?.includes('already started')
+        ? 'Voice is already listening — speak your command.'
+        : err.name === 'not-allowed' || err.message?.includes('not-allowed')
+        ? 'Microphone permission denied. Allow mic access in your browser settings.'
+        : 'Could not start voice recognition: ' + (err.message || 'Unknown error');
+      addNotification({ type: 'system', title: 'Voice Error', message: errMsg, icon: '🎤' });
     }
   }, [voiceListening]);
 
@@ -33669,14 +33645,19 @@ INSTRUCTIONS:
             </div>
 
             <h2 className="text-2xl font-bold text-white mb-1">{voiceListening ? 'Listening...' : 'Processing...'}</h2>
-            <p className="text-sm text-slate-400 mb-4">Speak a command naturally</p>
+            <p className="text-sm text-slate-400 mb-4">Speak a command clearly — try "go to dashboard" or "analyze AAPL"</p>
 
             {/* Live transcript */}
-            {voiceTranscript && (
-              <div className="bg-slate-800/60 border border-violet-500/30 rounded-xl px-4 py-3 mb-5 mx-auto max-w-sm">
-                <p className="text-lg text-violet-300 font-medium">"{voiceTranscript}"</p>
+            {voiceTranscript ? (
+              <div className="bg-slate-800/60 border border-emerald-500/30 rounded-xl px-4 py-3 mb-5 mx-auto max-w-sm">
+                <p className="text-[10px] text-emerald-400 uppercase tracking-wider mb-1 font-bold">Heard:</p>
+                <p className="text-lg text-emerald-300 font-medium">"{voiceTranscript}"</p>
               </div>
-            )}
+            ) : voiceListening ? (
+              <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl px-4 py-3 mb-5 mx-auto max-w-sm">
+                <p className="text-sm text-slate-500 animate-pulse">Waiting for speech...</p>
+              </div>
+            ) : null}
 
             {/* Command examples grid */}
             <div className="grid grid-cols-2 gap-2 mb-6 text-left max-w-md mx-auto">
