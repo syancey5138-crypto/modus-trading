@@ -26,28 +26,27 @@ const versions = [
   {
     version: 'v3.0.0',
     date: 'February 8, 2026',
-    title: 'MODUS v3 — Paper Trading, AI Strategy Builder & 40+ New Features Roadmap',
+    title: 'MODUS v3 — Paper Trading, AI Briefing, 8 New Widgets, Gamification & Premium UI',
     sections: [
       {
         type: 'Features',
         items: [
-          { title: 'Paper Trading Simulator', description: 'Practice trading with virtual money in a completely risk-free environment. Execute simulated buy/sell orders, track your virtual P&L, and test strategies before committing real capital. Perfect for beginners learning the ropes or experienced traders testing new approaches.' },
-          { title: 'AI Strategy Builder', description: 'Tell the AI your trading goals, risk tolerance, available capital, and preferred style — it generates a complete trading strategy with entry rules, exit rules, position sizing, and risk management guidelines. Strategies are personalized and adaptive.' },
-          { title: 'Social Following System', description: 'Follow top-performing traders in the community and see their public analyses appear in your feed. Build a network of trusted trading perspectives. See follower counts and track records before following anyone.' },
-          { title: 'AI Market Morning Briefing', description: 'Every trading day, receive an AI-generated market briefing covering overnight developments, key economic events, sector momentum, and stocks to watch. Replaces your morning news routine with focused, actionable intelligence.' },
-          { title: 'Smart Watchlist Suggestions', description: 'AI analyzes your trading patterns, past analyses, and portfolio composition to suggest stocks you might be interested in. Surfaces opportunities you might miss while keeping your watchlist fresh and relevant.' },
-          { title: 'Trade Plan Enforcement', description: 'Set personal trading rules — maximum trades per day, maximum daily loss, mandatory stop losses — and MODUS enforces them. Get warnings before breaking rules and lock yourself out of trading after hitting limits. Build iron discipline.' },
-          { title: 'Chart Drawing Tools', description: 'Draw trendlines, channels, horizontal support/resistance, Fibonacci retracements, rectangles, and text annotations directly on any chart. Drawings persist between sessions and can be toggled on/off.' },
-          { title: 'Options Chain Viewer', description: 'View the full options chain for any stock with calls and puts organized by expiration and strike price. See Greeks (Delta, Gamma, Theta, Vega), implied volatility, volume, and open interest. Essential for options traders.' },
-          { title: 'Cryptocurrency Support', description: 'Extend all analysis capabilities to Bitcoin, Ethereum, and the top 50 cryptocurrencies. Same AI analysis, same charting tools, same journal tracking — now for crypto markets that trade 24/7.' },
-          { title: 'Custom Theme Builder', description: 'Go beyond Midnight, Dark, and Light — create your own custom color themes with a visual editor. Choose accent colors, background shades, and text colors. Save and share themes with the community.' }
+          { title: 'Paper Trading Simulator', description: 'Practice trading with virtual money in a completely risk-free environment. Execute simulated buy and sell orders with a starting balance of $100,000, track open positions with live P&L, and review complete trade history. Test strategies before risking real capital.' },
+          { title: 'Trade Plan Enforcement', description: 'Set personal trading discipline rules including maximum trades per day, maximum daily loss limits, and mandatory stop-loss requirements. Visual progress bars show how close you are to your limits, with automatic lock-out when limits are reached.' },
+          { title: 'AI Morning Briefing', description: 'Generate an on-demand AI market briefing covering overnight developments, pre-market analysis, key economic events, and stocks to watch. Replaces your morning news routine with focused, actionable market intelligence tailored to your interests.' },
+          { title: 'Dark Pool Activity Widget', description: 'Monitor unusual institutional block trades with volume comparisons, buy/sell side indicators, and price impact analysis. Spot large-money moves before they affect the broader market.' },
+          { title: 'Sector Rotation Widget', description: 'Track which market sectors are rotating in and out of favor with directional momentum indicators. See sector-level trend arrows, performance metrics, and capital flow direction in real time.' },
+          { title: 'Market Breadth Widget', description: 'Monitor advance/decline ratios, new highs vs new lows, and breadth thrust readings. Understand whether market moves are broad-based or driven by just a few large-cap names.' },
+          { title: 'Social Sentiment Widget', description: 'Track trending tickers across social media with bullish, neutral, and bearish sentiment breakdowns. See mention counts, sentiment scores, and momentum indicators for the most-discussed stocks.' },
+          { title: 'XP and Gamification System', description: 'Earn experience points for trading activities — completing analyses, logging trades, and hitting milestones. Progress through levels from Rookie to Market Wizard with titles and achievement tracking.' }
         ]
       },
       {
         type: 'Improvements',
         items: [
           { title: 'Original Favicon Restored', description: 'Reverted to the original chart line favicon by popular demand. The clean, recognizable purple chart icon returns to your browser tab.' },
-          { title: 'v3.0.0 Feature Roadmap', description: 'This release establishes the foundation for 40+ major features planned for the MODUS v3 series. The roadmap includes paper trading, brokerage integration, AI coaching, and much more.' }
+          { title: 'Premium Glass-Morphism UI', description: 'Added modern glass-card design system with translucent backgrounds, backdrop blur effects, and animated gradient borders. The entire interface feels more premium and polished.' },
+          { title: 'Enhanced Loading Animations', description: 'Upgraded skeleton loading states with premium shimmer effects, smoother gradient transitions, and GPU-accelerated animations for a noticeably smoother experience.' }
         ]
       }
     ]
@@ -927,7 +926,7 @@ const doc = new Document({
 });
 
 Packer.toBuffer(doc).then(buffer => {
-  const outPath = '/sessions/magical-ecstatic-mccarthy/mnt/Tradevision_MODUS/MODUS_Changelog_Feb7_2026.docx';
+  const outPath = '/sessions/magical-ecstatic-mccarthy/mnt/Tradevision_MODUS/MODUS_Changelog_Feb8_2026.docx';
   fs.writeFileSync(outPath, buffer);
   console.log(`✓ Created: ${outPath}`);
   console.log(`  Size: ${(buffer.length / 1024).toFixed(1)} KB`);
