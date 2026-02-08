@@ -36,7 +36,7 @@ const COLORS = {
 // Create header function
 function createHeader() {
   return new Paragraph({
-    text: 'MODUS Trading Platform Guide — Version 3.0.0',
+    text: 'MODUS Trading Platform Guide — Version 3.1.0',
     alignment: AlignmentType.CENTER,
     style: 'header',
     border: {
@@ -167,7 +167,7 @@ function createCoverPage() {
       spacing: { after: 200 }
     }),
     new Paragraph({
-      text: 'Version 3.0.0 — February 2026',
+      text: 'Version 3.1.0 — February 2026',
       size: 24,
       color: COLORS.accent,
       alignment: AlignmentType.CENTER,
@@ -438,10 +438,134 @@ function createChapter3() {
   ];
 }
 
-// Chapter 4: Trading Tools
+// Chapter 4: Voice Commands & Theme Builder
 function createChapter4() {
   return [
-    createSectionHeading('Chapter 4: Trading Tools'),
+    createSectionHeading('Chapter 4: Voice Commands & Custom Themes'),
+    new Paragraph({ text: '' }),
+    createSubHeading('Voice Commands'),
+    createContentPara('Control MODUS entirely by voice using the browser\'s built-in Web Speech API. No special setup required — just press "V" or click the microphone button on the dashboard to activate voice mode.'),
+    createContentPara('Once activated, speak naturally to navigate, analyze stocks, or control your dashboard. The system continuously listens and processes your commands in real-time. Try commands like:'),
+    new Paragraph({
+      text: '"Analyze AAPL" — Get instant AI analysis for Apple stock',
+      spacing: { before: 100, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: '"Go to journal" — Navigate to your trading journal',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: '"Switch to dark theme" — Change your color theme',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: '"Open watchlist" — View your tracked stocks',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: '"Show dashboard" — Return to the main dashboard',
+      spacing: { before: 0, after: 300, line: 320 },
+      size: 22
+    }),
+    createContentPara('Voice commands are perfect for hands-free operation while monitoring charts or for accessibility. The system provides audio feedback confirming that it understood your command.'),
+
+    new Paragraph({ text: '' }),
+    createSubHeading('Custom Theme Builder'),
+    createContentPara('Create unlimited custom color themes to personalize MODUS to your exact preferences. Access the Theme Builder from Settings > Appearance > Create Custom Theme.'),
+    createContentPara('The Theme Builder provides 7 color pickers to customize:'),
+    new Paragraph({
+      text: 'Background — Overall page background color',
+      spacing: { before: 100, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'Text Color — Default text and content color',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'Accent — Primary accent color for highlights and buttons',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'Cards — Widget and card background color',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'Borders — Card and element border color',
+      spacing: { before: 0, after: 300, line: 320 },
+      size: 22
+    }),
+    createContentPara('As you adjust colors, a live preview panel shows exactly how your theme will look. MODUS includes 5 pre-built presets to get you started: Ocean Blue (calm blues), Sunset (warm oranges), Forest (greens), Cyberpunk (neon accent colors), and Warm Gray (neutral tones). All themes are saved to localStorage and persist across sessions.'),
+    createContentPara('You can edit, apply, or delete custom themes at any time from Settings. Share theme codes with other traders to spread your favorite color schemes.'),
+    new Paragraph({
+      children: [new TextRun({ text: '', break: 1 })]
+    })
+  ];
+}
+
+// Chapter 5: Crypto & Drawing Tools
+function createChapter5New() {
+  return [
+    createSectionHeading('Chapter 5: Crypto Prices & Chart Drawing Tools'),
+    new Paragraph({ text: '' }),
+    createSubHeading('Crypto Prices Widget'),
+    createContentPara('Monitor live cryptocurrency prices directly from your MODUS dashboard. The Crypto Prices widget pulls real-time data from CoinGecko\'s free API, requiring no API key.'),
+    createContentPara('The widget tracks 8 major cryptocurrencies:'),
+    new Paragraph({
+      text: 'Bitcoin (BTC), Ethereum (ETH), Solana (SOL), Binance Coin (BNB)',
+      spacing: { before: 100, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'XRP, Cardano (ADA), Dogecoin (DOGE), and Polygon (MATIC)',
+      spacing: { before: 0, after: 300, line: 320 },
+      size: 22
+    }),
+    createContentPara('For each cryptocurrency, you see the current price, 24-hour percentage change (color-coded green for gains, red for losses), and market capitalization. The widget automatically refreshes every 30 seconds to keep prices current. You can also manually refresh the data by clicking the refresh button.'),
+    createContentPara('This is perfect for traders monitoring crypto alongside traditional stock positions, or for understanding cryptocurrency market sentiment alongside equity markets.'),
+
+    new Paragraph({ text: '' }),
+    createSubHeading('Chart Drawing Tools'),
+    createContentPara('Add professional-grade annotations to price charts to mark key levels, identify patterns, and share analysis with clarity. Access drawing tools in the Chart view when analyzing any ticker.'),
+    createContentPara('Available drawing tools include:'),
+    new Paragraph({
+      text: 'Trendlines — Click two points on the chart to draw a trend line connecting support or resistance levels',
+      spacing: { before: 100, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'Horizontal Lines — Draw horizontal support/resistance levels at key price points',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'Fibonacci Retracement — Apply Fibonacci ratios to identify potential bounce levels',
+      spacing: { before: 0, after: 150, line: 320 },
+      size: 22
+    }),
+    new Paragraph({
+      text: 'Text Annotations — Add labels and notes to mark important observations on the chart',
+      spacing: { before: 0, after: 300, line: 320 },
+      size: 22
+    }),
+    createContentPara('Customize each drawing with color selection. The undo button lets you remove the last drawing, and the clear-all option removes all drawings from the current chart. Importantly, all drawings are saved to localStorage and persist per ticker, so your annotations remain when you return to that stock.'),
+    new Paragraph({
+      children: [new TextRun({ text: '', break: 1 })]
+    })
+  ];
+}
+
+// Original Chapter 5 becomes Chapter 6: Trading Tools
+function createChapter6Old() {
+  return [
+    createSectionHeading('Chapter 6: Trading Tools'),
     new Paragraph({ text: '' }),
     createSubHeading('Watchlist Management'),
     createContentPara('MODUS watchlists help you organize and monitor securities of interest. Create multiple watchlists for different strategies or themes:'),
@@ -1286,6 +1410,8 @@ async function generateDocument() {
       ...createChapter2(),
       ...createChapter3(),
       ...createChapter4(),
+      ...createChapter5New(),
+      ...createChapter6Old(),
       ...createChapter5(),
       ...createChapter6(),
       ...createChapter7(),
@@ -1322,7 +1448,7 @@ async function generateDocument() {
     fs.writeFileSync(outputPath, buffer);
     console.log(`✓ Document successfully created: ${outputPath}`);
     console.log(`✓ File size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`✓ Document contains 11 chapters plus 3 appendices`);
+    console.log(`✓ Document contains 13 chapters plus 3 appendices`);
     console.log(`✓ Ready for distribution and use!`);
   } catch (error) {
     console.error('Error generating document:', error);

@@ -24,6 +24,38 @@ const cellMargins = { top: 80, bottom: 80, left: 120, right: 120 };
 
 const versions = [
   {
+    version: 'v3.1.0',
+    date: 'February 8, 2026',
+    title: 'Voice Commands, Custom Themes, Crypto Support, Drawing Tools & Data Integrity',
+    sections: [
+      {
+        type: 'Features',
+        items: [
+          { title: 'Voice Commands', description: 'Navigate MODUS, analyze stocks, switch themes, and control the platform entirely by voice using the browser\'s built-in Web Speech API. Press V or click the microphone button on the dashboard to activate. Supports commands like "analyze AAPL," "go to journal," "switch to dark theme," and more.' },
+          { title: 'Custom Theme Builder', description: 'Create unlimited custom color themes with a full visual editor. Pick colors for background, text, accent, cards, and borders using 7 color pickers with a live preview panel. Includes 5 pre-built presets (Ocean Blue, Sunset, Forest, Cyberpunk, Warm Gray). Themes are saved to localStorage and can be edited, applied, or deleted at any time from Settings.' },
+          { title: 'Crypto Prices Widget', description: 'Live cryptocurrency prices powered by CoinGecko\'s free API. Tracks Bitcoin, Ethereum, Solana, BNB, XRP, Cardano, Dogecoin, and Polygon with price, 24h change percentage, and market cap. Auto-refreshes every 30 seconds with manual refresh option. No API key required.' },
+          { title: 'Chart Drawing Tools', description: 'Professional-grade chart annotation tools including trendlines (click two points), horizontal support/resistance lines, Fibonacci retracement overlays, and text annotations. Customizable colors, undo functionality, and clear-all option. Drawings persist per ticker in localStorage.' }
+        ]
+      },
+      {
+        type: 'Improvements',
+        items: [
+          { title: 'Sector Rotation Widget Now Live', description: 'Replaced hardcoded sector data with real-time sector ETF performance from the existing market data pipeline. Shows actual percentage changes for Technology, Healthcare, Financials, Energy, and more with directional momentum arrows. Displays a LIVE badge when data is loaded.' },
+          { title: 'Sector Breadth Widget Now Live', description: 'Renamed from Market Breadth and rewired to compute real sectors up vs down from live ETF data. Shows average sector change and visual progress bar of market participation. No longer uses fake numbers.' },
+          { title: 'AI Morning Briefing Now Real', description: 'The Morning Briefing widget now calls the actual AI endpoint (/api/chat) with real market context including index prices, sector performance, VIX level, market status, and user watchlist. Generates personalized briefings based on actual conditions instead of hardcoded text.' },
+          { title: 'Redesigned Widget Panel', description: 'The Widgets & Layout customization panel features a gradient background, shadow effects, and a completely new layout. Active widgets now show descriptions inline. Available widgets use a 3-column grid grouped by category with full descriptions visible.' }
+        ]
+      },
+      {
+        type: 'Bug Fixes',
+        items: [
+          { title: 'Removed Fake Data Widgets', description: 'Dark Pool Activity and Social Sentiment widgets were displaying hardcoded sample data that could mislead users. Both have been disabled from the default dashboard and widget definitions. The rendering code is preserved and ready to reactivate when premium data sources (Unusual Whales, FlowAlgo, StockTwits) are connected.' },
+          { title: 'Fixed Duplicate State Variable', description: 'Resolved a build-breaking error caused by the drawings state variable being declared twice from parallel feature implementations.' }
+        ]
+      }
+    ]
+  },
+  {
     version: 'v3.0.0',
     date: 'February 8, 2026',
     title: 'MODUS v3 — Paper Trading, AI Briefing, 8 New Widgets, Gamification & Premium UI',
@@ -34,10 +66,8 @@ const versions = [
           { title: 'Paper Trading Simulator', description: 'Practice trading with virtual money in a completely risk-free environment. Execute simulated buy and sell orders with a starting balance of $100,000, track open positions with live P&L, and review complete trade history. Test strategies before risking real capital.' },
           { title: 'Trade Plan Enforcement', description: 'Set personal trading discipline rules including maximum trades per day, maximum daily loss limits, and mandatory stop-loss requirements. Visual progress bars show how close you are to your limits, with automatic lock-out when limits are reached.' },
           { title: 'AI Morning Briefing', description: 'Generate an on-demand AI market briefing covering overnight developments, pre-market analysis, key economic events, and stocks to watch. Replaces your morning news routine with focused, actionable market intelligence tailored to your interests.' },
-          { title: 'Dark Pool Activity Widget', description: 'Monitor unusual institutional block trades with volume comparisons, buy/sell side indicators, and price impact analysis. Spot large-money moves before they affect the broader market.' },
           { title: 'Sector Rotation Widget', description: 'Track which market sectors are rotating in and out of favor with directional momentum indicators. See sector-level trend arrows, performance metrics, and capital flow direction in real time.' },
           { title: 'Market Breadth Widget', description: 'Monitor advance/decline ratios, new highs vs new lows, and breadth thrust readings. Understand whether market moves are broad-based or driven by just a few large-cap names.' },
-          { title: 'Social Sentiment Widget', description: 'Track trending tickers across social media with bullish, neutral, and bearish sentiment breakdowns. See mention counts, sentiment scores, and momentum indicators for the most-discussed stocks.' },
           { title: 'XP and Gamification System', description: 'Earn experience points for trading activities — completing analyses, logging trades, and hitting milestones. Progress through levels from Rookie to Market Wizard with titles and achievement tracking.' }
         ]
       },
@@ -741,7 +771,7 @@ children.push(
     spacing: { after: 100 },
     children: [new TextRun({ text: "February 5, 2026 \u2014 February 8, 2026", font: "Arial", size: 24, color: SLATE })]
   }),
-  new Paragraph({ spacing: { after: 600 }, children: [] }),
+  new Paragraph({ spacing: { after: 400 }, children: [] }),
 );
 
 // Summary stats table

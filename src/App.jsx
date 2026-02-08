@@ -984,6 +984,24 @@ function App() {
   const [showQuickTradeEntry, setShowQuickTradeEntry] = useState(false);
   const changelogEntries = [
     {
+      version: '3.1.0',
+      date: '2026-02-08',
+      title: 'Voice Commands, Custom Themes, Crypto, Drawing Tools & Data Integrity',
+      changes: [
+        { type: 'feature', text: 'Voice Commands — press V or click the mic button to navigate, analyze stocks, switch themes, and more by voice' },
+        { type: 'feature', text: 'Custom Theme Builder — create, preview, and save your own color themes with 7 color pickers, live preview, and 5 presets (Ocean Blue, Sunset, Forest, Cyberpunk, Warm Gray)' },
+        { type: 'feature', text: 'Crypto Prices Widget — live Bitcoin, Ethereum, Solana, and more from CoinGecko free API with 30-second auto-refresh' },
+        { type: 'feature', text: 'Chart Drawing Tools — draw trendlines, Fibonacci retracements, support/resistance levels, and text annotations with customizable colors' },
+        { type: 'improvement', text: 'Sector Rotation widget now uses live sector ETF data instead of simulated values — shows real performance with LIVE badge' },
+        { type: 'improvement', text: 'Sector Breadth widget computes real sectors up vs down from live ETF data with average sector change' },
+        { type: 'improvement', text: 'AI Morning Briefing now calls real AI with your actual market data (indices, sectors, VIX, watchlist) instead of hardcoded text' },
+        { type: 'improvement', text: 'Widget panel redesigned — descriptions visible inline, 3-column grid for Available to Add, grouped by category' },
+        { type: 'improvement', text: 'New widgets show notification confirmation when added to dashboard' },
+        { type: 'fix', text: 'Removed Dark Pool and Social Sentiment widgets that displayed fake data — will return when premium data sources are connected' },
+        { type: 'fix', text: 'Fixed duplicate state variable causing build failure' },
+      ]
+    },
+    {
       version: '3.0.0',
       date: '2026-02-08',
       title: 'MODUS v3 — Premium Dashboard Widgets, Paper Trading, Trade Plan Enforcement & 8 New Tools',
@@ -991,15 +1009,13 @@ function App() {
         { type: 'feature', text: 'Paper Trading Simulator — practice trading with virtual $100K balance, full buy/sell orders with real-time pricing' },
         { type: 'feature', text: 'Trade Plan Enforcement — set max trades/day and max daily loss limits; MODUS enforces your trading discipline' },
         { type: 'feature', text: 'AI Morning Briefing — daily AI-generated market commentary highlighting key events and sector momentum' },
-        { type: 'feature', text: 'Dark Pool Activity Widget — real-time tracking of unusual institutional block trades and market impact' },
         { type: 'feature', text: 'Sector Rotation Widget — visualize sector momentum and identify where institutional capital is flowing' },
         { type: 'feature', text: 'Market Breadth Widget — advance/decline ratio and market participation strength indicators' },
-        { type: 'feature', text: 'Social Sentiment Widget — trending tickers with AI sentiment analysis from market data streams' },
         { type: 'feature', text: 'XP & Gamification System — earn experience points, level up, unlock achievements, and track trading progression' },
         { type: 'improvement', text: 'Premium Glass-Morphism UI — translucent glass-card design system with blur effects and depth layering' },
         { type: 'improvement', text: 'Enhanced Skeleton Loading Animations — smooth shimmer effects and staggered animations for better UX' },
         { type: 'improvement', text: 'Premium CSS Animations — gradient shifts, floating effects, and subtle glow effects across all components' },
-        { type: 'improvement', text: '8 new dashboard widgets available in Customize menu for flexible layout creation' },
+        { type: 'improvement', text: '6 new dashboard widgets available in Customize menu for flexible layout creation' },
         { type: 'fix', text: 'Fixed community code input firing notifications on every keystroke' },
         { type: 'fix', text: 'Fixed price targets storing NaN values when prices contain dollar signs' },
       ]
@@ -30796,6 +30812,11 @@ INSTRUCTIONS:
                     { term: 'Sentiment Analysis', def: 'Using data from news, social media, and other sources to gauge market mood and investor psychology. Bullish sentiment can indicate complacency; bearish sentiment can signal capitulation. Extremes often precede reversals.' },
                     { term: 'Gamification', def: 'Application of game elements (levels, points, achievements, leaderboards) to encourage engagement and learning. In MODUS, XP and leveling systems reward consistent trading activity and skill development.' },
                     { term: 'Glass-Morphism', def: 'Modern UI design technique using translucent backgrounds with blur effects to create depth and visual hierarchy. Creates a premium, layered appearance while maintaining readability through semi-transparent cards and frosted glass effects.' },
+                    { term: 'Voice Commands', def: 'Browser-based speech recognition that converts spoken words into platform actions like navigation and analysis. Press V or click the mic button to issue hands-free commands for a more efficient trading workflow.' },
+                    { term: 'Custom Theme', def: 'A user-created color scheme with 7 configurable colors that override the default platform appearance. Save unlimited themes and switch between them instantly for personalized visual preferences.' },
+                    { term: 'CoinGecko', def: 'A free cryptocurrency data aggregator providing real-time prices, market caps, and trading volumes for thousands of digital assets. Used by MODUS Crypto Prices Widget for accurate, up-to-date cryptocurrency data.' },
+                    { term: 'Fibonacci Retracement', def: 'A technical analysis tool using horizontal lines at key Fibonacci levels (23.6%, 38.2%, 50%, 61.8%) to identify support and resistance. Traders use these levels to predict potential bounce points after price corrections.' },
+                    { term: 'Trendline', def: 'A straight line drawn on a chart connecting price points to show the direction and strength of a trend. Rising trendlines identify uptrends, falling trendlines identify downtrends. Breaks of trendlines signal potential trend changes.' },
                     { term: 'Backtesting', def: 'Testing a trading strategy against historical price data to see how it would have performed in the past. Helps evaluate strategy viability before risking real money. Results include win rate, max drawdown, and profit factor.' },
                     { term: 'Options Chain', def: 'A table showing all available options contracts for a stock, organized by expiration date and strike price. Shows calls (right to buy) and puts (right to sell) with their prices, volume, open interest, and Greeks (Delta, Gamma, Theta, Vega).' },
                     { term: 'Implied Volatility (IV)', def: 'A forward-looking measure of expected price movement derived from options prices. High IV means the market expects large price swings. IV Rank and IV Percentile help compare current IV to historical levels for the same stock.' },
@@ -30873,7 +30894,7 @@ INSTRUCTIONS:
                     <p className="text-lg text-slate-300 leading-relaxed mb-4">MODUS is an all-in-one trading analysis platform built for traders who want real tools — not gimmicks. Whether you are brand new to trading and learning the basics, or an experienced day trader looking for an edge, MODUS gives you institutional-grade analysis, smart automation, and a complete trading workflow in one place.</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
-                        <div className="text-2xl font-bold text-violet-400">80+</div>
+                        <div className="text-2xl font-bold text-violet-400">85+</div>
                         <div className="text-xs text-slate-400">Built-in Tools</div>
                       </div>
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
@@ -31033,6 +31054,43 @@ INSTRUCTIONS:
                       <div className="px-6 py-5 hover:bg-indigo-500/5 transition-colors">
                         <h3 className="font-semibold text-white mb-2 text-lg">Premium Glass-Morphism UI</h3>
                         <p className="text-sm text-slate-300 leading-relaxed">Modern translucent glass-card design system with blur effects and layered depth. Premium CSS animations including gradient shifts, floating effects, and subtle glow effects. Enhanced skeleton loading with smooth shimmer animations. Elevates the entire trading experience with institutional-grade aesthetics.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-emerald-900/30 to-slate-900/50 rounded-xl border border-emerald-500/30 overflow-hidden mt-6">
+                    <div className="px-6 py-5 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-500/15 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">🎙️</span>
+                        MODUS v3.1.0 — Voice Commands, Crypto, Drawing Tools & Real Data
+                        <span className="text-xs bg-emerald-500/30 text-emerald-300 px-2 py-0.5 rounded-full">Latest</span>
+                      </h2>
+                      <p className="text-sm text-slate-300 mt-2">Voice-powered navigation, custom theme builder, live crypto prices, chart drawing tools, and real data integrity across all widgets.</p>
+                    </div>
+                    <div className="divide-y divide-emerald-500/10">
+                      <div className="px-6 py-5 hover:bg-emerald-500/5 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Voice Commands</h3>
+                        <p className="text-sm text-slate-300 leading-relaxed">Press V or click the mic button for hands-free navigation. Issue voice commands to analyze stocks, switch themes, navigate dashboards, and more using browser-based speech recognition.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-emerald-500/5 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Custom Theme Builder</h3>
+                        <p className="text-sm text-slate-300 leading-relaxed">Create unlimited custom color themes with 7 configurable color pickers. Live preview your changes instantly and save your creations. Choose from 5 built-in presets: Ocean Blue, Sunset, Forest, Cyberpunk, and Warm Gray.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-emerald-500/5 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Crypto Prices Widget</h3>
+                        <p className="text-sm text-slate-300 leading-relaxed">Monitor live cryptocurrency prices for Bitcoin, Ethereum, Solana, and more from CoinGecko's free API. Auto-refreshes every 30 seconds with real-time market data. Perfect for traders managing crypto exposure alongside traditional stocks.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-emerald-500/5 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Chart Drawing Tools</h3>
+                        <p className="text-sm text-slate-300 leading-relaxed">Draw trendlines, Fibonacci retracements, support/resistance levels, and text annotations directly on charts. Customize colors for each drawing tool and save your analysis layers. Essential for technical traders identifying key price levels.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-emerald-500/5 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Real Data Integrity</h3>
+                        <p className="text-sm text-slate-300 leading-relaxed">All widgets now use live market data only. Sector Rotation and Sector Breadth show real ETF performance with LIVE badges. AI Morning Briefing analyzes your actual market data instead of hardcoded text. Complete transparency and trustworthy analysis.</p>
                       </div>
                     </div>
                   </div>
