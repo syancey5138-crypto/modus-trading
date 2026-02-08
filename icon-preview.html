@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODUS - Choose Your Tab Icon</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: #94a3b8; margin-bottom: 40px; font-size: 15px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    max-width: 1400px;
+    width: 100%;
+  }
+  .option {
+    background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(20,29,48,0.85));
+    border: 1px solid rgba(148,163,184,0.1);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .option:hover {
+    border-color: rgba(139,92,246,0.4);
+    box-shadow: 0 0 30px rgba(139,92,246,0.15);
+    transform: translateY(-2px);
+  }
+  .option h3 { font-size: 16px; margin-bottom: 4px; color: #f1f5f9; }
+  .option .desc { color: #94a3b8; font-size: 12px; margin-bottom: 16px; }
+  .previews {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .previews svg { border-radius: 6px; }
+  .size-label { color: #64748b; font-size: 10px; text-align: center; margin-top: 3px; }
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(139,92,246,0.15);
+    color: #a78bfa;
+    margin-top: 6px;
+  }
+  .number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(139,92,246,0.2);
+    color: #a78bfa;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Choose Your MODUS Tab Icon</h1>
+<p class="subtitle">Pick the one that speaks to you — it'll become both your browser tab icon and sidebar logo</p>
+
+<div class="grid">
+
+<!-- #1: Hex Chart (KEEPER) -->
+<div class="option">
+<div class="number">1</div>
+<h3>Hex Chart</h3>
+<p class="desc">Hexagon frame with chart line — tech-forward</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#4c1d95"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg1)"/><polygon points="16 3, 27 9, 27 21, 16 27, 5 21, 5 9" fill="none" stroke="#a78bfa" stroke-width="1.2" opacity="0.4"/><polygon points="16 6, 24 10.5, 24 19.5, 16 24, 8 19.5, 8 10.5" fill="none" stroke="#a78bfa" stroke-width="0.8" opacity="0.2"/><polyline points="8 18 12 16 15 19 18 11 22 14 25 9" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/><circle cx="25" cy="9" r="1.5" fill="white" opacity="0.8"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg1a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#4c1d95"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg1a)"/><polygon points="16 4, 25 9, 25 20, 16 25, 7 20, 7 9" fill="none" stroke="#a78bfa" stroke-width="1" opacity="0.3"/><polyline points="9 18 12 16 15 19 18 11 22 14 24 10" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="10" r="1" fill="white"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg1b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#4c1d95"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg1b)"/><polygon points="16 5, 24 10, 24 19, 16 24, 8 19, 8 10" fill="none" stroke="#a78bfa" stroke-width="1.5" opacity="0.4"/><polyline points="10 17 13 15 16 18 20 11 23 14" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Tech-Forward</span>
+</div>
+
+<!-- #2: Market Eye (KEEPER) -->
+<div class="option">
+<div class="number">2</div>
+<h3>Market Eye</h3>
+<p class="desc">Watchful eye with purple iris and chart</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#3b0764"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg2)"/><path d="M3 16 Q16 6 29 16 Q16 26 3 16 Z" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/><circle cx="16" cy="16" r="5" fill="none" stroke="white" stroke-width="1.2" opacity="0.6"/><circle cx="16" cy="16" r="2.5" fill="#a78bfa"/><circle cx="16" cy="16" r="1.2" fill="white"/><circle cx="17.5" cy="14.5" r="0.8" fill="white" opacity="0.6"/><polyline points="13 17 15 15 17 17 19 13" fill="none" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.4"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg2a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#3b0764"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg2a)"/><path d="M4 16 Q16 8 28 16 Q16 24 4 16 Z" fill="none" stroke="white" stroke-width="1.2" opacity="0.6"/><circle cx="16" cy="16" r="4" fill="none" stroke="white" stroke-width="1" opacity="0.5"/><circle cx="16" cy="16" r="2" fill="#a78bfa"/><circle cx="16" cy="16" r="0.8" fill="white"/><polyline points="14 17 15.5 15.5 17 17" fill="none" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.5"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg2b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#3b0764"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg2b)"/><path d="M5 16 Q16 9 27 16 Q16 23 5 16 Z" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/><circle cx="16" cy="16" r="3.5" fill="#a78bfa"/><circle cx="16" cy="16" r="1.5" fill="white"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Watchful</span>
+</div>
+
+<!-- #3: Pulse Wave -->
+<div class="option">
+<div class="number">3</div>
+<h3>Pulse Wave</h3>
+<p class="desc">ECG heartbeat with sharp peak</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg3)"/><polyline points="4 16 8 16 10 14 12 18 14 16 18 16 20 12 22 16 26 16 28 14" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/><circle cx="18" cy="16" r="1.2" fill="white" opacity="0.8"/><path d="M4 16 Q28 16 28 16" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg3a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg3a)"/><polyline points="5 16 8 16 10 14 12 18 14 16 18 16 20 12 22 16 26 16" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="16" r="0.8" fill="white"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg3b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg3b)"/><polyline points="5 16 8 16 10 13 12 19 14 16 20 16 23 12 26 16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Health & Vitals</span>
+</div>
+
+<!-- #4: Orbit M -->
+<div class="option">
+<div class="number">4</div>
+<h3>Orbit M</h3>
+<p class="desc">Letter M with orbiting electron</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg4)"/><text x="16" y="22" font-size="18" font-weight="bold" fill="white" text-anchor="middle" opacity="0.9">M</text><circle cx="16" cy="12" r="6" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/><circle cx="22" cy="12" r="1.5" fill="white" opacity="0.9"/><circle cx="16" cy="10" r="0.8" fill="white" opacity="0.6"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg4a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg4a)"/><text x="16" y="20" font-size="14" font-weight="bold" fill="white" text-anchor="middle" opacity="0.9">M</text><circle cx="16" cy="11" r="5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/><circle cx="21" cy="11" r="1" fill="white" opacity="0.9"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg4b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg4b)"/><text x="16" y="20" font-size="14" font-weight="bold" fill="white" text-anchor="middle" opacity="0.9">M</text><circle cx="16" cy="11" r="5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/><circle cx="21" cy="11" r="1.2" fill="white" opacity="0.9"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Momentum</span>
+</div>
+
+<!-- #5: Prism Arrow -->
+<div class="option">
+<div class="number">5</div>
+<h3>Prism Arrow</h3>
+<p class="desc">Triangular prism with upward arrow</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg5)"/><polygon points="8 22, 16 8, 24 22" fill="none" stroke="white" stroke-width="1.5" opacity="0.4"/><polygon points="10 20, 16 10, 22 20" fill="none" stroke="white" stroke-width="1.2" opacity="0.6"/><polygon points="12 18, 16 12, 20 18" fill="none" stroke="white" stroke-width="1.5"/><polygon points="14 18, 16 14, 18 18" fill="white" opacity="0.3"/><polyline points="16 25 16 15 12 19 16 15 20 19" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg5a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg5a)"/><polygon points="9 21, 16 9, 23 21" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"/><polygon points="12 19, 16 12, 20 19" fill="none" stroke="white" stroke-width="1.2"/><polyline points="16 24 16 14 13 17 16 14 19 17" fill="none" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg5b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg5b)"/><polygon points="10 21, 16 10, 22 21" fill="none" stroke="white" stroke-width="1.5"/><polyline points="16 24 16 12 13 15 16 12 19 15" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Growth</span>
+</div>
+
+<!-- #6: Signal Bars -->
+<div class="option">
+<div class="number">6</div>
+<h3>Signal Bars</h3>
+<p class="desc">WiFi/signal bars ascending</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg6)"/><rect x="8" y="18" width="3" height="6" fill="white" opacity="0.7" rx="1"/><rect x="13" y="14" width="3" height="10" fill="white" opacity="0.85" rx="1"/><rect x="18" y="10" width="3" height="14" fill="white" opacity="0.95" rx="1"/><rect x="23" y="6" width="3" height="18" fill="white" rx="1"/><circle cx="16" cy="8" r="1.5" fill="white" opacity="0.6"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg6a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg6a)"/><rect x="8" y="18" width="2.5" height="6" fill="white" opacity="0.7" rx="0.8"/><rect x="12.5" y="14" width="2.5" height="10" fill="white" opacity="0.85" rx="0.8"/><rect x="17" y="10" width="2.5" height="14" fill="white" rx="0.8"/><rect x="21.5" y="6" width="2.5" height="18" fill="white" opacity="0.95" rx="0.8"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg6b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg6b)"/><rect x="8" y="18" width="3" height="6" fill="white" opacity="0.7" rx="1"/><rect x="13" y="13" width="3" height="11" fill="white" opacity="0.85" rx="1"/><rect x="18" y="8" width="3" height="16" fill="white" rx="1"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Data Flow</span>
+</div>
+
+<!-- #7: Circuit Board -->
+<div class="option">
+<div class="number">7</div>
+<h3>Circuit Board</h3>
+<p class="desc">Circuit pattern with central node</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg7" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg7)"/><circle cx="16" cy="16" r="3" fill="white" opacity="0.9"/><line x1="16" y1="16" x2="8" y2="16" stroke="white" stroke-width="1.2" opacity="0.6"/><line x1="16" y1="16" x2="24" y2="16" stroke="white" stroke-width="1.2" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="8" stroke="white" stroke-width="1.2" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="24" stroke="white" stroke-width="1.2" opacity="0.6"/><circle cx="8" cy="16" r="1.5" fill="white" opacity="0.7"/><circle cx="24" cy="16" r="1.5" fill="white" opacity="0.7"/><circle cx="16" cy="8" r="1.5" fill="white" opacity="0.7"/><circle cx="16" cy="24" r="1.5" fill="white" opacity="0.7"/><rect x="7" y="15" width="2" height="2" fill="white" opacity="0.4"/><rect x="23" y="15" width="2" height="2" fill="white" opacity="0.4"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg7a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg7a)"/><circle cx="16" cy="16" r="2.5" fill="white" opacity="0.9"/><line x1="16" y1="16" x2="9" y2="16" stroke="white" stroke-width="1" opacity="0.6"/><line x1="16" y1="16" x2="23" y2="16" stroke="white" stroke-width="1" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="9" stroke="white" stroke-width="1" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="23" stroke="white" stroke-width="1" opacity="0.6"/><circle cx="9" cy="16" r="1" fill="white" opacity="0.7"/><circle cx="23" cy="16" r="1" fill="white" opacity="0.7"/><circle cx="16" cy="9" r="1" fill="white" opacity="0.7"/><circle cx="16" cy="23" r="1" fill="white" opacity="0.7"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg7b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg7b)"/><circle cx="16" cy="16" r="2.5" fill="white" opacity="0.9"/><line x1="16" y1="16" x2="8" y2="16" stroke="white" stroke-width="1.5" opacity="0.6"/><line x1="16" y1="16" x2="24" y2="16" stroke="white" stroke-width="1.5" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="8" stroke="white" stroke-width="1.5" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="24" stroke="white" stroke-width="1.5" opacity="0.6"/><circle cx="8" cy="16" r="1.2" fill="white" opacity="0.7"/><circle cx="24" cy="16" r="1.2" fill="white" opacity="0.7"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Connected</span>
+</div>
+
+<!-- #8: Phoenix Rise -->
+<div class="option">
+<div class="number">8</div>
+<h3>Phoenix Rise</h3>
+<p class="desc">Rising phoenix with spread wings</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg8" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#c2410c"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg8)"/><path d="M16 8 L12 14 L10 12 L8 18 L14 15 L13 20 C13 20 16 18 16 22 L19 20 L18 15 L24 18 L22 12 L20 14 Z" fill="white" opacity="0.9"/><circle cx="16" cy="10" r="1.2" fill="white" opacity="0.8"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg8a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#c2410c"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg8a)"/><path d="M16 9 L12 15 L10 13 L8 18 L14 15 L13 19 C13 19 16 17 16 21 L19 19 L18 15 L24 18 L22 13 L20 15 Z" fill="white" opacity="0.9"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg8b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#c2410c"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg8b)"/><path d="M16 8 L11 15 L9 12 L6 18 L14 14 L13 20 C13 20 16 17 16 22 L19 20 L18 14 L26 18 L24 12 L22 15 Z" fill="white" opacity="0.9"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Rebirth</span>
+</div>
+
+<!-- #9: Radar Sweep -->
+<div class="option">
+<div class="number">9</div>
+<h3>Radar Sweep</h3>
+<p class="desc">Radar screen with sweep and blips</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg9" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#047857"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg9)"/><circle cx="16" cy="16" r="2.5" fill="white" opacity="0.8"/><circle cx="16" cy="16" r="5" fill="none" stroke="white" stroke-width="1" opacity="0.3"/><circle cx="16" cy="16" r="7" fill="none" stroke="white" stroke-width="1" opacity="0.2"/><circle cx="16" cy="16" r="9" fill="none" stroke="white" stroke-width="0.8" opacity="0.1"/><line x1="16" y1="16" x2="18" y2="8" stroke="white" stroke-width="1.5" opacity="0.7"/><circle cx="17" cy="11" r="1" fill="white" opacity="0.9"/><circle cx="20" cy="14" r="0.8" fill="white" opacity="0.8"/><circle cx="19" cy="19" r="0.8" fill="white" opacity="0.7"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg9a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#047857"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg9a)"/><circle cx="16" cy="16" r="2" fill="white" opacity="0.8"/><circle cx="16" cy="16" r="4.5" fill="none" stroke="white" stroke-width="0.8" opacity="0.3"/><circle cx="16" cy="16" r="7" fill="none" stroke="white" stroke-width="0.8" opacity="0.2"/><line x1="16" y1="16" x2="17.5" y2="8.5" stroke="white" stroke-width="1" opacity="0.7"/><circle cx="17" cy="11" r="0.7" fill="white" opacity="0.9"/><circle cx="19" cy="14" r="0.6" fill="white" opacity="0.8"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg9b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#047857"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg9b)"/><circle cx="16" cy="16" r="2.5" fill="white" opacity="0.8"/><circle cx="16" cy="16" r="5" fill="none" stroke="white" stroke-width="1" opacity="0.3"/><circle cx="16" cy="16" r="8" fill="none" stroke="white" stroke-width="0.8" opacity="0.2"/><line x1="16" y1="16" x2="18" y2="7" stroke="white" stroke-width="1.5" opacity="0.7"/><circle cx="18" cy="11" r="0.8" fill="white" opacity="0.9"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Detection</span>
+</div>
+
+<!-- #10: Infinity Loop -->
+<div class="option">
+<div class="number">10</div>
+<h3>Infinity Loop</h3>
+<p class="desc">Infinity symbol with gradient trail</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg10" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#5b21b6"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg10)"/><path d="M8 14 Q10 12 12 12 Q14 12 14 14 Q14 16 12 16 Q10 16 8 14 M20 14 Q18 12 16 12 Q14 12 14 14 Q14 16 16 16 Q18 16 20 14 M20 18 Q18 20 16 20 Q14 20 14 18 M24 14 Q22 12 20 12 Q18 12 18 14 Q18 16 20 16 Q22 16 24 14" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/><circle cx="14" cy="14" r="1.2" fill="white" opacity="0.7"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg10a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#5b21b6"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg10a)"/><path d="M9 14 Q10.5 12 12 12 Q13.5 12 13.5 14 Q13.5 16 12 16 Q10.5 16 9 14 M19 14 Q17.5 12 16 12 Q14.5 12 14.5 14 Q14.5 16 16 16 Q17.5 16 19 14" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg10b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#5b21b6"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg10b)"/><path d="M8 14 Q10 11 12 11 Q14 11 14 14 Q14 17 12 17 Q10 17 8 14 M24 14 Q22 11 20 11 Q18 11 18 14 Q18 17 20 17 Q22 17 24 14" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Endless</span>
+</div>
+
+<!-- #11: Sound Wave M -->
+<div class="option">
+<div class="number">11</div>
+<h3>Sound Wave M</h3>
+<p class="desc">Letter M from audio waveform bars</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg11" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ec4899"/><stop offset="100%" stop-color="#be185d"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg11)"/><rect x="8" y="14" width="2" height="4" fill="white" rx="1" opacity="0.7"/><rect x="12" y="10" width="2" height="12" fill="white" rx="1" opacity="0.85"/><rect x="16" y="14" width="2" height="4" fill="white" rx="1" opacity="0.7"/><rect x="20" y="10" width="2" height="12" fill="white" rx="1" opacity="0.85"/><rect x="24" y="14" width="2" height="4" fill="white" rx="1" opacity="0.7"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg11a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ec4899"/><stop offset="100%" stop-color="#be185d"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg11a)"/><rect x="8" y="14" width="2" height="4" fill="white" rx="0.8" opacity="0.7"/><rect x="12" y="10" width="2" height="12" fill="white" rx="0.8" opacity="0.85"/><rect x="16" y="14" width="2" height="4" fill="white" rx="0.8" opacity="0.7"/><rect x="20" y="10" width="2" height="12" fill="white" rx="0.8" opacity="0.85"/><rect x="24" y="14" width="2" height="4" fill="white" rx="0.8" opacity="0.7"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg11b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ec4899"/><stop offset="100%" stop-color="#be185d"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg11b)"/><rect x="8" y="14" width="2.5" height="4" fill="white" rx="1" opacity="0.7"/><rect x="12" y="9" width="2.5" height="14" fill="white" rx="1" opacity="0.85"/><rect x="17" y="14" width="2.5" height="4" fill="white" rx="1" opacity="0.7"/><rect x="21" y="9" width="2.5" height="14" fill="white" rx="1" opacity="0.85"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Harmony</span>
+</div>
+
+<!-- #12: Compass Rose -->
+<div class="option">
+<div class="number">12</div>
+<h3>Compass Rose</h3>
+<p class="desc">Compass with N/E/S/W and needle</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg12" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#0d9488"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg12)"/><circle cx="16" cy="16" r="8" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"/><circle cx="16" cy="16" r="6" fill="none" stroke="white" stroke-width="0.8" opacity="0.2"/><polygon points="16 8, 18 12, 16 10, 14 12" fill="white" opacity="0.8"/><polygon points="24 16, 20 18, 22 16, 20 14" fill="white" opacity="0.6"/><polygon points="16 24, 14 20, 16 22, 18 20" fill="white" opacity="0.6"/><polygon points="8 16, 12 14, 10 16, 12 18" fill="white" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="8" stroke="white" stroke-width="1.5" opacity="0.9"/><circle cx="16" cy="16" r="1.5" fill="white" opacity="0.9"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg12a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#0d9488"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg12a)"/><circle cx="16" cy="16" r="7" fill="none" stroke="white" stroke-width="1" opacity="0.4"/><polygon points="16 8, 17.5 11, 16 9, 14.5 11" fill="white" opacity="0.8"/><polygon points="24 16, 21 17.5, 23 16, 21 14.5" fill="white" opacity="0.6"/><polygon points="16 24, 14.5 21, 16 23, 17.5 21" fill="white" opacity="0.6"/><polygon points="8 16, 11 14.5, 9 16, 11 17.5" fill="white" opacity="0.6"/><line x1="16" y1="16" x2="16" y2="8" stroke="white" stroke-width="1.2" opacity="0.9"/><circle cx="16" cy="16" r="1" fill="white" opacity="0.9"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg12b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#0d9488"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg12b)"/><circle cx="16" cy="16" r="7" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"/><polygon points="16 7, 18 11, 16 9, 14 11" fill="white" opacity="0.8"/><line x1="16" y1="16" x2="16" y2="7" stroke="white" stroke-width="1.5" opacity="0.9"/><circle cx="16" cy="16" r="1.2" fill="white" opacity="0.9"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Direction</span>
+</div>
+
+<!-- #13: Atomic Orbit -->
+<div class="option">
+<div class="number">13</div>
+<h3>Atomic Orbit</h3>
+<p class="desc">Atom with three electron orbits</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg13" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#0891b2"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg13)"/><circle cx="16" cy="16" r="2.5" fill="white" opacity="0.95"/><ellipse cx="16" cy="16" rx="5" ry="3" fill="none" stroke="white" stroke-width="1" opacity="0.5"/><ellipse cx="16" cy="16" rx="3" ry="5" fill="none" stroke="white" stroke-width="1" opacity="0.5" transform="rotate(60 16 16)"/><ellipse cx="16" cy="16" rx="3" ry="5" fill="none" stroke="white" stroke-width="1" opacity="0.5" transform="rotate(-60 16 16)"/><circle cx="21" cy="16" r="1.2" fill="white" opacity="0.9"/><circle cx="13" cy="13" r="1.2" fill="white" opacity="0.9"/><circle cx="13" cy="19" r="1.2" fill="white" opacity="0.9"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg13a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#0891b2"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg13a)"/><circle cx="16" cy="16" r="2" fill="white" opacity="0.95"/><ellipse cx="16" cy="16" rx="4.5" ry="2.5" fill="none" stroke="white" stroke-width="0.8" opacity="0.5"/><ellipse cx="16" cy="16" rx="2.5" ry="4.5" fill="none" stroke="white" stroke-width="0.8" opacity="0.5" transform="rotate(60 16 16)"/><ellipse cx="16" cy="16" rx="2.5" ry="4.5" fill="none" stroke="white" stroke-width="0.8" opacity="0.5" transform="rotate(-60 16 16)"/><circle cx="20.5" cy="16" r="0.9" fill="white" opacity="0.9"/><circle cx="13" cy="13.5" r="0.9" fill="white" opacity="0.9"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg13b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#0891b2"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg13b)"/><circle cx="16" cy="16" r="2.5" fill="white" opacity="0.95"/><ellipse cx="16" cy="16" rx="5" ry="3" fill="none" stroke="white" stroke-width="1.2" opacity="0.5"/><ellipse cx="16" cy="16" rx="3" ry="5" fill="none" stroke="white" stroke-width="1.2" opacity="0.5" transform="rotate(60 16 16)"/><circle cx="21" cy="16" r="1.2" fill="white" opacity="0.9"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Science</span>
+</div>
+
+<!-- #14: Mountain Peak -->
+<div class="option">
+<div class="number">14</div>
+<h3>Mountain Peak</h3>
+<p class="desc">Jagged mountain with flag on top</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg14" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg14)"/><polygon points="5 25 12 15 16 22 20 12 27 25" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round" opacity="0.7"/><polygon points="7 23 12 15 16 20 20 12 25 23" fill="none" stroke="white" stroke-width="1.2" stroke-linejoin="round" opacity="0.85"/><line x1="16" y1="8" x2="16" y2="22" stroke="white" stroke-width="1.2" opacity="0.6"/><polygon points="16 8, 22 10, 22 14, 16 12" fill="white" opacity="0.9"/><circle cx="16" cy="8" r="0.8" fill="white" opacity="0.7"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg14a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg14a)"/><polygon points="6 24 12 15 16 21 20 12 26 24" fill="none" stroke="white" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/><polygon points="8 22 12 15 16 20 20 12 24 22" fill="none" stroke="white" stroke-width="1" stroke-linejoin="round" opacity="0.6"/><line x1="16" y1="9" x2="16" y2="21" stroke="white" stroke-width="1" opacity="0.6"/><polygon points="16 9, 21 11, 21 13, 16 11" fill="white" opacity="0.9"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg14b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg14b)"/><polygon points="6 24 12 14 16 20 20 11 26 24" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round" opacity="0.8"/><line x1="16" y1="8" x2="16" y2="20" stroke="white" stroke-width="1.5" opacity="0.6"/><polygon points="16 8, 21 10, 21 13, 16 11" fill="white" opacity="0.9"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Achievement</span>
+</div>
+
+<!-- #15: Flame Chart -->
+<div class="option">
+<div class="number">15</div>
+<h3>Flame Chart</h3>
+<p class="desc">Flame with stock chart line</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg15" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#991b1b"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg15)"/><path d="M14 24 Q12 20 12 16 Q12 10 16 8 Q20 10 20 16 Q20 20 18 24 Q16 25 14 24 Z" fill="none" stroke="white" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/><path d="M15 24 Q14 21 14 17 Q14 11 16 9 Q18 11 18 17 Q18 21 17 24" fill="none" stroke="white" stroke-width="1" stroke-linejoin="round" opacity="0.6"/><polyline points="10 20 12 18 14 20 16 14 18 17 20 12 22 15" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg15a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#991b1b"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg15a)"/><path d="M14 24 Q12 20 12 16 Q12 11 16 9 Q20 11 20 16 Q20 20 18 24" fill="none" stroke="white" stroke-width="1" stroke-linejoin="round" opacity="0.8"/><polyline points="11 19 13 17 15 19 17 14 19 17 21 13" fill="none" stroke="#fbbf24" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg15b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#991b1b"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg15b)"/><path d="M14 24 Q12 20 12 15 Q12 10 16 8 Q20 10 20 15 Q20 20 18 24" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round" opacity="0.8"/><polyline points="10 19 12 17 14 19 16 13 18 17 20 12" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Hot Trading</span>
+</div>
+
+<!-- #16: Shield Check -->
+<div class="option">
+<div class="number">16</div>
+<h3>Shield Check</h3>
+<p class="desc">Shield with checkmark — trust & security</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg16" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#047857"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg16)"/><path d="M16 4 L24 8 L24 16 Q24 22 16 26 Q8 22 8 16 L8 8 Z" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round" opacity="0.8"/><path d="M16 6 L22 9.5 L22 16 Q22 21 16 24 Q10 21 10 16 L10 9.5 Z" fill="none" stroke="white" stroke-width="1.2" opacity="0.5"/><polyline points="13 16 15 18 19 14" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg16a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#047857"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg16a)"/><path d="M16 5 L23 9 L23 16 Q23 21 16 25 Q9 21 9 16 L9 9 Z" fill="none" stroke="white" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/><polyline points="13 16 15 18 19 14" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg16b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#047857"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg16b)"/><path d="M16 4 L24 8 L24 16 Q24 22 16 26 Q8 22 8 16 L8 8 Z" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round" opacity="0.8"/><polyline points="13 16 15 18 19 14" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Security</span>
+</div>
+
+<!-- #17: Telescope -->
+<div class="option">
+<div class="number">17</div>
+<h3>Telescope</h3>
+<p class="desc">Telescope pointing up at stars</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg17" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg17)"/><line x1="16" y1="28" x2="16" y2="8" stroke="white" stroke-width="2" opacity="0.7"/><circle cx="16" cy="8" r="3" fill="none" stroke="white" stroke-width="1.5" opacity="0.9"/><circle cx="16" cy="8" r="2" fill="none" stroke="white" stroke-width="1" opacity="0.6"/><circle cx="14" cy="6" r="1.2" fill="white" opacity="0.8"/><circle cx="18" cy="7" r="1" fill="white" opacity="0.7"/><circle cx="16" cy="5" r="0.8" fill="white" opacity="0.9"/><polygon points="10 28, 12 24, 16 26, 20 24, 22 28" fill="white" opacity="0.5"/><circle cx="18" cy="3" r="0.8" fill="white" opacity="0.9"/><circle cx="12" cy="4" r="0.7" fill="white" opacity="0.8"/><circle cx="20" cy="2" r="0.7" fill="white" opacity="0.7"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg17a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg17a)"/><line x1="16" y1="27" x2="16" y2="9" stroke="white" stroke-width="1.5" opacity="0.7"/><circle cx="16" cy="9" r="2.5" fill="none" stroke="white" stroke-width="1.2" opacity="0.9"/><circle cx="16" cy="9" r="1.5" fill="none" stroke="white" stroke-width="0.8" opacity="0.6"/><circle cx="14" cy="7" r="0.9" fill="white" opacity="0.8"/><circle cx="18" cy="8" r="0.7" fill="white" opacity="0.7"/><polygon points="11 27, 13 23, 16 25, 19 23, 21 27" fill="white" opacity="0.5"/><circle cx="18" cy="4" r="0.6" fill="white" opacity="0.9"/><circle cx="12" cy="5" r="0.6" fill="white" opacity="0.8"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg17b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg17b)"/><line x1="16" y1="28" x2="16" y2="8" stroke="white" stroke-width="2" opacity="0.7"/><circle cx="16" cy="8" r="3" fill="none" stroke="white" stroke-width="1.5" opacity="0.9"/><circle cx="16" cy="8" r="1.5" fill="white" opacity="0.8"/><polygon points="10 28, 13 23, 16 26, 19 23, 22 28" fill="white" opacity="0.5"/><circle cx="18" cy="3" r="0.9" fill="white" opacity="0.9"/><circle cx="12" cy="3" r="0.8" fill="white" opacity="0.8"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Vision</span>
+</div>
+
+<!-- #18: Nexus Grid -->
+<div class="option">
+<div class="number">18</div>
+<h3>Nexus Grid</h3>
+<p class="desc">Connected nodes in network pattern</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg18" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#0891b2"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg18)"/><line x1="10" y1="10" x2="22" y2="10" stroke="white" stroke-width="0.8" opacity="0.4"/><line x1="10" y1="22" x2="22" y2="22" stroke="white" stroke-width="0.8" opacity="0.4"/><line x1="10" y1="10" x2="10" y2="22" stroke="white" stroke-width="0.8" opacity="0.4"/><line x1="22" y1="10" x2="22" y2="22" stroke="white" stroke-width="0.8" opacity="0.4"/><line x1="10" y1="10" x2="22" y2="22" stroke="white" stroke-width="0.8" opacity="0.3"/><line x1="22" y1="10" x2="10" y2="22" stroke="white" stroke-width="0.8" opacity="0.3"/><circle cx="10" cy="10" r="1.5" fill="white" opacity="0.9"/><circle cx="22" cy="10" r="1.5" fill="white" opacity="0.9"/><circle cx="10" cy="22" r="1.5" fill="white" opacity="0.9"/><circle cx="22" cy="22" r="1.5" fill="white" opacity="0.9"/><circle cx="16" cy="16" r="1.8" fill="white" opacity="0.95"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg18a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#0891b2"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg18a)"/><line x1="10" y1="10" x2="22" y2="10" stroke="white" stroke-width="0.7" opacity="0.4"/><line x1="10" y1="22" x2="22" y2="22" stroke="white" stroke-width="0.7" opacity="0.4"/><line x1="10" y1="10" x2="10" y2="22" stroke="white" stroke-width="0.7" opacity="0.4"/><line x1="22" y1="10" x2="22" y2="22" stroke="white" stroke-width="0.7" opacity="0.4"/><line x1="10" y1="10" x2="22" y2="22" stroke="white" stroke-width="0.6" opacity="0.3"/><circle cx="10" cy="10" r="1.2" fill="white" opacity="0.9"/><circle cx="22" cy="10" r="1.2" fill="white" opacity="0.9"/><circle cx="10" cy="22" r="1.2" fill="white" opacity="0.9"/><circle cx="22" cy="22" r="1.2" fill="white" opacity="0.9"/><circle cx="16" cy="16" r="1.4" fill="white" opacity="0.95"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg18b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#0891b2"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg18b)"/><line x1="10" y1="10" x2="22" y2="10" stroke="white" stroke-width="1" opacity="0.4"/><line x1="10" y1="22" x2="22" y2="22" stroke="white" stroke-width="1" opacity="0.4"/><line x1="10" y1="10" x2="10" y2="22" stroke="white" stroke-width="1" opacity="0.4"/><line x1="22" y1="10" x2="22" y2="22" stroke="white" stroke-width="1" opacity="0.4"/><circle cx="10" cy="10" r="1.5" fill="white" opacity="0.9"/><circle cx="22" cy="10" r="1.5" fill="white" opacity="0.9"/><circle cx="10" cy="22" r="1.5" fill="white" opacity="0.9"/><circle cx="22" cy="22" r="1.5" fill="white" opacity="0.9"/><circle cx="16" cy="16" r="1.8" fill="white" opacity="0.95"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Network</span>
+</div>
+
+<!-- #19: Stacked Coins -->
+<div class="option">
+<div class="number">19</div>
+<h3>Stacked Coins</h3>
+<p class="desc">Rising stack of coins with glow</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg19" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#b45309"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg19)"/><ellipse cx="16" cy="21" rx="5" ry="2" fill="none" stroke="white" stroke-width="1.5" opacity="0.8"/><rect x="11" y="19" width="10" height="4" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/><ellipse cx="16" cy="19" rx="5" ry="2" fill="white" opacity="0.3"/><ellipse cx="16" cy="16" rx="5" ry="2" fill="none" stroke="white" stroke-width="1.5" opacity="0.75"/><rect x="11" y="14" width="10" height="4" fill="none" stroke="white" stroke-width="1.5" opacity="0.55"/><ellipse cx="16" cy="14" rx="5" ry="2" fill="white" opacity="0.25"/><ellipse cx="16" cy="11" rx="5" ry="2" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/><ellipse cx="16" cy="11" rx="5" ry="2" fill="white" opacity="0.2"/><line x1="16" y1="9" x2="16" y2="5" stroke="white" stroke-width="1.2" opacity="0.6"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg19a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#b45309"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg19a)"/><ellipse cx="16" cy="21" rx="4.5" ry="1.8" fill="none" stroke="white" stroke-width="1.2" opacity="0.8"/><rect x="11.5" y="19" width="9" height="3.5" fill="none" stroke="white" stroke-width="1.2" opacity="0.6"/><ellipse cx="16" cy="15" rx="4.5" ry="1.8" fill="none" stroke="white" stroke-width="1.2" opacity="0.7"/><rect x="11.5" y="13" width="9" height="3.5" fill="none" stroke="white" stroke-width="1.2" opacity="0.55"/><ellipse cx="16" cy="9" rx="4.5" ry="1.8" fill="none" stroke="white" stroke-width="1.2" opacity="0.65"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg19b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#b45309"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg19b)"/><ellipse cx="16" cy="21" rx="5" ry="2" fill="none" stroke="white" stroke-width="1.5" opacity="0.8"/><rect x="11" y="19" width="10" height="4" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/><ellipse cx="16" cy="15" rx="5" ry="2" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/><rect x="11" y="13" width="10" height="4" fill="none" stroke="white" stroke-width="1.5" opacity="0.55"/><ellipse cx="16" cy="9" rx="5" ry="2" fill="none" stroke="white" stroke-width="1.5" opacity="0.65"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Wealth</span>
+</div>
+
+<!-- #20: Triple Arrow -->
+<div class="option">
+<div class="number">20</div>
+<h3>Triple Arrow</h3>
+<p class="desc">Three overlapping upward arrows</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg20" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg20)"/><polyline points="8 22 12 14 16 20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/><polyline points="12 24 16 12 20 22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/><polyline points="16 24 20 10 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1"/><polygon points="20 10, 18 14, 22 14" fill="white" opacity="0.9"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg20a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg20a)"/><polyline points="9 22 12 15 15 21" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/><polyline points="12 23 16 11 20 23" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/><polyline points="15 23 19 9 23 23" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polygon points="19 9, 17 13, 21 13" fill="white" opacity="0.9"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg20b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg20b)"/><polyline points="9 22 12 13 15 22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/><polyline points="12 24 16 10 20 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/><polyline points="15 24 19 8 23 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Momentum</span>
+</div>
+
+<!-- #21: Fractal Tree -->
+<div class="option">
+<div class="number">21</div>
+<h3>Fractal Tree</h3>
+<p class="desc">Binary tree branching upward</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg21" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg21)"/><line x1="16" y1="24" x2="16" y2="18" stroke="white" stroke-width="1.5" opacity="0.9"/><line x1="16" y1="18" x2="12" y2="12" stroke="white" stroke-width="1.2" opacity="0.8"/><line x1="16" y1="18" x2="20" y2="12" stroke="white" stroke-width="1.2" opacity="0.8"/><line x1="12" y1="12" x2="10" y2="8" stroke="white" stroke-width="1" opacity="0.7"/><line x1="12" y1="12" x2="14" y2="8" stroke="white" stroke-width="1" opacity="0.7"/><line x1="20" y1="12" x2="18" y2="8" stroke="white" stroke-width="1" opacity="0.7"/><line x1="20" y1="12" x2="22" y2="8" stroke="white" stroke-width="1" opacity="0.7"/><circle cx="16" cy="24" r="0.8" fill="white" opacity="0.8"/><circle cx="16" cy="18" r="1" fill="white" opacity="0.85"/><circle cx="12" cy="12" r="0.8" fill="white" opacity="0.8"/><circle cx="20" cy="12" r="0.8" fill="white" opacity="0.8"/><circle cx="10" cy="8" r="0.6" fill="white" opacity="0.7"/><circle cx="14" cy="8" r="0.6" fill="white" opacity="0.7"/><circle cx="18" cy="8" r="0.6" fill="white" opacity="0.7"/><circle cx="22" cy="8" r="0.6" fill="white" opacity="0.7"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg21a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg21a)"/><line x1="16" y1="24" x2="16" y2="18" stroke="white" stroke-width="1.2" opacity="0.9"/><line x1="16" y1="18" x2="12" y2="12" stroke="white" stroke-width="1" opacity="0.8"/><line x1="16" y1="18" x2="20" y2="12" stroke="white" stroke-width="1" opacity="0.8"/><line x1="12" y1="12" x2="10" y2="8" stroke="white" stroke-width="0.8" opacity="0.7"/><line x1="12" y1="12" x2="14" y2="8" stroke="white" stroke-width="0.8" opacity="0.7"/><line x1="20" y1="12" x2="18" y2="8" stroke="white" stroke-width="0.8" opacity="0.7"/><line x1="20" y1="12" x2="22" y2="8" stroke="white" stroke-width="0.8" opacity="0.7"/><circle cx="16" cy="24" r="0.7" fill="white" opacity="0.8"/><circle cx="16" cy="18" r="0.8" fill="white" opacity="0.85"/><circle cx="12" cy="12" r="0.7" fill="white" opacity="0.8"/><circle cx="20" cy="12" r="0.7" fill="white" opacity="0.8"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg21b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg21b)"/><line x1="16" y1="24" x2="16" y2="17" stroke="white" stroke-width="1.5" opacity="0.9"/><line x1="16" y1="17" x2="11" y2="11" stroke="white" stroke-width="1.2" opacity="0.8"/><line x1="16" y1="17" x2="21" y2="11" stroke="white" stroke-width="1.2" opacity="0.8"/><line x1="11" y1="11" x2="8" y2="7" stroke="white" stroke-width="1" opacity="0.7"/><line x1="11" y1="11" x2="14" y2="7" stroke="white" stroke-width="1" opacity="0.7"/><line x1="21" y1="11" x2="18" y2="7" stroke="white" stroke-width="1" opacity="0.7"/><line x1="21" y1="11" x2="24" y2="7" stroke="white" stroke-width="1" opacity="0.7"/><circle cx="16" cy="17" r="1" fill="white" opacity="0.85"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Structured</span>
+</div>
+
+<!-- #22: Quantum Dot -->
+<div class="option">
+<div class="number">22</div>
+<h3>Quantum Dot</h3>
+<p class="desc">Quantum computing dot with cloud</p>
+<div class="previews">
+<div><svg width="64" height="64" viewBox="0 0 32 32"><defs><linearGradient id="bg22" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#164e63"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg22)"/><circle cx="16" cy="16" r="4" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"/><circle cx="16" cy="16" r="2.5" fill="none" stroke="white" stroke-width="1" opacity="0.6"/><circle cx="16" cy="16" r="1.2" fill="white" opacity="0.95"/><circle cx="16" cy="16" r="3.5" fill="none" stroke="white" stroke-width="0.8" opacity="0.2"/><path d="M12 10 Q10 11 10 13 Q8 13 8 15 Q8 17 10 17 Q10 19 12 19 L20 19 Q22 19 22 17 Q24 17 24 15 Q24 12 21 11 Q20 9 18 9 Q16 8 14 9" fill="none" stroke="white" stroke-width="1" opacity="0.7"/><circle cx="13" cy="13" r="0.5" fill="white" opacity="0.8"/><circle cx="19" cy="12" r="0.5" fill="white" opacity="0.8"/><circle cx="16" cy="14" r="0.5" fill="white" opacity="0.8"/></svg><div class="size-label">64px</div></div>
+<div><svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg22a" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#164e63"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg22a)"/><circle cx="16" cy="16" r="3.5" fill="none" stroke="white" stroke-width="1" opacity="0.4"/><circle cx="16" cy="16" r="2" fill="none" stroke="white" stroke-width="0.8" opacity="0.6"/><circle cx="16" cy="16" r="0.9" fill="white" opacity="0.95"/><path d="M12 10 Q10 11 10 13 Q8 13 8 15 Q8 17 10 17 Q10 19 12 19 L20 19 Q22 19 22 17 Q24 17 24 15 Q24 12 21 11 Q20 9 18 9" fill="none" stroke="white" stroke-width="0.8" opacity="0.7"/><circle cx="13" cy="13" r="0.4" fill="white" opacity="0.8"/><circle cx="19" cy="12" r="0.4" fill="white" opacity="0.8"/></svg><div class="size-label">32px</div></div>
+<div><svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="bg22b" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#164e63"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#bg22b)"/><circle cx="16" cy="16" r="3.5" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"/><circle cx="16" cy="16" r="2" fill="white" opacity="0.95"/><path d="M12 10 Q10 11 10 13 Q8 13 8 15 Q8 17 10 17 Q10 19 12 19 L20 19 Q22 19 22 17 Q24 17 24 15 Q24 12 21 11 Q20 9 18 9" fill="none" stroke="white" stroke-width="1" opacity="0.6"/></svg><div class="size-label">16px</div></div>
+</div>
+<span class="tag">Future</span>
+</div>
+
+</div>
+
+<p style="margin-top: 32px; color: #64748b; font-size: 13px;">Tell me the number (1-22) and I'll apply it to both your tab icon and sidebar logo!</p>
+
+</body>
+</html>
