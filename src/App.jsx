@@ -15821,37 +15821,82 @@ INSTRUCTIONS:
 
                   // ─── Community Feed Widget (Feature 4) ───
                   case 'socialfeed': {
-                    const recentPosts = socialFeed.slice(0, 4);
-                    const modeColors = { local: 'text-slate-400', public: 'text-emerald-400', private: 'text-violet-400' };
+                    const modeColors = { local: 'text-slate-400 border-slate-500/40', public: 'text-emerald-400 border-emerald-500/40', private: 'text-violet-400 border-violet-500/40' };
+                    const modeActiveBg = { local: 'bg-slate-500/20', public: 'bg-emerald-500/20', private: 'bg-violet-500/20' };
                     const modeLabels = { local: 'Local', public: 'Public', private: 'Private' };
+                    const modeDescs = { local: 'Your device only', public: 'All MODUS users', private: 'Invite code only' };
+                    const filteredPosts = socialFeed.filter(p => {
+                      if (communityMode === 'local') return !p.communityMode || p.communityMode === 'local';
+                      if (communityMode === 'public') return p.communityMode === 'public';
+                      if (communityMode === 'private') return p.communityMode === 'private' && p.communityCode === communityCode;
+                      return true;
+                    }).slice(0, 4);
                     return (
                       <div {...wrapProps}>
                         <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
-                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
                             <MessageCircle className="w-4 h-4 text-cyan-400" />
                             Community Feed
-                            <span className={`text-[9px] ${modeColors[communityMode]} bg-slate-700/40 px-1.5 py-0.5 rounded-full font-medium`}>{modeLabels[communityMode]}</span>
                             {socialFeed.length > 0 && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full ml-auto">{socialFeed.length}</span>}
                           </h3>
-                          {recentPosts.length > 0 ? (
+
+                          {/* ── Mode Selector Pills ── */}
+                          <div className="flex items-center gap-1 mb-2">
+                            {['local', 'public', 'private'].map(mode => (
+                              <button key={mode} onClick={() => { setCommunityMode(mode); localStorage.setItem('modus_community_mode', mode); }}
+                                className={`text-[10px] px-2 py-1 rounded-full border transition-all font-medium ${communityMode === mode ? `${modeColors[mode]} ${modeActiveBg[mode]}` : 'text-slate-500 border-slate-700/30 hover:border-slate-600/50'}`}>
+                                {modeLabels[mode]}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[9px] text-slate-500 mb-2">{modeDescs[communityMode]}</p>
+
+                          {/* ── Private Mode: Community Code ── */}
+                          {communityMode === 'private' && (
+                            <div className="mb-2 flex items-center gap-1.5">
+                              <input type="text" placeholder="Enter invite code..." value={communityCode}
+                                onChange={e => { setCommunityCode(e.target.value); localStorage.setItem('modus_community_code', e.target.value); }}
+                                className="flex-1 text-[10px] bg-slate-700/30 border border-violet-500/20 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50" />
+                              <button onClick={() => { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); setCommunityCode(code); localStorage.setItem('modus_community_code', code); addNotification({ type: 'system', title: 'Code Generated', message: `Your invite code: ${code}`, icon: '🔑' }); }}
+                                className="text-[9px] bg-violet-500/20 text-violet-400 border border-violet-500/30 px-2 py-1 rounded-lg hover:bg-violet-500/30 transition-all whitespace-nowrap">
+                                Generate
+                              </button>
+                            </div>
+                          )}
+
+                          {/* ── Anonymous Toggle ── */}
+                          {(communityMode === 'public' || communityMode === 'private') && (
+                            <div className="flex items-center justify-between mb-2 px-1">
+                              <span className="text-[10px] text-slate-400">Post anonymously</span>
+                              <button onClick={() => setCommunityAnonymous(!communityAnonymous)}
+                                className={`w-8 h-4 rounded-full transition-all relative ${communityAnonymous ? 'bg-violet-500' : 'bg-slate-600'}`}>
+                                <div className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all ${communityAnonymous ? 'left-4.5' : 'left-0.5'}`}
+                                  style={{ left: communityAnonymous ? '18px' : '2px' }} />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* ── Posts ── */}
+                          {filteredPosts.length > 0 ? (
                             <div className="space-y-2">
-                              {recentPosts.map((post, i) => (
+                              {filteredPosts.map((post, i) => (
                                 <div key={post.id || i} className="p-2 rounded-lg bg-slate-700/20">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-[9px] font-bold text-white">{post.avatar}</div>
-                                    <span className="text-[10px] font-semibold text-white">{post.user}</span>
+                                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-[9px] font-bold text-white">{post.avatar || '?'}</div>
+                                    <span className="text-[10px] font-semibold text-white">{post.user || 'Trader'}</span>
                                     <span className="text-[9px] text-slate-500 ml-auto">{new Date(post.timestamp).toLocaleDateString()}</span>
                                   </div>
                                   {post.ticker && <div className={`text-xs font-bold ${post.verdict?.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-red-400'}`}>{post.ticker} — {post.verdict}</div>}
+                                  {post.target && <div className="text-[10px] text-slate-400">Target: ${post.target} | Stop: ${post.stop || 'N/A'}</div>}
                                   {post.text && <div className="text-[10px] text-slate-400 line-clamp-2">{post.text}</div>}
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="text-center py-4">
-                              <MessageCircle className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                              <p className="text-xs text-slate-500 mb-1">No shared analyses yet</p>
-                              <p className="text-[10px] text-slate-600">Share from Quick Analysis to post here</p>
+                            <div className="text-center py-3">
+                              <MessageCircle className="w-7 h-7 text-slate-700 mx-auto mb-1.5" />
+                              <p className="text-[10px] text-slate-500 mb-1">{communityMode === 'private' && !communityCode ? 'Enter an invite code to see posts' : 'No posts in this community yet'}</p>
+                              <p className="text-[9px] text-slate-600">Share from Quick Analysis to post here</p>
                             </div>
                           )}
                         </div>

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M Shield Variants — MODUS Design System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0a0f1e 0%, #0d1228 50%, #0a0f1e 100%);
+            color: #e0e7ff;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #a0aec0;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .instruction {
+            font-size: 0.95rem;
+            color: #6b7280;
+            margin-top: 16px;
+            font-style: italic;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 32px;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+
+        .card {
+            background: linear-gradient(135deg, rgba(30, 41, 82, 0.4) 0%, rgba(25, 35, 70, 0.3) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.320, 1);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease-out;
+            pointer-events: none;
+        }
+
+        .card:hover {
+            border-color: rgba(139, 92, 246, 0.5);
+            background: linear-gradient(135deg, rgba(40, 51, 102, 0.6) 0%, rgba(35, 45, 90, 0.5) 100%);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow:
+                0 20px 40px rgba(139, 92, 246, 0.15),
+                0 0 60px rgba(6, 182, 212, 0.1),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .icon-wrapper {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(20, 30, 60, 0.4) 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            padding: 12px;
+            transition: all 0.4s ease-out;
+        }
+
+        .card:hover .icon-wrapper {
+            background: linear-gradient(135deg, rgba(25, 35, 70, 0.8) 0%, rgba(30, 40, 80, 0.6) 100%);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .icon-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .icon-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #f0f4ff;
+        }
+
+        .icon-description {
+            font-size: 0.85rem;
+            color: #8b94ab;
+            line-height: 1.5;
+            opacity: 0;
+            transition: opacity 0.4s ease-out;
+        }
+
+        .card:hover .icon-description {
+            opacity: 1;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            transition: filter 0.4s ease-out;
+        }
+
+        .card:hover svg {
+            filter: drop-shadow(0 4px 12px rgba(139, 92, 246, 0.3));
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 24px;
+            }
+            h1 {
+                font-size: 2.5rem;
+            }
+            .container {
+                padding: 40px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>M Shield Variants</h1>
+            <p class="subtitle">Premium Icon Designs</p>
+            <p class="instruction">Inspired by The M Shield — 5 Unique Interpretations</p>
+        </header>
+
+        <div class="grid">
+            <!-- Variant 1: M Shield Platinum -->
+            <div class="card">
+                <div class="icon-number">Platinum</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="platinum-main" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
+                                <stop offset="25%" style="stop-color:#e2e8f0;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#cbd5e1;stop-opacity:1" />
+                                <stop offset="75%" style="stop-color:#a1aec8;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#64748b;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="platinum-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.6" />
+                                <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:0.1" />
+                            </linearGradient>
+                            <linearGradient id="platinum-gold" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#fcd34d;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#f59e0b;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="platinum-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+                                <feOffset dx="0" dy="3" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.3" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id="platinum-shine">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
+                                <feOffset dx="1" dy="1" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.2" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode in="offsetblur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 30 L 140 50 L 140 110 Q 100 160 100 160 Q 100 160 60 110 L 60 50 Z" fill="url(#platinum-main)" filter="url(#platinum-shadow)" />
+                        <path d="M 100 35 L 135 52 L 135 105 Q 100 150 100 150 Q 100 145 65 105 L 65 52 Z" fill="url(#platinum-light)" />
+                        <path d="M 100 42 L 130 58 L 130 108 Q 100 148 100 148 Q 100 145 70 108 L 70 58 Z" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.4" />
+                        <path d="M 75 55 L 125 55" stroke="url(#platinum-gold)" stroke-width="2" stroke-linecap="round" opacity="0.8" />
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-2">M</text>
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#475569" text-anchor="middle" letter-spacing="-2" opacity="0.3" transform="translate(0,2)">M</text>
+                        <circle cx="60" cy="125" r="2" fill="url(#platinum-gold)" opacity="0.9" />
+                        <circle cx="100" cy="135" r="2.5" fill="url(#platinum-gold)" opacity="1" />
+                        <circle cx="140" cy="125" r="2" fill="url(#platinum-gold)" opacity="0.9" />
+                        <path d="M 60 125 Q 80 130 100 135 Q 120 130 140 125" stroke="url(#platinum-gold)" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.7" />
+                    </svg>
+                </div>
+                <div class="icon-name">M Shield Platinum</div>
+                <div class="icon-description">Silver metallic finish with gold accent stripe and shine effects</div>
+            </div>
+
+            <!-- Variant 2: M Shield Neon -->
+            <div class="card">
+                <div class="icon-number">Neon</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="neon-shield" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#0f0f23;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#1a1a3a;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="neon-edge-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#d946ef;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#a855f7;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="neon-edge-cyan" x1="0%" y1="100%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#00d9ff;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#0891b2;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="neon-glow-strong">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id="neon-glow-cyan">
+                                <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 30 L 140 50 L 140 110 Q 100 160 100 160 Q 100 160 60 110 L 60 50 Z" fill="url(#neon-shield)" filter="url(#neon-glow-strong)" />
+                        <path d="M 100 32 L 138 52 L 138 108 Q 100 155 100 155 Q 100 152 62 108 L 62 52 Z" fill="none" stroke="url(#neon-edge-purple)" stroke-width="2" filter="url(#neon-glow-strong)" opacity="0.9" />
+                        <path d="M 100 36 L 135 54 L 135 105 Q 100 150 100 150 Q 100 147 65 105 L 65 54 Z" fill="none" stroke="url(#neon-edge-cyan)" stroke-width="1.5" filter="url(#neon-glow-cyan)" opacity="0.7" />
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#d946ef" text-anchor="middle" letter-spacing="-2" filter="url(#neon-glow-strong)">M</text>
+                        <path d="M 75 128 Q 82 122 90 125 Q 100 130 110 124 Q 118 120 125 128" stroke="url(#neon-edge-cyan)" stroke-width="2" fill="none" stroke-linecap="round" filter="url(#neon-glow-cyan)" opacity="0.9" />
+                        <circle cx="75" cy="128" r="2" fill="url(#neon-edge-cyan)" filter="url(#neon-glow-cyan)" opacity="0.8" />
+                        <circle cx="125" cy="128" r="2" fill="url(#neon-edge-purple)" filter="url(#neon-glow-strong)" opacity="0.8" />
+                    </svg>
+                </div>
+                <div class="icon-name">M Shield Neon</div>
+                <div class="icon-description">Dark shield with vibrant neon purple and cyan glow edges</div>
+            </div>
+
+            <!-- Variant 3: M Shield Royal -->
+            <div class="card">
+                <div class="icon-number">Royal</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="royal-shield" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#1e3a8a;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#172554;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="royal-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#93c5fd;stop-opacity:0.3" />
+                                <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.1" />
+                            </linearGradient>
+                            <linearGradient id="royal-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#fcd34d;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#f59e0b;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="royal-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+                                <feOffset dx="0" dy="3" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.4" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id="royal-glow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 30 L 140 50 L 140 110 Q 100 160 100 160 Q 100 160 60 110 L 60 50 Z" fill="url(#royal-shield)" filter="url(#royal-shadow)" />
+                        <path d="M 100 35 L 135 52 L 135 105 Q 100 150 100 150 Q 100 145 65 105 L 65 52 Z" fill="url(#royal-light)" />
+                        <path d="M 100 42 L 130 58 L 130 108 Q 100 148 100 148 Q 100 145 70 108 L 70 58 Z" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.3" />
+                        <path d="M 85 35 L 100 20 L 115 35" fill="url(#royal-gold)" filter="url(#royal-glow)" />
+                        <path d="M 88 32 L 100 25 L 112 32" fill="#ffffff" opacity="0.4" />
+                        <circle cx="93" cy="33" r="2.5" fill="url(#royal-gold)" filter="url(#royal-glow)" opacity="0.8" />
+                        <circle cx="100" cy="22" r="3" fill="url(#royal-gold)" filter="url(#royal-glow)" />
+                        <circle cx="107" cy="33" r="2.5" fill="url(#royal-gold)" filter="url(#royal-glow)" opacity="0.8" />
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-2">M</text>
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#1e40af" text-anchor="middle" letter-spacing="-2" opacity="0.3" transform="translate(0,2)">M</text>
+                        <path d="M 65 115 Q 80 120 100 125 Q 120 120 135 115" stroke="url(#royal-gold)" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.6" />
+                    </svg>
+                </div>
+                <div class="icon-name">M Shield Royal</div>
+                <div class="icon-description">Deep royal blue with gold crown accent and ornate details</div>
+            </div>
+
+            <!-- Variant 4: M Shield Cyber -->
+            <div class="card">
+                <div class="icon-number">Cyber</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="cyber-shield" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#0a4d2b;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#0d5a3a;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#052e2a;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="cyber-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#4ade80;stop-opacity:0.3" />
+                                <stop offset="100%" style="stop-color:#22c55e;stop-opacity:0.1" />
+                            </linearGradient>
+                            <linearGradient id="cyber-green" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#4ade80;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#16a34a;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="cyber-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+                                <feOffset dx="0" dy="2" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.3" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id="cyber-glow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 30 L 140 50 L 140 110 Q 100 160 100 160 Q 100 160 60 110 L 60 50 Z" fill="url(#cyber-shield)" filter="url(#cyber-shadow)" />
+                        <path d="M 100 35 L 135 52 L 135 105 Q 100 150 100 150 Q 100 145 65 105 L 65 52 Z" fill="url(#cyber-light)" />
+                        <path d="M 100 42 L 130 58 L 130 108 Q 100 148 100 148 Q 100 145 70 108 L 70 58 Z" fill="none" stroke="url(#cyber-green)" stroke-width="1" opacity="0.4" filter="url(#cyber-glow)" />
+                        <g opacity="0.7">
+                            <line x1="75" y1="65" x2="85" y2="65" stroke="url(#cyber-green)" stroke-width="1.5" stroke-linecap="round" filter="url(#cyber-glow)" />
+                            <line x1="115" y1="65" x2="125" y2="65" stroke="url(#cyber-green)" stroke-width="1.5" stroke-linecap="round" filter="url(#cyber-glow)" />
+                            <line x1="70" y1="85" x2="130" y2="85" stroke="url(#cyber-green)" stroke-width="1" stroke-linecap="round" opacity="0.5" filter="url(#cyber-glow)" />
+                        </g>
+                        <g opacity="0.6">
+                            <circle cx="80" cy="70" r="1.5" fill="url(#cyber-green)" filter="url(#cyber-glow)" />
+                            <circle cx="120" cy="70" r="1.5" fill="url(#cyber-green)" filter="url(#cyber-glow)" />
+                            <circle cx="75" cy="90" r="1" fill="url(#cyber-green)" filter="url(#cyber-glow)" opacity="0.8" />
+                            <circle cx="125" cy="90" r="1" fill="url(#cyber-green)" filter="url(#cyber-glow)" opacity="0.8" />
+                        </g>
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="url(#cyber-green)" text-anchor="middle" letter-spacing="-2" filter="url(#cyber-glow)">M</text>
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#052e2a" text-anchor="middle" letter-spacing="-2" opacity="0.3" transform="translate(0,2)">M</text>
+                        <path d="M 70 120 L 130 120" stroke="url(#cyber-green)" stroke-width="1" opacity="0.4" />
+                        <path d="M 72 125 L 74 125 M 80 125 L 82 125 M 88 125 L 90 125 M 96 125 L 98 125 M 104 125 L 106 125 M 112 125 L 114 125 M 120 125 L 122 125" stroke="url(#cyber-green)" stroke-width="1.5" opacity="0.5" stroke-linecap="round" filter="url(#cyber-glow)" />
+                    </svg>
+                </div>
+                <div class="icon-name">M Shield Cyber</div>
+                <div class="icon-description">Matrix-tech aesthetic with circuit patterns and green glow</div>
+            </div>
+
+            <!-- Variant 5: M Shield Ember -->
+            <div class="card">
+                <div class="icon-number">Ember</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="ember-shield" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ea580c;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#dc2626;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#991b1b;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="ember-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#fca5a5;stop-opacity:0.4" />
+                                <stop offset="100%" style="stop-color:#f87171;stop-opacity:0.1" />
+                            </linearGradient>
+                            <linearGradient id="ember-flame" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#ffa500;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#ffed4e;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="ember-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+                                <feOffset dx="0" dy="3" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.3" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id="ember-glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 30 L 140 50 L 140 110 Q 100 160 100 160 Q 100 160 60 110 L 60 50 Z" fill="url(#ember-shield)" filter="url(#ember-shadow)" />
+                        <path d="M 100 35 L 135 52 L 135 105 Q 100 150 100 150 Q 100 145 65 105 L 65 52 Z" fill="url(#ember-light)" />
+                        <path d="M 100 42 L 130 58 L 130 108 Q 100 148 100 148 Q 100 145 70 108 L 70 58 Z" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.2" />
+                        <g filter="url(#ember-glow)" opacity="0.8">
+                            <path d="M 80 135 Q 85 128 90 138 Q 95 125 100 140 Q 105 126 110 138 Q 115 128 120 135" fill="url(#ember-flame)" />
+                            <ellipse cx="100" cy="138" rx="25" ry="12" fill="url(#ember-flame)" opacity="0.3" />
+                        </g>
+                        <g opacity="0.7" filter="url(#ember-glow)">
+                            <circle cx="70" cy="140" r="2" fill="#ffed4e" />
+                            <circle cx="80" cy="148" r="1.5" fill="#ffa500" />
+                            <circle cx="95" cy="152" r="1" fill="#ff6b35" />
+                            <circle cx="115" cy="150" r="1.5" fill="#ffa500" />
+                            <circle cx="130" cy="142" r="2" fill="#ffed4e" />
+                        </g>
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-2">M</text>
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#7c2d12" text-anchor="middle" letter-spacing="-2" opacity="0.3" transform="translate(0,2)">M</text>
+                    </svg>
+                </div>
+                <div class="icon-name">M Shield Ember</div>
+                <div class="icon-description">Warm orange-red gradient with fire glow and ember particles</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.style.animation = 'none';
+                setTimeout(() => {
+                    this.style.animation = '';
+                }, 10);
+            });
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animation = 'fadeIn 0.8s ease-out forwards';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.card').forEach(card => {
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>
