@@ -567,6 +567,24 @@ function App() {
   const [showChangelog, setShowChangelog] = useState(false);
   const changelogEntries = [
     {
+      version: '1.9.0',
+      date: '2026-02-08',
+      title: 'UI Polish, Enhanced Widgets & Keyboard Shortcuts',
+      changes: [
+        { type: 'fix', text: 'Fixed profile dropdown hard to see — now solid background for full visibility' },
+        { type: 'fix', text: 'Fixed notification panel transparency — same solid background treatment' },
+        { type: 'fix', text: 'Fixed Tell Me More showing raw **markdown** asterisks — now properly rendered' },
+        { type: 'improvement', text: 'Quick Analysis tab spacing increased — no longer clumped together' },
+        { type: 'improvement', text: 'Quick Analysis loading state now shows animated progress steps' },
+        { type: 'improvement', text: 'Quick Analysis history cards redesigned with confidence bars and color-coded borders' },
+        { type: 'improvement', text: 'Quick Analysis empty state now shows popular ticker quick-pick buttons' },
+        { type: 'feature', text: 'Keyboard shortcut: press "/" on dashboard to focus Quick Analyze, "q" for Quick Analysis tab' },
+        { type: 'improvement', text: 'Enhanced all dashboard widget empty states with icons and action buttons' },
+        { type: 'improvement', text: 'Market Summary indices are now clickable — opens live chart for that symbol' },
+        { type: 'improvement', text: 'History cards now have "Clear all" option and item count badge' },
+      ]
+    },
+    {
       version: '1.8.0',
       date: '2026-02-08',
       title: 'Data Accuracy, Structured Deep Dive & Firebase Production',
@@ -2257,6 +2275,28 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     // Scroll main content area to top when switching tabs
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab, isMobile]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger if inside an input, textarea, or contenteditable
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+
+      // "/" to focus Quick Analyze on dashboard
+      if (e.key === '/' && activeTab === 'dashboard') {
+        e.preventDefault();
+        const input = document.querySelector('[placeholder="e.g. AAPL, TSLA, NVDA..."]');
+        if (input) input.focus();
+      }
+      // "q" to go to Quick Analysis
+      if (e.key === 'q' && !e.metaKey && !e.ctrlKey) {
+        setActiveTab('quickanalysis');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab]);
 
   // =================================================================
   // OPTIONS TRADING STATE VARIABLES
@@ -11851,7 +11891,7 @@ INSTRUCTIONS:
 
       {/* NOTIFICATION CENTER PANEL */}
       {showNotificationCenter && (
-        <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-slate-900/98 backdrop-blur-xl border-l border-slate-700/50 z-[55] shadow-2xl flex flex-col" style={{ animation: 'slideIn 0.3s ease-out' }}>
+        <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-slate-900 border-l border-slate-700/50 z-[55] shadow-2xl flex flex-col" style={{ animation: 'slideIn 0.3s ease-out' }}>
           <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-violet-500/20 rounded-lg">
@@ -13383,7 +13423,7 @@ INSTRUCTIONS:
                   {showUserMenu && (
                     <>
                       <div className="fixed inset-0 z-[54]" onClick={() => setShowUserMenu(false)} />
-                      <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900/98 backdrop-blur-xl border border-slate-700/40 rounded-xl shadow-2xl shadow-black/50 z-[55] overflow-hidden" style={{ animation: 'fadeIn 0.15s ease-out' }}>
+                      <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl shadow-black/60 z-[55] overflow-hidden" style={{ animation: 'fadeIn 0.15s ease-out' }}>
                         <div className="p-4 border-b border-slate-800 bg-gradient-to-r from-violet-500/5 to-purple-500/5">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-sm font-bold text-white shadow-lg">
@@ -13755,7 +13795,7 @@ INSTRUCTIONS:
                 </div>
                 <div>
                   <h4 className="font-semibold text-sm">Quick Analyze</h4>
-                  <p className="text-[10px] text-slate-500">Enter a ticker — view chart or get AI verdict</p>
+                  <p className="text-[10px] text-slate-500">Enter a ticker — view chart or get AI verdict <kbd className="ml-1 px-1 py-0.5 bg-slate-700/60 rounded text-[8px] text-slate-400 font-mono border border-slate-600/30">/</kbd></p>
                 </div>
               </div>
               <div className="flex-1 flex gap-2">
@@ -13897,7 +13937,13 @@ INSTRUCTIONS:
                           <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{watchlist.length}</span>
                         </h3>
                         {watchlist.length === 0 ? (
-                          <p className="text-xs text-slate-500 py-4 text-center">No symbols tracked</p>
+                          <div className="text-center py-4">
+                            <Eye className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 mb-2">No symbols tracked yet</p>
+                            <button onClick={() => setActiveTab('ticker')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">
+                              + Add from Live Ticker
+                            </button>
+                          </div>
                         ) : (
                           <div className="space-y-1.5 max-h-48 overflow-y-auto">
                             {watchlist.slice(0, 8).map(sym => {
@@ -13997,7 +14043,13 @@ INSTRUCTIONS:
                             <button onClick={() => setActiveTab('portfolio')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">View all →</button>
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-500 py-4 text-center">No positions tracked</p>
+                          <div className="text-center py-4">
+                            <DollarSign className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 mb-2">No positions tracked yet</p>
+                            <button onClick={() => setActiveTab('portfolio')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">
+                              + Add position
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -14021,7 +14073,13 @@ INSTRUCTIONS:
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-500 py-4 text-center">No active alerts</p>
+                          <div className="text-center py-4">
+                            <Bell className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 mb-2">No active alerts</p>
+                            <button onClick={() => setActiveTab('alerts')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">
+                              + Set a price alert
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -14083,20 +14141,24 @@ INSTRUCTIONS:
                       <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                           <Activity className="w-4 h-4 text-cyan-400" /> Market Summary
+                          <button onClick={() => setActiveTab('ticker')} className="ml-auto text-[9px] text-violet-400 hover:text-violet-300 transition-colors">View chart →</button>
                         </h3>
                         <div className="space-y-2">
                           {['SPY', 'QQQ', 'DIA', 'IWM'].map(idx => {
                             const d = marketData.indices[idx];
+                            const chg = d?.changePercent || 0;
                             return (
-                              <div key={idx} className="flex items-center justify-between text-xs">
-                                <span className="font-medium text-white">{idx}</span>
+                              <button key={idx} onClick={() => { setTickerSymbol(idx); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/30 transition-all group">
+                                <span className="font-medium text-white group-hover:text-violet-300 transition-colors">{idx}</span>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-mono">${(d?.price || 0).toFixed(2)}</span>
-                                  <span className={`font-medium ${(d?.changePercent || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    {(d?.changePercent || 0) >= 0 ? '+' : ''}{(d?.changePercent || 0).toFixed(2)}%
-                                  </span>
+                                  <span className="font-mono text-slate-300">${(d?.price || 0).toFixed(2)}</span>
+                                  <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${chg >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                                    <span className={`font-medium ${chg >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                      {chg >= 0 ? '+' : ''}{chg.toFixed(2)}%
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -14131,8 +14193,9 @@ INSTRUCTIONS:
                           </div>
                         ) : (
                           <div className="text-center py-4">
+                            <Newspaper className="w-8 h-8 text-slate-700 mx-auto mb-2" />
                             <p className="text-xs text-slate-500 mb-2">No news loaded yet</p>
-                            <button onClick={() => generateNewsFeed()} className="text-xs text-violet-400 hover:text-violet-300">Load news →</button>
+                            <button onClick={() => generateNewsFeed()} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">Load market news</button>
                           </div>
                         )}
                       </div>
@@ -21097,7 +21160,7 @@ INSTRUCTIONS:
 
         {/* Quick Analysis Tab */}
         {activeTab === "quickanalysis" && (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-4xl mx-auto space-y-8">
             {/* Header */}
             <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-2xl p-6">
               <div className="flex items-center gap-3 mb-3">
@@ -21146,13 +21209,31 @@ INSTRUCTIONS:
 
             {/* Loading State */}
             {quickAnalysisLoading && (
-              <div className="bg-slate-900/50 rounded-2xl border border-slate-800/50 p-12 text-center">
-                <div className="relative w-16 h-16 mx-auto mb-4">
-                  <Loader2 className="w-16 h-16 animate-spin text-violet-500" />
-                  <Zap className="w-6 h-6 text-violet-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <div className="bg-slate-900/50 rounded-2xl border border-violet-500/20 p-8 text-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-violet-500/5 to-transparent animate-pulse" />
+                <div className="relative">
+                  <div className="relative w-20 h-20 mx-auto mb-5">
+                    <div className="absolute inset-0 bg-violet-500/20 rounded-full animate-ping" style={{ animationDuration: '1.5s' }} />
+                    <Loader2 className="w-20 h-20 animate-spin text-violet-500" />
+                    <Zap className="w-7 h-7 text-violet-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Analyzing {quickAnalysisTicker}...</h3>
+                  <p className="text-sm text-slate-400 mb-5">Fetching real-time data and running AI analysis</p>
+                  <div className="max-w-xs mx-auto space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                      <span>Fetching price data...</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+                      <span>Computing technical indicators...</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+                      <span>Running AI analysis...</span>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Analyzing {quickAnalysisTicker}...</h3>
-                <p className="text-sm text-slate-400">Fetching real-time data and running AI analysis</p>
               </div>
             )}
 
@@ -21167,7 +21248,7 @@ INSTRUCTIONS:
               const verdictText = isBuy ? 'text-emerald-400' : isSell ? 'text-red-400' : 'text-amber-400';
 
               return (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {/* Main Verdict */}
                   <div className={`rounded-2xl border p-6 ${verdictBg}`}>
                     <div className="flex items-start justify-between mb-4">
@@ -21319,14 +21400,33 @@ INSTRUCTIONS:
 
                   {/* Detailed Analysis Expansion — Structured Cards */}
                   {quickAnalysisDetail && (() => {
-                    // Handle raw text fallback
+                    // Handle raw text fallback — render markdown properly
                     if (quickAnalysisDetail._raw) {
+                      const rawText = quickAnalysisDetail.text || '';
                       return (
                         <div className="bg-slate-900/50 rounded-2xl border border-violet-500/20 p-6">
                           <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                             <MessageCircle className="w-5 h-5 text-violet-400" /> Deep Dive — {r.ticker}
                           </h3>
-                          <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{quickAnalysisDetail.text}</div>
+                          <div className="text-sm leading-relaxed space-y-2">
+                            {rawText.split('\n').map((line, li) => {
+                              if (!line.trim()) return <div key={li} className="h-2" />;
+                              // Section headers: **Bold Text** on its own line or ### Headers
+                              if (line.match(/^\*\*.*\*\*\s*$/) || line.match(/^#{1,3}\s+/)) {
+                                const headerText = line.replace(/\*\*/g, '').replace(/^#{1,3}\s+/, '').trim();
+                                return <h4 key={li} className="text-violet-400 font-bold text-base mt-5 mb-2 border-b border-slate-700/30 pb-1">{headerText}</h4>;
+                              }
+                              // Bullet points
+                              if (line.trim().match(/^[•\-\*]\s/) || line.trim().match(/^\d+\.\s/)) {
+                                const bulletText = line.trim().replace(/^[•\-\*]\s*/, '').replace(/^\d+\.\s*/, '');
+                                const formatted = bulletText.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+                                return <div key={li} className="flex items-start gap-2 ml-2 text-slate-300" dangerouslySetInnerHTML={{ __html: `<span class="text-violet-400 mt-0.5 flex-shrink-0">▸</span> <span>${formatted}</span>` }} />;
+                              }
+                              // Regular paragraph — strip inline bold markdown
+                              const formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+                              return <p key={li} className="text-slate-300" dangerouslySetInnerHTML={{ __html: formatted }} />;
+                            })}
+                          </div>
                         </div>
                       );
                     }
@@ -21555,22 +21655,36 @@ INSTRUCTIONS:
             {/* History */}
             {quickAnalysisHistory.length > 0 && !quickAnalysisLoading && (
               <div>
-                <h4 className="font-semibold text-slate-400 mb-3 text-sm">Recent Analyses</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-slate-400 text-sm flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5" /> Recent Analyses
+                    <span className="text-[10px] bg-slate-700/60 text-slate-500 px-1.5 py-0.5 rounded-full">{quickAnalysisHistory.length}</span>
+                  </h4>
+                  {quickAnalysisHistory.length > 1 && (
+                    <button onClick={() => { setQuickAnalysisHistory([]); setToast({ type: 'success', message: 'History cleared' }); }} className="text-[10px] text-slate-500 hover:text-red-400 transition-colors">Clear all</button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                   {quickAnalysisHistory.map((h, i) => {
                     const isBuy = h.verdict?.includes('BUY');
                     const isSell = h.verdict?.includes('SELL');
                     return (
                       <button
-                        key={i}
+                        key={`${h.ticker}-${i}`}
                         onClick={() => { setQuickAnalysisTicker(h.ticker); setQuickAnalysisResult(h); setQuickAnalysisDetail(null); }}
-                        className="bg-slate-800/40 border border-slate-700/20 hover:border-violet-500/30 rounded-lg p-3 text-left transition-all"
+                        className={`bg-slate-800/40 border hover:border-violet-500/30 rounded-xl p-3 text-left transition-all group ${isBuy ? 'border-emerald-500/10' : isSell ? 'border-red-500/10' : 'border-slate-700/20'}`}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-sm">{h.ticker}</span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${isBuy ? 'bg-emerald-500/20 text-emerald-400' : isSell ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{h.verdict}</span>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-sm group-hover:text-violet-300 transition-colors">{h.ticker}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isBuy ? 'bg-emerald-500/20 text-emerald-400' : isSell ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{h.verdict}</span>
                         </div>
-                        <div className="text-xs text-slate-500">${h.price?.toFixed(2)} · {h.confidence}% conf</div>
+                        <div className="text-xs text-slate-500">${h.price?.toFixed(2)}</div>
+                        <div className="mt-1.5 flex items-center justify-between">
+                          <div className="w-full bg-slate-700/30 rounded-full h-1">
+                            <div className={`h-full rounded-full ${isBuy ? 'bg-emerald-500' : isSell ? 'bg-red-500' : 'bg-amber-500'}`} style={{ width: `${h.confidence || 0}%` }} />
+                          </div>
+                          <span className="text-[9px] text-slate-500 ml-2 flex-shrink-0">{h.confidence}%</span>
+                        </div>
                       </button>
                     );
                   })}
@@ -21581,11 +21695,21 @@ INSTRUCTIONS:
             {/* Empty State */}
             {!quickAnalysisResult && !quickAnalysisLoading && quickAnalysisHistory.length === 0 && (
               <div className="text-center py-12">
-                <Zap className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                <div className="relative inline-block mb-4">
+                  <div className="absolute inset-0 bg-violet-500/20 blur-2xl rounded-full" />
+                  <Zap className="w-16 h-16 text-slate-600 relative" />
+                </div>
                 <h3 className="text-xl font-semibold mb-2">Instant Stock Verdict</h3>
-                <p className="text-slate-400 max-w-md mx-auto mb-4">
+                <p className="text-slate-400 max-w-md mx-auto mb-6">
                   Enter any ticker above to get a real-time buy/sell/hold recommendation backed by live market data, technical indicators, and AI analysis.
                 </p>
+                <div className="flex flex-wrap justify-center gap-2 mb-6">
+                  {['AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOG', 'AMD'].map(sym => (
+                    <button key={sym} onClick={() => { setQuickAnalysisTicker(sym); runQuickAnalysis(sym); }} className="px-3 py-1.5 text-xs font-semibold bg-slate-800/60 hover:bg-violet-500/20 border border-slate-700/20 hover:border-violet-500/30 rounded-lg text-slate-400 hover:text-violet-300 transition-all">
+                      {sym}
+                    </button>
+                  ))}
+                </div>
                 <div className="text-xs text-slate-600 space-y-1">
                   <p>Powered by real-time prices, RSI, moving averages, volume analysis, and more.</p>
                   <p>Click "Tell Me More" after analysis for a deep-dive educational breakdown.</p>
