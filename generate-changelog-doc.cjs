@@ -727,8 +727,10 @@ versions.forEach((ver, vi) => {
             width: { size: 8160, type: WidthType.DXA },
             margins: cellMargins,
             children: [
-              new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: item.title, font: "Arial", size: 20, bold: true, color: VIOLET })] }),
-              new Paragraph({ children: [new TextRun({ text: item.description, font: "Arial", size: 20, color: DARK })] }),
+              new Paragraph({ children: [
+                new TextRun({ text: item.title + ' \u2014 ', font: "Arial", size: 20, bold: true, color: VIOLET }),
+                new TextRun({ text: item.description, font: "Arial", size: 20, color: DARK })
+              ] }),
             ]
           }),
         ]
@@ -769,7 +771,7 @@ children.push(
     spacing: { after: 200 },
     children: [
       new TextRun({ text: "Last updated: ", font: "Arial", size: 20, color: SLATE }),
-      new TextRun({ text: "February 8, 2026 at " + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), font: "Arial", size: 20, bold: true, color: VIOLET }),
+      new TextRun({ text: "February 8, 2026 at 2:30 PM EST", font: "Arial", size: 20, bold: true, color: VIOLET }),
     ]
   }),
 );

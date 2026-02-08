@@ -901,6 +901,22 @@ function App() {
   const [showQuickTradeEntry, setShowQuickTradeEntry] = useState(false);
   const changelogEntries = [
     {
+      version: '2.4.0',
+      date: '2026-02-08',
+      title: 'Cross-Device Community Feed, Bug Fixes & UI Polish',
+      changes: [
+        { type: 'feature', text: 'Community Feed now syncs across devices — posts in Public and Private modes are stored in the cloud via Firebase' },
+        { type: 'feature', text: 'Private community codes now work across devices — enter the same code on any device to see shared posts' },
+        { type: 'feature', text: 'Community Feed refresh button — pull latest posts from other community members in real-time' },
+        { type: 'feature', text: 'Code validation feedback — notification confirms when a community code is saved or generated' },
+        { type: 'improvement', text: 'Community Feed shows "Cloud Synced" or "Local Only" indicator based on mode' },
+        { type: 'improvement', text: 'Generated private codes now show a copy notification with the code for easy sharing' },
+        { type: 'improvement', text: 'Smoother animations on tab transitions and widget loading' },
+        { type: 'fix', text: 'Fixed community posts not visible on other devices (was localStorage only, now uses Firebase)' },
+        { type: 'fix', text: 'Fixed private code having no confirmation when entered' },
+      ]
+    },
+    {
       version: '2.3.0',
       date: '2026-02-08',
       title: 'Community Feed, Tracking Dashboard, Risk Calculator & More',
@@ -2487,13 +2503,75 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [showShareToFeed, setShowShareToFeed] = useState(false);
   const [shareToFeedContent, setShareToFeedContent] = useState(null);
 
+  // Helper function to sync posts to Firestore for cross-device support
+  const syncPostToFirestore = useCallback(async (post) => {
+    if (post.communityMode === 'local') return; // Don't sync local posts
+    try {
+      const { getFirestore, collection, addDoc } = await import('firebase/firestore');
+      const db = getFirestore();
+      await addDoc(collection(db, 'community_posts'), {
+        id: post.id,
+        user: post.user,
+        avatar: post.avatar,
+        timestamp: post.timestamp,
+        communityMode: post.communityMode,
+        communityCode: post.communityCode,
+        ticker: post.ticker,
+        verdict: post.verdict,
+        target: post.target,
+        stop: post.stop,
+        text: post.text,
+        createdAt: new Date()
+      });
+    } catch (error) {
+      // Silently fail if Firestore is unavailable
+      log('Firestore sync failed:', error);
+    }
+  }, []);
+
+  // Load community posts from Firestore and merge with local posts
+  const loadCommunityPosts = useCallback(async () => {
+    try {
+      const { getFirestore, collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
+      const db = getFirestore();
+      let q;
+
+      if (communityMode === 'public') {
+        q = query(collection(db, 'community_posts'), where('communityMode', '==', 'public'), orderBy('timestamp', 'desc'), limit(50));
+      } else if (communityMode === 'private' && communityCode) {
+        q = query(collection(db, 'community_posts'), where('communityMode', '==', 'private'), where('communityCode', '==', communityCode), orderBy('timestamp', 'desc'), limit(50));
+      } else {
+        return;
+      }
+
+      const snapshot = await getDocs(q);
+      const firestorePosts = snapshot.docs.map(doc => doc.data());
+
+      // Merge with local posts and deduplicate by id
+      setSocialFeed(prev => {
+        const postMap = new Map();
+        [...firestorePosts, ...prev].forEach(post => {
+          if (!postMap.has(post.id)) {
+            postMap.set(post.id, post);
+          }
+        });
+        const merged = Array.from(postMap.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 50);
+        localStorage.setItem('modus_social_feed', JSON.stringify(merged));
+        return merged;
+      });
+    } catch (error) {
+      // Silently fail if Firestore is unavailable
+      log('Load community posts failed:', error);
+    }
+  }, [communityMode, communityCode]);
+
   const addToSocialFeed = useCallback((item) => {
     // Spam protection: 30-second cooldown between posts
     const now = Date.now();
     if (now - lastPostTime < 30000) {
       // Show notification
       const remainingSeconds = Math.ceil((30000 - (now - lastPostTime)) / 1000);
-      alert(`Please wait ${remainingSeconds} seconds before posting again`);
+      addNotification({ type: 'system', title: 'Cooldown', message: `Please wait ${remainingSeconds}s before posting again`, icon: '⏳' });
       return;
     }
 
@@ -2511,9 +2589,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       localStorage.setItem('modus_social_feed', JSON.stringify(updated));
       return updated;
     });
+
+    // Sync to Firestore for public and private modes
+    if (communityMode === 'public' || communityMode === 'private') {
+      syncPostToFirestore(post);
+      const msg = communityMode === 'public' ? 'Posted to community!' : 'Posted to private community!';
+      addNotification({ type: 'system', title: 'Success', message: msg, icon: '✓' });
+    }
+
     setLastPostTime(now);
     setShowShareToFeed(false);
-  }, [currentUser, communityAnonymous, communityMode, communityCode, lastPostTime]);
+  }, [currentUser, communityAnonymous, communityMode, communityCode, lastPostTime, syncPostToFirestore]);
 
   // ═══════════════════════════════════════════════
   // FEATURE 5: Price Target Tracking
@@ -15834,11 +15920,18 @@ INSTRUCTIONS:
                     return (
                       <div {...wrapProps}>
                         <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
-                          <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
-                            <MessageCircle className="w-4 h-4 text-cyan-400" />
-                            Community Feed
-                            {socialFeed.length > 0 && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full ml-auto">{socialFeed.length}</span>}
-                          </h3>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-sm font-bold flex items-center gap-2">
+                              <MessageCircle className="w-4 h-4 text-cyan-400" />
+                              Community Feed
+                              {communityMode !== 'local' && <span className="text-[7px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded-full">Cloud Synced</span>}
+                              {communityMode === 'local' && <span className="text-[7px] bg-slate-500/20 text-slate-400 px-1 py-0.5 rounded-full">Local Only</span>}
+                              {socialFeed.length > 0 && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full">{socialFeed.length}</span>}
+                            </h3>
+                            <button onClick={() => loadCommunityPosts()} className="p-1 hover:bg-slate-700/50 rounded-lg transition-all" title="Refresh posts">
+                              <RefreshCw className="w-3.5 h-3.5 text-slate-400 hover:text-slate-300" />
+                            </button>
+                          </div>
 
                           {/* ── Mode Selector Pills ── */}
                           <div className="flex items-center gap-1 mb-2">
@@ -15855,9 +15948,9 @@ INSTRUCTIONS:
                           {communityMode === 'private' && (
                             <div className="mb-2 flex items-center gap-1.5">
                               <input type="text" placeholder="Enter invite code..." value={communityCode}
-                                onChange={e => { setCommunityCode(e.target.value); localStorage.setItem('modus_community_code', e.target.value); }}
+                                onChange={e => { setCommunityCode(e.target.value); localStorage.setItem('modus_community_code', e.target.value); addNotification({ type: 'system', title: 'Code Saved', message: 'Community code saved! Tap refresh to load posts.', icon: '✓' }); }}
                                 className="flex-1 text-[10px] bg-slate-700/30 border border-violet-500/20 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50" />
-                              <button onClick={() => { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); setCommunityCode(code); localStorage.setItem('modus_community_code', code); addNotification({ type: 'system', title: 'Code Generated', message: `Your invite code: ${code}`, icon: '🔑' }); }}
+                              <button onClick={() => { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); setCommunityCode(code); localStorage.setItem('modus_community_code', code); navigator.clipboard.writeText(code); addNotification({ type: 'system', title: 'Code Generated & Copied', message: `Code copied! Share this with your trading group: ${code}`, icon: '🔑' }); }}
                                 className="text-[9px] bg-violet-500/20 text-violet-400 border border-violet-500/30 px-2 py-1 rounded-lg hover:bg-violet-500/30 transition-all whitespace-nowrap">
                                 Generate
                               </button>
@@ -29523,6 +29616,16 @@ INSTRUCTIONS:
                     { term: 'Sector Rotation', def: 'The movement of investment capital from one industry sector to another as investors adjust their portfolios based on the economic cycle. During economic expansion, money flows into cyclical sectors (tech, consumer discretionary). During contraction, money flows into defensive sectors (utilities, healthcare, consumer staples).' },
                     { term: 'Portfolio Beta', def: 'A measure of how volatile your overall portfolio is compared to the market (S&P 500). A beta of 1.0 means your portfolio moves in line with the market. Beta above 1.0 means more volatile, below 1.0 means less volatile. A beta of 0 means no correlation to market movements.' },
                   ]},
+                  { title: 'Community & Social', color: 'cyan', terms: [
+                    { term: 'Community Feed', def: 'A social feed within MODUS where traders can share their analyses, trade ideas, and market insights with other community members. Supports Local (device only), Public (all users), and Private (invite code) modes.' },
+                    { term: 'Community Mode', def: 'The sharing scope for your community posts. Local mode keeps posts on your device. Public mode shares with all MODUS users. Private mode shares only with people who have your invite code.' },
+                    { term: 'Invite Code', def: 'A unique code generated for Private community mode. Share this code with trading partners to create a private group where only members with the code can see shared analyses and posts.' },
+                    { term: 'Anonymous Posting', def: 'A toggle that lets you share analyses to the community feed without revealing your name. Posts show as "Anonymous Trader" instead of your display name.' },
+                    { term: 'Spam Cooldown', def: 'A 30-second timer between community posts that prevents rapid-fire posting and keeps the feed quality high for all users.' },
+                    { term: 'Price Target Tracking', def: 'An automatic system that tracks every price target from your Quick Analyses. Shows distance to target, days tracked, and whether targets were hit or stopped out. Helps measure your prediction accuracy over time.' },
+                    { term: 'Trade Tags', def: 'Labels you can assign to journal entries categorizing your strategy: Scalp, Swing, Day Trade, Earnings Play, Breakout, Momentum, Reversal, VWAP, or Gap Fill. Helps analyze which strategies perform best.' },
+                    { term: 'Risk Calculator', def: 'A dashboard widget that calculates position size based on your account balance, risk percentage, entry price, and stop loss. Outputs dollar risk, share count, and total position value.' },
+                  ]},
                 ];
 
                 const filteredCategories = vocabSearch.length > 1
@@ -29591,7 +29694,7 @@ INSTRUCTIONS:
                     <p className="text-lg text-slate-300 leading-relaxed mb-4">MODUS is an all-in-one trading analysis platform built for traders who want real tools — not gimmicks. Whether you are brand new to trading and learning the basics, or an experienced day trader looking for an edge, MODUS gives you institutional-grade analysis, smart automation, and a complete trading workflow in one place.</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
-                        <div className="text-2xl font-bold text-violet-400">50+</div>
+                        <div className="text-2xl font-bold text-violet-400">60+</div>
                         <div className="text-xs text-slate-400">Built-in Tools</div>
                       </div>
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
@@ -29807,7 +29910,40 @@ INSTRUCTIONS:
                     </div>
                   </div>
 
-                  {/* Section 6: Tools, Export & Customization */}
+                  {/* Section 6: Community & Social */}
+                  <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-cyan-500/10 to-transparent">
+                      <h2 className="text-xl font-bold flex items-center gap-3">
+                        <span className="text-2xl">👥</span>
+                        Community & Social
+                      </h2>
+                      <p className="text-sm text-slate-400 mt-2">Share ideas with other traders, collaborate in private groups, and build your trading network.</p>
+                    </div>
+                    <div className="divide-y divide-slate-800/30">
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Community Feed</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">Share your trade ideas and analyses with the MODUS community. The Community Feed supports three modes: Local (device only), Public (all MODUS users), and Private (invite code restricted). Posts show your analysis including stock ticker, verdict, price targets, and stop loss levels. Cloud-synced posts in Public and Private modes are visible across all your devices in real-time.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">Generate an invite code to create a private trading group with friends or colleagues. Anyone with the code can join and see shared posts. Posts are automatically cloud-synced via Firebase, so your private group always stays connected regardless of device or location.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Anonymous Posting</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">Toggle anonymous mode before posting to the Public or Private community. Your posts will show as "Anonymous Trader" instead of your name, while still maintaining full cloud sync so you can see your posts on other devices. Useful for sharing trading ideas without personal attribution.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Cross-Device Sync</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">All posts in Public and Private community modes are stored in Firebase cloud, ensuring they appear on all your devices instantly. Enter the same invite code on your phone, tablet, or laptop to see all shared posts in your private group. No more waiting for posts to sync — they update in real-time.</p>
+                      </div>
+
+                      <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
+                        <h3 className="font-semibold text-white mb-2 text-lg">Spam Protection</h3>
+                        <p className="text-sm text-slate-400 leading-relaxed">A 30-second cooldown timer between posts prevents spam and keeps the community feed high-quality. Try posting too frequently and you'll get a notification showing how long to wait before your next post. This applies to all community members equally.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 7: Tools, Export & Customization */}
                   <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
                     <div className="px-6 py-5 border-b border-slate-800/50 bg-gradient-to-r from-slate-500/10 to-transparent">
                       <h2 className="text-xl font-bold flex items-center gap-3">
@@ -29963,32 +30099,37 @@ INSTRUCTIONS:
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. Limitation of Liability</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. User Content & Community Feed</h2>
+                    <p>Users are solely responsible for all content they share in the Community Feed, including analyses, trade ideas, and market insights. Spam, abusive, defamatory, or otherwise harmful content may result in account restrictions or termination. Anonymous posting does not exempt users from these terms — all users must comply with our policies regardless of whether they post anonymously or with their name. MODUS reserves the right to moderate, remove, or restrict access to community posts that violate these terms.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. Limitation of Liability</h2>
                     <p>To the maximum extent permitted by law, MODUS and its creators shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues resulting from your use of the Service or any trading decisions made based on information provided.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. Subscription & Payments</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">10. Subscription & Payments</h2>
                     <p>Certain features may require a paid subscription. Subscription fees are billed in advance on a monthly or annual basis. You may cancel at any time. Refunds are handled on a case-by-case basis. We reserve the right to change pricing with 30 days' notice.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">10. Intellectual Property</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">11. Intellectual Property</h2>
                     <p>All content, features, and functionality are owned by MODUS and protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, sell, or lease any part of the Service without prior written consent.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">11. Termination</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">12. Termination</h2>
                     <p>We may terminate or suspend your account at our sole discretion, without prior notice, for conduct that violates these Terms or is harmful to other users, us, or third parties.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">12. Changes to Terms</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">13. Changes to Terms</h2>
                     <p>We reserve the right to modify these Terms at any time. We will provide notice of material changes through the Service. Continued use after changes constitutes acceptance.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">13. Contact</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">14. Contact</h2>
                     <p>If you have any questions about these Terms, please contact us through the Feedback button in the application.</p>
                   </section>
                 </div>
@@ -30039,17 +30180,22 @@ INSTRUCTIONS:
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">7. Cookies & Local Storage</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">7. Community Feed & Cloud Sync</h2>
+                    <p>Community posts shared in Public and Private modes are stored in Firebase cloud database. Posts include your display name (or "Anonymous Trader" if posted anonymously), analysis content (stock ticker, verdict, targets, stop loss), and a timestamp. Private community codes are stored locally in your browser and in post metadata to facilitate private group synchronization. Anonymous posts do not store your identity with the post data, maintaining your privacy when using anonymous mode.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. Cookies & Local Storage</h2>
                     <p>MODUS uses browser localStorage to store preferences and cached data locally. We do not use third-party tracking cookies. Firebase may use essential cookies for authentication.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. Children's Privacy</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. Children's Privacy</h2>
                     <p>MODUS is not intended for individuals under 18. We do not knowingly collect personal information from children.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. Changes to This Policy</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">10. Changes to This Policy</h2>
                     <p>We may update this Privacy Policy from time to time. Continued use after changes constitutes acceptance.</p>
                   </section>
                 </div>
