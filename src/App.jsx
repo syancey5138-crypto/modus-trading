@@ -3744,19 +3744,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     setVoiceDebugLog(prev => [...prev.slice(-8), `${new Date().toLocaleTimeString()} ${msg}`]);
   }, []);
 
-  // Detect browsers that support Web Speech API
-  // Chrome, Edge, Opera → Chromium-based, share Google's SpeechRecognition backend
-  // Safari 14.1+ → supports webkitSpeechRecognition natively
-  // Firefox, Brave → NOT supported (no backend speech service)
-  const isRealSpeechSupported = useCallback(() => {
-    const ua = navigator.userAgent || '';
-    // All Chromium-based browsers with speech support (Chrome, Edge, Opera)
-    const isChrome = /Chrome\//.test(ua) && !/Brave|Vivaldi/.test(ua);
-    const isEdge = /Edg\//.test(ua);
-    const isOpera = /OPR\//.test(ua) || /Opera/.test(ua);
-    // Safari has its own speech recognition backend since 14.1
-    const isSafari = /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium\//.test(ua);
-    return isChrome || isEdge || isOpera || isSafari;
+  // Check if the browser has the SpeechRecognition API available
+  const hasSpeechAPI = useCallback(() => {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   }, []);
 
   const startVoiceCommand = useCallback(() => {
@@ -3764,14 +3754,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Your browser does not support speech recognition. Please use Google Chrome or Microsoft Edge.', icon: '🎤' });
-      return;
-    }
-
-    // Check for browsers that have the API but don't actually support it
-    if (!isRealSpeechSupported()) {
-      // Show the overlay with text command input instead of blocking entirely
-      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Voice not available in this browser — use text commands below`]);
+      // No speech API at all (Firefox, etc.) — show text command overlay
+      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Voice not available — use text commands below`]);
       setShowVoiceOverlay(true);
       return;
     }
@@ -3909,89 +3893,132 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     let matched = false;
     const act = (msg, fn) => { fn(); addNotification({ type: 'success', title: 'Voice Command', message: msg, icon: '🎤' }); matched = true; };
 
-    // ── Ticker analysis — try multiple patterns to extract a ticker ──
-    const tickerPatterns = [
-      /(?:analyze|analysis|analyse|look at|check|search|pull up|show me|what about|how is|how's|what's)\s+([a-z]{1,5})/i,
-      /([a-z]{1,5})\s+(?:analysis|stock|price|chart|ticker)/i,
-      /^([a-z]{1,5})$/i,  // Just a ticker name by itself
-    ];
-    const nonTickers = new Set(['THE','AND','FOR','THIS','THAT','WITH','FROM','ABOUT','SOME','DARK','LIGHT','HELP','INFO','HOME','OPEN','SHOW','HIDE','STOP','CLOSE','BACK','NEXT','WHAT','NEWS','FEED','MORE','LESS','GO','SET','GET','PUT','NEW','ADD','LOG','ALL','MY']);
+    // ── Company name → ticker symbol mapping ──
+    const companyToTicker = {
+      'tesla': 'TSLA', 'apple': 'AAPL', 'amazon': 'AMZN', 'google': 'GOOGL', 'alphabet': 'GOOGL',
+      'microsoft': 'MSFT', 'meta': 'META', 'facebook': 'META', 'netflix': 'NFLX', 'nvidia': 'NVDA',
+      'amd': 'AMD', 'intel': 'INTC', 'ford': 'F', 'general motors': 'GM', 'gm': 'GM',
+      'disney': 'DIS', 'walmart': 'WMT', 'target': 'TGT', 'costco': 'COST', 'starbucks': 'SBUX',
+      'boeing': 'BA', 'coca cola': 'KO', 'coca-cola': 'KO', 'coke': 'KO', 'pepsi': 'PEP', 'pepsico': 'PEP',
+      'jpmorgan': 'JPM', 'jp morgan': 'JPM', 'chase': 'JPM', 'goldman': 'GS', 'goldman sachs': 'GS',
+      'bank of america': 'BAC', 'wells fargo': 'WFC', 'citigroup': 'C', 'citi': 'C',
+      'paypal': 'PYPL', 'square': 'SQ', 'block': 'SQ', 'shopify': 'SHOP', 'spotify': 'SPOT',
+      'uber': 'UBER', 'lyft': 'LYFT', 'airbnb': 'ABNB', 'snap': 'SNAP', 'snapchat': 'SNAP',
+      'twitter': 'X', 'palantir': 'PLTR', 'snowflake': 'SNOW', 'crowdstrike': 'CRWD',
+      'salesforce': 'CRM', 'adobe': 'ADBE', 'zoom': 'ZM', 'roku': 'ROKU', 'pinterest': 'PINS',
+      'draftkings': 'DKNG', 'roblox': 'RBLX', 'rivian': 'RIVN', 'lucid': 'LCID',
+      'nio': 'NIO', 'sofi': 'SOFI', 'robinhood': 'HOOD', 'coinbase': 'COIN',
+      'berkshire': 'BRK.B', 'berkshire hathaway': 'BRK.B', 'johnson': 'JNJ', 'johnson and johnson': 'JNJ',
+      'procter': 'PG', 'procter and gamble': 'PG', 'exxon': 'XOM', 'chevron': 'CVX',
+      'home depot': 'HD', 'lowes': 'LOW', "lowe's": 'LOW', 'nike': 'NKE', 'adidas': 'ADDYY',
+      'visa': 'V', 'mastercard': 'MA', 'american express': 'AXP', 'amex': 'AXP',
+      'ups': 'UPS', 'fedex': 'FDX', 'dell': 'DELL', 'ibm': 'IBM', 'oracle': 'ORCL',
+      'cisco': 'CSCO', 'qualcomm': 'QCOM', 'broadcom': 'AVGO', 'micron': 'MU',
+      'moderna': 'MRNA', 'pfizer': 'PFE', 'eli lilly': 'LLY', 'lilly': 'LLY',
+      'united health': 'UNH', 'unitedhealth': 'UNH', 'abbvie': 'ABBV',
+      'at&t': 'T', 'att': 'T', 'verizon': 'VZ', 't-mobile': 'TMUS', 'tmobile': 'TMUS',
+      'gamestop': 'GME', 'game stop': 'GME', 'amc': 'AMC',
+      'arm': 'ARM', 'super micro': 'SMCI', 'supermicro': 'SMCI',
+      'advanced micro': 'AMD', 'advanced micro devices': 'AMD',
+    };
 
-    for (const pattern of tickerPatterns) {
-      if (matched) break;
-      const tickerMatch = c.match(pattern);
-      if (tickerMatch && !c.includes('dashboard') && !c.includes('journal') && !c.includes('mode') && !c.includes('theme')) {
-        const ticker = tickerMatch[1].toUpperCase();
-        if (!nonTickers.has(ticker) && ticker.length >= 1) {
-          act(`Analyzing ${ticker}`, () => { setQuickAnalysisTicker(ticker); setActiveTab('quickanalysis'); });
-        }
+    // Helper: resolve a spoken word to a ticker (company name or raw ticker)
+    const resolveToTicker = (word) => {
+      if (!word) return null;
+      const w = word.toLowerCase().trim();
+      // Check company name map first
+      if (companyToTicker[w]) return companyToTicker[w];
+      // Check for multi-word company names in the full command
+      for (const [name, sym] of Object.entries(companyToTicker)) {
+        if (name.includes(' ') && c.includes(name)) return sym;
+      }
+      // Fall back to treating as a raw ticker if 1-5 alpha chars
+      if (/^[a-z]{1,5}$/i.test(w)) return w.toUpperCase();
+      return null;
+    };
+
+    // ── STEP 1: Navigation & action commands FIRST (before ticker extraction) ──
+    // This prevents "live ticker" from being parsed as ticker "LIVE"
+    const navCommands = [
+      // Multi-word phrases must come before single-word matches
+      { match: () => c.includes('live ticker') || c.includes('stock chart') || c.includes('candlestick') || c.includes('candle chart'), msg: 'Opening Live Ticker', fn: () => setActiveTab('liveticker') },
+      { match: () => c.includes('quick analysis'), msg: 'Opening Quick Analysis', fn: () => setActiveTab('quickanalysis') },
+      { match: () => c.includes('paper trad') || c.includes('paper trade') || c.includes('simulator') || c.includes('practice'), msg: 'Opening Paper Trading', fn: () => setActiveTab('papertrading') },
+      { match: () => c.includes('trade log') || c.includes('my trades') || c.includes('trade journal'), msg: 'Navigating to Journal', fn: () => setActiveTab('journal') },
+      { match: () => c.includes('market news'), msg: 'Opening News', fn: () => setActiveTab('news') },
+      { match: () => c.includes('market summary') || c.includes('morning briefing') || c.includes('ai briefing') || c.includes('market briefing'), msg: 'Opening AI Briefing', fn: () => setActiveTab('briefing') },
+      { match: () => c.includes('sector rotation'), msg: 'Opening Sectors', fn: () => setActiveTab('sectors') },
+      { match: () => c.includes('options chain'), msg: 'Opening Options', fn: () => setActiveTab('options') },
+      { match: () => c.includes('position sizer'), msg: 'Opening Position Sizer', fn: () => setShowPositionSizer(true) },
+      { match: () => c.includes('theme builder') || c.includes('custom theme'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
+      { match: () => c.includes('dark mode') || c.includes('dark theme') || c.includes('go dark'), msg: 'Switched to Dark theme', fn: () => setThemeMode('dark') },
+      { match: () => c.includes('light mode') || c.includes('light theme') || c.includes('go light') || c.includes('bright mode'), msg: 'Switched to Light theme', fn: () => setThemeMode('light') },
+      { match: () => c.includes('midnight') || c.includes('default theme'), msg: 'Switched to Midnight theme', fn: () => setThemeMode('midnight') },
+      { match: () => c.includes('new trade') || c.includes('add trade') || c.includes('log trade') || c.includes('enter trade') || c.includes('record trade'), msg: 'Opening Quick Trade Entry', fn: () => setShowQuickTradeEntry(true) },
+      { match: () => c.includes("what's new") || c.includes('changelog') || c.includes('change log') || c.includes('whats new'), msg: 'Showing Changelog', fn: () => setShowChangelog(true) },
+      // Single-word nav commands
+      { match: () => c.includes('dashboard') || c.includes('home') || c.includes('main page') || c.includes('main screen'), msg: 'Navigating to Dashboard', fn: () => setActiveTab('dashboard') },
+      { match: () => c.includes('journal'), msg: 'Navigating to Journal', fn: () => setActiveTab('journal') },
+      { match: () => c.includes('portfolio') || c.includes('my stocks') || c.includes('holdings') || c.includes('positions'), msg: 'Navigating to Portfolio', fn: () => setActiveTab('portfolio') },
+      { match: () => c.includes('screener') || c.includes('scanner'), msg: 'Opening Screener', fn: () => setActiveTab('screener') },
+      { match: () => c.includes('news') || c.includes('headlines'), msg: 'Opening News', fn: () => setActiveTab('news') },
+      { match: () => c.includes('performance') || c.includes('stats') || c.includes('statistics'), msg: 'Opening Performance', fn: () => setActiveTab('performance') },
+      { match: () => c.includes('community') || c.includes('social'), msg: 'Opening Community', fn: () => setActiveTab('community') },
+      { match: () => c.includes('briefing'), msg: 'Opening AI Briefing', fn: () => setActiveTab('briefing') },
+      { match: () => c.includes('pricing') || c.includes('plans') || c.includes('subscription') || c.includes('upgrade') || c.includes('premium'), msg: 'Opening Pricing', fn: () => setActiveTab('pricing') },
+      { match: () => c.includes('option') || c.includes('greeks'), msg: 'Opening Options', fn: () => setActiveTab('options') },
+      { match: () => c.includes('crypto') || c.includes('bitcoin') || c.includes('ethereum') || c.includes('cryptocurrency'), msg: 'Opening Crypto', fn: () => setActiveTab('crypto') },
+      { match: () => c.includes('sector'), msg: 'Opening Sectors', fn: () => setActiveTab('sectors') },
+      { match: () => c.includes('watchlist') || c.includes('watch list') || c.includes('my watch'), msg: 'Opening Watchlist', fn: () => setActiveTab('watchlist') },
+      { match: () => c.includes('setting') || c.includes('api key') || c.includes('config'), msg: 'Opening Settings', fn: () => setShowApiKeyModal(true) },
+      { match: () => c.includes('info') || c.includes('help') || c.includes('guide') || c.includes('tutorial'), msg: 'Opening Info & Help', fn: () => setActiveTab('info') },
+      { match: () => c.includes('shortcut') || c.includes('keyboard') || c.includes('hotkey'), msg: 'Showing Keyboard Shortcuts', fn: () => setShowShortcutsOverlay(true) },
+      { match: () => c.includes('alert') || c.includes('notification'), msg: 'Opening Alerts', fn: () => setShowNotificationCenter(true) },
+      { match: () => c.includes('customize'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
+    ];
+
+    for (const nav of navCommands) {
+      if (nav.match()) {
+        act(nav.msg, nav.fn);
+        break;
       }
     }
 
+    // ── STEP 2: If no nav command matched, try ticker/company analysis ──
     if (!matched) {
-      // ── Navigation commands — flexible matching ──
-      if (c.includes('dashboard') || c.includes('home') || c.includes('main page') || c.includes('main screen')) {
-        act('Navigating to Dashboard', () => setActiveTab('dashboard'));
-      } else if (c.includes('journal') || c.includes('trade log') || c.includes('my trades') || c.includes('trade journal')) {
-        act('Navigating to Journal', () => setActiveTab('journal'));
-      } else if (c.includes('quick analysis') || (c.includes('analysis') && !c.match(/[a-z]{1,5}\s+analysis/i))) {
-        act('Opening Quick Analysis', () => setActiveTab('quickanalysis'));
-      } else if (c.includes('portfolio') || c.includes('my stocks') || c.includes('holdings') || c.includes('positions')) {
-        act('Navigating to Portfolio', () => setActiveTab('portfolio'));
-      } else if (c.includes('screener') || c.includes('scanner') || c.includes('stock screen') || c.includes('scan')) {
-        act('Opening Screener', () => setActiveTab('screener'));
-      } else if (c.includes('paper trad') || c.includes('simulator') || c.includes('practice') || c.includes('paper trade')) {
-        act('Opening Paper Trading', () => setActiveTab('papertrading'));
-      } else if (c.includes('news') || c.includes('headlines') || c.includes('market news')) {
-        act('Opening News', () => setActiveTab('news'));
-      } else if (c.includes('performance') || c.includes('stats') || c.includes('statistics') || c.includes('my performance')) {
-        act('Opening Performance', () => setActiveTab('performance'));
-      } else if (c.includes('community') || c.includes('feed') || c.includes('social')) {
-        act('Opening Community', () => setActiveTab('community'));
-      } else if (c.includes('info') || c.includes('help') || c.includes('guide') || c.includes('tutorial')) {
-        act('Opening Info & Help', () => setActiveTab('info'));
-      } else if (c.includes('live ticker') || c.includes('ticker') || c.includes('chart') || c.includes('candle') || c.includes('stock chart') || c.includes('candlestick')) {
-        act('Opening Live Ticker', () => setActiveTab('liveticker'));
-      } else if (c.includes('watchlist') || c.includes('watch list') || c.includes('my watch') || c.includes('watch')) {
-        act('Opening Watchlist', () => setActiveTab('watchlist'));
-      } else if (c.includes('briefing') || c.includes('morning briefing') || c.includes('ai briefing') || c.includes('market briefing') || c.includes('market summary')) {
-        act('Opening AI Briefing', () => setActiveTab('briefing'));
-      } else if (c.includes('pricing') || c.includes('plans') || c.includes('subscription') || c.includes('upgrade') || c.includes('pro max') || c.includes('premium')) {
-        act('Opening Pricing', () => setActiveTab('pricing'));
-      } else if (c.includes('option') || c.includes('options chain') || c.includes('greeks')) {
-        act('Opening Options', () => setActiveTab('options'));
-      } else if (c.includes('crypto') || c.includes('bitcoin') || c.includes('ethereum') || c.includes('cryptocurrency')) {
-        act('Opening Crypto', () => setActiveTab('crypto'));
-      } else if (c.includes('sector') || c.includes('sectors') || c.includes('sector rotation')) {
-        act('Opening Sectors', () => setActiveTab('sectors'));
-      } else if (c.includes('setting') || c.includes('api key') || c.includes('config')) {
-        act('Opening Settings', () => setShowApiKeyModal(true));
+      // Patterns to extract the subject of an analysis command
+      const analysisPatterns = [
+        /(?:analyze|analysis|analyse|look at|check|search|pull up|show me|what about|how is|how's|what's|look up|run)\s+(.+)/i,
+        /(.+)\s+(?:analysis|stock|price|chart)/i,
+      ];
+
+      let ticker = null;
+      // Try analysis patterns first
+      for (const pattern of analysisPatterns) {
+        const m = c.match(pattern);
+        if (m) {
+          const subject = m[1].trim();
+          ticker = resolveToTicker(subject);
+          if (ticker) break;
+        }
       }
-      // ── Theme commands ──
-      else if (c.includes('dark mode') || c.includes('dark theme') || c.includes('go dark')) {
-        act('Switched to Dark theme', () => setThemeMode('dark'));
-      } else if (c.includes('light mode') || c.includes('light theme') || c.includes('go light') || c.includes('bright')) {
-        act('Switched to Light theme', () => setThemeMode('light'));
-      } else if (c.includes('midnight') || c.includes('default theme') || c.includes('purple')) {
-        act('Switched to Midnight theme', () => setThemeMode('midnight'));
+      // If nothing matched, try the whole command as a ticker/company name
+      if (!ticker) {
+        ticker = resolveToTicker(c);
+        // Filter out common non-ticker words
+        const nonTickers = new Set(['THE','AND','FOR','THIS','THAT','WITH','FROM','ABOUT','SOME','DARK','LIGHT','HELP','INFO','HOME','OPEN','SHOW','HIDE','STOP','CLOSE','BACK','NEXT','WHAT','NEWS','FEED','MORE','LESS','GO','SET','GET','PUT','NEW','ADD','LOG','ALL','MY','CANCEL','QUIT','EXIT','YES','NO','OK','OKAY','PLEASE','THANKS','HI','HEY','HELLO']);
+        if (ticker && nonTickers.has(ticker)) ticker = null;
       }
-      // ── Action commands ──
-      else if (c.includes('new trade') || c.includes('add trade') || c.includes('log trade') || c.includes('enter trade') || c.includes('record trade')) {
-        act('Opening Quick Trade Entry', () => setShowQuickTradeEntry(true));
-      } else if (c.includes('shortcut') || c.includes('keyboard') || c.includes('hotkey')) {
-        act('Showing Keyboard Shortcuts', () => setShowShortcutsOverlay(true));
-      } else if (c.includes('what\'s new') || c.includes('changelog') || c.includes('updates') || c.includes('change log') || c.includes('whats new')) {
-        act('Showing Changelog', () => setShowChangelog(true));
-      } else if (c.includes('theme builder') || c.includes('customize') || c.includes('custom theme')) {
-        act('Opening Theme Builder', () => setShowThemeBuilder(true));
-      } else if (c.includes('alert') || c.includes('notification') || c.includes('notifications')) {
-        act('Opening Alerts', () => { setShowNotificationCenter(true); });
-      } else if (c.includes('position sizer') || c.includes('size') || c.includes('calculator')) {
-        act('Opening Position Sizer', () => setShowPositionSizer(true));
-      }
-      // ── Didn't match anything ──
-      else {
-        addNotification({ type: 'system', title: 'Voice Command', message: `Didn't recognize: "${cmd}". Try "analyze AAPL", "go to dashboard", or "open live ticker"`, icon: '🎤' });
+
+      if (ticker) {
+        act(`Analyzing ${ticker}`, () => {
+          setQuickAnalysisTicker(ticker);
+          setActiveTab('quickanalysis');
+          // Auto-run the analysis after a short delay to let the tab render
+          setTimeout(() => runQuickAnalysis(ticker), 300);
+        });
+      } else {
+        addNotification({ type: 'system', title: 'Voice Command', message: `Didn't recognize: "${cmd}". Try "check Tesla", "go to dashboard", or "live ticker"`, icon: '🎤' });
       }
     }
   }, []);
@@ -15277,6 +15304,19 @@ INSTRUCTIONS:
 
                 {/* Changelog rendered as a centered modal below */}
               </div>
+
+              {/* Voice Command Button — global access */}
+              <button
+                onClick={voiceListening ? stopVoiceCommand : startVoiceCommand}
+                title={voiceListening ? "Stop listening" : "Voice / Text Commands"}
+                className={`p-2 rounded-lg transition-all border ${
+                  voiceListening
+                    ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse'
+                    : 'bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              </button>
 
               <button
                 onClick={() => setShowApiKeyModal(true)}
@@ -33687,7 +33727,7 @@ INSTRUCTIONS:
             {/* Mic / Command icon animation */}
             <div className={`w-28 h-28 mx-auto mb-6 rounded-full flex items-center justify-center transition-all duration-300 ${voiceListening ? 'bg-red-500/25 shadow-[0_0_60px_rgba(239,68,68,0.3)]' : 'bg-violet-500/25 shadow-[0_0_60px_rgba(139,92,246,0.3)]'}`}>
               <div className={`w-20 h-20 rounded-full flex items-center justify-center ${voiceListening ? 'bg-red-500/30 animate-pulse' : 'bg-violet-500/30'}`}>
-                {isRealSpeechSupported() ? (
+                {hasSpeechAPI() ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
@@ -33696,21 +33736,21 @@ INSTRUCTIONS:
             </div>
 
             <h2 className="text-2xl font-bold text-white mb-1">
-              {voiceListening ? 'Listening...' : isRealSpeechSupported() ? 'Processing...' : 'Command Center'}
+              {voiceListening ? 'Listening...' : hasSpeechAPI() ? 'Processing...' : 'Command Center'}
             </h2>
             <p className="text-sm text-slate-400 mb-1">
-              {isRealSpeechSupported()
+              {hasSpeechAPI()
                 ? 'Speak a command clearly — try "go to dashboard" or "analyze AAPL"'
                 : 'Type a command below — try "dashboard" or "analyze AAPL"'}
             </p>
             <p className="text-[10px] text-slate-600 mb-4">
-              {isRealSpeechSupported() ? 'Voice: Chrome, Edge, Opera, Safari' : 'Voice requires Chrome, Edge, Opera, or Safari — text input available for all browsers'}
+              {hasSpeechAPI() ? 'Voice supported in this browser — or type a command below' : 'Voice not available — type commands below'}
             </p>
 
             {/* Text command input — always shown for unsupported browsers, available as fallback for supported ones */}
             <div className="bg-slate-800/60 border border-violet-500/30 rounded-xl px-4 py-3 mb-4 mx-auto max-w-sm">
               <p className="text-[10px] text-violet-400 uppercase tracking-wider mb-2 font-bold">
-                {isRealSpeechSupported() ? 'Or type a command:' : 'Type a command:'}
+                {hasSpeechAPI() ? 'Or type a command:' : 'Type a command:'}
               </p>
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -33728,7 +33768,7 @@ INSTRUCTIONS:
                   name="voiceTextInput"
                   type="text"
                   placeholder='e.g. "dashboard", "analyze AAPL", "dark mode"'
-                  autoFocus={!isRealSpeechSupported()}
+                  autoFocus={!hasSpeechAPI()}
                   className="flex-1 bg-slate-900/80 border border-slate-600/40 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none"
                   onClick={e => e.stopPropagation()}
                 />
@@ -33768,8 +33808,8 @@ INSTRUCTIONS:
             {/* Command examples grid */}
             <div className="grid grid-cols-2 gap-2 mb-4 text-left max-w-md mx-auto">
               {[
-                { cat: 'Navigate', cmds: '"Dashboard" · "Live ticker" · "Watchlist" · "Briefing"' },
-                { cat: 'Analyze', cmds: '"Analyze AAPL" · "Check TSLA" · "NVDA" · "How\'s MSFT"' },
+                { cat: 'Navigate', cmds: '"Dashboard" · "Live ticker" · "Watchlist" · "Briefing" · "News"' },
+                { cat: 'Analyze', cmds: '"Check Tesla" · "Analyze Apple" · "NVDA" · "How\'s Ford"' },
                 { cat: 'Theme', cmds: '"Dark mode" · "Light theme" · "Midnight"' },
                 { cat: 'Actions', cmds: '"New trade" · "Position sizer" · "Options" · "Crypto"' },
               ].map(g => (
