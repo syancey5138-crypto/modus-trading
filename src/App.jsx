@@ -2783,9 +2783,6 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [infoSubTab, setInfoSubTab] = useState('features'); // Inline Info tab sub-navigation
   const [vocabSearch, setVocabSearch] = useState(''); // Vocabulary search
 
-  // NEW: Keyboard Shortcuts
-  const [showShortcuts, setShowShortcuts] = useState(false);
-
   // Voice Commands
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState('');
@@ -3744,21 +3741,28 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     setVoiceDebugLog(prev => [...prev.slice(-8), `${new Date().toLocaleTimeString()} ${msg}`]);
   }, []);
 
-  // Check if the browser has the SpeechRecognition API available
+  // Check if the browser truly supports voice recognition
+  // Opera has the SpeechRecognition constructor but doesn't connect to Google's speech servers
   const hasSpeechAPI = useCallback(() => {
-    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return false;
+    // Opera exposes the API but it silently fails — detect and exclude it
+    const ua = navigator.userAgent || '';
+    if (/OPR\//.test(ua) || /Opera/.test(ua)) return false;
+    return true;
   }, []);
 
   const startVoiceCommand = useCallback(() => {
     if (voiceListening) return;
 
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      // No speech API at all (Firefox, etc.) — show text command overlay
-      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Voice not available — use text commands below`]);
+    // If no real speech support (Firefox, Opera, etc.) — show text command overlay
+    if (!hasSpeechAPI()) {
+      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Voice not available in this browser — type commands below`]);
       setShowVoiceOverlay(true);
       return;
     }
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     // Create a FRESH recognition instance every time (avoids stale state/closure bugs)
     const recognition = new SR();
@@ -10109,12 +10113,7 @@ INSTRUCTIONS:
         if (showNotificationCenter) setShowNotificationCenter(false);
         else if (showShareModal) setShowShareModal(false);
         else if (showInfoPage) setShowInfoPage(null);
-        else if (showShortcuts) setShowShortcuts(false);
-      }
-
-      // ?: Show keyboard shortcuts
-      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-        setShowShortcuts(prev => !prev);
+        else if (showShortcutsOverlay) setShowShortcutsOverlay(false);
       }
 
       // Number keys 1-9 for quick tab switching
@@ -10155,7 +10154,7 @@ INSTRUCTIONS:
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showNotificationCenter, showShareModal, showInfoPage, showShortcuts, voiceSupported, startVoiceCommand]);
+  }, [showNotificationCenter, showShareModal, showInfoPage, showShortcutsOverlay, voiceSupported, startVoiceCommand]);
 
   // Request notification permission on first load
   useEffect(() => {
@@ -14096,41 +14095,6 @@ INSTRUCTIONS:
       )}
 
       {/* KEYBOARD SHORTCUTS MODAL */}
-      {showShortcuts && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowShortcuts(false)}>
-          <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <span className="text-slate-500 font-mono text-sm bg-slate-800 px-2 py-0.5 rounded">⌨</span>
-                Keyboard Shortcuts
-              </h3>
-              <button onClick={() => setShowShortcuts(false)} className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors">
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
-            </div>
-            <div className="space-y-1">
-              {[
-                { keys: '1-9', desc: 'Switch tabs (Ticker, Analyze, Alerts...)' },
-                { keys: isMac ? '⌘K' : 'Ctrl+K', desc: 'Quick search / Go to Ticker' },
-                { keys: isMac ? '⌘E' : 'Ctrl+E', desc: 'Export analysis as PDF' },
-                { keys: isMac ? '⌘⇧S' : 'Ctrl+Shift+S', desc: 'Share analysis' },
-                { keys: isMac ? '⌘B' : 'Ctrl+B', desc: 'Toggle sidebar' },
-                { keys: isMac ? '⌘,' : 'Ctrl+,', desc: 'Open settings' },
-                { keys: '?', desc: 'Toggle this shortcuts panel' },
-                { keys: 'Esc', desc: 'Close current modal or panel' },
-                { keys: isMac ? '⌥N' : 'Alt+N', desc: 'Go to Trading Journal' },
-                { keys: isMac ? '⌥A' : 'Alt+A', desc: 'Go to Watchlist' },
-              ].map((shortcut, i) => (
-                <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-800/50">
-                  <span className="text-sm text-slate-300">{shortcut.desc}</span>
-                  <kbd className="font-mono text-xs bg-slate-800 border border-slate-700 text-slate-400 px-2 py-1 rounded">{shortcut.keys}</kbd>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-slate-600 mt-4 text-center">{isMac ? '⌘ = Command, ⌥ = Option, ⇧ = Shift' : 'Shortcuts are disabled while typing in text fields'}</p>
-          </div>
-        </div>
-      )}
 
       {/* LANDING PAGE */}
       {showLandingPage && (
@@ -33676,12 +33640,12 @@ INSTRUCTIONS:
         </div>
       )}
 
-      {/* Keyboard Shortcuts Overlay */}
+      {/* Keyboard Shortcuts Overlay — unified */}
       {showShortcutsOverlay && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn" onClick={() => setShowShortcutsOverlay(false)}>
           <div className="bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-bold flex items-center gap-2"><Command className="w-5 h-5 text-violet-400" /> Keyboard Shortcuts</h2>
                 <button onClick={() => setShowShortcutsOverlay(false)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
               </div>
@@ -33691,30 +33655,40 @@ INSTRUCTIONS:
                     { key: 'd', desc: 'Go to Dashboard' },
                     { key: 'j', desc: 'Go to Journal' },
                     { key: 'q', desc: 'Go to Quick Analysis' },
+                    { key: '1-9', desc: 'Switch tabs by number' },
                   ]},
-                  { category: 'Dashboard', shortcuts: [
-                    { key: 't', desc: 'Cycle themes (Midnight → Dark → Light)' },
+                  { category: 'Analysis & Search', shortcuts: [
                     { key: '/', desc: 'Focus Quick Analyze bar' },
+                    { key: isMac ? '⌘K' : 'Ctrl+K', desc: 'Quick search / Go to Ticker' },
+                    { key: isMac ? '⌘E' : 'Ctrl+E', desc: 'Export analysis as PDF' },
+                    { key: isMac ? '⌘⇧S' : 'Ctrl+Shift+S', desc: 'Share analysis' },
                   ]},
                   { category: 'Actions', shortcuts: [
                     { key: 'n', desc: 'Quick Trade Entry' },
-                    { key: 'v', desc: 'Voice Command' },
-                    { key: '?', desc: 'Show this shortcuts overlay' },
+                    { key: 'v', desc: 'Voice / Text Commands' },
+                    { key: 't', desc: 'Cycle themes (Midnight → Dark → Light)' },
+                    { key: isMac ? '⌘B' : 'Ctrl+B', desc: 'Toggle sidebar' },
+                    { key: isMac ? '⌘,' : 'Ctrl+,', desc: 'Open Settings' },
+                  ]},
+                  { category: 'General', shortcuts: [
+                    { key: '?', desc: 'Show / hide this panel' },
+                    { key: 'Esc', desc: 'Close current modal or panel' },
                   ]},
                 ].map(group => (
                   <div key={group.category}>
                     <h3 className="text-xs font-bold text-violet-400 uppercase tracking-wider mb-2">{group.category}</h3>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       {group.shortcuts.map(s => (
                         <div key={s.key} className="flex items-center justify-between py-1.5 px-3 rounded-lg hover:bg-slate-800/50">
                           <span className="text-sm text-slate-300">{s.desc}</span>
-                          <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-600 rounded text-xs font-mono text-violet-300">{s.key}</kbd>
+                          <kbd className="px-2 py-0.5 bg-slate-800 border border-slate-600 rounded text-xs font-mono text-violet-300 whitespace-nowrap">{s.key}</kbd>
                         </div>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
+              <p className="text-[10px] text-slate-600 mt-4 text-center">{isMac ? '⌘ = Command · ⌥ = Option · ⇧ = Shift' : 'Shortcuts are disabled while typing in text fields'}</p>
             </div>
           </div>
         </div>
