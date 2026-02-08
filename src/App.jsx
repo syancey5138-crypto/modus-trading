@@ -14,6 +14,101 @@ import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarCha
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
+// ═══════════════════════════════════════════════
+// PRICING TIER DEFINITIONS (v3.1.0)
+// ═══════════════════════════════════════════════
+const PLAN_TIERS = {
+  free: {
+    name: 'Standard',
+    price: 0,
+    priceLabel: 'Free',
+    color: 'slate',
+    badge: '🆓',
+    tagline: 'Get started with essential trading tools',
+    features: [
+      'Dashboard with 10+ widgets',
+      'Quick Analysis (5/day)',
+      'Trading Journal',
+      'Watchlist (20 symbols)',
+      'Community Feed (read)',
+      'Market Overview',
+      '3 built-in themes',
+      'Basic keyboard shortcuts',
+    ],
+    limits: { analysisPerDay: 5, watchlistMax: 20, customThemes: 0 }
+  },
+  plus: {
+    name: 'Plus',
+    price: 9.99,
+    priceLabel: '$9.99/mo',
+    color: 'blue',
+    badge: '⚡',
+    popular: false,
+    tagline: 'More power for active traders',
+    features: [
+      'Everything in Standard',
+      'Unlimited Quick Analysis',
+      'AI Morning Briefing',
+      'Paper Trading Simulator',
+      'Voice Commands',
+      'Custom Theme Builder',
+      'Full Community Feed (post & read)',
+      'Export trades to CSV',
+      'Notification Center',
+      'Position Sizer (full)',
+    ],
+    limits: { analysisPerDay: Infinity, watchlistMax: 100, customThemes: 5 }
+  },
+  pro: {
+    name: 'Pro',
+    price: 24.99,
+    priceLabel: '$24.99/mo',
+    color: 'violet',
+    badge: '🚀',
+    popular: true,
+    tagline: 'Professional tools for serious traders',
+    features: [
+      'Everything in Plus',
+      'Sector Rotation (live)',
+      'Sector Breadth (live)',
+      'Crypto Prices (live)',
+      'Trade Plan Enforcement',
+      'XP & Gamification',
+      'Portfolio Heat Map',
+      'Performance Analytics',
+      'Detailed Analysis Mode',
+      'Chart Drawing on Live Ticker',
+      'Options Chain',
+      'Screener Presets',
+      'Alert Backtesting',
+    ],
+    limits: { analysisPerDay: Infinity, watchlistMax: 500, customThemes: 20 }
+  },
+  promax: {
+    name: 'Pro Max',
+    price: 49.99,
+    priceLabel: '$49.99/mo',
+    color: 'amber',
+    badge: '👑',
+    popular: false,
+    tagline: 'The ultimate trading command center',
+    features: [
+      'Everything in Pro',
+      'Multi-Timeframe View',
+      'Real-Time Collaboration (coming soon)',
+      'Brokerage Integration (coming soon)',
+      'Priority API access',
+      'Unlimited custom themes',
+      'Advanced Screener Filters',
+      'Trade Correlation Matrix',
+      'Market Breadth Advanced',
+      'Priority support',
+      'Early access to new features',
+    ],
+    limits: { analysisPerDay: Infinity, watchlistMax: Infinity, customThemes: Infinity }
+  }
+};
+
 function App() {
   // Inject global CSS for smooth animations and polished UI
   useEffect(() => {
@@ -1980,6 +2075,23 @@ function App() {
       const prevClose = meta.chartPreviousClose || closes[closes.length - 2] || currentPrice;
       const dayChange = currentPrice && prevClose ? ((currentPrice - prevClose) / prevClose * 100).toFixed(2) : '0';
 
+      // CRITICAL: If price is $0, don't generate a misleading analysis
+      if (!currentPrice || currentPrice <= 0) {
+        setQuickAnalysisLoading(false);
+        setQuickAnalysisResult({
+          ticker: sym,
+          verdict: 'HOLD',
+          confidence: 0,
+          currentPrice: 0,
+          error: true,
+          message: `Could not fetch live price data for ${sym}. This may be an invalid ticker, a delisted stock, or a temporary data outage. Please verify the symbol and try again.`,
+          targetPrice: null,
+          stopLoss: null,
+          summary: `Unable to analyze ${sym} — no price data available from any data source. Check that "${sym}" is a valid, actively-traded ticker symbol.`
+        });
+        return;
+      }
+
       // Calculate key technicals
       const sma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : null;
       const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : null;
@@ -2625,10 +2737,20 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [drawingColor, setDrawingColor] = useState('#8b5cf6');
   const drawingCanvasRef = useRef(null);
 
+  // NEW: Pricing Tier System (v3.1.0)
+  const [userPlan, setUserPlan] = useState(() => {
+    try { return localStorage.getItem('modus_plan') || 'free'; } catch { return 'free'; }
+  });
+
   // Persist drawings
   useEffect(() => {
     localStorage.setItem('modus_drawings', JSON.stringify(drawings));
   }, [drawings]);
+
+  // Persist user plan
+  useEffect(() => {
+    try { localStorage.setItem('modus_plan', userPlan); } catch {}
+  }, [userPlan]);
 
   const addDrawing = useCallback((type, data) => {
     const ticker = tickerSymbol || 'default';
@@ -3616,16 +3738,22 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     if (SpeechRecognition) {
       setVoiceSupported(true);
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
+      recognition.maxAlternatives = 3;
 
       recognition.onresult = (event) => {
-        const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+        // Get the latest result (continuous mode produces multiple results)
+        const lastResult = event.results[event.results.length - 1];
+        const transcript = lastResult[0].transcript;
+        const confidence = lastResult[0].confidence;
         setVoiceTranscript(transcript);
 
-        if (event.results[0].isFinal) {
+        if (lastResult.isFinal && confidence > 0.3) {
           processVoiceCommand(transcript.toLowerCase().trim());
+          // Stop listening after a successful command
+          try { recognition.stop(); } catch {}
           setTimeout(() => { setVoiceListening(false); setShowVoiceOverlay(false); }, 1500);
         }
       };
@@ -3690,13 +3818,19 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       setVoiceListening(true);
       setShowVoiceOverlay(true);
       voiceRecognitionRef.current.start();
+      // Auto-stop after 10 seconds if no command matched
+      setTimeout(() => {
+        if (voiceRecognitionRef.current) {
+          try { voiceRecognitionRef.current.stop(); } catch {}
+        }
+      }, 10000);
     } catch (err) {
       setVoiceListening(false);
       setShowVoiceOverlay(false);
       addNotification({
         type: 'system',
         title: 'Voice Error',
-        message: err.message?.includes('already started') ? 'Voice is already listening.' : 'Could not start voice recognition: ' + (err.message || 'Unknown error'),
+        message: err.message?.includes('already started') ? 'Voice is already listening — speak your command.' : 'Could not start voice recognition: ' + (err.message || 'Unknown error'),
         icon: '🎤'
       });
     }
@@ -14900,6 +15034,24 @@ INSTRUCTIONS:
             )}
 
             <button
+              onClick={() => setActiveTab("pricing")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
+                activeTab === "pricing"
+                  ? "bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-500/25"
+                  : "text-slate-400 hover:bg-slate-800/70 hover:text-white"
+              }`}
+              title={sidebarCollapsed ? "Pricing" : ""}
+            >
+              <Zap className="w-5 h-5 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <span className="font-medium flex items-center gap-2">
+                  Pricing
+                  <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold">NEW</span>
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => { setActiveTab("info"); setInfoSubTab('features'); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
                 activeTab === "info"
@@ -15112,7 +15264,15 @@ INSTRUCTIONS:
                               {userProfile?.displayName?.[0]?.toUpperCase() || currentUser.email?.[0]?.toUpperCase() || 'U'}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-sm">{userProfile?.displayName || 'User'}</p>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                                  userPlan === 'promax' ? 'bg-amber-500/20 text-amber-400' :
+                                  userPlan === 'pro' ? 'bg-violet-500/20 text-violet-400' :
+                                  userPlan === 'plus' ? 'bg-blue-500/20 text-blue-400' :
+                                  'bg-slate-500/20 text-slate-400'
+                                }`}>{PLAN_TIERS[userPlan]?.name || 'Free'}</span>
+                              </div>
                               <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
                             </div>
                           </div>
@@ -30776,6 +30936,173 @@ INSTRUCTIONS:
             </div>
           </div>
         </footer>
+
+        {/* ============ PRICING TAB ============ */}
+        {activeTab === 'pricing' && (
+          <div className="max-w-7xl mx-auto p-6 animate-fadeIn">
+            {/* Header */}
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-violet-500/10 border border-violet-500/20 rounded-full text-violet-400 text-sm font-medium mb-4">
+                <Zap className="w-4 h-4" /> Choose Your Plan
+              </div>
+              <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-white via-violet-200 to-violet-400 bg-clip-text text-transparent mb-4">
+                Unlock Your Trading Potential
+              </h1>
+              <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+                From free essentials to professional-grade tools — pick the plan that matches your trading ambitions.
+              </p>
+            </div>
+
+            {/* Plan Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              {Object.entries(PLAN_TIERS).map(([key, plan]) => {
+                const isActive = userPlan === key;
+                const colorClasses = {
+                  slate: { bg: 'bg-slate-500/10', border: 'border-slate-500/50', text: 'text-slate-400', badge: 'bg-slate-500/20 text-slate-400', button: 'bg-slate-700/50 text-white hover:bg-slate-600/50', gradient: 'from-slate-500/10 to-slate-900/50', shadow: 'shadow-slate-500/10' },
+                  blue: { bg: 'bg-blue-500/10', border: 'border-blue-500/50', text: 'text-blue-400', badge: 'bg-blue-500/20 text-blue-400', button: 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/20', gradient: 'from-blue-500/10 to-slate-900/50', shadow: 'shadow-blue-500/10' },
+                  violet: { bg: 'bg-violet-500/10', border: 'border-violet-500/50', text: 'text-violet-400', badge: 'bg-violet-500/20 text-violet-400', button: 'bg-violet-600 text-white hover:bg-violet-500 shadow-lg shadow-violet-500/25', gradient: 'from-violet-500/10 to-slate-900/50', shadow: 'shadow-violet-500/10' },
+                  amber: { bg: 'bg-amber-500/10', border: 'border-amber-500/50', text: 'text-amber-400', badge: 'bg-amber-500/20 text-amber-400', button: 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/20', gradient: 'from-amber-500/10 to-slate-900/50', shadow: 'shadow-amber-500/10' }
+                };
+                const colors = colorClasses[plan.color] || colorClasses.slate;
+                return (
+                  <div key={key} className={`relative rounded-2xl border p-6 transition-all duration-300 hover:scale-105 ${
+                    plan.popular ? `border-violet-500/50 bg-gradient-to-b ${colors.gradient} shadow-xl ${colors.shadow}` :
+                    isActive ? `border-emerald-500/50 bg-slate-800/50` :
+                    'border-slate-700/30 bg-slate-800/30 hover:border-slate-600/50'
+                  }`}>
+                    {plan.popular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-violet-600 to-violet-500 rounded-full text-xs font-bold text-white shadow-lg">
+                        MOST POPULAR
+                      </div>
+                    )}
+                    {isActive && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full text-xs font-bold text-white shadow-lg">
+                        CURRENT PLAN
+                      </div>
+                    )}
+                    <div className="text-center mb-6">
+                      <span className="text-3xl mb-2 block">{plan.badge}</span>
+                      <h3 className="text-xl font-bold text-white mb-1">{plan.name}</h3>
+                      <div className="flex items-baseline justify-center gap-1 mb-2">
+                        {plan.price > 0 ? (
+                          <>
+                            <span className="text-3xl font-black text-white">${plan.price}</span>
+                            <span className="text-slate-400 text-sm">/month</span>
+                          </>
+                        ) : (
+                          <span className="text-3xl font-black text-emerald-400">Free</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">{plan.tagline}</p>
+                    </div>
+                    <ul className="space-y-2.5 mb-6">
+                      {plan.features.map((feat, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <svg className={`w-4 h-4 mt-0.5 flex-shrink-0 ${colors.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          <span className={feat.includes('coming soon') ? 'text-slate-500 italic' : 'text-slate-300'}>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => {
+                        if (key === 'free') {
+                          setUserPlan('free');
+                          addNotification({ type: 'success', title: 'Plan Updated', message: 'You are on the Standard (Free) plan.', icon: '✅' });
+                        } else {
+                          addNotification({ type: 'system', title: 'Coming Soon', message: `${plan.name} plan will be available soon! You'll be notified when payments are live.`, icon: plan.badge });
+                        }
+                      }}
+                      className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
+                        isActive ? 'bg-slate-700/50 text-slate-400 cursor-default' :
+                        plan.popular ? 'bg-gradient-to-r from-violet-600 to-violet-500 text-white hover:from-violet-500 hover:to-violet-400 shadow-lg shadow-violet-500/25' :
+                        key === 'free' ? 'bg-slate-700/50 text-white hover:bg-slate-600/50' :
+                        colors.button
+                      }`}
+                      disabled={isActive}
+                    >
+                      {isActive ? 'Current Plan' : key === 'free' ? 'Downgrade to Free' : 'Coming Soon'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Feature Comparison Table */}
+            <div className="bg-slate-800/30 border border-slate-700/30 rounded-2xl overflow-hidden">
+              <div className="p-6 border-b border-slate-700/30">
+                <h2 className="text-xl font-bold text-white">Feature Comparison</h2>
+                <p className="text-sm text-slate-400 mt-1">See exactly what's included in each plan</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-700/30">
+                      <th className="text-left p-4 text-sm font-medium text-slate-400">Feature</th>
+                      {Object.values(PLAN_TIERS).map(p => (
+                        <th key={p.name} className="p-4 text-center text-sm font-bold text-white">{p.badge} {p.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { name: 'Dashboard & Widgets', free: '✅', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Quick Analysis', free: '5/day', plus: '✅ Unlimited', pro: '✅ Unlimited', promax: '✅ Unlimited' },
+                      { name: 'Trading Journal', free: '✅', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Market Overview', free: '✅', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Watchlist', free: '20 symbols', plus: '100 symbols', pro: '500 symbols', promax: '✅ Unlimited' },
+                      { name: 'AI Morning Briefing', free: '—', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Paper Trading', free: '—', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Voice Commands', free: '—', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Custom Themes', free: '—', plus: '5 themes', pro: '20 themes', promax: '✅ Unlimited' },
+                      { name: 'Community Feed', free: 'Read only', plus: '✅ Full', pro: '✅ Full', promax: '✅ Full' },
+                      { name: 'Position Sizer', free: 'Basic', plus: '✅ Full', pro: '✅ Full', promax: '✅ Full' },
+                      { name: 'Export to CSV', free: '—', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Sector Rotation (live)', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Crypto Prices (live)', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Trade Plan Enforcement', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'XP & Gamification', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Options Chain', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Chart Drawing Tools', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Performance Analytics', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Alert Backtesting', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Multi-Timeframe View', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'Brokerage Integration', free: '—', plus: '—', pro: '—', promax: '🔜 Coming' },
+                      { name: 'Priority Support', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'Early Access Features', free: '—', plus: '—', pro: '—', promax: '✅' },
+                    ].map((row, i) => (
+                      <tr key={i} className={`border-b border-slate-700/20 ${i % 2 === 0 ? '' : 'bg-slate-800/20'}`}>
+                        <td className="p-4 text-sm text-slate-300 font-medium">{row.name}</td>
+                        <td className="p-4 text-center text-sm">{row.free}</td>
+                        <td className="p-4 text-center text-sm">{row.plus}</td>
+                        <td className="p-4 text-center text-sm">{row.pro}</td>
+                        <td className="p-4 text-center text-sm">{row.promax}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* FAQ Section */}
+            <div className="mt-12 max-w-3xl mx-auto">
+              <h2 className="text-2xl font-bold text-white text-center mb-8">Frequently Asked Questions</h2>
+              <div className="space-y-4">
+                {[
+                  { q: 'Can I switch plans at any time?', a: 'Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately. When downgrading, you keep access until the end of your current billing period.' },
+                  { q: 'Is there a free trial for paid plans?', a: 'Every paid plan comes with a 7-day free trial. No credit card required to start. Experience the full power of MODUS risk-free.' },
+                  { q: 'What payment methods do you accept?', a: 'We accept all major credit/debit cards, Apple Pay, Google Pay, and PayPal. All payments are processed securely through Stripe.' },
+                  { q: 'Do you offer annual billing?', a: 'Yes! Annual billing gives you 2 months free on any paid plan. That\'s up to $100 in savings on Pro Max.' },
+                  { q: 'What happens to my data if I downgrade?', a: 'Your data is always yours. If you downgrade, your existing trades, analyses, and watchlists remain intact. Some advanced features may become read-only until you upgrade again.' },
+                ].map((faq, i) => (
+                  <div key={i} className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-5">
+                    <h3 className="font-semibold text-white mb-2">{faq.q}</h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">{faq.a}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ============ INFO & LEGAL TAB ============ */}
         {activeTab === "info" && (
