@@ -3238,9 +3238,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [dashboardWidgets, setDashboardWidgets] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('modus_dashboard_widgets')) || [
-        'clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'darkpool', 'sectorrotation', 'marketbreadth', 'socialsentiment', 'tradeplan'
+        'clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'sectorrotation', 'marketbreadth', 'tradeplan'
       ];
-    } catch { return ['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'darkpool', 'sectorrotation', 'marketbreadth', 'socialsentiment', 'tradeplan']; }
+    } catch { return ['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'sectorrotation', 'marketbreadth', 'tradeplan']; }
   });
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState(null);
@@ -15229,10 +15229,8 @@ INSTRUCTIONS:
                 { key: 'drawingtools', label: 'Drawing Tools', icon: '✏️', group: 'trading', desc: 'Draw trendlines, support/resistance, Fibonacci, and annotations on charts' },
                 { key: 'morningbrief', label: 'Morning Briefing', icon: '☀️', group: 'data', desc: 'AI-generated daily market briefing with key events and stocks to watch' },
                 { key: 'tradeplan', label: 'Trade Plan', icon: '📋', group: 'trading', desc: 'Set and enforce daily trade limits, max loss, and trading rules' },
-                { key: 'darkpool', label: 'Dark Pool Activity', icon: '🏦', group: 'data', desc: 'Track unusual institutional block trades and dark pool volume' },
-                { key: 'sectorrotation', label: 'Sector Rotation', icon: '🔄', group: 'data', desc: 'Visualize which sectors are rotating in and out of favor' },
-                { key: 'marketbreadth', label: 'Market Breadth', icon: '📶', group: 'data', desc: 'Advance/decline ratio and market participation strength' },
-                { key: 'socialsentiment', label: 'Social Sentiment', icon: '📱', group: 'data', desc: 'Trending tickers with AI sentiment from social media data' },
+                { key: 'sectorrotation', label: 'Sector Rotation', icon: '🔄', group: 'data', desc: 'Live sector ETF momentum — shows which sectors are leading and lagging' },
+                { key: 'marketbreadth', label: 'Sector Breadth', icon: '📶', group: 'data', desc: 'Live sectors up vs down — real market participation from sector ETFs' },
                 { key: 'xp', label: 'XP & Level', icon: '⭐', group: 'mini', desc: 'Your trading XP, level progression, and achievement tracking' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
@@ -15245,7 +15243,7 @@ INSTRUCTIONS:
                     <h3 className="text-sm font-bold">Widgets & Layout</h3>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-slate-500">Drag cards or use arrows to reorder</span>
-                      <button onClick={() => setDashboardWidgets(['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'darkpool', 'sectorrotation', 'marketbreadth', 'socialsentiment', 'tradeplan'])} className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors">Reset to default</button>
+                      <button onClick={() => setDashboardWidgets(['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'sectorrotation', 'marketbreadth', 'tradeplan'])} className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors">Reset to default</button>
                     </div>
                   </div>
                   {/* Active widgets - grouped by category */}
@@ -17340,27 +17338,58 @@ INSTRUCTIONS:
                   default: return null;
 
                   // ─── AI Morning Briefing (v3.0.0) ─────────────────────
+                  // ─── AI Morning Briefing (v3.0.0) — REAL AI via /api/chat with live market context ─────────────────────
                   case 'morningbrief': {
+                    const generateRealBriefing = async () => {
+                      setLoadingMorningBrief(true);
+                      try {
+                        // Build real market context from existing data
+                        const sectorSummary = Object.entries(marketData.sectors)
+                          .filter(([, s]) => s.changePercent !== 0)
+                          .map(([sym, s]) => `${s.name} (${sym}): ${s.changePercent > 0 ? '+' : ''}${(s.changePercent || 0).toFixed(2)}%`)
+                          .join(', ');
+                        const indexSummary = Object.entries(marketData.indices)
+                          .filter(([, v]) => v.price > 0)
+                          .map(([sym, v]) => `${sym}: $${v.price.toFixed(2)} (${v.changePercent > 0 ? '+' : ''}${(v.changePercent || 0).toFixed(2)}%)`)
+                          .join(', ');
+                        const watchlistStr = (watchlist || []).slice(0, 8).join(', ');
+                        const prompt = `You are a professional market analyst. Give a concise morning market briefing (3-4 sentences max) based on this real data:\n\nIndices: ${indexSummary || 'Markets not yet open'}\nSectors: ${sectorSummary || 'No sector data yet'}\nUser watches: ${watchlistStr || 'AAPL, TSLA, NVDA, MSFT'}\nVIX: ${marketData.vix?.price || 'N/A'}\nMarket status: ${marketData.marketStatus}\n\nBe specific about what sectors are leading/lagging and mention 1-2 stocks from the watchlist. If markets are closed, briefly preview what to expect. Keep it professional and actionable.`;
+
+                        const result = await callAPI([{ role: 'user', content: prompt }], 500);
+                        const text = result?.content?.[0]?.text || 'Unable to generate briefing. Check your API settings.';
+                        setMorningBriefing({ summary: text, generatedAt: new Date().toISOString() });
+                      } catch (err) {
+                        setMorningBriefing({ summary: 'Could not generate briefing — check your API key in Settings.', error: true });
+                      }
+                      setLoadingMorningBrief(false);
+                    };
                     return (
                       <div {...wrapProps}>
                         <div className="bg-gradient-to-br from-amber-500/10 to-orange-600/5 rounded-xl border border-amber-500/20 p-4 h-full">
                           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                             <div className="p-1 bg-amber-500/20 rounded-md">☀️</div>
                             AI Morning Briefing
+                            {morningBriefing?.generatedAt && <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1 py-0.5 rounded ml-auto">AI</span>}
                           </h3>
                           {loadingMorningBrief ? (
                             <div className="text-center py-6">
                               <Loader2 className="w-5 h-5 animate-spin text-amber-400 mx-auto mb-2" />
-                              <p className="text-xs text-slate-400">Generating briefing...</p>
+                              <p className="text-xs text-slate-400">Analyzing market data...</p>
                             </div>
                           ) : morningBriefing ? (
                             <div className="space-y-3">
-                              <p className="text-xs text-slate-300 leading-relaxed">{morningBriefing.summary}</p>
+                              <p className={`text-xs leading-relaxed ${morningBriefing.error ? 'text-red-400' : 'text-slate-300'}`}>{morningBriefing.summary}</p>
+                              <div className="flex items-center justify-between">
+                                {morningBriefing.generatedAt && (
+                                  <span className="text-[9px] text-slate-600">{new Date(morningBriefing.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                )}
+                                <button onClick={generateRealBriefing} className="text-[10px] text-amber-400 hover:text-amber-300 transition-colors">↻ Refresh</button>
+                              </div>
                             </div>
                           ) : (
                             <div className="text-center py-4">
-                              <p className="text-xs text-slate-400 mb-2">No briefing yet</p>
-                              <button onClick={() => { setLoadingMorningBrief(true); setTimeout(() => { setMorningBriefing({ summary: 'Markets expected to open flat on mixed economic data. Tech showing strength.' }); setLoadingMorningBrief(false); }, 1500); }} className="text-[10px] text-amber-400 hover:text-amber-300 border border-amber-500/30 px-2 py-1 rounded-lg">Generate</button>
+                              <p className="text-xs text-slate-400 mb-2">Get an AI-generated market briefing</p>
+                              <button onClick={generateRealBriefing} className="text-[10px] text-amber-400 hover:text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-all hover:bg-amber-500/10">Generate Briefing</button>
                             </div>
                           )}
                         </div>
@@ -17368,128 +17397,100 @@ INSTRUCTIONS:
                     );
                   }
 
-                  // ─── Dark Pool Activity (v3.0.0) ─────────────────────
-                  case 'darkpool': {
-                    const sampleDarkPool = [
-                      { ticker: 'NVDA', volume: 450000, price: 142.50, side: 'buy' },
-                      { ticker: 'AAPL', volume: 320000, price: 185.20, side: 'sell' },
-                      { ticker: 'TSLA', volume: 280000, price: 245.15, side: 'buy' },
-                    ];
-                    return (
-                      <div {...wrapProps}>
-                        <div className="bg-gradient-to-br from-indigo-500/10 to-slate-900/0 rounded-xl border border-indigo-500/20 p-4 h-full">
-                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                            <div className="p-1 bg-indigo-500/20 rounded-md">🌑</div>
-                            Dark Pool Activity
-                          </h3>
-                          <div className="space-y-2">
-                            {sampleDarkPool.map((trade, i) => (
-                              <div key={i} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
-                                <div className="flex-1">
-                                  <div className="text-xs font-bold text-white">{trade.ticker}</div>
-                                  <div className="text-[9px] text-slate-400">{(trade.volume / 1000).toFixed(0)}k shares</div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-xs font-semibold text-indigo-400">${trade.price.toFixed(2)}</div>
-                                  <div className="text-[9px] font-bold">{trade.side === 'buy' ? '🟩 BUY' : '🟥 SELL'}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
+                  // ─── Dark Pool Activity (v3.0.0) — DISABLED: requires premium data subscription ─────────────────────
+                  // Uncomment and connect to Unusual Whales or FlowAlgo API when ready
+                  case 'darkpool': return null;
 
-                  // ─── Sector Rotation (v3.0.0) ─────────────────────
+                  // ─── Sector Rotation (v3.0.0) — REAL DATA from marketData.sectors ─────────────────────
                   case 'sectorrotation': {
-                    const sectors = [
-                      { name: 'Technology', arrow: '↑', color: 'text-emerald-400' },
-                      { name: 'Healthcare', arrow: '→', color: 'text-slate-400' },
-                      { name: 'Financials', arrow: '↓', color: 'text-red-400' },
-                      { name: 'Energy', arrow: '↑', color: 'text-emerald-400' },
-                    ];
+                    const sectorEntries = Object.entries(marketData.sectors)
+                      .map(([sym, s]) => ({ symbol: sym, name: s.name, change: s.changePercent || 0 }))
+                      .sort((a, b) => b.change - a.change);
+                    const hasData = sectorEntries.some(s => s.change !== 0);
                     return (
                       <div {...wrapProps}>
                         <div className="bg-gradient-to-br from-teal-500/10 to-slate-900/0 rounded-xl border border-teal-500/20 p-4 h-full">
                           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                             <div className="p-1 bg-teal-500/20 rounded-md">🔄</div>
                             Sector Rotation
+                            {hasData && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded ml-auto">LIVE</span>}
                           </h3>
-                          <div className="space-y-1.5">
-                            {sectors.map((s, i) => (
-                              <div key={i} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
-                                <span className="text-xs font-medium text-white">{s.name}</span>
-                                <span className={`text-sm font-bold ${s.color}`}>{s.arrow}</span>
-                              </div>
-                            ))}
-                          </div>
+                          {!hasData ? (
+                            <div className="text-center py-4">
+                              <p className="text-[10px] text-slate-500">Waiting for market data...</p>
+                              <p className="text-[9px] text-slate-600 mt-1">Data loads when markets are open</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {sectorEntries.slice(0, 6).map((s, i) => (
+                                <div key={s.symbol} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-sm font-bold ${s.change > 0.5 ? 'text-emerald-400' : s.change < -0.5 ? 'text-red-400' : 'text-slate-400'}`}>
+                                      {s.change > 0.5 ? '↑' : s.change < -0.5 ? '↓' : '→'}
+                                    </span>
+                                    <span className="text-xs font-medium text-white">{s.name}</span>
+                                  </div>
+                                  <span className={`text-xs font-bold ${s.change > 0 ? 'text-emerald-400' : s.change < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                                    {s.change > 0 ? '+' : ''}{s.change.toFixed(2)}%
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
                   }
 
-                  // ─── Market Breadth (v3.0.0) ─────────────────────
+                  // ─── Market Breadth (v3.0.0) — REAL DATA computed from sector ETFs ─────────────────────
                   case 'marketbreadth': {
-                    const advances = 1847;
-                    const declines = 1203;
-                    const advRatio = (advances / declines).toFixed(2);
-                    const advPercent = ((advances / (advances + declines)) * 100).toFixed(1);
+                    const sectorList = Object.values(marketData.sectors);
+                    const advances = sectorList.filter(s => (s.changePercent || 0) > 0).length;
+                    const declines = sectorList.filter(s => (s.changePercent || 0) < 0).length;
+                    const unchanged = sectorList.filter(s => (s.changePercent || 0) === 0).length;
+                    const total = sectorList.length || 1;
+                    const advPercent = ((advances / total) * 100).toFixed(1);
+                    const hasData = sectorList.some(s => (s.changePercent || 0) !== 0);
+                    const avgChange = hasData ? (sectorList.reduce((sum, s) => sum + (s.changePercent || 0), 0) / total) : 0;
                     return (
                       <div {...wrapProps}>
                         <div className="bg-gradient-to-br from-cyan-500/10 to-slate-900/0 rounded-xl border border-cyan-500/20 p-4 h-full">
                           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                             <div className="p-1 bg-cyan-500/20 rounded-md">📊</div>
-                            Market Breadth
+                            Sector Breadth
+                            {hasData && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded ml-auto">LIVE</span>}
                           </h3>
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] font-semibold text-white">Advances / Declines</span>
-                              <span className="text-xs text-cyan-400 font-bold">{advRatio}</span>
+                          {!hasData ? (
+                            <div className="text-center py-4">
+                              <p className="text-[10px] text-slate-500">Waiting for market data...</p>
+                              <p className="text-[9px] text-slate-600 mt-1">Data loads when markets are open</p>
                             </div>
-                            <div className="w-full h-1.5 bg-slate-700/40 rounded-full overflow-hidden">
-                              <div className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500" style={{width: `${advPercent}%`}} />
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] font-semibold text-white">Sectors Up / Down</span>
+                                <span className={`text-xs font-bold ${avgChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  Avg {avgChange >= 0 ? '+' : ''}{avgChange.toFixed(2)}%
+                                </span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-700/40 rounded-full overflow-hidden flex">
+                                <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: `${advPercent}%` }} />
+                              </div>
+                              <div className="flex justify-between text-[10px]">
+                                <span className="text-emerald-400 font-semibold">{advances} sectors ↑</span>
+                                {unchanged > 0 && <span className="text-slate-500">{unchanged} flat</span>}
+                                <span className="text-red-400 font-semibold">{declines} sectors ↓</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between text-[9px] text-slate-500">
-                              <span>{advances} ↑</span>
-                              <span>{declines} ↓</span>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     );
                   }
 
-                  // ─── Social Sentiment (v3.0.0) ─────────────────────
-                  case 'socialsentiment': {
-                    const sentiment = [
-                      { ticker: 'NVDA', mentions: 2847, score: 78, sentiment: 'bullish' },
-                      { ticker: 'AMD', mentions: 1543, score: 52, sentiment: 'neutral' },
-                      { ticker: 'INTC', mentions: 892, score: 31, sentiment: 'bearish' },
-                    ];
-                    const getSentimentColor = (s) => s === 'bullish' ? 'bg-emerald-500/20 text-emerald-400' : s === 'bearish' ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400';
-                    return (
-                      <div {...wrapProps}>
-                        <div className="bg-gradient-to-br from-rose-500/10 to-slate-900/0 rounded-xl border border-rose-500/20 p-4 h-full">
-                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                            <div className="p-1 bg-rose-500/20 rounded-md">💬</div>
-                            Social Sentiment
-                          </h3>
-                          <div className="space-y-2">
-                            {sentiment.map((s, i) => (
-                              <div key={i} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
-                                <div>
-                                  <div className="text-xs font-bold text-white">{s.ticker}</div>
-                                  <div className="text-[9px] text-slate-500">{s.mentions} mentions</div>
-                                </div>
-                                <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${getSentimentColor(s.sentiment)}`}>{s.score}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
+                  // ─── Social Sentiment (v3.0.0) — DISABLED: requires premium data subscription ─────────────────────
+                  // Uncomment and connect to StockTwits or Twitter API when ready
+                  case 'socialsentiment': return null;
 
                   // ─── Trade Plan Enforcement (v3.0.0) ─────────────────────
                   case 'tradeplan': {
