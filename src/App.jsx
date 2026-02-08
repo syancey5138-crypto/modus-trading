@@ -574,11 +574,16 @@ function App() {
         { type: 'fix', text: 'Fixed profile dropdown hard to see — now solid background for full visibility' },
         { type: 'fix', text: 'Fixed notification panel transparency — same solid background treatment' },
         { type: 'fix', text: 'Fixed Tell Me More showing raw **markdown** asterisks — now properly rendered' },
+        { type: 'fix', text: 'Fixed Market Mood widget crash when added to dashboard (was referencing wrong state)' },
+        { type: 'fix', text: 'Fixed dashboard Quick Analyze bar too close to surrounding elements — added spacing' },
         { type: 'improvement', text: 'Quick Analysis tab spacing increased — no longer clumped together' },
         { type: 'improvement', text: 'Quick Analysis loading state now shows animated progress steps' },
         { type: 'improvement', text: 'Quick Analysis history cards redesigned with confidence bars and color-coded borders' },
         { type: 'improvement', text: 'Quick Analysis empty state now shows popular ticker quick-pick buttons' },
         { type: 'feature', text: 'Keyboard shortcut: press "/" on dashboard to focus Quick Analyze, "q" for Quick Analysis tab' },
+        { type: 'feature', text: 'Today\'s Activity strip on dashboard — shows quick analyses, chart analyses, trades logged, and watchlist count' },
+        { type: 'improvement', text: 'Hot Stocks widget now shows both gainers AND losers, with clickable symbols that open live charts' },
+        { type: 'improvement', text: 'Watchlist widget items now navigate to that specific stock\'s chart when clicked' },
         { type: 'improvement', text: 'Enhanced all dashboard widget empty states with icons and action buttons' },
         { type: 'improvement', text: 'Market Summary indices are now clickable — opens live chart for that symbol' },
         { type: 'improvement', text: 'History cards now have "Clear all" option and item count badge' },
@@ -13765,7 +13770,7 @@ INSTRUCTIONS:
 
             {/* Top Movers Ticker Strip */}
             {(hotStocks.gainers?.length > 0 || hotStocks.losers?.length > 0) && (
-              <div className="bg-slate-800/20 rounded-xl border border-slate-700/15 px-4 py-2.5 overflow-hidden relative">
+              <div className="mt-4 bg-slate-800/20 rounded-xl border border-slate-700/15 px-4 py-2.5 overflow-hidden relative">
                 <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex-shrink-0">Top Movers</span>
                   {[...(hotStocks.gainers || []).slice(0, 5).map(s => ({ ...s, type: 'gain' })), ...(hotStocks.losers || []).slice(0, 3).map(s => ({ ...s, type: 'loss' }))].map((s, i) => (
@@ -13788,7 +13793,7 @@ INSTRUCTIONS:
             )}
 
             {/* Quick Analyze Bar */}
-            <div className="bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-slate-900/0 border border-violet-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="mt-5 mb-5 bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-slate-900/0 border border-violet-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="p-2.5 bg-violet-500/20 rounded-lg">
                   <Zap className="w-5 h-5 text-violet-400" />
@@ -13858,8 +13863,39 @@ INSTRUCTIONS:
               )}
             </div>
 
+            {/* Today's Activity Strip */}
+            {(quickAnalysisHistory.length > 0 || trades.length > 0 || analysisHistory.length > 0) && (
+              <div className="mt-4 flex items-center gap-4 flex-wrap text-[10px] text-slate-500">
+                <span className="uppercase tracking-widest font-bold text-slate-600">Today</span>
+                {quickAnalysisHistory.length > 0 && (
+                  <span className="flex items-center gap-1.5 bg-slate-800/40 px-2.5 py-1 rounded-full">
+                    <Zap className="w-3 h-3 text-violet-400" />
+                    <span className="text-slate-400 font-medium">{quickAnalysisHistory.length}</span> quick {quickAnalysisHistory.length === 1 ? 'analysis' : 'analyses'}
+                  </span>
+                )}
+                {analysisHistory.length > 0 && (
+                  <span className="flex items-center gap-1.5 bg-slate-800/40 px-2.5 py-1 rounded-full">
+                    <Camera className="w-3 h-3 text-cyan-400" />
+                    <span className="text-slate-400 font-medium">{analysisHistory.length}</span> chart {analysisHistory.length === 1 ? 'analysis' : 'analyses'}
+                  </span>
+                )}
+                {trades.filter(t => { const d = (t.date || t.entryDate || ''); return d.startsWith(new Date().toISOString().split('T')[0]); }).length > 0 && (
+                  <span className="flex items-center gap-1.5 bg-slate-800/40 px-2.5 py-1 rounded-full">
+                    <Pencil className="w-3 h-3 text-emerald-400" />
+                    <span className="text-slate-400 font-medium">{trades.filter(t => { const d = (t.date || t.entryDate || ''); return d.startsWith(new Date().toISOString().split('T')[0]); }).length}</span> trade{trades.filter(t => { const d = (t.date || t.entryDate || ''); return d.startsWith(new Date().toISOString().split('T')[0]); }).length !== 1 ? 's' : ''} logged
+                  </span>
+                )}
+                {watchlist.length > 0 && (
+                  <span className="flex items-center gap-1.5 bg-slate-800/40 px-2.5 py-1 rounded-full">
+                    <Eye className="w-3 h-3 text-amber-400" />
+                    <span className="text-slate-400 font-medium">{watchlist.length}</span> watching
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Widget Grid - Ordered by dashboardWidgets array */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {dashboardWidgets.filter(k => !['clock', 'quickstats', 'quicknav'].includes(k)).map((widgetKey) => {
                 const wrapProps = {
                   key: widgetKey,
@@ -13949,8 +13985,8 @@ INSTRUCTIONS:
                             {watchlist.slice(0, 8).map(sym => {
                               const p = watchlistPrices[sym];
                               return (
-                                <div key={sym} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-800/50 cursor-pointer" onClick={() => { setActiveTab('ticker'); }}>
-                                  <span className="text-sm font-medium">{sym}</span>
+                                <div key={sym} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-800/50 cursor-pointer group" onClick={() => { setTickerSymbol(sym); setActiveTab('ticker'); }}>
+                                  <span className="text-sm font-medium group-hover:text-violet-300 transition-colors">{sym}</span>
                                   <div className="text-right">
                                     {p?.price > 0 && <span className="text-xs font-mono">${p.price.toFixed(2)}</span>}
                                     {p?.changePercent !== undefined && (
@@ -14208,19 +14244,29 @@ INSTRUCTIONS:
                       <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                           <Flame className="w-4 h-4 text-orange-400" /> Hot Stocks
+                          <button onClick={() => setActiveTab('hotstocks')} className="ml-auto text-[9px] text-violet-400 hover:text-violet-300 transition-colors">View all →</button>
                         </h3>
-                        {hotStocks.gainers?.length > 0 ? (
+                        {hotStocks.gainers?.length > 0 || hotStocks.losers?.length > 0 ? (
                           <div className="space-y-1.5">
-                            {hotStocks.gainers.slice(0, 5).map((s, i) => (
-                              <div key={s.symbol || i} className="flex items-center justify-between text-xs">
-                                <span className="font-medium">{s.symbol}</span>
-                                <span className="text-emerald-400 font-medium">+{(s.changePercent || 0).toFixed(2)}%</span>
-                              </div>
+                            {(hotStocks.gainers || []).slice(0, 4).map((s, i) => (
+                              <button key={s.symbol || `g${i}`} onClick={() => { setTickerSymbol(s.symbol); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/30 transition-all group">
+                                <span className="font-medium group-hover:text-violet-300 transition-colors">{s.symbol}</span>
+                                <span className="text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded">+{(s.changePercent || 0).toFixed(2)}%</span>
+                              </button>
                             ))}
-                            <button onClick={() => setActiveTab('hotstocks')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">View all →</button>
+                            {(hotStocks.losers || []).slice(0, 2).map((s, i) => (
+                              <button key={s.symbol || `l${i}`} onClick={() => { setTickerSymbol(s.symbol); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/30 transition-all group">
+                                <span className="font-medium group-hover:text-violet-300 transition-colors">{s.symbol}</span>
+                                <span className="text-red-400 font-medium bg-red-500/10 px-1.5 py-0.5 rounded">{(s.changePercent || 0).toFixed(2)}%</span>
+                              </button>
+                            ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-500 py-4 text-center">Scan from Market Scanner tab</p>
+                          <div className="text-center py-4">
+                            <Flame className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 mb-2">No scan data yet</p>
+                            <button onClick={() => setActiveTab('hotstocks')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">Run Market Scanner</button>
+                          </div>
                         )}
                       </div>
                     </div>
