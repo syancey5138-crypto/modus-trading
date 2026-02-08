@@ -3744,17 +3744,19 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     setVoiceDebugLog(prev => [...prev.slice(-8), `${new Date().toLocaleTimeString()} ${msg}`]);
   }, []);
 
-  // Detect browsers that actually support Web Speech API
-  // Chrome, Edge → full Google-backed SpeechRecognition
+  // Detect browsers that support Web Speech API
+  // Chrome, Edge, Opera → Chromium-based, share Google's SpeechRecognition backend
   // Safari 14.1+ → supports webkitSpeechRecognition natively
-  // Opera, Brave, Firefox → NOT supported (no backend speech service)
+  // Firefox, Brave → NOT supported (no backend speech service)
   const isRealSpeechSupported = useCallback(() => {
     const ua = navigator.userAgent || '';
-    const isChrome = /Chrome\//.test(ua) && !/OPR\/|Opera|Brave|Vivaldi/.test(ua);
+    // All Chromium-based browsers with speech support (Chrome, Edge, Opera)
+    const isChrome = /Chrome\//.test(ua) && !/Brave|Vivaldi/.test(ua);
     const isEdge = /Edg\//.test(ua);
+    const isOpera = /OPR\//.test(ua) || /Opera/.test(ua);
     // Safari has its own speech recognition backend since 14.1
     const isSafari = /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium\//.test(ua);
-    return isChrome || isEdge || isSafari;
+    return isChrome || isEdge || isOpera || isSafari;
   }, []);
 
   const startVoiceCommand = useCallback(() => {
@@ -33702,7 +33704,7 @@ INSTRUCTIONS:
                 : 'Type a command below — try "dashboard" or "analyze AAPL"'}
             </p>
             <p className="text-[10px] text-slate-600 mb-4">
-              {isRealSpeechSupported() ? 'Voice: Chrome, Edge, Safari' : 'Voice requires Chrome, Edge, or Safari — text input available for all browsers'}
+              {isRealSpeechSupported() ? 'Voice: Chrome, Edge, Opera, Safari' : 'Voice requires Chrome, Edge, Opera, or Safari — text input available for all browsers'}
             </p>
 
             {/* Text command input — always shown for unsupported browsers, available as fallback for supported ones */}
