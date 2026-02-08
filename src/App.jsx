@@ -17757,6 +17757,7 @@ INSTRUCTIONS:
                   }
 
                   // ─── XP/Gamification System (v3.0.0) ─────────────────────
+                  case 'xp':
                   case 'xpsystem': {
                     const xpToNextLevel = 1000;
                     const xpProgress = (userXP.xp / xpToNextLevel) * 100;
