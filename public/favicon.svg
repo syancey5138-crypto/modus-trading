@@ -1,10 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="50%" stop-color="#7c3aed"/>
       <stop offset="100%" stop-color="#6d28d9"/>
     </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e0e7ff"/>
+      <stop offset="50%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="innerShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+      <feOffset dx="0" dy="1"/>
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
+      <feFlood flood-color="#4c1d95" flood-opacity="0.4"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+      <feComposite in="SourceGraphic"/>
+    </filter>
   </defs>
-  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
-  <polyline points="6 18 10 18 13 24 19 8 22 18 26 18" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Background with subtle inner shadow -->
+  <rect width="32" height="32" rx="7" fill="url(#bg)" filter="url(#innerShadow)"/>
+  <!-- Subtle grid lines -->
+  <line x1="6" y1="12" x2="26" y2="12" stroke="#a78bfa" stroke-opacity="0.12" stroke-width="0.5"/>
+  <line x1="6" y1="16" x2="26" y2="16" stroke="#a78bfa" stroke-opacity="0.12" stroke-width="0.5"/>
+  <line x1="6" y1="20" x2="26" y2="20" stroke="#a78bfa" stroke-opacity="0.12" stroke-width="0.5"/>
+  <!-- Glow behind the chart line -->
+  <polyline points="5 19 9 17 12 20 16 10 20 15 24 8 27 12" fill="none" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#glow)"/>
+  <!-- Main chart line -->
+  <polyline points="5 19 9 17 12 20 16 10 20 15 24 8 27 12" fill="none" stroke="url(#line)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Endpoint dot -->
+  <circle cx="27" cy="12" r="2" fill="white" opacity="0.9"/>
+  <circle cx="27" cy="12" r="1" fill="#8b5cf6"/>
 </svg>

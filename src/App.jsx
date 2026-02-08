@@ -12803,8 +12803,11 @@ INSTRUCTIONS:
           {/* Logo */}
           <div className="p-4 border-b border-slate-800/20">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 rounded-xl flex-shrink-0 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 hover:scale-105">
-                <Eye className="w-5 h-5 text-white drop-shadow-sm" />
+              <div className="p-2.5 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 rounded-xl flex-shrink-0 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 hover:scale-105 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 to-white/10 rounded-xl" />
+                <svg className="w-5 h-5 relative" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
               </div>
               {!sidebarCollapsed && (
                 <div className="overflow-hidden">
@@ -14147,23 +14150,31 @@ INSTRUCTIONS:
                                 <div className="bg-red-500 transition-all duration-700" style={{ width: `${100 - pm.winRate}%` }} />
                               </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-3 gap-2">
                               <div>
                                 <div className="text-[10px] text-slate-500 uppercase">Total P&L</div>
-                                <div className={`text-lg font-bold ${pm.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                <div className={`text-sm font-bold ${pm.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                   {pm.totalPnL >= 0 ? '+' : ''}${pm.totalPnL.toFixed(0)}
                                 </div>
                               </div>
                               <div>
-                                <div className="text-[10px] text-slate-500 uppercase">Profit Factor</div>
-                                <div className="text-lg font-bold text-white">{pm.profitFactor === Infinity ? '∞' : pm.profitFactor.toFixed(2)}</div>
+                                <div className="text-[10px] text-slate-500 uppercase">Avg/Trade</div>
+                                <div className={`text-sm font-bold ${(pm.totalPnL / pm.totalTrades) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {(pm.totalPnL / pm.totalTrades) >= 0 ? '+' : ''}${(pm.totalPnL / pm.totalTrades).toFixed(0)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500 uppercase">PF</div>
+                                <div className="text-sm font-bold text-white">{pm.profitFactor === Infinity ? '∞' : pm.profitFactor.toFixed(2)}</div>
                               </div>
                             </div>
                           </div>
                         ) : (
                           <div className="text-center py-3">
-                            <p className="text-xs text-slate-500 mb-2">Log trades to see performance</p>
-                            <button onClick={() => setActiveTab('journal')} className="text-[10px] text-violet-400 hover:text-violet-300">Go to Journal →</button>
+                            <BarChart3 className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 mb-1">No performance data yet</p>
+                            <p className="text-[10px] text-slate-600 mb-2">Log your first trade to start tracking win rate, P&L, and profit factor</p>
+                            <button onClick={() => setActiveTab('journal')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">Go to Journal →</button>
                           </div>
                         )}
                       </div>
@@ -14340,53 +14351,107 @@ INSTRUCTIONS:
                     const vixData = marketData?.vix || {};
                     const vixPrice = vixData.price || 0;
                     const spyChange = spyData.changePercent || 0;
-                    let moodScore = 50;
+                    // Individual factor scores for breakdown
+                    let vixSignal = 'Neutral';
+                    let vixPoints = 0;
                     if (vixPrice > 0) {
-                      if (vixPrice < 15) moodScore += 25;
-                      else if (vixPrice < 20) moodScore += 15;
-                      else if (vixPrice < 25) moodScore += 0;
-                      else if (vixPrice < 30) moodScore -= 15;
-                      else moodScore -= 25;
+                      if (vixPrice < 15) { vixSignal = 'Very Low'; vixPoints = 25; }
+                      else if (vixPrice < 20) { vixSignal = 'Low'; vixPoints = 15; }
+                      else if (vixPrice < 25) { vixSignal = 'Normal'; vixPoints = 0; }
+                      else if (vixPrice < 30) { vixSignal = 'Elevated'; vixPoints = -15; }
+                      else { vixSignal = 'High'; vixPoints = -25; }
                     }
-                    if (spyChange > 1) moodScore += 15;
-                    else if (spyChange > 0.3) moodScore += 8;
-                    else if (spyChange < -1) moodScore -= 15;
-                    else if (spyChange < -0.3) moodScore -= 8;
+                    let spySignal = 'Flat';
+                    let spyPoints = 0;
+                    if (spyChange > 1) { spySignal = 'Strong Rally'; spyPoints = 15; }
+                    else if (spyChange > 0.3) { spySignal = 'Up'; spyPoints = 8; }
+                    else if (spyChange < -1) { spySignal = 'Sharp Drop'; spyPoints = -15; }
+                    else if (spyChange < -0.3) { spySignal = 'Down'; spyPoints = -8; }
                     const gainCount = (hotStocks.gainers || []).length;
                     const loserCount = (hotStocks.losers || []).length;
-                    if (gainCount > loserCount * 1.5) moodScore += 5;
-                    else if (loserCount > gainCount * 1.5) moodScore -= 5;
-                    moodScore = Math.max(0, Math.min(100, moodScore));
+                    let breadthSignal = 'Balanced';
+                    let breadthPoints = 0;
+                    if (gainCount > loserCount * 1.5) { breadthSignal = 'More Gainers'; breadthPoints = 5; }
+                    else if (loserCount > gainCount * 1.5) { breadthSignal = 'More Losers'; breadthPoints = -5; }
+                    const moodScore = Math.max(0, Math.min(100, 50 + vixPoints + spyPoints + breadthPoints));
                     const moodLabel = moodScore >= 75 ? 'Extreme Greed' : moodScore >= 60 ? 'Greed' : moodScore >= 45 ? 'Neutral' : moodScore >= 30 ? 'Fear' : 'Extreme Fear';
                     const moodColor = moodScore >= 75 ? 'text-emerald-400' : moodScore >= 60 ? 'text-green-400' : moodScore >= 45 ? 'text-yellow-400' : moodScore >= 30 ? 'text-orange-400' : 'text-red-400';
                     const moodBg = moodScore >= 75 ? 'from-emerald-500/20' : moodScore >= 60 ? 'from-green-500/15' : moodScore >= 45 ? 'from-yellow-500/15' : moodScore >= 30 ? 'from-orange-500/15' : 'from-red-500/20';
                     const moodBarColor = moodScore >= 75 ? 'bg-emerald-500' : moodScore >= 60 ? 'bg-green-500' : moodScore >= 45 ? 'bg-yellow-500' : moodScore >= 30 ? 'bg-orange-500' : 'bg-red-500';
+                    const moodExplain = moodScore >= 75
+                      ? 'Markets are very optimistic — investors are buying aggressively. Be cautious, this can signal a top.'
+                      : moodScore >= 60
+                      ? 'Markets are leaning bullish — confidence is above average. Good for riding trends, but watch for overextension.'
+                      : moodScore >= 45
+                      ? 'Markets are balanced — no strong bias either way. Wait for a clearer signal before making big moves.'
+                      : moodScore >= 30
+                      ? 'Markets are nervous — investors are pulling back. Potential buying opportunity if you have conviction.'
+                      : 'Markets are in panic — heavy selling and high volatility. Historically, extreme fear can signal a bottom.';
                     return (
                       <div {...wrapProps}>
                         <div className={`bg-gradient-to-br ${moodBg} to-slate-900/0 rounded-xl border border-slate-700/20 p-4 h-full`}>
-                          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
                             <Activity className="w-4 h-4 text-violet-400" /> Market Mood
-                            <span className="text-[10px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">Estimate</span>
+                            <div className="relative ml-auto group">
+                              <AlertCircle className="w-3.5 h-3.5 text-slate-500 cursor-help" />
+                              <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-800 border border-slate-700/50 rounded-xl shadow-2xl text-[11px] text-slate-300 leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                                <div className="font-bold text-white mb-1.5">What is Market Mood?</div>
+                                <p className="mb-2">A 0-100 score estimating overall market sentiment, similar to CNN's Fear &amp; Greed Index.</p>
+                                <div className="space-y-1 text-[10px]">
+                                  <div className="flex justify-between"><span className="text-red-400">0-29</span><span>Extreme Fear — markets panicking</span></div>
+                                  <div className="flex justify-between"><span className="text-orange-400">30-44</span><span>Fear — investors are cautious</span></div>
+                                  <div className="flex justify-between"><span className="text-yellow-400">45-59</span><span>Neutral — no strong bias</span></div>
+                                  <div className="flex justify-between"><span className="text-green-400">60-74</span><span>Greed — bullish confidence</span></div>
+                                  <div className="flex justify-between"><span className="text-emerald-400">75-100</span><span>Extreme Greed — possible top</span></div>
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-slate-700/50 text-slate-500">Based on VIX, S&amp;P 500, and market breadth</div>
+                                <div className="absolute bottom-[-6px] right-3 w-3 h-3 bg-slate-800 border-r border-b border-slate-700/50 transform rotate-45" />
+                              </div>
+                            </div>
                           </h3>
+                          {/* Score + Label */}
                           <div className="text-center py-1">
                             <div className={`text-3xl font-bold ${moodColor}`}>{moodScore}</div>
-                            <div className={`text-sm font-semibold ${moodColor} mt-1`}>{moodLabel}</div>
+                            <div className={`text-sm font-semibold ${moodColor} mt-0.5`}>{moodLabel}</div>
                           </div>
-                          <div className="mt-3 h-2 bg-slate-800/50 rounded-full overflow-hidden">
-                            <div className={`h-full ${moodBarColor} rounded-full transition-all duration-700`} style={{ width: `${moodScore}%` }} />
-                          </div>
-                          <div className="flex justify-between text-[9px] text-slate-500 mt-1">
-                            <span>Fear</span>
-                            <span>Greed</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/20">
-                            <div className="text-center">
-                              <div className="text-xs font-mono text-slate-300">{vixPrice > 0 ? vixPrice.toFixed(1) : '—'}</div>
-                              <div className="text-[10px] text-slate-500">VIX</div>
+                          {/* Gauge bar with segment markers */}
+                          <div className="mt-2 relative">
+                            <div className="h-2.5 bg-slate-800/50 rounded-full overflow-hidden flex">
+                              <div className="h-full bg-red-500/30 flex-1" />
+                              <div className="h-full bg-orange-500/30 flex-1" />
+                              <div className="h-full bg-yellow-500/30 flex-1" />
+                              <div className="h-full bg-green-500/30 flex-1" />
+                              <div className="h-full bg-emerald-500/30 flex-1" />
                             </div>
-                            <div className="text-center">
-                              <div className={`text-xs font-mono ${spyChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{spyChange >= 0 ? '+' : ''}{spyChange.toFixed(2)}%</div>
-                              <div className="text-[10px] text-slate-500">SPY</div>
+                            {/* Needle indicator */}
+                            <div className="absolute top-0 h-2.5 flex items-center transition-all duration-700" style={{ left: `${moodScore}%`, transform: 'translateX(-50%)' }}>
+                              <div className={`w-1 h-4 ${moodBarColor} rounded-full shadow-lg`} style={{ marginTop: '-2px' }} />
+                            </div>
+                            <div className="flex justify-between text-[8px] text-slate-600 mt-1 px-0.5">
+                              <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+                            </div>
+                          </div>
+                          {/* What it means */}
+                          <p className="text-[10px] text-slate-400 leading-relaxed mt-2 mb-2">{moodExplain}</p>
+                          {/* Factor breakdown */}
+                          <div className="space-y-1.5 pt-2 border-t border-slate-700/20">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-500">VIX Volatility</span>
+                              <span className={`font-medium ${vixPoints > 0 ? 'text-emerald-400' : vixPoints < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                                {vixPrice > 0 ? vixPrice.toFixed(1) : '—'} · {vixSignal}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-500">S&P 500 (SPY)</span>
+                              <span className={`font-medium ${spyPoints > 0 ? 'text-emerald-400' : spyPoints < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                                {spyChange >= 0 ? '+' : ''}{spyChange.toFixed(2)}% · {spySignal}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-500">Market Breadth</span>
+                              <span className={`font-medium ${breadthPoints > 0 ? 'text-emerald-400' : breadthPoints < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                                {gainCount}G / {loserCount}L · {breadthSignal}
+                              </span>
                             </div>
                           </div>
                         </div>
