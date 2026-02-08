@@ -24,6 +24,29 @@ const cellMargins = { top: 80, bottom: 80, left: 120, right: 120 };
 
 const versions = [
   {
+    version: 'v3.1.1',
+    date: 'February 8, 2026',
+    title: 'Critical Bug Fixes — Theme Builder, Widget Rendering & Voice Commands',
+    sections: [
+      {
+        type: 'Bug Fixes',
+        items: [
+          { title: 'Theme Builder Crash Fixed', description: 'Resolved a critical crash where applying custom themes caused an unrecoverable error. The issue was classList.add() throwing on theme names with spaces (e.g. "theme-custom-Warm Gray"). Now properly uses a single "theme-custom" class with CSS variables for all custom themes.' },
+          { title: 'Crypto Widget Rendering Fixed', description: 'Fixed the Crypto Prices widget not appearing when added to the dashboard. The root cause was calling wrapProps as a function (wrapProps(wKey)) when it is actually an object. Changed to spread syntax {...wrapProps} with proper inner card wrapper.' },
+          { title: 'Drawing Tools Widget Rendering Fixed', description: 'Fixed the Chart Drawing Tools widget failing to render due to the same wrapProps function-call bug. Also fixed a missing closing </div> tag that caused a JSX structure error.' },
+          { title: 'Voice Commands Improved', description: 'Added explicit checks for HTTPS/secure context and navigator.mediaDevices availability. Voice commands now show clear error messages explaining why they cannot work (e.g. HTTP connection, denied microphone permission, no microphone detected) instead of failing silently.' }
+        ]
+      },
+      {
+        type: 'Improvements',
+        items: [
+          { title: 'Custom Theme CSS Rules', description: 'Added dedicated .theme-custom CSS rules that properly apply custom theme colors to all page elements including sidebar, header, cards, and main content area via CSS variables.' },
+          { title: 'Document Formatting Overhaul', description: 'Rewrote the Complete Guide document generator to properly use TextRun children for all text formatting. Previous version silently dropped all font sizes, colors, and bold formatting, resulting in plain unstyled documents.' }
+        ]
+      }
+    ]
+  },
+  {
     version: 'v3.1.0',
     date: 'February 8, 2026',
     title: 'Voice Commands, Custom Themes, Crypto Support, Drawing Tools & Data Integrity',
@@ -899,7 +922,7 @@ children.push(
   }),
   new Paragraph({
     spacing: { after: 120 },
-    children: [new TextRun({ text: "This document catalogs every change made to MODUS Trading Platform from v1.2.0 (February 5, 2026) through v3.0.0 (February 8, 2026). It is automatically generated and will be updated with each new release.", font: "Arial", size: 20, color: SLATE })]
+    children: [new TextRun({ text: "This document catalogs every change made to MODUS Trading Platform from v1.2.0 (February 5, 2026) through v3.1.1 (February 8, 2026). It is automatically generated and will be updated with each new release.", font: "Arial", size: 20, color: SLATE })]
   }),
   new Paragraph({
     spacing: { after: 120 },

@@ -36,7 +36,6 @@ const COLORS = {
 // Create header function
 function createHeader() {
   return new Paragraph({
-    text: 'MODUS Trading Platform Guide — Version 3.1.0',
     alignment: AlignmentType.CENTER,
     style: 'header',
     border: {
@@ -47,7 +46,14 @@ function createHeader() {
         size: 6
       }
     },
-    spacing: { after: 200 }
+    spacing: { after: 200 },
+    children: [
+      new TextRun({
+        text: 'MODUS Trading Platform Guide — Version 3.1.0',
+        size: 24,
+        color: COLORS.darkText
+      })
+    ]
   });
 }
 
@@ -85,11 +91,16 @@ function createSectionHeading(text) {
             margins: { top: 120, bottom: 120, left: 120, right: 120 },
             children: [
               new Paragraph({
-                text: text,
-                bold: true,
-                size: 32,
-                color: COLORS.white,
-                alignment: AlignmentType.LEFT
+                alignment: AlignmentType.LEFT,
+                children: [
+                  new TextRun({
+                    text: text,
+                    bold: true,
+                    size: 32,
+                    color: COLORS.white,
+                    font: 'Arial'
+                  })
+                ]
               })
             ]
           })
@@ -119,11 +130,16 @@ function createSubHeading(text) {
             margins: { top: 100, bottom: 100, left: 120, right: 120 },
             children: [
               new Paragraph({
-                text: text,
-                bold: true,
-                size: 26,
-                color: COLORS.darkText,
-                alignment: AlignmentType.LEFT
+                alignment: AlignmentType.LEFT,
+                children: [
+                  new TextRun({
+                    text: text,
+                    bold: true,
+                    size: 26,
+                    color: COLORS.darkText,
+                    font: 'Arial'
+                  })
+                ]
               })
             ]
           })
@@ -136,12 +152,17 @@ function createSubHeading(text) {
 // Content paragraph
 function createContentPara(text, isBold = false) {
   return new Paragraph({
-    text: text,
-    size: 22,
-    color: COLORS.darkText,
     alignment: AlignmentType.LEFT,
     spacing: { after: 200, line: 360 },
-    bold: isBold
+    children: [
+      new TextRun({
+        text: text,
+        size: 22,
+        color: COLORS.darkText,
+        bold: isBold,
+        font: 'Arial'
+      })
+    ]
   });
 }
 
@@ -152,49 +173,74 @@ function createCoverPage() {
     new Paragraph({ text: '' }),
     new Paragraph({ text: '' }),
     new Paragraph({
-      text: 'MODUS',
-      size: 80,
-      bold: true,
-      color: COLORS.primary,
       alignment: AlignmentType.CENTER,
-      spacing: { after: 300 }
+      spacing: { after: 300 },
+      children: [
+        new TextRun({
+          text: 'MODUS',
+          size: 80,
+          bold: true,
+          color: COLORS.primary,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Complete Trading Platform Guide',
-      size: 40,
-      color: COLORS.navy,
       alignment: AlignmentType.CENTER,
-      spacing: { after: 200 }
+      spacing: { after: 200 },
+      children: [
+        new TextRun({
+          text: 'Complete Trading Platform Guide',
+          size: 40,
+          color: COLORS.navy,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Version 3.1.0 — February 2026',
-      size: 24,
-      color: COLORS.accent,
       alignment: AlignmentType.CENTER,
-      spacing: { after: 400 }
+      spacing: { after: 400 },
+      children: [
+        new TextRun({
+          text: 'Version 3.1.0 — February 2026',
+          size: 24,
+          color: COLORS.accent,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Your AI-Powered Trading Command Center',
-      size: 28,
-      bold: true,
-      color: COLORS.darkText,
       alignment: AlignmentType.CENTER,
-      spacing: { after: 600 }
+      spacing: { after: 600 },
+      children: [
+        new TextRun({
+          text: 'Your AI-Powered Trading Command Center',
+          size: 28,
+          bold: true,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({ text: '' }),
     new Paragraph({ text: '' }),
     new Paragraph({ text: '' }),
     new Paragraph({
-      text: '© 2026 MODUS Trading Platform. All rights reserved.',
-      size: 18,
-      color: COLORS.accent,
       alignment: AlignmentType.CENTER,
-      spacing: { after: 100 }
+      spacing: { after: 100 },
+      children: [
+        new TextRun({
+          text: '© 2026 MODUS Trading Platform. All rights reserved.',
+          size: 18,
+          color: COLORS.accent,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
       children: [
         new TextRun({
-          text: 'Page break',
+          text: '',
           break: 1
         })
       ]
@@ -215,53 +261,116 @@ function createChapter1() {
     createSubHeading('System Requirements'),
     createContentPara('To access MODUS, you\'ll need:'),
     new Paragraph({
-      text: 'Modern web browser (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Modern web browser (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Stable internet connection (minimum 5 Mbps recommended)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Stable internet connection (minimum 5 Mbps recommended)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Desktop, tablet, or mobile device (responsive design supports all screen sizes)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Desktop, tablet, or mobile device (responsive design supports all screen sizes)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Valid email address for account creation and authentication',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Valid email address for account creation and authentication',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('Creating an Account'),
     createContentPara('Getting started with MODUS is simple and secure. The platform uses Firebase authentication to ensure your account is protected with enterprise-grade security:'),
     new Paragraph({
-      text: '1. Visit the MODUS login page and click "Create New Account"',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '1. Visit the MODUS login page and click "Create New Account"',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '2. Enter your email address and create a strong password (minimum 8 characters, mix of upper/lowercase, numbers, and symbols)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '2. Enter your email address and create a strong password (minimum 8 characters, mix of upper/lowercase, numbers, and symbols)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '3. Verify your email address by clicking the confirmation link sent to your inbox',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '3. Verify your email address by clicking the confirmation link sent to your inbox',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '4. Complete your profile with basic information (full name, trading experience level, investment goals)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '4. Complete your profile with basic information (full name, trading experience level, investment goals)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '5. Accept the terms of service and privacy policy, then start trading',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '5. Accept the terms of service and privacy policy, then start trading',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
@@ -275,19 +384,40 @@ function createChapter1() {
     createSubHeading('Installing as a PWA'),
     createContentPara('MODUS is available as a Progressive Web App (PWA), allowing you to install it on your device for quick access and offline functionality:'),
     new Paragraph({
-      text: 'Desktop: Click the install icon in your browser address bar, then select "Install MODUS"',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Desktop: Click the install icon in your browser address bar, then select "Install MODUS"',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Mobile: Tap the menu button, select "Add to Home Screen" or "Install App"',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Mobile: Tap the menu button, select "Add to Home Screen" or "Install App"',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Once installed, MODUS will appear in your applications and can be launched like any native app',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Once installed, MODUS will appear in your applications and can be launched like any native app',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
       children: [new TextRun({ text: '', break: 1 })]
@@ -308,29 +438,64 @@ function createChapter2() {
     createSubHeading('Customizing Widgets'),
     createContentPara('MODUS widgets are highly customizable drag-and-drop components:'),
     new Paragraph({
-      text: 'Drag widgets: Click and drag any widget by its header to reposition it on your dashboard',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Drag widgets: Click and drag any widget by its header to reposition it on your dashboard',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Resize widgets: Use the resize handle in the widget corner to adjust width and height',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Resize widgets: Use the resize handle in the widget corner to adjust width and height',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Add widgets: Click the "+" button in the top-right corner to add new widgets from the widget library',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Add widgets: Click the "+" button in the top-right corner to add new widgets from the widget library',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Remove widgets: Click the "x" button on any widget to remove it from your dashboard',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Remove widgets: Click the "x" button on any widget to remove it from your dashboard',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Save layouts: Save your custom dashboard configuration as a preset for quick restoration',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Save layouts: Save your custom dashboard configuration as a preset for quick restoration',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
@@ -380,38 +545,80 @@ function createChapter3() {
     createSubHeading('Detailed Analysis Mode'),
     createContentPara('For deeper research, access Detailed Analysis Mode which provides comprehensive technical and fundamental analysis:'),
     new Paragraph({
-      text: 'Technical Analysis: Support/resistance levels, trend analysis, pattern recognition, indicator readings',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Technical Analysis: Support/resistance levels, trend analysis, pattern recognition, indicator readings',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Fundamental Analysis: Earnings history, revenue trends, profitability metrics, valuation ratios',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Fundamental Analysis: Earnings history, revenue trends, profitability metrics, valuation ratios',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Sentiment Analysis: News sentiment, social media mentions, institutional activity',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Sentiment Analysis: News sentiment, social media mentions, institutional activity',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('Understanding Verdicts'),
     createContentPara('MODUS AI provides three primary verdicts:'),
     new Paragraph({
-      text: 'BUY: Strong technical setup with favorable risk/reward ratio. Momentum is positive and key levels suggest upside potential.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'BUY: Strong technical setup with favorable risk/reward ratio. Momentum is positive and key levels suggest upside potential.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'HOLD: Asset is fairly valued or showing mixed signals. Good for position maintenance but uncertain for new entries.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'HOLD: Asset is fairly valued or showing mixed signals. Good for position maintenance but uncertain for new entries.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'SELL: Weakness evident with poor risk/reward setup. Technical deterioration or excessive valuation suggests caution.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'SELL: Weakness evident with poor risk/reward setup. Technical deterioration or excessive valuation suggests caution.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
@@ -447,29 +654,64 @@ function createChapter4() {
     createContentPara('Control MODUS entirely by voice using the browser\'s built-in Web Speech API. No special setup required — just press "V" or click the microphone button on the dashboard to activate voice mode.'),
     createContentPara('Once activated, speak naturally to navigate, analyze stocks, or control your dashboard. The system continuously listens and processes your commands in real-time. Try commands like:'),
     new Paragraph({
-      text: '"Analyze AAPL" — Get instant AI analysis for Apple stock',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '"Analyze AAPL" — Get instant AI analysis for Apple stock',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '"Go to journal" — Navigate to your trading journal',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '"Go to journal" — Navigate to your trading journal',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '"Switch to dark theme" — Change your color theme',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '"Switch to dark theme" — Change your color theme',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '"Open watchlist" — View your tracked stocks',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '"Open watchlist" — View your tracked stocks',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: '"Show dashboard" — Return to the main dashboard',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: '"Show dashboard" — Return to the main dashboard',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('Voice commands are perfect for hands-free operation while monitoring charts or for accessibility. The system provides audio feedback confirming that it understood your command.'),
 
@@ -478,29 +720,64 @@ function createChapter4() {
     createContentPara('Create unlimited custom color themes to personalize MODUS to your exact preferences. Access the Theme Builder from Settings > Appearance > Create Custom Theme.'),
     createContentPara('The Theme Builder provides 7 color pickers to customize:'),
     new Paragraph({
-      text: 'Background — Overall page background color',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Background — Overall page background color',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Text Color — Default text and content color',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Text Color — Default text and content color',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Accent — Primary accent color for highlights and buttons',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Accent — Primary accent color for highlights and buttons',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Cards — Widget and card background color',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Cards — Widget and card background color',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Borders — Card and element border color',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Borders — Card and element border color',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('As you adjust colors, a live preview panel shows exactly how your theme will look. MODUS includes 5 pre-built presets to get you started: Ocean Blue (calm blues), Sunset (warm oranges), Forest (greens), Cyberpunk (neon accent colors), and Warm Gray (neutral tones). All themes are saved to localStorage and persist across sessions.'),
     createContentPara('You can edit, apply, or delete custom themes at any time from Settings. Share theme codes with other traders to spread your favorite color schemes.'),
@@ -519,14 +796,28 @@ function createChapter5New() {
     createContentPara('Monitor live cryptocurrency prices directly from your MODUS dashboard. The Crypto Prices widget pulls real-time data from CoinGecko\'s free API, requiring no API key.'),
     createContentPara('The widget tracks 8 major cryptocurrencies:'),
     new Paragraph({
-      text: 'Bitcoin (BTC), Ethereum (ETH), Solana (SOL), Binance Coin (BNB)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Bitcoin (BTC), Ethereum (ETH), Solana (SOL), Binance Coin (BNB)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'XRP, Cardano (ADA), Dogecoin (DOGE), and Polygon (MATIC)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'XRP, Cardano (ADA), Dogecoin (DOGE), and Polygon (MATIC)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('For each cryptocurrency, you see the current price, 24-hour percentage change (color-coded green for gains, red for losses), and market capitalization. The widget automatically refreshes every 30 seconds to keep prices current. You can also manually refresh the data by clicking the refresh button.'),
     createContentPara('This is perfect for traders monitoring crypto alongside traditional stock positions, or for understanding cryptocurrency market sentiment alongside equity markets.'),
@@ -536,24 +827,52 @@ function createChapter5New() {
     createContentPara('Add professional-grade annotations to price charts to mark key levels, identify patterns, and share analysis with clarity. Access drawing tools in the Chart view when analyzing any ticker.'),
     createContentPara('Available drawing tools include:'),
     new Paragraph({
-      text: 'Trendlines — Click two points on the chart to draw a trend line connecting support or resistance levels',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Trendlines — Click two points on the chart to draw a trend line connecting support or resistance levels',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Horizontal Lines — Draw horizontal support/resistance levels at key price points',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Horizontal Lines — Draw horizontal support/resistance levels at key price points',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Fibonacci Retracement — Apply Fibonacci ratios to identify potential bounce levels',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Fibonacci Retracement — Apply Fibonacci ratios to identify potential bounce levels',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Text Annotations — Add labels and notes to mark important observations on the chart',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Text Annotations — Add labels and notes to mark important observations on the chart',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('Customize each drawing with color selection. The undo button lets you remove the last drawing, and the clear-all option removes all drawings from the current chart. Importantly, all drawings are saved to localStorage and persist per ticker, so your annotations remain when you return to that stock.'),
     new Paragraph({
@@ -575,24 +894,52 @@ function createChapter6Old() {
     createSubHeading('Price Alerts System'),
     createContentPara('Set up automated price alerts for symbols you\'re monitoring. Alerts can be configured based on:'),
     new Paragraph({
-      text: 'Price breaks above/below specific levels',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Price breaks above/below specific levels',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Percentage gains or losses from entry price',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Percentage gains or losses from entry price',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Volume spikes above average volume',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Volume spikes above average volume',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Technical indicator crossovers (e.g., MACD bullish cross)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Technical indicator crossovers (e.g., MACD bullish cross)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('Receive alerts via push notification, email, SMS (premium), or in-app notifications depending on your preferences.'),
 
@@ -627,7 +974,7 @@ function createChapter6Old() {
   ];
 }
 
-// Chapter 5: Trading Journal
+// Chapter 5: Trading Journal (re-numbered as Chapter 5 in output)
 function createChapter5() {
   return [
     createSectionHeading('Chapter 5: Trading Journal'),
@@ -641,29 +988,64 @@ function createChapter5() {
     createSubHeading('Performance Metrics'),
     createContentPara('MODUS calculates key performance metrics from your trading data:'),
     new Paragraph({
-      text: 'Win Rate: Percentage of trades that were profitable. Industry standard is 50%+ for experienced traders.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Win Rate: Percentage of trades that were profitable. Industry standard is 50%+ for experienced traders.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Profit Factor: Ratio of gross profit to gross loss. Values above 1.5 are considered good.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Profit Factor: Ratio of gross profit to gross loss. Values above 1.5 are considered good.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Average Win/Loss: Mean size of winning trades vs losing trades. Winners should exceed losers.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Average Win/Loss: Mean size of winning trades vs losing trades. Winners should exceed losers.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Sharpe Ratio: Risk-adjusted return metric. Higher values indicate better risk-adjusted performance.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Sharpe Ratio: Risk-adjusted return metric. Higher values indicate better risk-adjusted performance.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Max Drawdown: Largest peak-to-trough decline in your account. Critical for risk assessment.',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Max Drawdown: Largest peak-to-trough decline in your account. Critical for risk assessment.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
@@ -816,24 +1198,52 @@ function createChapter9() {
     createSubHeading('Stock Screener'),
     createContentPara('The MODUS Stock Screener helps identify trading opportunities matching your criteria. Filter stocks by:'),
     new Paragraph({
-      text: 'Price and volume metrics: Price range, average volume, volume changes',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Price and volume metrics: Price range, average volume, volume changes',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Technical indicators: Moving average positions, RSI readings, MACD signals',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Technical indicators: Moving average positions, RSI readings, MACD signals',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Fundamental metrics: P/E ratios, earnings growth, revenue trends',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Fundamental metrics: P/E ratios, earnings growth, revenue trends',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Market cap and sector: Filter by company size and industry sector',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Market cap and sector: Filter by company size and industry sector',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('Save your favorite screening criteria as templates for quick reuse. Run screens daily to identify stocks meeting your entry conditions and add promising results to your watchlist.'),
 
@@ -867,24 +1277,52 @@ function createChapter10() {
     createSubHeading('Notification Preferences'),
     createContentPara('Customize how you receive alerts and notifications:'),
     new Paragraph({
-      text: 'Push Notifications: Real-time alerts delivered to your browser or mobile device',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Push Notifications: Real-time alerts delivered to your browser or mobile device',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Email Alerts: Daily or weekly digests of important market events and price alerts',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Email Alerts: Daily or weekly digests of important market events and price alerts',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'SMS Alerts: Text message notifications for critical trades or price targets (premium feature)',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'SMS Alerts: Text message notifications for critical trades or price targets (premium feature)',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'In-App Notifications: View notifications within the MODUS interface',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'In-App Notifications: View notifications within the MODUS interface',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('Set quiet hours during which notifications are muted (e.g., after market hours or during your sleep time).'),
 
@@ -896,43 +1334,92 @@ function createChapter10() {
     createSubHeading('Dashboard Layouts'),
     createContentPara('Save and manage multiple dashboard configurations. Create layouts optimized for different trading scenarios:'),
     new Paragraph({
-      text: 'Premarket Layout: Focused on news, pre-market movers, and economic calendar',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Premarket Layout: Focused on news, pre-market movers, and economic calendar',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Active Trading Layout: Multiple charts, alerts, and order execution windows',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Active Trading Layout: Multiple charts, alerts, and order execution windows',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Analysis Layout: Research tools, screener, and fundamental data prominently displayed',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Analysis Layout: Research tools, screener, and fundamental data prominently displayed',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('Keyboard Shortcuts'),
     createContentPara('Master keyboard shortcuts for faster navigation and trading. Common shortcuts include:'),
     new Paragraph({
-      text: 'Ctrl+K (Cmd+K): Quick search across all features and symbols',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Ctrl+K (Cmd+K): Quick search across all features and symbols',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Ctrl+J (Cmd+J): Open trading journal',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Ctrl+J (Cmd+J): Open trading journal',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Ctrl+D (Cmd+D): Add symbol to watchlist',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Ctrl+D (Cmd+D): Add symbol to watchlist',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Ctrl+A (Cmd+A): Open AI analysis',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Ctrl+A (Cmd+A): Open AI analysis',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
@@ -973,29 +1460,64 @@ function createChapter11() {
     createSubHeading('Building a Trading Routine'),
     createContentPara('Consistency builds success. Create a daily trading routine:'),
     new Paragraph({
-      text: 'Before Market Open: Review the Morning Briefing, check pre-market movers, review your watchlist, and plan your day',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 100, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Before Market Open: Review the Morning Briefing, check pre-market movers, review your watchlist, and plan your day',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'During Trading Hours: Execute your planned trades, monitor open positions, and log trades in your journal',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'During Trading Hours: Execute your planned trades, monitor open positions, and log trades in your journal',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'After Market Close: Log any new trades, review the day\'s performance, note lessons learned',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'After Market Close: Log any new trades, review the day\'s performance, note lessons learned',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Weekly: Analyze your wins and losses, identify patterns, adjust your approach if needed',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Weekly: Analyze your wins and losses, identify patterns, adjust your approach if needed',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Monthly: Deep dive into your monthly P&L, evaluate overall performance, set goals for next month',
+      alignment: AlignmentType.LEFT,
       spacing: { before: 0, after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Monthly: Deep dive into your monthly P&L, evaluate overall performance, set goals for next month',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     createContentPara('Treat trading like a business. Show up consistently, follow your processes, and continually improve. Over months and years, these habits compound into significant expertise and profitability.'),
     new Paragraph({
@@ -1039,24 +1561,36 @@ function createAppendixA() {
             new TableCell({
               shading: { fill: COLORS.navy, type: ShadingType.CLEAR },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              width: { size: 3000, type: WidthType.DXA },
               children: [
                 new Paragraph({
-                  text: 'Keyboard Shortcut',
-                  bold: true,
-                  color: COLORS.white,
-                  size: 22
+                  children: [
+                    new TextRun({
+                      text: 'Keyboard Shortcut',
+                      bold: true,
+                      color: COLORS.white,
+                      size: 22,
+                      font: 'Arial'
+                    })
+                  ]
                 })
               ]
             }),
             new TableCell({
               shading: { fill: COLORS.navy, type: ShadingType.CLEAR },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              width: { size: 7000, type: WidthType.DXA },
               children: [
                 new Paragraph({
-                  text: 'Action',
-                  bold: true,
-                  color: COLORS.white,
-                  size: 22
+                  children: [
+                    new TextRun({
+                      text: 'Action',
+                      bold: true,
+                      color: COLORS.white,
+                      size: 22,
+                      font: 'Arial'
+                    })
+                  ]
                 })
               ]
             })
@@ -1069,23 +1603,35 @@ function createAppendixA() {
                 new TableCell({
                   shading: { fill: COLORS.lightBg, type: ShadingType.CLEAR },
                   margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                  width: { size: 3000, type: WidthType.DXA },
                   children: [
                     new Paragraph({
-                      text: shortcut.command,
-                      bold: true,
-                      size: 20,
-                      color: COLORS.darkText
+                      children: [
+                        new TextRun({
+                          text: shortcut.command,
+                          bold: true,
+                          size: 20,
+                          color: COLORS.darkText,
+                          font: 'Arial'
+                        })
+                      ]
                     })
                   ]
                 }),
                 new TableCell({
                   shading: { fill: COLORS.lightText, type: ShadingType.CLEAR },
                   margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                  width: { size: 7000, type: WidthType.DXA },
                   children: [
                     new Paragraph({
-                      text: shortcut.action,
-                      size: 20,
-                      color: COLORS.darkText
+                      children: [
+                        new TextRun({
+                          text: shortcut.action,
+                          size: 20,
+                          color: COLORS.darkText,
+                          font: 'Arial'
+                        })
+                      ]
                     })
                   ]
                 })
@@ -1171,24 +1717,36 @@ function createAppendixB() {
             new TableCell({
               shading: { fill: COLORS.navy, type: ShadingType.CLEAR },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              width: { size: 2000, type: WidthType.DXA },
               children: [
                 new Paragraph({
-                  text: 'Term',
-                  bold: true,
-                  color: COLORS.white,
-                  size: 22
+                  children: [
+                    new TextRun({
+                      text: 'Term',
+                      bold: true,
+                      color: COLORS.white,
+                      size: 22,
+                      font: 'Arial'
+                    })
+                  ]
                 })
               ]
             }),
             new TableCell({
               shading: { fill: COLORS.navy, type: ShadingType.CLEAR },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              width: { size: 8000, type: WidthType.DXA },
               children: [
                 new Paragraph({
-                  text: 'Definition',
-                  bold: true,
-                  color: COLORS.white,
-                  size: 22
+                  children: [
+                    new TextRun({
+                      text: 'Definition',
+                      bold: true,
+                      color: COLORS.white,
+                      size: 22,
+                      font: 'Arial'
+                    })
+                  ]
                 })
               ]
             })
@@ -1201,24 +1759,36 @@ function createAppendixB() {
                 new TableCell({
                   shading: { fill: COLORS.lightBg, type: ShadingType.CLEAR },
                   margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                  width: { size: 2000, type: WidthType.DXA },
                   children: [
                     new Paragraph({
-                      text: item.term,
-                      bold: true,
-                      size: 20,
-                      color: COLORS.darkText
+                      children: [
+                        new TextRun({
+                          text: item.term,
+                          bold: true,
+                          size: 20,
+                          color: COLORS.darkText,
+                          font: 'Arial'
+                        })
+                      ]
                     })
                   ]
                 }),
                 new TableCell({
                   shading: { fill: COLORS.lightText, type: ShadingType.CLEAR },
                   margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                  width: { size: 8000, type: WidthType.DXA },
                   children: [
                     new Paragraph({
-                      text: item.def,
-                      size: 20,
-                      color: COLORS.darkText,
-                      alignment: AlignmentType.LEFT
+                      alignment: AlignmentType.LEFT,
+                      children: [
+                        new TextRun({
+                          text: item.def,
+                          size: 20,
+                          color: COLORS.darkText,
+                          font: 'Arial'
+                        })
+                      ]
                     })
                   ]
                 })
@@ -1241,162 +1811,344 @@ function createAppendixC() {
     new Paragraph({ text: '' }),
     createSubHeading('Getting Started'),
     new Paragraph({
-      text: 'Q: Is MODUS available on mobile devices?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Is MODUS available on mobile devices?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Yes! MODUS is fully responsive and works seamlessly on smartphones and tablets. You can also install MODUS as a PWA for a native app-like experience.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Yes! MODUS is fully responsive and works seamlessly on smartphones and tablets. You can also install MODUS as a PWA for a native app-like experience.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Q: Do I need to connect my broker account to use MODUS?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Do I need to connect my broker account to use MODUS?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: No, MODUS functions as a standalone analysis and journaling platform. Broker integration is optional and only required if you want automatic position tracking.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: No, MODUS functions as a standalone analysis and journaling platform. Broker integration is optional and only required if you want automatic position tracking.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('AI Features'),
     new Paragraph({
-      text: 'Q: How accurate are the AI trade recommendations?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: How accurate are the AI trade recommendations?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: MODUS AI provides guidance based on technical analysis, not guaranteed predictions. No system is 100% accurate. Always use AI insights as one input among many in your decision-making process. Past performance does not guarantee future results.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: MODUS AI provides guidance based on technical analysis, not guaranteed predictions. No system is 100% accurate. Always use AI insights as one input among many in your decision-making process. Past performance does not guarantee future results.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Q: Can I customize the AI analysis parameters?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Can I customize the AI analysis parameters?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Yes, in the Settings menu you can adjust which indicators the AI considers, timeframes for analysis, and risk parameters for trade recommendations.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Yes, in the Settings menu you can adjust which indicators the AI considers, timeframes for analysis, and risk parameters for trade recommendations.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('Trading & Security'),
     new Paragraph({
-      text: 'Q: Is my trading data secure?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Is my trading data secure?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: MODUS uses enterprise-grade encryption for all data in transit and at rest. We never store broker credentials or API keys in plain text. Your trading journal is private unless you explicitly share it.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: MODUS uses enterprise-grade encryption for all data in transit and at rest. We never store broker credentials or API keys in plain text. Your trading journal is private unless you explicitly share it.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Q: Can I execute real trades directly from MODUS?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Can I execute real trades directly from MODUS?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: If you connect a supported broker via API, yes. Otherwise, MODUS is designed for analysis and planning. You would execute trades through your broker\'s platform.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: If you connect a supported broker via API, yes. Otherwise, MODUS is designed for analysis and planning. You would execute trades through your broker\'s platform.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('Trading Journal'),
     new Paragraph({
-      text: 'Q: Can I manually enter historical trades?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Can I manually enter historical trades?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Yes, the Trading Journal allows manual entry of past trades. Enter the symbol, entry/exit prices, dates, and any notes. Historical trades count toward your performance metrics and equity curve.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Yes, the Trading Journal allows manual entry of past trades. Enter the symbol, entry/exit prices, dates, and any notes. Historical trades count toward your performance metrics and equity curve.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Q: How do I export my trading journal?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: How do I export my trading journal?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Click the Export button in the Trading Journal. Your trades are exported to CSV format, which you can import into spreadsheets for additional analysis.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Click the Export button in the Trading Journal. Your trades are exported to CSV format, which you can import into spreadsheets for additional analysis.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('Community & Sharing'),
     new Paragraph({
-      text: 'Q: Can I keep my trades private?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Can I keep my trades private?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Yes, your trading journal is private by default. You can share individual trades with the community or specific users if you choose.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Yes, your trading journal is private by default. You can share individual trades with the community or specific users if you choose.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Q: How do I block or report inappropriate community posts?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: How do I block or report inappropriate community posts?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Click the three-dot menu on any post and select "Report" or "Block User." Our moderation team reviews reports within 24 hours.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Click the three-dot menu on any post and select "Report" or "Block User." Our moderation team reviews reports within 24 hours.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
 
     new Paragraph({ text: '' }),
     createSubHeading('Troubleshooting'),
     new Paragraph({
-      text: 'Q: The app is running slowly. What can I do?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: The app is running slowly. What can I do?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Try clearing your browser cache, disabling unnecessary widgets, reducing the number of stocks in your watchlists, or switching to a different browser.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Try clearing your browser cache, disabling unnecessary widgets, reducing the number of stocks in your watchlists, or switching to a different browser.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Q: I forgot my password. How do I reset it?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: I forgot my password. How do I reset it?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Click "Forgot Password" on the login page. Enter your email address and you\'ll receive a password reset link. Follow the link and set a new password.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Click "Forgot Password" on the login page. Enter your email address and you\'ll receive a password reset link. Follow the link and set a new password.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'Q: Where can I get support or report bugs?',
-      bold: true,
+      alignment: AlignmentType.LEFT,
       spacing: { after: 150, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'Q: Where can I get support or report bugs?',
+          bold: true,
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     }),
     new Paragraph({
-      text: 'A: Visit our support portal at support.modus.trading, email support@modus.trading, or use the Help button within the app. We typically respond within 24 hours.',
+      alignment: AlignmentType.LEFT,
       spacing: { after: 300, line: 320 },
-      size: 22
+      children: [
+        new TextRun({
+          text: 'A: Visit our support portal at support.modus.trading, email support@modus.trading, or use the Help button within the app. We typically respond within 24 hours.',
+          size: 22,
+          color: COLORS.darkText,
+          font: 'Arial'
+        })
+      ]
     })
   ];
 }
@@ -1432,10 +2184,10 @@ async function generateDocument() {
             height: 15840
           },
           margins: {
-            top: 1080,
-            right: 1080,
-            bottom: 1080,
-            left: 1080
+            top: 1440,
+            right: 1440,
+            bottom: 1440,
+            left: 1440
           },
           children: sections
         }
@@ -1446,10 +2198,10 @@ async function generateDocument() {
     const outputPath = '/sessions/magical-ecstatic-mccarthy/mnt/Tradevision_MODUS/MODUS_Complete_Guide.docx';
 
     fs.writeFileSync(outputPath, buffer);
-    console.log(`✓ Document successfully created: ${outputPath}`);
-    console.log(`✓ File size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`✓ Document contains 13 chapters plus 3 appendices`);
-    console.log(`✓ Ready for distribution and use!`);
+    console.log(`Document successfully created: ${outputPath}`);
+    console.log(`File size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`Document contains 13 chapters plus 3 appendices`);
+    console.log(`Ready for distribution and use!`);
   } catch (error) {
     console.error('Error generating document:', error);
     process.exit(1);
