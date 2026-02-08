@@ -1330,15 +1330,23 @@ function App() {
     setQuickAnalysisExpanded(false);
     setQuickAnalysisDetail(null);
     try {
-      // Fetch real-time data for the ticker
+      // Fetch real-time data for the ticker with robust proxy fallback chain
+      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`;
+      const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`;
       const proxies = [
-        `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`,
-        `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`)}`,
+        yahooUrl,
+        yahooUrl2,
+        `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(yahooUrl2)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
+        `https://corsproxy.org/?${encodeURIComponent(yahooUrl)}`,
+        `https://thingproxy.freeboard.io/fetch/${yahooUrl}`,
       ];
       let chartData = null;
       for (const url of proxies) {
         try {
-          const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
           if (r.ok) { chartData = await r.json(); break; }
         } catch {}
       }
@@ -1396,18 +1404,27 @@ Respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON)
 {
   "verdict": "STRONG BUY" or "BUY" or "HOLD" or "SELL" or "STRONG SELL",
   "confidence": number 1-100,
-  "targetPrice": number,
-  "stopLoss": number,
+  "targetPrice": number (realistic target based on resistance levels and current price — MUST be a positive dollar amount like 185.50),
+  "stopLoss": number (realistic stop loss based on support levels — MUST be a positive dollar amount like 170.25),
   "timeframe": "string like 1-2 weeks or 1-3 months",
   "riskLevel": "LOW" or "MODERATE" or "HIGH",
   "summary": "2-3 sentence summary of why",
   "bullish": ["factor1", "factor2", "factor3"],
   "bearish": ["factor1", "factor2", "factor3"],
-  "keyLevel": "string describing the most important price level to watch",
-  "entryStrategy": "1-2 sentences on how to enter this trade"
+  "keyLevel": "string describing the most important price level to watch with dollar amount",
+  "entryStrategy": "1-2 sentences on how to enter this trade with specific price levels",
+  "support": number (nearest support level as dollar amount),
+  "resistance": number (nearest resistance level as dollar amount),
+  "riskRewardRatio": "string like 1:2.5"
 }
 
-Be accurate and data-driven. Base your verdict on the actual indicators provided. If RSI is overbought, trend is down, and price is below SMAs, don't say BUY. Be honest.`
+CRITICAL RULES:
+- targetPrice and stopLoss MUST be realistic dollar amounts based on the current price of $${currentPrice.toFixed(2)}. Never use 0 or null.
+- For a BUY verdict, targetPrice should be ABOVE current price and stopLoss BELOW current price.
+- For a SELL verdict, targetPrice should be BELOW current price and stopLoss ABOVE current price.
+- For HOLD, set targetPrice slightly above and stopLoss slightly below as watch levels.
+- Base everything on the REAL technical data provided above. Be accurate and data-driven.
+- If RSI is overbought, trend is down, and price is below SMAs, don't say BUY. Be honest.`
       }], 2000);
 
       const text = response.content?.[0]?.text || '';
@@ -1419,6 +1436,12 @@ Be accurate and data-driven. Base your verdict on the actual indicators provided
       } catch {}
 
       if (parsed) {
+        // Validate and fix critical numeric fields — ensure they are real prices, never 0
+        const safeTarget = (typeof parsed.targetPrice === 'number' && parsed.targetPrice > 0) ? parsed.targetPrice : (currentPrice > 0 ? currentPrice * 1.05 : null);
+        const safeStop = (typeof parsed.stopLoss === 'number' && parsed.stopLoss > 0) ? parsed.stopLoss : (currentPrice > 0 ? currentPrice * 0.95 : null);
+        const safeConfidence = (typeof parsed.confidence === 'number' && parsed.confidence > 0 && parsed.confidence <= 100) ? parsed.confidence : 50;
+        const safeSupport = (typeof parsed.support === 'number' && parsed.support > 0) ? parsed.support : safeStop;
+        const safeResistance = (typeof parsed.resistance === 'number' && parsed.resistance > 0) ? parsed.resistance : safeTarget;
         const result = {
           ticker: sym,
           price: currentPrice,
@@ -1427,7 +1450,14 @@ Be accurate and data-driven. Base your verdict on the actual indicators provided
           sma20, sma50, sma200,
           volRatio: parseFloat(volRatio),
           rangePosition: parseInt(rangePosition),
+          high52: high52,
+          low52: low52,
           ...parsed,
+          targetPrice: safeTarget,
+          stopLoss: safeStop,
+          confidence: safeConfidence,
+          support: safeSupport,
+          resistance: safeResistance,
           timestamp: new Date(),
         };
         setQuickAnalysisResult(result);
@@ -1442,7 +1472,7 @@ Be accurate and data-driven. Base your verdict on the actual indicators provided
     }
   };
 
-  // Quick Analysis "Tell me more" - expanded detailed analysis
+  // Quick Analysis "Tell me more" - expanded detailed analysis with structured JSON
   const runQuickAnalysisDetail = async () => {
     if (!quickAnalysisResult || quickAnalysisResult.error || quickAnalysisDetailLoading) return;
     setQuickAnalysisDetailLoading(true);
@@ -1453,25 +1483,78 @@ Be accurate and data-driven. Base your verdict on the actual indicators provided
         content: `You are an expert trading educator. The user ran a Quick Analysis on ${r.ticker} (current price: $${r.price?.toFixed(2)}).
 
 Result: ${r.verdict} with ${r.confidence}% confidence.
-Target: $${r.targetPrice} | Stop Loss: $${r.stopLoss} | Timeframe: ${r.timeframe}
+Target: $${r.targetPrice?.toFixed(2) || 'N/A'} | Stop Loss: $${r.stopLoss?.toFixed(2) || 'N/A'} | Timeframe: ${r.timeframe}
 RSI: ${r.rsi} | SMA20: ${r.sma20 ? '$' + r.sma20.toFixed(2) : 'N/A'} | SMA50: ${r.sma50 ? '$' + r.sma50.toFixed(2) : 'N/A'}
+3M Range: $${r.low52?.toFixed(2) || '?'} - $${r.high52?.toFixed(2) || '?'} (at ${r.rangePosition}%)
+Volume: ${r.volRatio}x average
 Bullish: ${r.bullish?.join(', ')}
 Bearish: ${r.bearish?.join(', ')}
 Summary: ${r.summary}
 
-Now provide a DETAILED educational breakdown:
-1. **Technical Analysis Deep Dive** — Explain what each indicator is saying and WHY it matters
-2. **Entry & Exit Strategy** — Specific price levels, order types to use, how to size the position
-3. **Risk Assessment** — What could go wrong, what to watch for, when to cut losses
-4. **Sector & Market Context** — How the broader market affects this stock right now
-5. **Alternative Scenarios** — What happens if the trade goes against you, backup plan
+Respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):
+{
+  "technicalAnalysis": {
+    "title": "Technical Analysis Deep Dive",
+    "summary": "2-3 sentence overview of technical picture",
+    "indicators": [
+      { "name": "RSI (14)", "value": "${r.rsi}", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences explaining what this means and why it matters" },
+      { "name": "Moving Averages", "value": "Above/Below", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about SMA alignment" },
+      { "name": "Volume", "value": "${r.volRatio}x", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about volume confirmation" },
+      { "name": "Price Range", "value": "${r.rangePosition}%", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about position within range" }
+    ]
+  },
+  "entryExit": {
+    "title": "Entry & Exit Strategy",
+    "entryType": "Limit Buy/Market Buy/etc",
+    "entryPrice": "specific price with explanation",
+    "exitTarget": "price with reasoning",
+    "stopLoss": "price with reasoning",
+    "positionSize": "percentage of portfolio recommendation with explanation",
+    "orderFlow": ["step 1 instruction", "step 2 instruction", "step 3 instruction"]
+  },
+  "riskAssessment": {
+    "title": "Risk Assessment",
+    "overallRisk": "LOW/MODERATE/HIGH",
+    "maxLoss": "dollar/percentage amount",
+    "risks": [
+      { "risk": "risk name", "severity": "Low/Medium/High", "mitigation": "how to handle it" }
+    ],
+    "warningSignals": ["signal to watch for 1", "signal 2", "signal 3"]
+  },
+  "sectorContext": {
+    "title": "Sector & Market Context",
+    "sector": "sector name",
+    "sectorTrend": "Bullish/Bearish/Neutral",
+    "marketCondition": "1-2 sentences about current market environment",
+    "catalysts": ["upcoming catalyst 1", "catalyst 2"],
+    "headwinds": ["headwind 1", "headwind 2"]
+  },
+  "scenarios": {
+    "title": "Alternative Scenarios",
+    "bullCase": { "probability": "X%", "target": "$XX.XX", "description": "What happens in the best case" },
+    "baseCase": { "probability": "X%", "target": "$XX.XX", "description": "Most likely outcome" },
+    "bearCase": { "probability": "X%", "target": "$XX.XX", "description": "What happens if it goes wrong" }
+  }
+}
 
-Use **bold** for headers and • for lists. Be thorough (400-700 words). Be educational — explain concepts as you go.`
+Be thorough, educational, and use real price levels based on the data. Every field must be filled.`
       }], 3000);
 
-      setQuickAnalysisDetail(response.content?.[0]?.text || 'No detailed analysis available.');
+      const text = response.content?.[0]?.text || '';
+      let parsedDetail = null;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsedDetail = JSON.parse(jsonMatch[0]);
+      } catch {}
+
+      if (parsedDetail) {
+        setQuickAnalysisDetail(parsedDetail);
+      } else {
+        // Fallback: store raw text with a flag so renderer knows
+        setQuickAnalysisDetail({ _raw: true, text: text || 'No detailed analysis available.' });
+      }
     } catch (err) {
-      setQuickAnalysisDetail('Failed to load detailed analysis. Please try again.');
+      setQuickAnalysisDetail({ _raw: true, text: 'Failed to load detailed analysis. Please try again.' });
     } finally {
       setQuickAnalysisDetailLoading(false);
     }
@@ -21026,21 +21109,37 @@ INSTRUCTIONS:
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
                       <div className="text-xs text-slate-500 mb-1">Target Price</div>
-                      <div className="text-lg font-bold text-green-400">${r.targetPrice?.toFixed(2)}</div>
-                      <div className="text-[10px] text-emerald-400/60">{r.price ? `+${((r.targetPrice / r.price - 1) * 100).toFixed(1)}% upside` : ''}</div>
+                      <div className="text-lg font-bold text-green-400">{r.targetPrice ? `$${r.targetPrice.toFixed(2)}` : '—'}</div>
+                      <div className="text-[10px] text-emerald-400/60">{r.price && r.targetPrice ? `${r.targetPrice > r.price ? '+' : ''}${((r.targetPrice / r.price - 1) * 100).toFixed(1)}% ${r.targetPrice > r.price ? 'upside' : 'downside'}` : ''}</div>
                     </div>
                     <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
                       <div className="text-xs text-slate-500 mb-1">Stop Loss</div>
-                      <div className="text-lg font-bold text-red-400">${r.stopLoss?.toFixed(2)}</div>
-                      <div className="text-[10px] text-red-400/60">{r.price ? `${((r.stopLoss / r.price - 1) * 100).toFixed(1)}% risk` : ''}</div>
+                      <div className="text-lg font-bold text-red-400">{r.stopLoss ? `$${r.stopLoss.toFixed(2)}` : '—'}</div>
+                      <div className="text-[10px] text-red-400/60">{r.price && r.stopLoss ? `${((r.stopLoss / r.price - 1) * 100).toFixed(1)}% risk` : ''}</div>
                     </div>
                     <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
                       <div className="text-xs text-slate-500 mb-1">Timeframe</div>
-                      <div className="text-lg font-bold">{r.timeframe}</div>
+                      <div className="text-lg font-bold">{r.timeframe || '—'}</div>
                     </div>
                     <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
                       <div className="text-xs text-slate-500 mb-1">Risk Level</div>
-                      <div className={`text-lg font-bold ${r.riskLevel === 'LOW' ? 'text-green-400' : r.riskLevel === 'HIGH' ? 'text-red-400' : 'text-amber-400'}`}>{r.riskLevel}</div>
+                      <div className={`text-lg font-bold ${r.riskLevel === 'LOW' ? 'text-green-400' : r.riskLevel === 'HIGH' ? 'text-red-400' : 'text-amber-400'}`}>{r.riskLevel || '—'}</div>
+                    </div>
+                  </div>
+
+                  {/* Support / Resistance + R:R */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-emerald-500/5 rounded-xl border border-emerald-500/15 p-3 text-center">
+                      <div className="text-[10px] text-emerald-400/70 mb-0.5">Support</div>
+                      <div className="text-sm font-bold text-emerald-400">{r.support ? `$${r.support.toFixed(2)}` : '—'}</div>
+                    </div>
+                    <div className="bg-violet-500/5 rounded-xl border border-violet-500/15 p-3 text-center">
+                      <div className="text-[10px] text-violet-400/70 mb-0.5">Risk : Reward</div>
+                      <div className="text-sm font-bold text-violet-400">{r.riskRewardRatio || '—'}</div>
+                    </div>
+                    <div className="bg-red-500/5 rounded-xl border border-red-500/15 p-3 text-center">
+                      <div className="text-[10px] text-red-400/70 mb-0.5">Resistance</div>
+                      <div className="text-sm font-bold text-red-400">{r.resistance ? `$${r.resistance.toFixed(2)}` : '—'}</div>
                     </div>
                   </div>
 
@@ -21049,22 +21148,27 @@ INSTRUCTIONS:
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
                       <div className="text-[10px] text-slate-500">RSI (14)</div>
                       <div className={`text-sm font-bold ${r.rsi > 70 ? 'text-red-400' : r.rsi < 30 ? 'text-green-400' : 'text-white'}`}>{r.rsi}</div>
+                      <div className="text-[9px] text-slate-600">{r.rsi > 70 ? 'Overbought' : r.rsi < 30 ? 'Oversold' : 'Neutral'}</div>
                     </div>
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
                       <div className="text-[10px] text-slate-500">vs SMA20</div>
-                      <div className={`text-sm font-bold ${r.sma20 && r.price > r.sma20 ? 'text-green-400' : 'text-red-400'}`}>{r.sma20 ? (r.price > r.sma20 ? 'Above' : 'Below') : '—'}</div>
+                      <div className={`text-sm font-bold ${r.sma20 && r.price > r.sma20 ? 'text-green-400' : r.sma20 ? 'text-red-400' : 'text-slate-500'}`}>{r.sma20 ? (r.price > r.sma20 ? 'Above' : 'Below') : '—'}</div>
+                      {r.sma20 && <div className="text-[9px] text-slate-600">${r.sma20.toFixed(2)}</div>}
                     </div>
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
                       <div className="text-[10px] text-slate-500">vs SMA50</div>
-                      <div className={`text-sm font-bold ${r.sma50 && r.price > r.sma50 ? 'text-green-400' : 'text-red-400'}`}>{r.sma50 ? (r.price > r.sma50 ? 'Above' : 'Below') : '—'}</div>
+                      <div className={`text-sm font-bold ${r.sma50 && r.price > r.sma50 ? 'text-green-400' : r.sma50 ? 'text-red-400' : 'text-slate-500'}`}>{r.sma50 ? (r.price > r.sma50 ? 'Above' : 'Below') : '—'}</div>
+                      {r.sma50 && <div className="text-[9px] text-slate-600">${r.sma50.toFixed(2)}</div>}
                     </div>
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
                       <div className="text-[10px] text-slate-500">Volume</div>
                       <div className={`text-sm font-bold ${r.volRatio > 1.5 ? 'text-green-400' : r.volRatio < 0.5 ? 'text-red-400' : 'text-white'}`}>{r.volRatio}x</div>
+                      <div className="text-[9px] text-slate-600">{r.volRatio > 1.5 ? 'High' : r.volRatio < 0.5 ? 'Low' : 'Normal'}</div>
                     </div>
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
-                      <div className="text-[10px] text-slate-500">Range Position</div>
+                      <div className="text-[10px] text-slate-500">3M Range</div>
                       <div className="text-sm font-bold">{r.rangePosition}%</div>
+                      <div className="text-[9px] text-slate-600">{r.rangePosition > 75 ? 'Near High' : r.rangePosition < 25 ? 'Near Low' : 'Mid Range'}</div>
                     </div>
                   </div>
 
@@ -21130,27 +21234,220 @@ INSTRUCTIONS:
                     </button>
                   </div>
 
-                  {/* Detailed Analysis Expansion */}
-                  {quickAnalysisDetail && (
-                    <div className="bg-slate-900/50 rounded-2xl border border-violet-500/20 p-6">
-                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                        <MessageCircle className="w-5 h-5 text-violet-400" />
-                        Detailed Analysis — {r.ticker}
-                      </h3>
-                      <div className="prose prose-invert max-w-none text-sm leading-relaxed space-y-2">
-                        {quickAnalysisDetail.split('\n').map((line, i) => {
-                          if (!line.trim()) return <div key={i} className="h-2" />;
-                          if (line.match(/^\*\*.*\*\*$/)) return <h4 key={i} className="text-violet-400 font-bold mt-4 mb-2">{line.replace(/\*\*/g, '')}</h4>;
-                          if (line.match(/^#{1,3}\s+/)) return <h4 key={i} className="text-violet-400 font-bold mt-4 mb-2">{line.replace(/^#{1,3}\s+/, '')}</h4>;
-                          const formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
-                          if (line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().match(/^\d+\./)) {
-                            return <div key={i} className="flex items-start gap-2 ml-2 text-slate-300" dangerouslySetInnerHTML={{ __html: `<span class="text-violet-400 mt-0.5">▸</span> <span>${formatted.replace(/^[•\-]\s*/, '').replace(/^\d+\.\s*/, '')}</span>` }} />;
-                          }
-                          return <p key={i} className="text-slate-300" dangerouslySetInnerHTML={{ __html: formatted }} />;
-                        })}
+                  {/* Detailed Analysis Expansion — Structured Cards */}
+                  {quickAnalysisDetail && (() => {
+                    // Handle raw text fallback
+                    if (quickAnalysisDetail._raw) {
+                      return (
+                        <div className="bg-slate-900/50 rounded-2xl border border-violet-500/20 p-6">
+                          <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                            <MessageCircle className="w-5 h-5 text-violet-400" /> Deep Dive — {r.ticker}
+                          </h3>
+                          <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{quickAnalysisDetail.text}</div>
+                        </div>
+                      );
+                    }
+                    const d = quickAnalysisDetail;
+                    return (
+                      <div className="space-y-4">
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                          <MessageCircle className="w-5 h-5 text-violet-400" /> Deep Dive Analysis — {r.ticker}
+                        </h3>
+
+                        {/* 1. Technical Analysis */}
+                        {d.technicalAnalysis && (
+                          <div className="bg-slate-900/50 rounded-2xl border border-violet-500/20 p-5">
+                            <h4 className="font-bold text-sm text-violet-400 mb-2 flex items-center gap-2">
+                              <BarChart3 className="w-4 h-4" /> {d.technicalAnalysis.title || 'Technical Analysis'}
+                            </h4>
+                            <p className="text-xs text-slate-400 mb-4">{d.technicalAnalysis.summary}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {(d.technicalAnalysis.indicators || []).map((ind, i) => (
+                                <div key={i} className={`rounded-lg border p-3 ${ind.signal === 'Bullish' ? 'bg-emerald-500/5 border-emerald-500/15' : ind.signal === 'Bearish' ? 'bg-red-500/5 border-red-500/15' : 'bg-slate-800/30 border-slate-700/20'}`}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-semibold text-white">{ind.name}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${ind.signal === 'Bullish' ? 'bg-emerald-500/20 text-emerald-400' : ind.signal === 'Bearish' ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'}`}>{ind.signal}</span>
+                                  </div>
+                                  <div className="text-sm font-bold mb-1">{ind.value}</div>
+                                  <p className="text-[11px] text-slate-400 leading-relaxed">{ind.explanation}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 2. Entry & Exit Strategy */}
+                        {d.entryExit && (
+                          <div className="bg-slate-900/50 rounded-2xl border border-cyan-500/20 p-5">
+                            <h4 className="font-bold text-sm text-cyan-400 mb-3 flex items-center gap-2">
+                              <Target className="w-4 h-4" /> {d.entryExit.title || 'Entry & Exit Strategy'}
+                            </h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                              <div className="bg-slate-800/40 rounded-lg p-3">
+                                <div className="text-[10px] text-slate-500">Order Type</div>
+                                <div className="text-xs font-bold text-cyan-400">{d.entryExit.entryType || '—'}</div>
+                              </div>
+                              <div className="bg-slate-800/40 rounded-lg p-3">
+                                <div className="text-[10px] text-slate-500">Entry Price</div>
+                                <div className="text-xs font-bold text-white">{d.entryExit.entryPrice || '—'}</div>
+                              </div>
+                              <div className="bg-slate-800/40 rounded-lg p-3">
+                                <div className="text-[10px] text-slate-500">Exit Target</div>
+                                <div className="text-xs font-bold text-emerald-400">{d.entryExit.exitTarget || '—'}</div>
+                              </div>
+                              <div className="bg-slate-800/40 rounded-lg p-3">
+                                <div className="text-[10px] text-slate-500">Position Size</div>
+                                <div className="text-xs font-bold text-amber-400">{d.entryExit.positionSize || '—'}</div>
+                              </div>
+                            </div>
+                            {d.entryExit.orderFlow && d.entryExit.orderFlow.length > 0 && (
+                              <div className="bg-slate-800/30 rounded-lg p-3">
+                                <div className="text-[10px] text-slate-500 mb-2 font-semibold">ORDER FLOW</div>
+                                <div className="space-y-2">
+                                  {d.entryExit.orderFlow.map((step, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                                      <span className="text-cyan-400 font-bold mt-0.5">{i + 1}.</span>
+                                      <span>{step}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 3. Risk Assessment */}
+                        {d.riskAssessment && (
+                          <div className="bg-slate-900/50 rounded-2xl border border-amber-500/20 p-5">
+                            <h4 className="font-bold text-sm text-amber-400 mb-3 flex items-center gap-2">
+                              <Shield className="w-4 h-4" /> {d.riskAssessment.title || 'Risk Assessment'}
+                              <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold ${d.riskAssessment.overallRisk === 'LOW' ? 'bg-emerald-500/20 text-emerald-400' : d.riskAssessment.overallRisk === 'HIGH' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{d.riskAssessment.overallRisk} RISK</span>
+                            </h4>
+                            {d.riskAssessment.maxLoss && (
+                              <div className="text-xs text-slate-400 mb-3">Max potential loss: <span className="text-red-400 font-semibold">{d.riskAssessment.maxLoss}</span></div>
+                            )}
+                            {d.riskAssessment.risks && d.riskAssessment.risks.length > 0 && (
+                              <div className="space-y-2 mb-4">
+                                {d.riskAssessment.risks.map((risk, i) => (
+                                  <div key={i} className={`rounded-lg border p-3 ${risk.severity === 'High' ? 'bg-red-500/5 border-red-500/15' : risk.severity === 'Medium' ? 'bg-amber-500/5 border-amber-500/15' : 'bg-slate-800/30 border-slate-700/20'}`}>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs font-semibold text-white">{risk.risk}</span>
+                                      <span className={`text-[10px] font-bold ${risk.severity === 'High' ? 'text-red-400' : risk.severity === 'Medium' ? 'text-amber-400' : 'text-emerald-400'}`}>{risk.severity}</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400">{risk.mitigation}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {d.riskAssessment.warningSignals && d.riskAssessment.warningSignals.length > 0 && (
+                              <div className="bg-slate-800/30 rounded-lg p-3">
+                                <div className="text-[10px] text-slate-500 mb-2 font-semibold">WARNING SIGNALS TO WATCH</div>
+                                {d.riskAssessment.warningSignals.map((sig, i) => (
+                                  <div key={i} className="flex items-start gap-2 text-xs text-slate-300 mb-1">
+                                    <AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                                    <span>{sig}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 4. Sector Context */}
+                        {d.sectorContext && (
+                          <div className="bg-slate-900/50 rounded-2xl border border-blue-500/20 p-5">
+                            <h4 className="font-bold text-sm text-blue-400 mb-3 flex items-center gap-2">
+                              <Globe className="w-4 h-4" /> {d.sectorContext.title || 'Sector & Market Context'}
+                              {d.sectorContext.sectorTrend && (
+                                <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold ${d.sectorContext.sectorTrend === 'Bullish' ? 'bg-emerald-500/20 text-emerald-400' : d.sectorContext.sectorTrend === 'Bearish' ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'}`}>{d.sectorContext.sector} · {d.sectorContext.sectorTrend}</span>
+                              )}
+                            </h4>
+                            {d.sectorContext.marketCondition && (
+                              <p className="text-xs text-slate-300 mb-3 leading-relaxed">{d.sectorContext.marketCondition}</p>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {d.sectorContext.catalysts && d.sectorContext.catalysts.length > 0 && (
+                                <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-lg p-3">
+                                  <div className="text-[10px] text-emerald-400 mb-2 font-semibold">CATALYSTS</div>
+                                  {d.sectorContext.catalysts.map((c, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-xs text-slate-300 mb-1">
+                                      <span className="text-emerald-400">+</span> {c}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {d.sectorContext.headwinds && d.sectorContext.headwinds.length > 0 && (
+                                <div className="bg-red-500/5 border border-red-500/15 rounded-lg p-3">
+                                  <div className="text-[10px] text-red-400 mb-2 font-semibold">HEADWINDS</div>
+                                  {d.sectorContext.headwinds.map((h, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-xs text-slate-300 mb-1">
+                                      <span className="text-red-400">−</span> {h}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 5. Scenario Analysis */}
+                        {d.scenarios && (
+                          <div className="bg-slate-900/50 rounded-2xl border border-purple-500/20 p-5">
+                            <h4 className="font-bold text-sm text-purple-400 mb-3 flex items-center gap-2">
+                              <Layers className="w-4 h-4" /> {d.scenarios.title || 'Scenario Analysis'}
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              {d.scenarios.bullCase && (
+                                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-bold text-emerald-400">Bull Case</span>
+                                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">{d.scenarios.bullCase.probability}</span>
+                                  </div>
+                                  <div className="text-lg font-bold text-emerald-400 mb-1">{d.scenarios.bullCase.target}</div>
+                                  <p className="text-[11px] text-slate-400">{d.scenarios.bullCase.description}</p>
+                                </div>
+                              )}
+                              {d.scenarios.baseCase && (
+                                <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-bold text-blue-400">Base Case</span>
+                                    <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">{d.scenarios.baseCase.probability}</span>
+                                  </div>
+                                  <div className="text-lg font-bold text-blue-400 mb-1">{d.scenarios.baseCase.target}</div>
+                                  <p className="text-[11px] text-slate-400">{d.scenarios.baseCase.description}</p>
+                                </div>
+                              )}
+                              {d.scenarios.bearCase && (
+                                <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-bold text-red-400">Bear Case</span>
+                                    <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">{d.scenarios.bearCase.probability}</span>
+                                  </div>
+                                  <div className="text-lg font-bold text-red-400 mb-1">{d.scenarios.bearCase.target}</div>
+                                  <p className="text-[11px] text-slate-400">{d.scenarios.bearCase.description}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
+
+                  {/* Analyze Another + Timestamp */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => { setQuickAnalysisResult(null); setQuickAnalysisDetail(null); setQuickAnalysisExpanded(false); setQuickAnalysisTicker(''); }}
+                      className="px-4 py-2.5 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/30 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                    >
+                      <Search className="w-4 h-4" /> Analyze Another Stock
+                    </button>
+                    {r.timestamp && (
+                      <div className="text-[10px] text-slate-600 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Analyzed {new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Disclaimer */}
                   <div className="text-[10px] text-slate-600 text-center px-4">

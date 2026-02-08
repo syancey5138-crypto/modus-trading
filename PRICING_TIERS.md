@@ -179,3 +179,139 @@ The most effective monetization strategy for MODUS is limiting AI usage on the f
 - **AI API costs** are the primary expense. Each analysis uses ~2K tokens ($0.003-0.01 per analysis). At 50 analyses/day for Pro users, that's ~$0.25/user/day or $7.50/month — well within the $14.99 price.
 - **Data APIs** (Yahoo Finance) are free but rate-limited. May need paid data source for Elite tier (Alpha Vantage Premium or Polygon.io).
 - **Hosting** (Vercel) — free tier handles significant traffic. Pro plan ($20/mo) needed at ~10K users.
+
+---
+
+## Detailed Monetization Breakdown
+
+### Payment Infrastructure
+
+**Recommended Stack:**
+- **Stripe** for payment processing (2.9% + $0.30 per transaction)
+- **Stripe Billing** for subscription management (recurring billing, proration, upgrades/downgrades)
+- **Stripe Customer Portal** so users can manage their own subscription (cancel, change plan, update card)
+- **Firebase Custom Claims** to store tier info in the auth token (checked client-side for instant access control)
+- **Webhook verification** — Stripe sends events (subscription created, payment failed, cancelled) to your Vercel API endpoint, which updates Firestore user doc with `tier: "pro"` or `tier: "elite"`
+
+**Implementation Flow:**
+1. User clicks "Upgrade" → opens Stripe Checkout (hosted page, no PCI compliance needed)
+2. Stripe processes payment → sends webhook to `/api/stripe-webhook`
+3. Webhook handler verifies signature → updates Firestore: `users/{uid}.tier = "pro"`
+4. Frontend reads tier from Firestore on login → unlocks features immediately
+5. Stripe handles all recurring billing, failed payments, dunning emails automatically
+
+### Feature-Level Access Control
+
+| Feature | Free | Pro | Elite | Gate Type |
+|---------|------|-----|-------|-----------|
+| Chart Analysis | 5/day | 50/day | Unlimited | Counter (Firestore) |
+| Quick Analysis | 5/day | 50/day | Unlimited | Counter (Firestore) |
+| Ask AI | 10/day | 50/day | Unlimited | Counter (Firestore) |
+| Tell Me More | 2/day | 20/day | Unlimited | Counter (Firestore) |
+| Ask About Chart | None | 20/day | Unlimited | Hard gate |
+| Daily Pick | Yesterday's | Today's | Today's + Mid-day | Time gate |
+| Data Refresh | 15-min delay | Real-time | Real-time + extended | Config flag |
+| Multi-Timeframe | None | 3 timeframes | Unlimited | Hard gate |
+| Paper Trading | None | $100K account | $100K account | Hard gate |
+| Portfolio Tracker | None | 30 positions | Unlimited | Counter |
+| Trading Journal | 50 trades | Unlimited | Unlimited | Counter |
+| Watchlist | 10 symbols | 50 symbols | Unlimited | Counter |
+| Price Alerts | 5 alerts | 25 + email | Unlimited + SMS | Counter + channel |
+| PDF Export | None | Basic | Branded | Hard gate |
+| Backtesting | None | None | 2 years history | Hard gate |
+| Trade Ideas | None | None | AI-generated | Hard gate |
+| Alert Performance | None | None | Full analytics | Hard gate |
+| Options Calculator | Basic | Full | Advanced strategies | Partial gate |
+| Economic Calendar | None | Basic | AI impact analysis | Hard gate |
+
+### Counter Implementation (Firestore)
+
+Each user document tracks daily usage:
+```
+users/{uid}/dailyUsage/{YYYY-MM-DD}: {
+  chartAnalyses: 3,
+  quickAnalyses: 2,
+  askAiQuestions: 7,
+  tellMeMore: 1,
+  imageAnalyses: 0,
+  lastReset: "2026-02-07T00:00:00Z"
+}
+```
+
+A Cloud Function resets counters at midnight UTC. Client-side checks before each AI call:
+- Read counter from Firestore
+- Compare to tier limit
+- If over: show upgrade modal instead of calling API
+- If under: proceed and increment counter
+
+### Upgrade Modal Design
+
+When a user hits a limit, show a non-intrusive modal:
+- **Header:** "You've reached your daily limit"
+- **Body:** "You've used 5/5 Quick Analyses today. Upgrade to Pro for 50/day — or come back tomorrow for 5 more."
+- **CTA:** "Upgrade to Pro — $14.99/mo" (gradient button)
+- **Secondary:** "View all plans" (text link)
+- **Dismiss:** "Maybe later" (subtle X)
+
+### Pricing Psychology
+
+**Why $14.99 and $29.99:**
+- $14.99 is below the psychological $15 threshold — feels like "a little over $10"
+- $29.99 is below $30 — positions as "about $1/day" which is cheap for a trading tool
+- The jump from $14.99 to $29.99 is only 2x, but Elite gets "unlimited everything" — makes it feel like a steal for power users
+- Competitors (TradingView, TrendSpider, Trade Ideas) charge $30-$100/month — MODUS is positioned as the affordable AI-first alternative
+
+**Annual Pricing:**
+- Pro Annual: $119.99/year (saves $59.89 = 33% off, equivalent to $10/month)
+- Elite Annual: $239.99/year (saves $119.89 = 33% off, equivalent to $20/month)
+- Show savings prominently: "Save $60/year" badge next to annual toggle
+
+### Competitive Landscape
+
+| Competitor | Price Range | Key Difference |
+|-----------|------------|----------------|
+| TradingView | $14.95-$59.95/mo | Charts only, no AI analysis |
+| TrendSpider | $39-$79/mo | Automated technical analysis, expensive |
+| Trade Ideas | $84-$167/mo | AI-driven, but enterprise-priced |
+| Stock Rover | $7.99-$27.99/mo | Fundamentals-focused, no AI |
+| MODUS | Free-$29.99/mo | AI-first, modern UI, beginner-friendly |
+
+**MODUS competitive edge:** Free tier exists (competitors don't offer meaningful free tiers), AI-powered analysis at every level, modern dark UI, beginner-friendly with educational content (glossary, tips, tooltips).
+
+### Growth Levers
+
+**Referral Program (Phase 3):**
+- Referrer gets 1 week of Pro free for each signup
+- Referred friend gets 7-day Pro trial
+- Cap at 4 weeks accumulated (1 month free max)
+- Track referrals via unique invite code stored in Firestore
+
+**Upsell Moments (Natural friction points):**
+1. After a user's first successful analysis → "Love the analysis? Pro gives you 50/day"
+2. When Daily Pick says "Available for Pro users" → clear value demonstration
+3. After logging 45+ trades → "Almost at your limit — upgrade for unlimited"
+4. When a user tries Multi-Timeframe for the first time (locked) → "This is a Pro feature — try it free for 7 days"
+5. After viewing a winning trade in paper trading (locked) → "Track real trades with paper money — upgrade to Pro"
+
+**Retention Strategy:**
+- Monthly "MODUS Wrapped" email — your trading stats, best picks, improvement areas
+- Weekly AI market summary email (Pro+)
+- New feature announcements drive re-engagement
+- Streak system (Trading Streak widget) gamifies daily usage
+
+### Technical Implementation Checklist
+
+- [ ] Add `tier` field to Firestore user document (default: "free")
+- [ ] Create `/api/create-checkout-session` Vercel endpoint
+- [ ] Create `/api/stripe-webhook` Vercel endpoint
+- [ ] Add Stripe SDK to frontend (`@stripe/stripe-js`)
+- [ ] Build upgrade modal component
+- [ ] Build pricing page component
+- [ ] Add daily usage counter to Firestore
+- [ ] Add client-side tier checks before AI calls
+- [ ] Add "(15m delay)" badge to free tier data
+- [ ] Add tier badge to sidebar/header
+- [ ] Build Stripe Customer Portal integration
+- [ ] Set up Stripe products and prices in dashboard
+- [ ] Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to Vercel env vars
+- [ ] Test full flow: signup → free → upgrade → downgrade → cancel
