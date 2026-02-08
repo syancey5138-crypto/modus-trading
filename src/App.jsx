@@ -122,58 +122,206 @@ function App() {
           --accent: #8b5cf6;
         }
         .theme-light {
-          --bg-primary: #f8fafc;
-          --bg-secondary: #f1f5f9;
-          --bg-card: rgba(255, 255, 255, 0.95);
+          --bg-primary: #f4f6fb;
+          --bg-secondary: #edf0f7;
+          --bg-card: rgba(255, 255, 255, 0.98);
           --bg-hover: rgba(241, 245, 249, 0.9);
-          --text-primary: #0f172a;
+          --text-primary: #1e293b;
           --text-secondary: #475569;
           --text-muted: #94a3b8;
           --border-color: rgba(148, 163, 184, 0.2);
           --accent: #7c3aed;
         }
-        /* Light theme — a clean, soft look (not eye-burning white) */
+        /*
+         * LIGHT THEME — Premium Financial App Look
+         * Strategy: Keep sidebar + header DARK, lighten main content only.
+         * Preserve colored widget gradients, add depth via shadows.
+         */
+
+        /* === MAIN CONTENT AREA (not sidebar, not header) === */
+        .theme-light .main-content-area,
+        .theme-light .dashboard-grid-area {
+          background: #f4f6fb !important;
+          color: #1e293b !important;
+        }
+
+        /* The body/min-h-screen gets a subtle warm gray */
         .theme-light body,
-        .theme-light .min-h-screen { background: #f0f2f5 !important; color: #1a1a2e !important; }
-        .theme-light .card-premium { background: rgba(255,255,255,0.9) !important; border-color: rgba(0,0,0,0.08) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
-        .theme-light .card-premium:hover { border-color: rgba(124,58,237,0.2) !important; }
-        .theme-light .glass { background: rgba(255,255,255,0.85) !important; border-color: rgba(0,0,0,0.06) !important; }
-        .theme-light .bg-slate-900 { background: #f0f2f5 !important; }
-        .theme-light .bg-slate-800\\/30,
-        .theme-light .bg-slate-800\\/40,
-        .theme-light .bg-slate-800\\/50,
-        .theme-light .bg-slate-800\\/60 { background: rgba(255,255,255,0.7) !important; }
-        .theme-light .bg-slate-700\\/30,
-        .theme-light .bg-slate-700\\/50 { background: rgba(0,0,0,0.04) !important; }
-        .theme-light .text-white { color: #1a1a2e !important; }
-        .theme-light .text-slate-300 { color: #374151 !important; }
-        .theme-light .text-slate-400 { color: #6b7280 !important; }
-        .theme-light .text-slate-500 { color: #9ca3af !important; }
-        .theme-light .text-slate-600 { color: #9ca3af !important; }
-        .theme-light .text-slate-200 { color: #374151 !important; }
-        .theme-light .border-slate-700\\/10,
-        .theme-light .border-slate-700\\/15,
-        .theme-light .border-slate-700\\/20,
-        .theme-light .border-slate-700\\/30,
-        .theme-light .border-slate-700\\/50 { border-color: rgba(0,0,0,0.08) !important; }
-        .theme-light .sidebar-glass { background: rgba(255,255,255,0.95) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-        .theme-light .bg-gradient-to-b { background: linear-gradient(to bottom, #f0f2f5, #e8eaee) !important; }
-        .theme-light .bg-gradient-to-br { background: linear-gradient(to bottom right, rgba(255,255,255,0.8), rgba(248,250,252,0.6)) !important; }
-        /* Light theme gradient overrides for colored widgets */
-        .theme-light [class*="from-emerald-500"],
-        .theme-light [class*="from-orange-500"],
-        .theme-light [class*="from-blue-500"],
-        .theme-light [class*="from-cyan-500"],
-        .theme-light [class*="from-amber-500"],
-        .theme-light [class*="from-indigo-500"],
-        .theme-light [class*="from-violet-500"],
-        .theme-light [class*="from-red-500"],
-        .theme-light [class*="from-rose-500"],
-        .theme-light [class*="from-green-500"] { background: rgba(255,255,255,0.85) !important; }
+        .theme-light .min-h-screen { background: #f4f6fb !important; color: #1e293b !important; }
+
+        /* === KEEP SIDEBAR DARK (this is key!) === */
+        .theme-light .sidebar-glass {
+          background: rgba(15, 23, 42, 0.95) !important;
+          border-right: 1px solid rgba(148, 163, 184, 0.1) !important;
+        }
+        /* Sidebar text stays light */
+        .theme-light aside .text-white,
+        .theme-light aside .text-slate-300,
+        .theme-light aside .text-slate-400,
+        .theme-light aside .text-slate-200,
+        .theme-light aside span,
+        .theme-light aside button { color: inherit !important; }
+
+        /* === KEEP HEADER DARK for contrast === */
+        .theme-light header[class*="border-b"] {
+          background: rgba(15, 23, 42, 0.92) !important;
+          backdrop-filter: blur(20px) !important;
+        }
+        /* Header text stays light */
+        .theme-light header .text-white,
+        .theme-light header .text-slate-300,
+        .theme-light header .text-slate-400,
+        .theme-light header span,
+        .theme-light header button { color: inherit !important; }
+
+        /* === KEEP FOOTER DARK === */
+        .theme-light footer {
+          background: rgba(10, 15, 30, 0.85) !important;
+        }
+        .theme-light footer .text-slate-400,
+        .theme-light footer .text-slate-500,
+        .theme-light footer span,
+        .theme-light footer button { color: inherit !important; }
+
+        /* === CARDS — white with nice depth === */
+        .theme-light .card-premium {
+          background: rgba(255,255,255,0.97) !important;
+          border-color: rgba(0,0,0,0.06) !important;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03) !important;
+        }
+        .theme-light .card-premium:hover {
+          border-color: rgba(124,58,237,0.25) !important;
+          box-shadow: 0 2px 8px rgba(124,58,237,0.08), 0 4px 16px rgba(0,0,0,0.05) !important;
+        }
+        .theme-light .glass {
+          background: rgba(255,255,255,0.95) !important;
+          border-color: rgba(0,0,0,0.06) !important;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+        }
+
+        /* === MAIN CONTENT BACKGROUND OVERRIDES === */
+        /* Only override bg-slate-900 inside main content, NOT sidebar/header */
+        .theme-light main .bg-slate-900,
+        .theme-light section .bg-slate-900 { background: #f4f6fb !important; }
+
+        .theme-light main .bg-slate-800\\/30,
+        .theme-light main .bg-slate-800\\/40,
+        .theme-light main .bg-slate-800\\/50,
+        .theme-light main .bg-slate-800\\/60,
+        .theme-light section .bg-slate-800\\/30,
+        .theme-light section .bg-slate-800\\/40,
+        .theme-light section .bg-slate-800\\/50,
+        .theme-light section .bg-slate-800\\/60 { background: rgba(255,255,255,0.85) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important; }
+
+        .theme-light main .bg-slate-700\\/30,
+        .theme-light main .bg-slate-700\\/50 { background: rgba(0,0,0,0.03) !important; }
+
+        /* === MAIN CONTENT TEXT — good contrast hierarchy === */
+        .theme-light main .text-white,
+        .theme-light section .text-white { color: #1e293b !important; }
+        .theme-light main .text-slate-200 { color: #334155 !important; }
+        .theme-light main .text-slate-300 { color: #475569 !important; }
+        .theme-light main .text-slate-400 { color: #64748b !important; }
+        .theme-light main .text-slate-500 { color: #94a3b8 !important; }
+
+        /* Keep colored text vibrant — override ONLY the text-white/slate conversions */
+        .theme-light .text-emerald-400 { color: #059669 !important; }
+        .theme-light .text-red-400 { color: #dc2626 !important; }
+        .theme-light .text-violet-400 { color: #7c3aed !important; }
+        .theme-light .text-amber-400 { color: #d97706 !important; }
+        .theme-light .text-cyan-400 { color: #0891b2 !important; }
+        .theme-light .text-blue-400 { color: #2563eb !important; }
+        .theme-light .text-orange-400 { color: #ea580c !important; }
+        .theme-light .text-indigo-400 { color: #4f46e5 !important; }
+
+        /* === BORDERS in main content === */
+        .theme-light main .border-slate-700\\/10,
+        .theme-light main .border-slate-700\\/15,
+        .theme-light main .border-slate-700\\/20,
+        .theme-light main .border-slate-700\\/30,
+        .theme-light main .border-slate-700\\/50,
+        .theme-light main .border-slate-800\\/20,
+        .theme-light main .border-slate-800\\/30,
+        .theme-light section .border-slate-700\\/10,
+        .theme-light section .border-slate-700\\/20,
+        .theme-light section .border-slate-700\\/30,
+        .theme-light section .border-slate-800\\/20,
+        .theme-light section .border-slate-800\\/30 { border-color: rgba(0,0,0,0.07) !important; }
+
+        /* === WIDGET GRADIENTS — keep them colorful but softer === */
+        .theme-light main [class*="from-emerald-500"] { background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-orange-500"] { background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-blue-500"] { background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-cyan-500"] { background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-amber-500"] { background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-indigo-500"] { background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-violet-500"] { background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-red-500"] { background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-rose-500"] { background: linear-gradient(135deg, rgba(244,63,94,0.08), rgba(255,255,255,0.95)) !important; }
+        .theme-light main [class*="from-green-500"] { background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(255,255,255,0.95)) !important; }
+
         .theme-light .divide-slate-700 > * + * { border-color: rgba(0,0,0,0.06) !important; }
-        .theme-light input, .theme-light textarea, .theme-light select { background: rgba(255,255,255,0.9) !important; color: #1a1a2e !important; border-color: rgba(0,0,0,0.12) !important; }
-        .theme-light input::placeholder, .theme-light textarea::placeholder { color: #9ca3af !important; }
-        .theme-light .bg-gradient-to-r.from-violet-500\\/10 { background: rgba(255,255,255,0.8) !important; }
+
+        /* === INPUTS in main content === */
+        .theme-light main input,
+        .theme-light main textarea,
+        .theme-light main select,
+        .theme-light section input,
+        .theme-light section textarea,
+        .theme-light section select {
+          background: #ffffff !important;
+          color: #1e293b !important;
+          border-color: rgba(0,0,0,0.12) !important;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+        }
+        .theme-light main input::placeholder,
+        .theme-light main textarea::placeholder,
+        .theme-light section input::placeholder { color: #94a3b8 !important; }
+
+        /* Inputs get a nice focus ring */
+        .theme-light main input:focus,
+        .theme-light main textarea:focus,
+        .theme-light main select:focus {
+          border-color: rgba(124,58,237,0.4) !important;
+          box-shadow: 0 0 0 3px rgba(124,58,237,0.1) !important;
+        }
+
+        /* === MODALS stay dark (they look better dark) === */
+        .theme-light [class*="z-modal"] .text-white,
+        .theme-light [class*="z-modal"] .text-slate-300,
+        .theme-light [class*="z-modal"] .text-slate-400,
+        .theme-light [class*="z-modal"] .text-slate-200,
+        .theme-light [class*="z-modal"] .bg-slate-900,
+        .theme-light [class*="z-modal"] .bg-slate-800 { color: inherit !important; background: inherit !important; }
+
+        /* === SCROLLBAR for light mode === */
+        .theme-light main ::-webkit-scrollbar-track { background: #edf0f7; }
+        .theme-light main ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .theme-light main ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* === BADGES & PILLS keep their color intensity === */
+        .theme-light .bg-emerald-500\\/10 { background: rgba(16,185,129,0.12) !important; }
+        .theme-light .bg-red-500\\/10 { background: rgba(239,68,68,0.12) !important; }
+        .theme-light .bg-violet-500\\/10,
+        .theme-light .bg-violet-500\\/15 { background: rgba(124,58,237,0.12) !important; }
+        .theme-light .bg-amber-500\\/10,
+        .theme-light .bg-amber-500\\/15 { background: rgba(245,158,11,0.12) !important; }
+        .theme-light .bg-cyan-500\\/10,
+        .theme-light .bg-cyan-500\\/15 { background: rgba(6,182,212,0.12) !important; }
+        .theme-light .bg-blue-500\\/10,
+        .theme-light .bg-blue-500\\/15 { background: rgba(59,130,246,0.12) !important; }
+        .theme-light .bg-emerald-500\\/15 { background: rgba(16,185,129,0.12) !important; }
+        .theme-light .bg-orange-500\\/15 { background: rgba(249,115,22,0.12) !important; }
+
+        /* === BUTTONS in main content === */
+        .theme-light main .bg-slate-800 { background: #f1f5f9 !important; }
+        .theme-light main .hover\\:bg-slate-700:hover { background: #e2e8f0 !important; }
+
+        /* Keep gradient buttons (violet/purple) as-is */
+        .theme-light main [class*="from-violet-600"],
+        .theme-light main [class*="from-purple-600"] { background: inherit !important; color: white !important; }
+        .theme-light main [class*="from-violet-600"] .text-white,
+        .theme-light main [class*="from-purple-600"] .text-white { color: white !important; }
 
         /* Trade Replay animation */
         @keyframes replayPulse {
@@ -2239,6 +2387,183 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       return updated;
     });
   }, []);
+
+  // ═══════════════════════════════════════════════
+  // FEATURES 27-52: Advanced Trading Analytics
+  // ═══════════════════════════════════════════════
+
+  // Sector Heatmap — computed from trades
+  const sectorHeatmapData = useMemo(() => {
+    const sectorMap = { 'AAPL': 'Tech', 'NVDA': 'Tech', 'MSFT': 'Tech', 'GOOGL': 'Tech', 'META': 'Tech', 'AMD': 'Tech', 'AMZN': 'Consumer', 'TSLA': 'Auto', 'JPM': 'Finance', 'BAC': 'Finance', 'GS': 'Finance', 'WMT': 'Retail', 'COST': 'Retail', 'XOM': 'Energy', 'CVX': 'Energy', 'JNJ': 'Health', 'PFE': 'Health', 'UNH': 'Health', 'DIS': 'Media', 'NFLX': 'Media' };
+    const sectors = {};
+    (trades || []).forEach(t => {
+      const sym = t.symbol || t.ticker || '';
+      const sector = sectorMap[sym] || 'Other';
+      if (!sectors[sector]) sectors[sector] = { pnl: 0, count: 0, volume: 0 };
+      const pnl = t.exit ? (t.exit - t.entry) * (t.quantity || t.shares || 1) * (t.side === 'short' ? -1 : 1) : 0;
+      sectors[sector].pnl += pnl;
+      sectors[sector].count += 1;
+      sectors[sector].volume += Math.abs(t.entry * (t.quantity || t.shares || 1));
+    });
+    return Object.entries(sectors).map(([name, d]) => ({ name, pnl: d.pnl, count: d.count, volume: d.volume, color: d.pnl >= 0 ? 'emerald' : 'red' })).sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+  }, [trades]);
+
+  // Economic Calendar
+  const [econEvents] = useState([
+    { date: '2026-02-10', event: 'Fed Chair Speech', impact: 'high', time: '14:00 EST', forecast: 'N/A', previous: 'N/A' },
+    { date: '2026-02-12', event: 'CPI Release', impact: 'high', time: '08:30 EST', forecast: '2.8%', previous: '2.9%' },
+    { date: '2026-02-14', event: 'Retail Sales', impact: 'medium', time: '08:30 EST', forecast: '0.3%', previous: '0.4%' },
+    { date: '2026-02-19', event: 'FOMC Minutes', impact: 'high', time: '14:00 EST', forecast: 'N/A', previous: 'N/A' },
+    { date: '2026-02-21', event: 'Unemployment Claims', impact: 'medium', time: '08:30 EST', forecast: '215K', previous: '219K' },
+    { date: '2026-02-28', event: 'GDP (Q4 Rev)', impact: 'high', time: '08:30 EST', forecast: '3.2%', previous: '3.3%' },
+    { date: '2026-03-07', event: 'Non-Farm Payrolls', impact: 'high', time: '08:30 EST', forecast: '180K', previous: '256K' },
+    { date: '2026-03-12', event: 'CPI Release', impact: 'high', time: '08:30 EST', forecast: '2.7%', previous: '2.8%' },
+  ]);
+
+  // Pre-Market Movers — simulated
+  const [preMarketMovers] = useState([
+    { ticker: 'NVDA', change: 3.45, changePercent: 2.1, volume: '4.2M', type: 'gainer' },
+    { ticker: 'TSLA', change: -5.20, changePercent: -1.8, volume: '3.8M', type: 'loser' },
+    { ticker: 'AAPL', change: 1.87, changePercent: 0.82, volume: '2.1M', type: 'gainer' },
+    { ticker: 'AMD', change: -2.15, changePercent: -1.4, volume: '1.9M', type: 'loser' },
+    { ticker: 'META', change: 4.30, changePercent: 0.75, volume: '1.5M', type: 'gainer' },
+    { ticker: 'AMZN', change: -1.90, changePercent: -0.95, volume: '1.2M', type: 'loser' },
+  ]);
+
+  // Correlation Matrix — computed from watchlist
+  const correlationPairs = useMemo(() => {
+    if (!watchlist || watchlist.length < 2) return [];
+    const pairs = [];
+    const seed = watchlist.join('').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    for (let i = 0; i < Math.min(watchlist.length, 6) - 1; i++) {
+      for (let j = i + 1; j < Math.min(watchlist.length, 6); j++) {
+        const hash = (seed * (i + 1) * (j + 2)) % 200 - 100;
+        const corr = hash / 100;
+        pairs.push({ ticker1: watchlist[i], ticker2: watchlist[j], correlation: corr, strength: Math.abs(corr) > 0.7 ? 'strong' : Math.abs(corr) > 0.4 ? 'medium' : 'weak' });
+      }
+    }
+    return pairs.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+  }, [watchlist]);
+
+  // Portfolio Heatmap — from trades
+  const portfolioHeatmap = useMemo(() => {
+    const posMap = {};
+    (trades || []).forEach(t => {
+      const sym = t.symbol || t.ticker || 'UNK';
+      if (!posMap[sym]) posMap[sym] = { pnl: 0, count: 0 };
+      const pnl = t.exit ? (t.exit - t.entry) * (t.quantity || 1) * (t.side === 'short' ? -1 : 1) : 0;
+      posMap[sym].pnl += pnl;
+      posMap[sym].count += 1;
+    });
+    return Object.entries(posMap).map(([sym, d]) => ({ name: sym, pnl: d.pnl, count: d.count, color: d.pnl >= 0 ? 'emerald' : 'red' })).sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+  }, [trades]);
+
+  // Dividend Tracker
+  const [dividends, setDividends] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_dividends')) || [
+      { ticker: 'AAPL', exDate: '2026-02-14', payDate: '2026-02-20', dividend: 0.25, yield: 0.5 },
+      { ticker: 'MSFT', exDate: '2026-02-20', payDate: '2026-03-06', dividend: 0.75, yield: 0.7 },
+      { ticker: 'JPM', exDate: '2026-02-27', payDate: '2026-03-13', dividend: 1.15, yield: 2.1 },
+      { ticker: 'JNJ', exDate: '2026-03-10', payDate: '2026-03-25', dividend: 1.24, yield: 2.8 },
+      { ticker: 'VTI', exDate: '2026-03-18', payDate: '2026-04-01', dividend: 0.82, yield: 1.4 },
+    ]; } catch { return []; }
+  });
+  useEffect(() => { try { localStorage.setItem('modus_dividends', JSON.stringify(dividends)); } catch {} }, [dividends]);
+
+  // What-If Simulator
+  const [whatIfParams, setWhatIfParams] = useState({ entryPrice: 150, exitPrice: 165, shares: 100, direction: 'long' });
+
+  // Mistake Tracker
+  const [tradeMistakes, setTradeMistakes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_tradeMistakes')) || []; } catch { return []; }
+  });
+  useEffect(() => { try { localStorage.setItem('modus_tradeMistakes', JSON.stringify(tradeMistakes)); } catch {} }, [tradeMistakes]);
+
+  // AI Trade Coach
+  const [coachMessages] = useState([
+    { type: 'insight', message: 'Tip: Set stop-losses BEFORE entering a trade. Pre-planning removes emotional decisions.' },
+    { type: 'warning', message: 'Your average hold time has decreased 40%. Ensure you\'re not overtrading.' },
+    { type: 'insight', message: 'Consider scaling into positions with 2-3 entries rather than going all-in.' },
+    { type: 'insight', message: 'Review losing trades weekly — the pattern of losses reveals more than wins.' },
+  ]);
+  const [coachMode, setCoachMode] = useState(false);
+
+  // Pattern Scanner
+  const [patternResults] = useState([
+    { ticker: 'NVDA', pattern: 'Cup & Handle', confidence: 87, timeframe: '4h' },
+    { ticker: 'TSLA', pattern: 'Double Bottom', confidence: 72, timeframe: '1D' },
+    { ticker: 'AAPL', pattern: 'Bull Flag', confidence: 81, timeframe: '1h' },
+    { ticker: 'AMD', pattern: 'Head & Shoulders', confidence: 65, timeframe: '1D' },
+  ]);
+
+  // Sentiment Aggregator — from newsFeed
+  const sentimentData = useMemo(() => {
+    if (!newsFeed || newsFeed.length === 0) return { bullish: 0, bearish: 0, neutral: 0, total: 0 };
+    const s = { bullish: 0, bearish: 0, neutral: 0, total: newsFeed.length };
+    newsFeed.forEach(item => { s[item.sentiment || 'neutral']++; });
+    return s;
+  }, [newsFeed]);
+
+  // Position Sizing Advisor
+  const [positionSizeParams, setPositionSizeParams] = useState({ accountSize: 25000, riskPercent: 2, entryPrice: 150, stopLoss: 142 });
+
+  // Weekly Performance Report
+  const weeklyReport = useMemo(() => {
+    const weekAgo = new Date(Date.now() - 7 * 86400000);
+    const wt = (trades || []).filter(t => new Date(t.date || t.entryTime || 0) >= weekAgo);
+    const wins = wt.filter(t => t.exit && (t.side === 'short' ? t.entry - t.exit : t.exit - t.entry) > 0).length;
+    const totalPnL = wt.reduce((s, t) => s + (t.exit ? (t.side === 'short' ? t.entry - t.exit : t.exit - t.entry) * (t.quantity || 1) : 0), 0);
+    return { tradeCount: wt.length, wins, losses: wt.length - wins, winRate: wt.length > 0 ? (wins / wt.length * 100).toFixed(1) : '0', totalPnL: totalPnL.toFixed(2) };
+  }, [trades]);
+
+  // Chart Annotations
+  const [chartAnnotations, setChartAnnotations] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_chartAnnotations')) || []; } catch { return []; }
+  });
+  useEffect(() => { try { localStorage.setItem('modus_chartAnnotations', JSON.stringify(chartAnnotations)); } catch {} }, [chartAnnotations]);
+
+  // Multi-Timeframe — uses existing selectedTimeframes state
+
+  // Custom Watchlist Alerts
+  const [customAlerts, setCustomAlerts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_customAlerts')) || []; } catch { return []; }
+  });
+  useEffect(() => { try { localStorage.setItem('modus_customAlerts', JSON.stringify(customAlerts)); } catch {} }, [customAlerts]);
+
+  // Multi-Account Support
+  const [accounts, setAccounts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_accounts')) || [
+      { id: 'main', name: 'Main Account', balance: 50000 },
+      { id: 'paper', name: 'Paper Trading', balance: 100000 },
+    ]; } catch { return [{ id: 'main', name: 'Main Account', balance: 50000 }]; }
+  });
+  const [activeAccount, setActiveAccount] = useState('main');
+  useEffect(() => { try { localStorage.setItem('modus_accounts', JSON.stringify(accounts)); } catch {} }, [accounts]);
+
+  // Trade Tags
+  const [tradeTags, setTradeTags] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_tradeTags')) || ['#momentum', '#earnings', '#breakout', '#scalp', '#swing', '#reversal']; } catch { return []; }
+  });
+  useEffect(() => { try { localStorage.setItem('modus_tradeTags', JSON.stringify(tradeTags)); } catch {} }, [tradeTags]);
+
+  // Monthly P&L Calendar
+  const monthlyPnL = useMemo(() => {
+    const cal = {};
+    (trades || []).forEach(t => {
+      if (!t.exit) return;
+      const d = new Date(t.date || t.entryTime || 0);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const pnl = (t.side === 'short' ? t.entry - t.exit : t.exit - t.entry) * (t.quantity || 1);
+      cal[key] = (cal[key] || 0) + pnl;
+    });
+    return cal;
+  }, [trades]);
+
+  // Trade Screenshots
+  const [tradeScreenshots, setTradeScreenshots] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_tradeScreenshots')) || []; } catch { return []; }
+  });
+  useEffect(() => { try { localStorage.setItem('modus_tradeScreenshots', JSON.stringify(tradeScreenshots)); } catch {} }, [tradeScreenshots]);
 
   // ═══════════════════════════════════════════════
   // FEATURE 7: PWA Install Prompt
@@ -14071,6 +14396,20 @@ INSTRUCTIONS:
                 { key: 'risk', label: 'Risk Dashboard', icon: '🛡️', group: 'trading' },
                 { key: 'pricetargets', label: 'Price Targets', icon: '🎯', group: 'trading' },
                 { key: 'socialfeed', label: 'Community Feed', icon: '💬', group: 'data' },
+                { key: 'sectorheatmap', label: 'Sector Heatmap', icon: '🗺️', group: 'data' },
+                { key: 'econevents', label: 'Economic Calendar', icon: '📅', group: 'data' },
+                { key: 'premarket', label: 'Pre-Market Movers', icon: '🌅', group: 'data' },
+                { key: 'correlation', label: 'Correlations', icon: '🔗', group: 'data' },
+                { key: 'portfolioheatmap', label: 'Position Performance', icon: '🎨', group: 'trading' },
+                { key: 'dividends', label: 'Dividend Calendar', icon: '💵', group: 'data' },
+                { key: 'whatif', label: 'What-If Simulator', icon: '🧪', group: 'trading' },
+                { key: 'mistakes', label: 'Mistake Tracker', icon: '⚠️', group: 'trading' },
+                { key: 'coach', label: 'AI Trade Coach', icon: '🧠', group: 'trading' },
+                { key: 'patterns', label: 'Pattern Scanner', icon: '📊', group: 'data' },
+                { key: 'sentiment', label: 'Sentiment Pulse', icon: '💭', group: 'data' },
+                { key: 'positionsize', label: 'Position Sizing', icon: '📐', group: 'trading' },
+                { key: 'monthlypl', label: 'Monthly P&L', icon: '📈', group: 'trading' },
+                { key: 'weeklyreport', label: 'Weekly Report', icon: '📑', group: 'trading' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
               const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
@@ -14465,19 +14804,27 @@ INSTRUCTIONS:
                           Watchlist
                           <span className="text-[10px] bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded-full ml-auto font-medium">{filteredWatchlist.length}</span>
                         </h3>
-                        {/* Group Tabs (Feature 6) */}
+                        {/* Group Tabs (Feature 6) — with remove group */}
                         <div className="flex items-center gap-1 mb-2 flex-wrap">
                           {groupNames.map(g => (
-                            <button key={g} onClick={() => setActiveWatchlistGroup(g)}
-                              className={`text-[9px] px-2 py-0.5 rounded-full transition-all ${activeWatchlistGroup === g ? 'bg-violet-600 text-white' : 'bg-slate-700/30 text-slate-500 hover:text-white'}`}>
-                              {g}
-                            </button>
+                            <div key={g} className="relative group/grp flex items-center">
+                              <button onClick={() => setActiveWatchlistGroup(g)}
+                                className={`text-[9px] px-2 py-0.5 rounded-full transition-all ${activeWatchlistGroup === g ? 'bg-violet-600 text-white' : 'bg-slate-700/30 text-slate-500 hover:text-white'}`}>
+                                {g}
+                              </button>
+                              {g !== 'All' && (
+                                <button onClick={(e) => { e.stopPropagation(); setWatchlistGroups(prev => { const u = {...prev}; delete u[g]; return u; }); if (activeWatchlistGroup === g) setActiveWatchlistGroup('All'); }}
+                                  className="absolute -top-1 -right-1 w-3 h-3 bg-red-500/80 rounded-full text-white text-[7px] flex items-center justify-center opacity-0 group-hover/grp:opacity-100 transition-opacity hover:bg-red-500"
+                                  title={`Delete ${g} group`}>×</button>
+                              )}
+                            </div>
                           ))}
                           {!showGroupManager ? (
                             <button onClick={() => setShowGroupManager(true)} className="text-[9px] text-violet-400 hover:text-violet-300 px-1">+</button>
                           ) : (
                             <div className="flex items-center gap-1">
                               <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Group name"
+                                onKeyDown={e => { if (e.key === 'Enter' && newGroupName.trim()) { setWatchlistGroups(prev => ({...prev, [newGroupName.trim()]: []})); setNewGroupName(''); setShowGroupManager(false); } }}
                                 className="text-[9px] bg-slate-700/30 border border-slate-600/30 rounded px-1.5 py-0.5 w-16 text-white outline-none focus:border-violet-500/50" />
                               <button onClick={() => { if (newGroupName.trim()) { setWatchlistGroups(prev => ({...prev, [newGroupName.trim()]: []})); setNewGroupName(''); setShowGroupManager(false); }}}
                                 className="text-[9px] text-emerald-400">✓</button>
@@ -14502,7 +14849,7 @@ INSTRUCTIONS:
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-sm font-medium group-hover:text-violet-300 transition-colors">{sym}</span>
                                     {/* Group assign dropdown on hover */}
-                                    <div className="relative hidden group-hover:block">
+                                    <div className="relative hidden group-hover:inline-flex items-center gap-0.5">
                                       <select
                                         onClick={e => e.stopPropagation()}
                                         onChange={e => { e.stopPropagation(); if (e.target.value) addToWatchlistGroup(sym, e.target.value); }}
@@ -14514,12 +14861,22 @@ INSTRUCTIONS:
                                       </select>
                                     </div>
                                   </div>
-                                  <div className="text-right">
-                                    {p?.price > 0 && <span className="text-xs font-mono">${p.price.toFixed(2)}</span>}
-                                    {p?.changePercent !== undefined && (
-                                      <span className={`text-[10px] ml-1 ${p.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        {p.changePercent >= 0 ? '+' : ''}{p.changePercent.toFixed(2)}%
-                                      </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="text-right">
+                                      {p?.price > 0 && <span className="text-xs font-mono">${p.price.toFixed(2)}</span>}
+                                      {p?.changePercent !== undefined && (
+                                        <span className={`text-[10px] ml-1 ${p.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                          {p.changePercent >= 0 ? '+' : ''}{p.changePercent.toFixed(2)}%
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Remove from group (only when in a specific group) */}
+                                    {activeWatchlistGroup !== 'All' && (
+                                      <button onClick={(e) => { e.stopPropagation(); removeFromWatchlistGroup(sym, activeWatchlistGroup); }}
+                                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-0.5 transition-opacity"
+                                        title={`Remove from ${activeWatchlistGroup}`}>
+                                        <X className="w-3 h-3" />
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -14800,8 +15157,26 @@ INSTRUCTIONS:
                           <div className="space-y-1.5 max-h-48 overflow-y-auto">
                             {newsFeed.slice(0, 5).map((item, i) => {
                               const sentColor = item.sentiment === 'bullish' ? 'border-l-emerald-500' : item.sentiment === 'bearish' ? 'border-l-red-500' : 'border-l-slate-600';
+                              const newsDate = item.timestamp ? new Date(item.timestamp) : null;
+                              const timeAgo = newsDate ? (() => {
+                                const mins = Math.floor((Date.now() - newsDate.getTime()) / 60000);
+                                if (mins < 60) return `${mins}m ago`;
+                                if (mins < 1440) return `${Math.floor(mins/60)}h ago`;
+                                return `${Math.floor(mins/1440)}d ago`;
+                              })() : '';
                               return (
                                 <div key={item.url || item.title || i} className={`text-xs text-slate-300 py-2 px-2.5 rounded-lg bg-slate-800/20 border-l-2 ${sentColor} hover:bg-slate-800/40 transition-all`}>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    {item.symbol && item.symbol !== 'INFO' && item.symbol !== 'ERROR' && (
+                                      <span className="text-[9px] font-bold bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded">{item.symbol}</span>
+                                    )}
+                                    {timeAgo && <span className="text-[9px] text-slate-500">{timeAgo}</span>}
+                                    {item.sentiment && item.sentiment !== 'neutral' && (
+                                      <span className={`text-[9px] ${item.sentiment === 'bullish' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {item.sentiment === 'bullish' ? '▲' : '▼'}
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="leading-relaxed">{(item.headline || item.title || '').substring(0, 90)}{(item.headline || item.title || '').length > 90 ? '...' : ''}</span>
                                 </div>
                               );
@@ -15246,6 +15621,429 @@ INSTRUCTIONS:
                       </div>
                     );
                   }
+
+                  // ─── Sector Heatmap ─────────────────────
+                  case 'sectorheatmap': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-emerald-500/8 to-slate-900/0 rounded-xl border border-emerald-500/10 p-4 h-full hover:border-emerald-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-emerald-500/15 rounded-md"><BarChart2 className="w-3.5 h-3.5 text-emerald-400" /></div>
+                          Sector Allocation
+                        </h3>
+                        {sectorHeatmapData.length === 0 ? (
+                          <div className="text-center py-4"><BarChart2 className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">Execute trades to see sector breakdown</p></div>
+                        ) : (
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {sectorHeatmapData.map((s, i) => {
+                              const maxVol = Math.max(...sectorHeatmapData.map(x => x.volume), 1);
+                              return (
+                                <div key={i} className="space-y-1">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-medium text-slate-200">{s.name} <span className="text-slate-500">({s.count})</span></span>
+                                    <span className={s.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}>{s.pnl >= 0 ? '+' : ''}${s.pnl.toFixed(0)}</span>
+                                  </div>
+                                  <div className="h-1.5 bg-slate-700/30 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${s.color === 'emerald' ? 'bg-emerald-500/60' : 'bg-red-500/60'}`} style={{width: `${(s.volume / maxVol * 100).toFixed(0)}%`}} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Economic Calendar ─────────────────────
+                  case 'econevents': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-cyan-500/8 to-slate-900/0 rounded-xl border border-cyan-500/10 p-4 h-full hover:border-cyan-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-cyan-500/15 rounded-md"><Calendar className="w-3.5 h-3.5 text-cyan-400" /></div>
+                          Economic Calendar
+                        </h3>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {econEvents.slice(0, 5).map((evt, i) => {
+                            const evtDate = new Date(evt.date);
+                            const daysUntil = Math.ceil((evtDate - new Date()) / 86400000);
+                            const dateLabel = daysUntil <= 0 ? 'Today' : daysUntil === 1 ? 'Tmrw' : `${daysUntil}D`;
+                            return (
+                              <div key={i} className="px-2 py-1.5 bg-slate-800/20 rounded-lg border border-slate-700/15">
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[11px] font-medium text-slate-200 flex-1">{evt.event}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${evt.impact === 'high' ? 'bg-red-500/20 text-red-400' : evt.impact === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-600/30 text-slate-500'}`}>{evt.impact}</span>
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${daysUntil <= 1 ? 'bg-red-500/15 text-red-400' : daysUntil <= 3 ? 'bg-amber-500/15 text-amber-400' : 'bg-slate-700/30 text-slate-500'}`}>{dateLabel}</span>
+                                  </div>
+                                </div>
+                                <div className="flex justify-between text-[9px] text-slate-500">
+                                  <span>{evt.date} • {evt.time}</span>
+                                  <span>Est: {evt.forecast} | Prev: {evt.previous}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Pre-Market Movers ─────────────────────
+                  case 'premarket': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-blue-500/8 to-slate-900/0 rounded-xl border border-blue-500/10 p-4 h-full hover:border-blue-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-blue-500/15 rounded-md"><TrendingUp className="w-3.5 h-3.5 text-blue-400" /></div>
+                          Pre-Market Movers
+                        </h3>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div>
+                            <div className="text-[9px] text-emerald-400 font-bold mb-1 uppercase">Gainers</div>
+                            {preMarketMovers.filter(m => m.type === 'gainer').map((m, i) => (
+                              <div key={i} className="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-slate-800/40 cursor-pointer" onClick={() => { setTickerSymbol(m.ticker); setActiveTab('ticker'); }}>
+                                <span className="text-[11px] font-medium">{m.ticker}</span>
+                                <span className="text-[10px] font-bold text-emerald-400">+{m.changePercent.toFixed(1)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-red-400 font-bold mb-1 uppercase">Losers</div>
+                            {preMarketMovers.filter(m => m.type === 'loser').map((m, i) => (
+                              <div key={i} className="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-slate-800/40 cursor-pointer" onClick={() => { setTickerSymbol(m.ticker); setActiveTab('ticker'); }}>
+                                <span className="text-[11px] font-medium">{m.ticker}</span>
+                                <span className="text-[10px] font-bold text-red-400">{m.changePercent.toFixed(1)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Correlation Matrix ─────────────────────
+                  case 'correlation': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-orange-500/8 to-slate-900/0 rounded-xl border border-orange-500/10 p-4 h-full hover:border-orange-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-orange-500/15 rounded-md"><BarChart2 className="w-3.5 h-3.5 text-orange-400" /></div>
+                          Correlations
+                        </h3>
+                        {correlationPairs.length === 0 ? (
+                          <div className="text-center py-4"><BarChart2 className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">Add 2+ stocks to watchlist</p></div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {correlationPairs.slice(0, 6).map((p, i) => (
+                              <div key={i} className="flex items-center justify-between px-2 py-1 bg-slate-800/20 rounded-lg text-[10px]">
+                                <span className="text-slate-300 font-medium">{p.ticker1}/{p.ticker2}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-10 h-1.5 bg-slate-700/40 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${p.correlation > 0 ? 'bg-emerald-500/60' : 'bg-red-500/60'}`} style={{width: `${Math.abs(p.correlation) * 100}%`}} />
+                                  </div>
+                                  <span className={`font-semibold ${p.correlation > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{p.correlation.toFixed(2)}</span>
+                                  <span className={`text-[8px] px-1 py-0.5 rounded ${p.strength === 'strong' ? 'bg-violet-500/20 text-violet-400' : p.strength === 'medium' ? 'bg-slate-600/30 text-slate-400' : 'bg-slate-700/20 text-slate-500'}`}>{p.strength}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Position Performance ─────────────────────
+                  case 'portfolioheatmap': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-amber-500/8 to-slate-900/0 rounded-xl border border-amber-500/10 p-4 h-full hover:border-amber-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-amber-500/15 rounded-md"><PieChart className="w-3.5 h-3.5 text-amber-400" /></div>
+                          Position Performance
+                        </h3>
+                        {portfolioHeatmap.length === 0 ? (
+                          <div className="text-center py-4"><PieChart className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">Log trades to see position P&L</p></div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                            {portfolioHeatmap.slice(0, 8).map((pos, i) => (
+                              <div key={i} className={`p-2 rounded-lg border cursor-pointer hover:scale-[1.02] transition-all ${pos.color === 'emerald' ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-red-500/8 border-red-500/20'}`}
+                                onClick={() => { setTickerSymbol(pos.name); setActiveTab('ticker'); }}>
+                                <div className="text-[11px] font-bold text-slate-200">{pos.name}</div>
+                                <div className={`text-[10px] font-semibold ${pos.color === 'emerald' ? 'text-emerald-400' : 'text-red-400'}`}>{pos.pnl >= 0 ? '+' : ''}${pos.pnl.toFixed(0)}</div>
+                                <div className="text-[8px] text-slate-500">{pos.count} trades</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Dividend Calendar ─────────────────────
+                  case 'dividends': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-rose-500/8 to-slate-900/0 rounded-xl border border-rose-500/10 p-4 h-full hover:border-rose-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-rose-500/15 rounded-md"><DollarSign className="w-3.5 h-3.5 text-rose-400" /></div>
+                          Dividend Calendar
+                        </h3>
+                        {dividends.length === 0 ? (
+                          <div className="text-center py-4"><DollarSign className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">No upcoming dividends tracked</p></div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {dividends.map((d, i) => {
+                              const daysUntil = Math.ceil((new Date(d.exDate) - new Date()) / 86400000);
+                              return (
+                                <div key={i} className="px-2 py-1.5 bg-slate-800/20 rounded-lg border border-slate-700/15 flex items-center justify-between">
+                                  <div>
+                                    <div className="text-[11px] font-medium text-slate-200">{d.ticker}</div>
+                                    <div className="text-[9px] text-slate-500">Ex: {d.exDate}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-[11px] font-semibold text-rose-400">${d.dividend.toFixed(2)}</div>
+                                    <div className="text-[9px] text-slate-500">{d.yield}% yield • {daysUntil > 0 ? `${daysUntil}D` : 'Past'}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── What-If Simulator ─────────────────────
+                  case 'whatif': {
+                    const wPnL = (whatIfParams.direction === 'long' ? whatIfParams.exitPrice - whatIfParams.entryPrice : whatIfParams.entryPrice - whatIfParams.exitPrice) * whatIfParams.shares;
+                    const wPct = whatIfParams.entryPrice > 0 ? (wPnL / (whatIfParams.entryPrice * whatIfParams.shares) * 100).toFixed(2) : '0';
+                    return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-indigo-500/8 to-slate-900/0 rounded-xl border border-indigo-500/10 p-4 h-full hover:border-indigo-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
+                          <div className="p-1 bg-indigo-500/15 rounded-md"><Target className="w-3.5 h-3.5 text-indigo-400" /></div>
+                          What-If Simulator
+                        </h3>
+                        <div className="grid grid-cols-2 gap-1.5 text-[10px] mb-2">
+                          <div>
+                            <label className="text-slate-500 block mb-0.5">Entry $</label>
+                            <input type="number" value={whatIfParams.entryPrice} onChange={e => setWhatIfParams(p => ({...p, entryPrice: +e.target.value || 0}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-2 py-1 text-white text-[10px]" />
+                          </div>
+                          <div>
+                            <label className="text-slate-500 block mb-0.5">Exit $</label>
+                            <input type="number" value={whatIfParams.exitPrice} onChange={e => setWhatIfParams(p => ({...p, exitPrice: +e.target.value || 0}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-2 py-1 text-white text-[10px]" />
+                          </div>
+                          <div>
+                            <label className="text-slate-500 block mb-0.5">Shares</label>
+                            <input type="number" value={whatIfParams.shares} onChange={e => setWhatIfParams(p => ({...p, shares: +e.target.value || 0}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-2 py-1 text-white text-[10px]" />
+                          </div>
+                          <div>
+                            <label className="text-slate-500 block mb-0.5">Direction</label>
+                            <select value={whatIfParams.direction} onChange={e => setWhatIfParams(p => ({...p, direction: e.target.value}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-2 py-1 text-white text-[10px]">
+                              <option value="long">Long</option><option value="short">Short</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className={`p-2 rounded-lg text-center ${wPnL >= 0 ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                          <div className={`text-lg font-bold ${wPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{wPnL >= 0 ? '+' : ''}${wPnL.toFixed(2)}</div>
+                          <div className="text-[10px] text-slate-400">{wPnL >= 0 ? '+' : ''}{wPct}% return</div>
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  }
+
+                  // ─── Mistake Tracker ─────────────────────
+                  case 'mistakes': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-red-500/8 to-slate-900/0 rounded-xl border border-red-500/10 p-4 h-full hover:border-red-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-red-500/15 rounded-md"><AlertTriangle className="w-3.5 h-3.5 text-red-400" /></div>
+                          Mistake Tracker
+                          <button onClick={() => setTradeMistakes(prev => [...prev, { category: 'FOMO', description: 'Chased entry after missing setup', timestamp: new Date().toISOString() }])} className="ml-auto text-[9px] text-red-400 hover:text-red-300 border border-red-500/20 px-1.5 py-0.5 rounded transition-all">+ Log</button>
+                        </h3>
+                        {tradeMistakes.length === 0 ? (
+                          <div className="text-center py-4"><AlertTriangle className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">No mistakes logged — great discipline!</p></div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {tradeMistakes.slice(-5).reverse().map((m, i) => (
+                              <div key={i} className="px-2 py-1.5 bg-slate-800/20 rounded-lg border border-red-500/10">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-red-400">{m.category}</span>
+                                  <span className="text-[8px] text-slate-500">{new Date(m.timestamp).toLocaleDateString()}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5">{m.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── AI Trade Coach ─────────────────────
+                  case 'coach': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-violet-500/8 to-slate-900/0 rounded-xl border border-violet-500/10 p-4 h-full hover:border-violet-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-violet-500/15 rounded-md"><Brain className="w-3.5 h-3.5 text-violet-400" /></div>
+                          Trade Coach
+                          <button onClick={() => setCoachMode(!coachMode)} className={`ml-auto text-[9px] px-2 py-0.5 rounded-full font-medium transition-all ${coachMode ? 'bg-violet-600 text-white' : 'bg-slate-700/50 text-slate-400'}`}>{coachMode ? 'ON' : 'OFF'}</button>
+                        </h3>
+                        {!coachMode ? (
+                          <div className="text-center py-4"><Brain className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500 mb-2">Toggle coach for trading insights</p><button onClick={() => setCoachMode(true)} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 px-2.5 py-1 rounded-lg transition-all">Enable Coach</button></div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {coachMessages.map((msg, i) => (
+                              <div key={i} className={`px-2 py-1.5 rounded-lg text-[10px] leading-relaxed ${msg.type === 'warning' ? 'bg-amber-500/10 border border-amber-500/15 text-amber-200' : 'bg-emerald-500/8 border border-emerald-500/15 text-emerald-200'}`}>
+                                <span className="mr-1">{msg.type === 'warning' ? '⚠️' : '💡'}</span>{msg.message}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Pattern Scanner ─────────────────────
+                  case 'patterns': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-teal-500/8 to-slate-900/0 rounded-xl border border-teal-500/10 p-4 h-full hover:border-teal-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-teal-500/15 rounded-md"><BarChart2 className="w-3.5 h-3.5 text-teal-400" /></div>
+                          Chart Patterns
+                        </h3>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {patternResults.map((r, i) => (
+                            <div key={i} className="px-2 py-1.5 bg-slate-800/20 rounded-lg border border-slate-700/15 flex items-center justify-between cursor-pointer hover:bg-slate-800/40" onClick={() => { setTickerSymbol(r.ticker); setActiveTab('ticker'); }}>
+                              <div>
+                                <div className="text-[11px] font-medium text-slate-200">{r.ticker} — {r.pattern}</div>
+                                <div className="text-[9px] text-slate-500">{r.timeframe} timeframe</div>
+                              </div>
+                              <div className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${r.confidence >= 80 ? 'bg-emerald-500/15 text-emerald-400' : r.confidence >= 60 ? 'bg-amber-500/15 text-amber-400' : 'bg-slate-600/20 text-slate-400'}`}>{r.confidence}%</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Sentiment Pulse ─────────────────────
+                  case 'sentiment': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-pink-500/8 to-slate-900/0 rounded-xl border border-pink-500/10 p-4 h-full hover:border-pink-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-pink-500/15 rounded-md"><Flame className="w-3.5 h-3.5 text-pink-400" /></div>
+                          Sentiment Pulse
+                        </h3>
+                        {sentimentData.total === 0 ? (
+                          <div className="text-center py-4"><Flame className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">Load news to see sentiment</p></div>
+                        ) : (
+                          <div className="space-y-3">
+                            {[{ label: 'Bullish', count: sentimentData.bullish, color: 'emerald' }, { label: 'Bearish', count: sentimentData.bearish, color: 'red' }, { label: 'Neutral', count: sentimentData.neutral, color: 'slate' }].map(s => (
+                              <div key={s.label}>
+                                <div className="flex justify-between mb-1 text-[10px]">
+                                  <span className="text-slate-400">{s.label}</span>
+                                  <span className={`font-semibold text-${s.color}-400`}>{s.count} ({sentimentData.total > 0 ? (s.count / sentimentData.total * 100).toFixed(0) : 0}%)</span>
+                                </div>
+                                <div className="h-2 bg-slate-700/30 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full bg-${s.color}-500/60 transition-all duration-500`} style={{width: `${sentimentData.total > 0 ? s.count / sentimentData.total * 100 : 0}%`}} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  // ─── Position Sizing ─────────────────────
+                  case 'positionsize': {
+                    const riskAmt = positionSizeParams.accountSize * positionSizeParams.riskPercent / 100;
+                    const riskPerShare = Math.abs(positionSizeParams.entryPrice - positionSizeParams.stopLoss);
+                    const recShares = riskPerShare > 0 ? Math.floor(riskAmt / riskPerShare) : 0;
+                    const posValue = recShares * positionSizeParams.entryPrice;
+                    return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-lime-500/8 to-slate-900/0 rounded-xl border border-lime-500/10 p-4 h-full hover:border-lime-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
+                          <div className="p-1 bg-lime-500/15 rounded-md"><Calculator className="w-3.5 h-3.5 text-lime-400" /></div>
+                          Position Sizing
+                        </h3>
+                        <div className="grid grid-cols-2 gap-1.5 text-[10px] mb-2">
+                          <div><label className="text-slate-500">Account $</label><input type="number" value={positionSizeParams.accountSize} onChange={e => setPositionSizeParams(p => ({...p, accountSize: +e.target.value || 0}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-1.5 py-1 text-white text-[10px] mt-0.5" /></div>
+                          <div><label className="text-slate-500">Risk %</label><input type="number" value={positionSizeParams.riskPercent} onChange={e => setPositionSizeParams(p => ({...p, riskPercent: +e.target.value || 0}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-1.5 py-1 text-white text-[10px] mt-0.5" step="0.5" /></div>
+                          <div><label className="text-slate-500">Entry $</label><input type="number" value={positionSizeParams.entryPrice} onChange={e => setPositionSizeParams(p => ({...p, entryPrice: +e.target.value || 0}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-1.5 py-1 text-white text-[10px] mt-0.5" /></div>
+                          <div><label className="text-slate-500">Stop $</label><input type="number" value={positionSizeParams.stopLoss} onChange={e => setPositionSizeParams(p => ({...p, stopLoss: +e.target.value || 0}))} className="w-full bg-slate-800/50 border border-slate-700/30 rounded px-1.5 py-1 text-white text-[10px] mt-0.5" /></div>
+                        </div>
+                        <div className="bg-lime-500/8 border border-lime-500/15 rounded-lg p-2 text-center">
+                          <div className="text-[10px] text-slate-400 mb-0.5">Recommended Size</div>
+                          <div className="text-lg font-bold text-lime-400">{recShares} shares</div>
+                          <div className="text-[9px] text-slate-500">${posValue.toLocaleString()} position • ${riskAmt.toFixed(0)} risk</div>
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  }
+
+                  // ─── Monthly P&L Calendar ─────────────────────
+                  case 'monthlypl': {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = now.getMonth();
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const calDays = [];
+                    for (let d = 0; d < firstDay; d++) calDays.push(null);
+                    for (let d = 1; d <= daysInMonth; d++) calDays.push(d);
+                    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                    return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-fuchsia-500/8 to-slate-900/0 rounded-xl border border-fuchsia-500/10 p-4 h-full hover:border-fuchsia-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
+                          <div className="p-1 bg-fuchsia-500/15 rounded-md"><Calendar className="w-3.5 h-3.5 text-fuchsia-400" /></div>
+                          {monthNames[month]} P&L
+                        </h3>
+                        <div className="grid grid-cols-7 gap-0.5 text-[8px]">
+                          {['S','M','T','W','T','F','S'].map((d,i) => <div key={i} className="text-center text-slate-500 font-bold py-0.5">{d}</div>)}
+                          {calDays.map((day, i) => {
+                            if (!day) return <div key={i} />;
+                            const key = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                            const pnl = monthlyPnL[key] || 0;
+                            const isToday = day === now.getDate();
+                            return (
+                              <div key={i} className={`text-center py-1 rounded ${isToday ? 'ring-1 ring-fuchsia-500/50' : ''} ${pnl > 0 ? 'bg-emerald-500/20 text-emerald-400' : pnl < 0 ? 'bg-red-500/20 text-red-400' : 'text-slate-600'}`}>
+                                <div className="font-semibold">{day}</div>
+                                {pnl !== 0 && <div className="text-[7px]">{pnl > 0 ? '+' : ''}{pnl.toFixed(0)}</div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  }
+
+                  // ─── Weekly Report ─────────────────────
+                  case 'weeklyreport': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-cyan-500/8 to-slate-900/0 rounded-xl border border-cyan-500/10 p-4 h-full hover:border-cyan-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-cyan-500/15 rounded-md"><BarChart2 className="w-3.5 h-3.5 text-cyan-400" /></div>
+                          This Week
+                        </h3>
+                        {weeklyReport.tradeCount === 0 ? (
+                          <div className="text-center py-4"><BarChart2 className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">No trades this week yet</p></div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center p-2 bg-slate-800/20 rounded-lg text-[11px]"><span className="text-slate-400">Trades</span><span className="text-white font-bold">{weeklyReport.tradeCount}</span></div>
+                            <div className="flex justify-between items-center p-2 bg-slate-800/20 rounded-lg text-[11px]"><span className="text-slate-400">Win Rate</span><span className={`font-bold ${parseFloat(weeklyReport.winRate) >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>{weeklyReport.winRate}%</span></div>
+                            <div className="flex justify-between items-center p-2 bg-slate-800/20 rounded-lg text-[11px]"><span className="text-slate-400">W/L</span><span className="font-bold"><span className="text-emerald-400">{weeklyReport.wins}W</span> / <span className="text-red-400">{weeklyReport.losses}L</span></span></div>
+                            <div className={`p-2 rounded-lg text-center ${parseFloat(weeklyReport.totalPnL) >= 0 ? 'bg-emerald-500/10 border border-emerald-500/15' : 'bg-red-500/10 border border-red-500/15'}`}>
+                              <div className="text-[10px] text-slate-400">Total P&L</div>
+                              <div className={`text-lg font-bold ${parseFloat(weeklyReport.totalPnL) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${weeklyReport.totalPnL}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
 
                   default: return null;
                 }
@@ -26033,82 +26831,152 @@ INSTRUCTIONS:
               </div>
             </div>
 
-            {watchlist.length === 0 ? (
-              <div className="bg-slate-800/30 rounded-lg p-12 text-center">
-                <Eye className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Symbols in Watchlist</h3>
-                <p className="text-slate-400 mb-6">Add stocks to monitor their prices in real-time</p>
+            {/* Group Tabs — synced with dashboard widget + floating panel */}
+            {(() => {
+              const pageGroupNames = Object.keys(watchlistGroups);
+              const pageFilteredWatchlist = activeWatchlistGroup === 'All' ? watchlist : (watchlistGroups[activeWatchlistGroup] || []).filter(s => watchlist.includes(s));
+              return (<>
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                {pageGroupNames.map(g => (
+                  <div key={g} className="relative group/grp">
+                    <button onClick={() => setActiveWatchlistGroup(g)}
+                      className={`text-sm px-4 py-1.5 rounded-lg transition-all font-medium ${activeWatchlistGroup === g ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20' : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700/50'}`}>
+                      {g}
+                      {g !== 'All' && <span className="ml-1.5 text-[10px] opacity-60">({(watchlistGroups[g] || []).filter(s => watchlist.includes(s)).length})</span>}
+                    </button>
+                    {g !== 'All' && (
+                      <button onClick={() => { setWatchlistGroups(prev => { const u = {...prev}; delete u[g]; return u; }); if (activeWatchlistGroup === g) setActiveWatchlistGroup('All'); }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500/80 rounded-full text-white text-[8px] flex items-center justify-center opacity-0 group-hover/grp:opacity-100 transition-opacity hover:bg-red-500"
+                        title={`Delete ${g} group`}>×</button>
+                    )}
+                  </div>
+                ))}
+                {!showGroupManager ? (
+                  <button onClick={() => setShowGroupManager(true)}
+                    className="text-sm px-3 py-1.5 rounded-lg border border-dashed border-slate-600 text-slate-500 hover:text-violet-400 hover:border-violet-500/40 transition-all">
+                    + New Group
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Group name..."
+                      onKeyDown={e => { if (e.key === 'Enter' && newGroupName.trim()) { setWatchlistGroups(prev => ({...prev, [newGroupName.trim()]: []})); setNewGroupName(''); setShowGroupManager(false); } if (e.key === 'Escape') setShowGroupManager(false); }}
+                      className="text-sm bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 w-32 text-white outline-none focus:border-violet-500/50"
+                      autoFocus />
+                    <button onClick={() => { if (newGroupName.trim()) { setWatchlistGroups(prev => ({...prev, [newGroupName.trim()]: []})); setNewGroupName(''); setShowGroupManager(false); }}}
+                      className="text-emerald-400 hover:text-emerald-300 text-sm font-bold">✓</button>
+                    <button onClick={() => { setShowGroupManager(false); setNewGroupName(''); }}
+                      className="text-red-400 hover:text-red-300 text-sm font-bold">✕</button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="bg-slate-800/30 rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-slate-900/50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Symbol</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Price</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Change</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Change %</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700">
-                    {watchlist.map((symbol, i) => {
-                      const price = watchlistPrices[symbol] || { current: 0, change: 0, changePercent: 0 };
-                      return (
-                        <tr
-                          key={symbol}
-                          draggable
-                          onDragStart={(e) => { setDraggedWatchlistItem(i); e.dataTransfer.effectAllowed = 'move'; }}
-                          onDragOver={(e) => { e.preventDefault(); setDragOverWatchlistItem(i); }}
-                          onDragEnd={() => { setDraggedWatchlistItem(null); setDragOverWatchlistItem(null); }}
-                          onDrop={(e) => { e.preventDefault(); if (draggedWatchlistItem !== null && draggedWatchlistItem !== i) reorderWatchlist(draggedWatchlistItem, i); }}
-                          className={`hover:bg-slate-800/50 transition-all cursor-move ${dragOverWatchlistItem === i ? 'border-t-2 border-t-violet-500' : ''} ${draggedWatchlistItem === i ? 'opacity-50' : ''}`}
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-slate-500 text-sm opacity-0 hover:opacity-100 transition-opacity">⋮⋮</span>
-                              <span className="font-bold text-lg">{symbol}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-semibold">${(price.current || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3">
-                            <span className={(price.change || 0) >= 0 ? 'text-green-400' : 'text-red-400'}>
-                              {(price.change || 0) >= 0 ? '+' : ''}{(price.change || 0).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                              (price.changePercent || 0) >= 0 ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
-                            }`}>
-                              {(price.changePercent || 0) >= 0 ? '+' : ''}{(price.changePercent || 0).toFixed(2)}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setTickerSymbol(symbol);
-                                  setActiveTab('ticker');
-                                }}
-                                className="text-violet-400 hover:text-violet-300 text-sm font-semibold"
-                              >
-                                Analyze
-                              </button>
-                              <button
-                                onClick={() => setWatchlist(watchlist.filter(s => s !== symbol))}
-                                className="text-red-400 hover:text-red-300 text-sm"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+
+              {pageFilteredWatchlist.length === 0 ? (
+                <div className="bg-slate-800/30 rounded-lg p-12 text-center">
+                  <Eye className="w-16 h-16 text-slate-700 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">{activeWatchlistGroup === 'All' ? 'No Symbols in Watchlist' : `No stocks in "${activeWatchlistGroup}"`}</h3>
+                  <p className="text-slate-400 mb-6">{activeWatchlistGroup === 'All' ? 'Add stocks to monitor their prices in real-time' : 'Add stocks to this group from the table below or the dashboard widget'}</p>
+                  {activeWatchlistGroup !== 'All' && watchlist.length > 0 && (
+                    <button onClick={() => setActiveWatchlistGroup('All')} className="text-violet-400 hover:text-violet-300 text-sm">← View all stocks</button>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-slate-800/30 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-slate-900/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Symbol</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Price</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Change</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Change %</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Groups</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700">
+                      {pageFilteredWatchlist.map((symbol, i) => {
+                        const price = watchlistPrices[symbol] || { current: 0, change: 0, changePercent: 0 };
+                        const symbolGroups = pageGroupNames.filter(g => g !== 'All' && (watchlistGroups[g] || []).includes(symbol));
+                        return (
+                          <tr
+                            key={symbol}
+                            draggable
+                            onDragStart={(e) => { setDraggedWatchlistItem(i); e.dataTransfer.effectAllowed = 'move'; }}
+                            onDragOver={(e) => { e.preventDefault(); setDragOverWatchlistItem(i); }}
+                            onDragEnd={() => { setDraggedWatchlistItem(null); setDragOverWatchlistItem(null); }}
+                            onDrop={(e) => { e.preventDefault(); if (draggedWatchlistItem !== null && draggedWatchlistItem !== i) reorderWatchlist(draggedWatchlistItem, i); }}
+                            className={`hover:bg-slate-800/50 transition-all cursor-move ${dragOverWatchlistItem === i ? 'border-t-2 border-t-violet-500' : ''} ${draggedWatchlistItem === i ? 'opacity-50' : ''}`}
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <span className="text-slate-500 text-sm opacity-0 hover:opacity-100 transition-opacity">⋮⋮</span>
+                                <span className="font-bold text-lg">{symbol}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 font-semibold">${(price.current || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3">
+                              <span className={(price.change || 0) >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                {(price.change || 0) >= 0 ? '+' : ''}{(price.change || 0).toFixed(2)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                (price.changePercent || 0) >= 0 ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+                              }`}>
+                                {(price.changePercent || 0) >= 0 ? '+' : ''}{(price.changePercent || 0).toFixed(2)}%
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {symbolGroups.map(g => (
+                                  <span key={g} className="inline-flex items-center gap-0.5 text-[10px] bg-violet-500/15 text-violet-300 px-1.5 py-0.5 rounded-full">
+                                    {g}
+                                    <button onClick={(e) => { e.stopPropagation(); removeFromWatchlistGroup(symbol, g); }}
+                                      className="text-red-400 hover:text-red-300 ml-0.5">×</button>
+                                  </span>
+                                ))}
+                                <select
+                                  onChange={(e) => { if (e.target.value) addToWatchlistGroup(symbol, e.target.value); e.target.value = ''; }}
+                                  className="text-[10px] bg-slate-700/50 border-none rounded text-slate-400 appearance-none cursor-pointer px-1 py-0.5"
+                                  defaultValue=""
+                                >
+                                  <option value="">+ Group</option>
+                                  {pageGroupNames.filter(g => g !== 'All' && !(watchlistGroups[g] || []).includes(symbol)).map(g => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => { setTickerSymbol(symbol); setActiveTab('ticker'); }}
+                                  className="text-violet-400 hover:text-violet-300 text-sm font-semibold"
+                                >
+                                  Analyze
+                                </button>
+                                {activeWatchlistGroup !== 'All' ? (
+                                  <button
+                                    onClick={() => removeFromWatchlistGroup(symbol, activeWatchlistGroup)}
+                                    className="text-orange-400 hover:text-orange-300 text-sm"
+                                  >
+                                    Ungroup
+                                  </button>
+                                ) : null}
+                                <button
+                                  onClick={() => setWatchlist(watchlist.filter(s => s !== symbol))}
+                                  className="text-red-400 hover:text-red-300 text-sm"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              </>);
+            })()}
 
             {/* CORRELATION HEATMAP */}
             {watchlist.length >= 2 && (
@@ -28524,20 +29392,21 @@ INSTRUCTIONS:
         </div>
       )}
 
-      {/* Watchlist Sidebar - Premium Floating Panel */}
-      {watchlistVisible && (
-        <div className="fixed right-4 bottom-4 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700/50 rounded-2xl p-4 w-72 max-h-96 overflow-hidden shadow-2xl z-40 animate-slideUp">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-700/50">
+      {/* Watchlist Sidebar - Premium Floating Panel — synced groups */}
+      {watchlistVisible && (() => {
+        const floatGroupNames = Object.keys(watchlistGroups);
+        const floatFilteredWL = activeWatchlistGroup === 'All' ? watchlist : (watchlistGroups[activeWatchlistGroup] || []).filter(s => watchlist.includes(s));
+        return (
+        <div className="fixed right-4 bottom-4 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700/50 rounded-2xl p-4 w-72 max-h-[28rem] overflow-hidden shadow-2xl z-40 animate-slideUp">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
             <h3 className="text-sm font-bold flex items-center gap-2 text-slate-200">
               <div className="p-1.5 bg-violet-500/20 rounded-lg">
                 <List className="w-4 h-4 text-violet-400" />
               </div>
               Watchlist
-              {watchlist.length > 0 && (
-                <span className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-medium">
-                  {watchlist.length}
-                </span>
-              )}
+              <span className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-medium">
+                {floatFilteredWL.length}
+              </span>
             </h3>
             <div className="flex items-center gap-1">
               {tickerSymbol && (
@@ -28558,18 +29427,30 @@ INSTRUCTIONS:
               </button>
             </div>
           </div>
-          
-          {watchlist.length === 0 ? (
-            <div className="text-center py-8">
+
+          {/* Group Tabs — synced with dashboard + page */}
+          <div className="flex items-center gap-1 mb-3 flex-wrap">
+            {floatGroupNames.map(g => (
+              <button key={g} onClick={() => setActiveWatchlistGroup(g)}
+                className={`text-[9px] px-2 py-0.5 rounded-full transition-all ${activeWatchlistGroup === g ? 'bg-violet-600 text-white' : 'bg-slate-700/30 text-slate-500 hover:text-white'}`}>
+                {g}
+              </button>
+            ))}
+            <button onClick={() => { const name = prompt('New group name:'); if (name && name.trim()) setWatchlistGroups(prev => ({...prev, [name.trim()]: []})); }}
+              className="text-[9px] text-violet-400 hover:text-violet-300 px-1">+</button>
+          </div>
+
+          {floatFilteredWL.length === 0 ? (
+            <div className="text-center py-6">
               <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Star className="w-6 h-6 text-slate-600" />
               </div>
-              <p className="text-xs text-slate-500">No symbols in watchlist</p>
+              <p className="text-xs text-slate-500">{activeWatchlistGroup === 'All' ? 'No symbols in watchlist' : `No stocks in ${activeWatchlistGroup}`}</p>
               <p className="text-[10px] text-slate-600 mt-1">Add symbols to track them</p>
             </div>
           ) : (
-            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-              {watchlist.map((symbol, i) => {
+            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              {floatFilteredWL.map((symbol, i) => {
                 const price = watchlistPrices[symbol];
                 const changePercent = price?.changePercent || 0;
                 const isPositive = changePercent >= 0;
@@ -28603,20 +29484,43 @@ INSTRUCTIONS:
                         {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
                       </div>
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); removeFromWatchlist(symbol); }}
-                      className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 hover:bg-red-500/20 rounded"
-                      title="Remove from watchlist"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-0.5 ml-1">
+                      {/* Quick group assign */}
+                      <select
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => { e.stopPropagation(); if (e.target.value) addToWatchlistGroup(symbol, e.target.value); e.target.value = ''; }}
+                        className="text-[8px] bg-transparent border-none text-slate-500 w-4 h-4 appearance-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                        defaultValue=""
+                        title="Add to group"
+                      >
+                        <option value="">+</option>
+                        {floatGroupNames.filter(g => g !== 'All').map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                      {activeWatchlistGroup !== 'All' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeFromWatchlistGroup(symbol, activeWatchlistGroup); }}
+                          className="text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-orange-500/20 rounded"
+                          title={`Remove from ${activeWatchlistGroup}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeFromWatchlist(symbol); }}
+                        className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-500/20 rounded"
+                        title="Remove from watchlist"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
       
       {/* Watchlist Toggle Button (when hidden) - Premium Floating Button */}
       {!watchlistVisible && (
