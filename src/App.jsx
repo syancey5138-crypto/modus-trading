@@ -567,6 +567,22 @@ function App() {
   const [showChangelog, setShowChangelog] = useState(false);
   const changelogEntries = [
     {
+      version: '1.8.0',
+      date: '2026-02-08',
+      title: 'Data Accuracy, Structured Deep Dive & Firebase Production',
+      changes: [
+        { type: 'fix', text: 'Fixed Quick Analysis showing $0.00 for target/stop — added 8 proxy fallbacks and AI prompt validation' },
+        { type: 'feature', text: 'Tell Me More now returns structured cards: Technical Analysis, Entry/Exit, Risk, Sector, Scenarios' },
+        { type: 'feature', text: 'Added support/resistance levels and risk:reward ratio to Quick Analysis' },
+        { type: 'feature', text: 'Added Top Movers ticker bar on dashboard showing gainers and losers' },
+        { type: 'feature', text: 'Added Trading Streak and Market Mood widgets to dashboard' },
+        { type: 'improvement', text: 'Performance widget now shows visual win/loss bar' },
+        { type: 'improvement', text: 'Daily Pick widget redesigned with entry/target/stop grid and confidence bar' },
+        { type: 'improvement', text: 'Free Plan badge in user menu, smooth scroll-to-top on tab change' },
+        { type: 'feature', text: 'Production Firestore security rules — deploy to stop 30-day testing expiration' },
+      ]
+    },
+    {
       version: '1.7.0',
       date: '2026-02-07',
       title: 'Quick Analysis & UI Improvements',
@@ -2233,11 +2249,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     };
   }, []);
 
-  // Close mobile menu when tab changes
+  // Close mobile menu when tab changes + smooth scroll to top
   useEffect(() => {
     if (isMobile) {
       setMobileMenuOpen(false);
     }
+    // Scroll main content area to top when switching tabs
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab, isMobile]);
 
   // =================================================================
@@ -13377,6 +13395,7 @@ INSTRUCTIONS:
                             </div>
                           </div>
                           <div className="flex items-center gap-2 mt-3 px-1">
+                            <span className="text-[9px] bg-slate-700/60 text-slate-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Free Plan</span>
                             <div className={`w-1.5 h-1.5 rounded-full ${cloudSyncStatus === 'synced' ? 'bg-emerald-400' : cloudSyncStatus === 'syncing' ? 'bg-amber-400 animate-pulse' : 'bg-slate-500'}`} />
                             <span className="text-[10px] text-slate-500">
                               {cloudSyncStatus === 'synced' ? `Synced${lastSyncTime ? ` at ${lastSyncTime.toLocaleTimeString()}` : ''}` :
@@ -13704,6 +13723,30 @@ INSTRUCTIONS:
               );
             })()}
 
+            {/* Top Movers Ticker Strip */}
+            {(hotStocks.gainers?.length > 0 || hotStocks.losers?.length > 0) && (
+              <div className="bg-slate-800/20 rounded-xl border border-slate-700/15 px-4 py-2.5 overflow-hidden relative">
+                <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex-shrink-0">Top Movers</span>
+                  {[...(hotStocks.gainers || []).slice(0, 5).map(s => ({ ...s, type: 'gain' })), ...(hotStocks.losers || []).slice(0, 3).map(s => ({ ...s, type: 'loss' }))].map((s, i) => (
+                    <button
+                      key={s.symbol || i}
+                      onClick={() => { setTickerSymbol(s.symbol); setActiveTab('ticker'); }}
+                      className="flex items-center gap-2 flex-shrink-0 hover:bg-slate-700/30 px-2 py-1 rounded-lg transition-colors"
+                    >
+                      <span className="text-xs font-semibold text-white">{s.symbol}</span>
+                      <span className={`text-xs font-mono ${s.type === 'gain' ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {s.type === 'gain' ? '+' : ''}{(s.changePercent || 0).toFixed(2)}%
+                      </span>
+                    </button>
+                  ))}
+                  {hotStocks.gainers?.length === 0 && hotStocks.losers?.length === 0 && (
+                    <span className="text-[10px] text-slate-600">Scan Market Scanner to populate</span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Quick Analyze Bar */}
             <div className="bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-slate-900/0 border border-violet-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="flex items-center gap-3 flex-shrink-0">
@@ -13880,35 +13923,60 @@ INSTRUCTIONS:
                   );
 
                   // ─── Daily Pick ─────────────────────
-                  case 'dailypick': return (
+                  case 'dailypick': {
+                    const dpConf = dailyPick ? (dailyPick.confidence || 0) : 0;
+                    return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className={`rounded-xl border p-4 h-full transition-all ${dailyPick ? (dailyPick.direction === 'LONG' ? 'bg-emerald-500/5 border-emerald-500/15 hover:border-emerald-500/30' : 'bg-red-500/5 border-red-500/15 hover:border-red-500/30') : 'bg-slate-800/30 border-slate-700/20 hover:border-slate-600/30'}`}>
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                           <Star className="w-4 h-4 text-yellow-400" /> Daily Pick
+                          {dailyPick && <span className="text-[9px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded-full ml-auto font-semibold">TODAY</span>}
                         </h3>
                         {dailyPick ? (
                           <div>
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-lg font-bold">{dailyPick.asset || dailyPick.symbol}</span>
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${dailyPick.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                                {dailyPick.direction}
+                                {dailyPick.direction === 'LONG' ? '↑ LONG' : '↓ SHORT'}
                               </span>
                             </div>
-                            <div className="text-xs text-slate-400 space-y-1">
-                              <div>Entry: <span className="text-white font-medium">${parseFloat(dailyPick.entry || 0).toFixed(2)}</span></div>
-                              <div>Confidence: <span className="text-violet-400 font-medium">{dailyPick.confidence || 0}%</span></div>
+                            <div className="grid grid-cols-3 gap-2 mb-2 text-xs">
+                              <div>
+                                <div className="text-[10px] text-slate-500">Entry</div>
+                                <div className="font-semibold text-white">${parseFloat(dailyPick.entry || 0).toFixed(2)}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">Target</div>
+                                <div className="font-semibold text-emerald-400">${parseFloat(dailyPick.target || 0).toFixed(2)}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500">Stop</div>
+                                <div className="font-semibold text-red-400">${parseFloat(dailyPick.stopLoss || 0).toFixed(2)}</div>
+                              </div>
                             </div>
-                            <button onClick={() => setActiveTab('daily')} className="mt-3 text-xs text-violet-400 hover:text-violet-300 transition-colors">View full analysis →</button>
+                            {/* Confidence bar */}
+                            <div className="mb-2">
+                              <div className="flex items-center justify-between text-[10px] mb-0.5">
+                                <span className="text-slate-500">Confidence</span>
+                                <span className={`font-bold ${dpConf >= 70 ? 'text-emerald-400' : dpConf >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{dpConf}%</span>
+                              </div>
+                              <div className="h-1.5 bg-slate-700/30 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-700 ${dpConf >= 70 ? 'bg-emerald-500' : dpConf >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${dpConf}%` }} />
+                              </div>
+                            </div>
+                            <button onClick={() => setActiveTab('daily')} className="w-full text-xs text-violet-400 hover:text-violet-300 transition-colors text-center py-1 border border-violet-500/20 rounded-lg hover:bg-violet-500/10">View full analysis →</button>
                           </div>
                         ) : (
-                          <div className="text-center py-4">
-                            <p className="text-xs text-slate-500">No pick generated today</p>
-                            <button onClick={() => setActiveTab('daily')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">Generate Daily Pick →</button>
+                          <div className="text-center py-3">
+                            <Star className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 mb-2">No pick generated today</p>
+                            <button onClick={() => setActiveTab('daily')} className="text-xs text-violet-400 hover:text-violet-300 px-3 py-1.5 border border-violet-500/20 rounded-lg hover:bg-violet-500/10 transition-all">Generate Daily Pick →</button>
                           </div>
                         )}
                       </div>
                     </div>
-                  );
+                    );
+                  }
 
                   // ─── Portfolio ─────────────────────
                   case 'portfolio': return (
@@ -13960,39 +14028,54 @@ INSTRUCTIONS:
                   );
 
                   // ─── Performance ─────────────────────
-                  case 'performance': return (
+                  case 'performance': {
+                    const pm = performanceMetrics;
+                    const wins = pm.totalTrades > 0 ? Math.round(pm.totalTrades * pm.winRate / 100) : 0;
+                    const losses = pm.totalTrades - wins;
+                    return (
                     <div {...wrapProps}>
                       <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                           <BarChart3 className="w-4 h-4 text-blue-400" /> Performance
+                          <button onClick={() => setActiveTab('performance')} className="ml-auto text-[9px] text-violet-400 hover:text-violet-300 transition-colors">Details →</button>
                         </h3>
-                        {performanceMetrics.totalTrades > 0 ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <div className="text-[10px] text-slate-500 uppercase">Win Rate</div>
-                              <div className={`text-lg font-bold ${performanceMetrics.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>{performanceMetrics.winRate.toFixed(1)}%</div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] text-slate-500 uppercase">Total P&L</div>
-                              <div className={`text-lg font-bold ${performanceMetrics.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {performanceMetrics.totalPnL >= 0 ? '+' : ''}${performanceMetrics.totalPnL.toFixed(0)}
+                        {pm.totalTrades > 0 ? (
+                          <div>
+                            {/* Win/Loss Visual Bar */}
+                            <div className="mb-3">
+                              <div className="flex items-center justify-between text-[10px] mb-1">
+                                <span className="text-emerald-400 font-semibold">{wins}W</span>
+                                <span className="text-slate-500">{pm.winRate.toFixed(0)}%</span>
+                                <span className="text-red-400 font-semibold">{losses}L</span>
+                              </div>
+                              <div className="flex h-2 rounded-full overflow-hidden bg-slate-700/30">
+                                <div className="bg-emerald-500 transition-all duration-700" style={{ width: `${pm.winRate}%` }} />
+                                <div className="bg-red-500 transition-all duration-700" style={{ width: `${100 - pm.winRate}%` }} />
                               </div>
                             </div>
-                            <div>
-                              <div className="text-[10px] text-slate-500 uppercase">Trades</div>
-                              <div className="text-lg font-bold text-white">{performanceMetrics.totalTrades}</div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] text-slate-500 uppercase">Profit Factor</div>
-                              <div className="text-lg font-bold text-white">{performanceMetrics.profitFactor === Infinity ? '∞' : performanceMetrics.profitFactor.toFixed(2)}</div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <div className="text-[10px] text-slate-500 uppercase">Total P&L</div>
+                                <div className={`text-lg font-bold ${pm.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {pm.totalPnL >= 0 ? '+' : ''}${pm.totalPnL.toFixed(0)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] text-slate-500 uppercase">Profit Factor</div>
+                                <div className="text-lg font-bold text-white">{pm.profitFactor === Infinity ? '∞' : pm.profitFactor.toFixed(2)}</div>
+                              </div>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-500 py-4 text-center">Log trades to see performance</p>
+                          <div className="text-center py-3">
+                            <p className="text-xs text-slate-500 mb-2">Log trades to see performance</p>
+                            <button onClick={() => setActiveTab('journal')} className="text-[10px] text-violet-400 hover:text-violet-300">Go to Journal →</button>
+                          </div>
                         )}
                       </div>
                     </div>
-                  );
+                    );
+                  }
 
                   // ─── Market Summary ─────────────────────
                   case 'marketsummary': return (
