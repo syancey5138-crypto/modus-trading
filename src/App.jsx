@@ -3443,7 +3443,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     entryPrice: '',
     stopLoss: '',
     target: '',
-    riskDollars: 100
+    riskDollars: 100,
+    allocationPercent: 25
   });
   const [positionSizerResult, setPositionSizerResult] = useState(null);
   
@@ -15309,7 +15310,7 @@ INSTRUCTIONS:
                 { key: 'econcalendar', label: 'Economic Calendar', icon: '📅', group: 'data', desc: 'Upcoming economic events — Fed meetings, CPI, jobs reports, GDP releases' },
                 { key: 'heatmap', label: 'Portfolio Heat Map', icon: '🗺️', group: 'trading', desc: 'Visual grid of your positions colored by daily P&L from green to red' },
                 { key: 'crypto', label: 'Crypto Prices', icon: '₿', group: 'data', desc: 'Live cryptocurrency prices from CoinGecko — Bitcoin, Ethereum, and more' },
-                { key: 'drawingtools', label: 'Drawing Tools', icon: '✏️', group: 'trading', desc: 'Draw trendlines, support/resistance, Fibonacci, and annotations on charts' },
+                // Drawing Tools removed from widget panel — drag-to-draw conflicts with widget drag-to-reorder. Will be integrated as a dedicated chart overlay in a future version.
                 { key: 'morningbrief', label: 'Morning Briefing', icon: '☀️', group: 'data', desc: 'AI-generated daily market briefing with key events and stocks to watch' },
                 { key: 'tradeplan', label: 'Trade Plan', icon: '📋', group: 'trading', desc: 'Set and enforce daily trade limits, max loss, and trading rules' },
                 { key: 'sectorrotation', label: 'Sector Rotation', icon: '🔄', group: 'data', desc: 'Live sector ETF momentum — shows which sectors are leading and lagging' },
@@ -17196,30 +17197,82 @@ INSTRUCTIONS:
                     );
                   }
 
-                  case 'riskcalc': return (
+                  case 'riskcalc': {
+                    const rc = positionSizerInputs;
+                    const rcEntry = parseFloat(rc.entryPrice);
+                    const rcStop = parseFloat(rc.stopLoss);
+                    const rcRiskPerShare = rcEntry && rcStop ? Math.abs(rcEntry - rcStop) : 0;
+                    const rcShares = rcRiskPerShare > 0 ? Math.floor(rc.riskDollars / rcRiskPerShare) : 0;
+                    const rcPosition = rcShares * (rcEntry || 0);
+                    const rcPctOfAccount = rc.accountSize > 0 ? (rcPosition / rc.accountSize * 100) : 0;
+                    return (
                     <div {...wrapProps}>
                       <div className="bg-gradient-to-br from-green-500/8 to-slate-900/0 rounded-xl border border-green-500/10 p-4 h-full hover:border-green-500/20 transition-all">
-                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                          <div className="p-1 bg-green-500/15 rounded-md"><Calculator className="w-3.5 h-3.5 text-green-400" /></div>
-                          Risk Calculator
-                        </h3>
-                        <div className="text-[10px] text-slate-500 leading-relaxed space-y-2">
-                          <div>
-                            <div className="font-semibold text-slate-400 mb-1">Example:</div>
-                            <div>Account: $10,000 • Risk: 2%</div>
-                            <div>Entry: $100 • Stop: $95</div>
-                            <div className="mt-2 pt-2 border-t border-slate-700/30">
-                              <div className="text-green-400 font-semibold">Risk: $200</div>
-                              <div className="text-green-400 font-semibold">Shares: 40</div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-bold flex items-center gap-2">
+                            <div className="p-1 bg-green-500/15 rounded-md"><Calculator className="w-3.5 h-3.5 text-green-400" /></div>
+                            Position Sizer
+                          </h3>
+                          <button onClick={() => setShowPositionSizer(true)} className="text-[10px] text-violet-400 hover:text-violet-300 px-2 py-0.5 rounded hover:bg-violet-500/10 transition-all">
+                            Full Calculator →
+                          </button>
+                        </div>
+                        {/* Quick inline sizer */}
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div>
+                              <label className="text-[9px] text-slate-500 mb-0.5 block">Entry $</label>
+                              <input type="number" step="0.01" value={rc.entryPrice}
+                                onChange={(e) => setPositionSizerInputs(p => ({...p, entryPrice: e.target.value}))}
+                                placeholder="150.00"
+                                className="w-full bg-slate-800/60 border border-slate-700/30 rounded-lg px-2 py-1.5 text-xs text-white focus:border-green-500/50 focus:outline-none" />
+                            </div>
+                            <div>
+                              <label className="text-[9px] text-slate-500 mb-0.5 block">Stop $</label>
+                              <input type="number" step="0.01" value={rc.stopLoss}
+                                onChange={(e) => setPositionSizerInputs(p => ({...p, stopLoss: e.target.value}))}
+                                placeholder="145.00"
+                                className="w-full bg-slate-800/60 border border-slate-700/30 rounded-lg px-2 py-1.5 text-xs text-white focus:border-red-500/50 focus:outline-none" />
                             </div>
                           </div>
-                          <div className="bg-green-500/10 border border-green-500/20 rounded p-2 mt-2">
-                            <div className="text-[9px] text-slate-400">Use Quick Analysis to add targets and track them automatically</div>
+                          <div className="flex items-center gap-2 text-[9px] text-slate-500">
+                            <span>Account: ${rc.accountSize.toLocaleString()}</span>
+                            <span>•</span>
+                            <span>Risk: {rc.riskPercent}% (${rc.riskDollars.toFixed(0)})</span>
+                            <span>•</span>
+                            <span>Max: {rc.allocationPercent}%</span>
                           </div>
+                          {rcShares > 0 && (
+                            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5 space-y-1">
+                              <div className="flex justify-between">
+                                <span className="text-[10px] text-slate-400">Shares:</span>
+                                <span className="text-[10px] font-bold text-green-400">{rcShares}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[10px] text-slate-400">Position:</span>
+                                <span className="text-[10px] font-bold text-green-400">${rcPosition.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[10px] text-slate-400">% of Account:</span>
+                                <span className={`text-[10px] font-bold ${rcPctOfAccount > rc.allocationPercent ? 'text-amber-400' : 'text-blue-400'}`}>{rcPctOfAccount.toFixed(1)}%</span>
+                              </div>
+                              {/* Mini allocation bar */}
+                              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                                <div className={`h-full rounded-full transition-all ${rcPctOfAccount > rc.allocationPercent ? 'bg-amber-500' : 'bg-green-500'}`}
+                                  style={{ width: `${Math.min(rcPctOfAccount, 100)}%` }} />
+                              </div>
+                            </div>
+                          )}
+                          {!rcShares && (
+                            <div className="text-center py-2">
+                              <div className="text-[10px] text-slate-500">Enter entry & stop prices above</div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                  );
+                    );
+                  }
 
                   // ─── Market Hours Countdown ─────────────────────
                   case 'markethours': {
@@ -33395,75 +33448,148 @@ INSTRUCTIONS:
                   value={positionSizerInputs.target}
                   onChange={(e) => setPositionSizerInputs({...positionSizerInputs, target: e.target.value})}
                   placeholder="55.00"
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2"
+                  className="w-full bg-slate-800/80 border border-slate-600/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 transition-all"
                 />
               </div>
-              
-              <div className="flex items-end">
+
+              <div>
+                <label className="block text-sm text-slate-400 font-medium mb-2">
+                  Max Allocation (%)
+                  <span className="text-[10px] text-slate-500 ml-1">of account for this trade</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="5"
+                    max="100"
+                    step="5"
+                    value={positionSizerInputs.allocationPercent}
+                    onChange={(e) => setPositionSizerInputs({...positionSizerInputs, allocationPercent: parseFloat(e.target.value)})}
+                    className="flex-1 accent-violet-500"
+                  />
+                  <span className="text-sm font-bold text-violet-400 w-12 text-right">{positionSizerInputs.allocationPercent}%</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  {[10, 25, 50].map(pct => (
+                    <button key={pct} onClick={() => setPositionSizerInputs({...positionSizerInputs, allocationPercent: pct})}
+                      className={`text-[10px] px-2 py-0.5 rounded-full transition-all ${positionSizerInputs.allocationPercent === pct ? 'bg-violet-500/30 text-violet-300' : 'text-slate-500 hover:text-slate-300'}`}>
+                      {pct}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="col-span-2 flex items-end">
                 <button
                   onClick={() => {
                     const entry = parseFloat(positionSizerInputs.entryPrice);
                     const stop = parseFloat(positionSizerInputs.stopLoss);
                     const target = parseFloat(positionSizerInputs.target);
                     const riskDollars = positionSizerInputs.riskDollars;
-                    
+                    const allocationLimit = positionSizerInputs.accountSize * (positionSizerInputs.allocationPercent / 100);
+
                     if (entry && stop && riskDollars) {
                       const riskPerShare = Math.abs(entry - stop);
-                      const shares = Math.floor(riskDollars / riskPerShare);
-                      const positionSize = shares * entry;
+                      let shares = Math.floor(riskDollars / riskPerShare);
+                      let positionSize = shares * entry;
+
+                      // Cap position to allocation limit
+                      const wasCapped = positionSize > allocationLimit;
+                      if (wasCapped) {
+                        shares = Math.floor(allocationLimit / entry);
+                        positionSize = shares * entry;
+                      }
+
                       const maxLoss = shares * riskPerShare;
-                      const potentialGain = target ? shares * (target - entry) : 0;
-                      const rr = target ? (target - entry) / (entry - stop) : 0;
-                      
+                      const potentialGain = target ? shares * Math.abs(target - entry) : 0;
+                      const rr = target && entry > stop ? (target - entry) / (entry - stop) : 0;
+                      const remainingCapital = positionSizerInputs.accountSize - positionSize;
+
                       setPositionSizerResult({
                         shares,
                         positionSize,
                         maxLoss,
                         potentialGain,
                         riskReward: rr,
-                        percentOfAccount: (positionSize / positionSizerInputs.accountSize) * 100
+                        percentOfAccount: (positionSize / positionSizerInputs.accountSize) * 100,
+                        remainingCapital,
+                        allocationLimit,
+                        wasCapped
                       });
                     }
                   }}
-                  className="w-full bg-violet-600 hover:bg-violet-500 text-white rounded-lg py-3 font-semibold transition-colors"
+                  className="w-full bg-violet-600 hover:bg-violet-500 text-white rounded-xl py-3 font-semibold transition-colors"
                 >
-                  Calculate
+                  Calculate Position
                 </button>
               </div>
             </div>
 
             {positionSizerResult && (
-              <div className="bg-violet-900/20 border border-violet-500/30 rounded-lg p-6">
-                <h3 className="text-lg font-bold mb-4">Results</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-slate-400 mb-1">Shares to Buy</div>
-                    <div className="text-2xl font-bold text-violet-400">{positionSizerResult.shares}</div>
+              <div className="space-y-4">
+                {positionSizerResult.wasCapped && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 flex items-center gap-2">
+                    <span className="text-amber-400 text-sm">⚠️</span>
+                    <span className="text-xs text-amber-300">Position was capped to your {positionSizerInputs.allocationPercent}% allocation limit (${positionSizerResult.allocationLimit.toFixed(0)}). Without the cap, risk-based sizing would use more of your account.</span>
                   </div>
-                  <div>
-                    <div className="text-xs text-slate-400 mb-1">Position Size</div>
-                    <div className="text-2xl font-bold text-violet-400">${positionSizerResult.positionSize.toFixed(2)}</div>
+                )}
+                <div className="bg-violet-900/20 border border-violet-500/30 rounded-xl p-6">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    Results
+                    <span className="text-[10px] bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full font-medium">
+                      {positionSizerResult.percentOfAccount.toFixed(1)}% of account
+                    </span>
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">Shares to Buy</div>
+                      <div className="text-2xl font-bold text-violet-400">{positionSizerResult.shares}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">Position Size</div>
+                      <div className="text-2xl font-bold text-violet-400">${positionSizerResult.positionSize.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">Max Loss</div>
+                      <div className="text-2xl font-bold text-red-400">${positionSizerResult.maxLoss.toFixed(2)}</div>
+                    </div>
+                    {positionSizerResult.riskReward > 0 && (
+                      <>
+                        <div>
+                          <div className="text-xs text-slate-400 mb-1">Potential Gain</div>
+                          <div className="text-2xl font-bold text-green-400">${positionSizerResult.potentialGain.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400 mb-1">Risk:Reward</div>
+                          <div className="text-2xl font-bold text-emerald-400">1:{positionSizerResult.riskReward.toFixed(2)}</div>
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">Remaining Capital</div>
+                      <div className="text-2xl font-bold text-blue-400">${positionSizerResult.remainingCapital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-slate-400 mb-1">Max Loss</div>
-                    <div className="text-2xl font-bold text-red-400">${positionSizerResult.maxLoss.toFixed(2)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-400 mb-1">% of Account</div>
-                    <div className="text-2xl font-bold text-blue-400">{positionSizerResult.percentOfAccount.toFixed(2)}%</div>
-                  </div>
-                  {positionSizerResult.riskReward > 0 && (
-                    <>
-                      <div>
-                        <div className="text-xs text-slate-400 mb-1">Potential Gain</div>
-                        <div className="text-2xl font-bold text-green-400">${positionSizerResult.potentialGain.toFixed(2)}</div>
+
+                  {/* Portfolio Allocation Visual */}
+                  <div className="mt-4 pt-4 border-t border-slate-700/30">
+                    <div className="text-xs text-slate-400 mb-2 font-medium">Portfolio Allocation After This Trade</div>
+                    <div className="h-6 bg-slate-800 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-gradient-to-r from-violet-600 to-violet-400 flex items-center justify-center transition-all duration-500"
+                        style={{ width: `${Math.min(positionSizerResult.percentOfAccount, 100)}%` }}>
+                        {positionSizerResult.percentOfAccount > 12 && (
+                          <span className="text-[9px] font-bold text-white">{positionSizerResult.percentOfAccount.toFixed(1)}% This Trade</span>
+                        )}
                       </div>
-                      <div>
-                        <div className="text-xs text-slate-400 mb-1">Risk:Reward</div>
-                        <div className="text-2xl font-bold text-emerald-400">1:{positionSizerResult.riskReward.toFixed(2)}</div>
+                      <div className="h-full bg-slate-700/50 flex-1 flex items-center justify-center">
+                        <span className="text-[9px] font-bold text-slate-400">{(100 - positionSizerResult.percentOfAccount).toFixed(1)}% Available</span>
                       </div>
-                    </>
-                  )}
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[9px] text-violet-400">${positionSizerResult.positionSize.toLocaleString(undefined, {maximumFractionDigits: 0})} allocated</span>
+                      <span className="text-[9px] text-slate-500">${positionSizerResult.remainingCapital.toLocaleString(undefined, {maximumFractionDigits: 0})} remaining for other positions</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
