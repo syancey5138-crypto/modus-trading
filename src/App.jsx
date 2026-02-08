@@ -3731,51 +3731,38 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // =================================================================
   const voiceRecognitionRef = useRef(null);
 
-  // Check if Web Speech API exists on mount
+  // Voice is always "supported" — we show the button everywhere, text fallback handles unsupported browsers
   useEffect(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SR) setVoiceSupported(true);
+    setVoiceSupported(true);
   }, []);
 
   const vLog = useCallback((msg) => {
     setVoiceDebugLog(prev => [...prev.slice(-8), `${new Date().toLocaleTimeString()} ${msg}`]);
   }, []);
 
-  // Check if the browser truly supports voice recognition
-  // Opera has the SpeechRecognition constructor but doesn't connect to Google's speech servers
-  const hasSpeechAPI = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return false;
-    // Opera exposes the API but it silently fails — detect and exclude it
-    const ua = navigator.userAgent || '';
-    if (/OPR\//.test(ua) || /Opera/.test(ua)) return false;
-    return true;
-  }, []);
-
   const startVoiceCommand = useCallback(() => {
     if (voiceListening) return;
 
-    // If no real speech support (Firefox, Opera, etc.) — show text command overlay
-    if (!hasSpeechAPI()) {
-      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Voice not available in this browser — type commands below`]);
-      setShowVoiceOverlay(true);
+    // Clear old state, show overlay immediately
+    setVoiceTranscript('');
+    setVoiceDebugLog([]);
+    setShowVoiceOverlay(true);
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      // Browser truly doesn't have the API (Firefox) — overlay is open, user can type
+      vLog('Voice API not available — type a command instead');
       return;
     }
 
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    // Create a FRESH recognition instance every time (avoids stale state/closure bugs)
+    // Create a FRESH recognition instance every time
     const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 3;
 
-    // Clear old state
-    setVoiceTranscript('');
-    setVoiceDebugLog([]);
     setVoiceListening(true);
-    setShowVoiceOverlay(true);
 
     let commandMatched = false;
     let stopped = false;
@@ -3784,7 +3771,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       stopped = true;
       voiceRecognitionRef.current = null;
       setVoiceListening(false);
-      setShowVoiceOverlay(false);
+      // Don't auto-close overlay — let user see result or type a command
+    };
+
+    const cleanupAndClose = () => {
+      cleanup();
+      setTimeout(() => setShowVoiceOverlay(false), 1200);
     };
 
     recognition.onstart = () => {
@@ -3813,7 +3805,6 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       if (lastResult.isFinal && !commandMatched) {
         commandMatched = true;
         let bestTranscript = transcript;
-        // Check alternatives
         if (lastResult.length > 1) {
           for (let a = 0; a < lastResult.length; a++) {
             if (lastResult[a].confidence > confidence) {
@@ -3824,63 +3815,59 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         vLog(`Final: "${bestTranscript}" — executing command`);
         processVoiceCommand(bestTranscript.toLowerCase().trim());
         try { recognition.stop(); } catch {}
-        setTimeout(cleanup, 1500);
+        cleanupAndClose();
       }
     };
 
     recognition.onerror = (event) => {
       vLog(`Error: ${event.error}`);
       if (event.error === 'no-speech' || event.error === 'aborted') {
-        // These are normal — onend will fire and we can restart
-        return;
+        return; // Normal — onend restarts
       }
-      // Fatal errors
       const errMsg = event.error === 'not-allowed'
-        ? 'Microphone blocked. Allow mic in browser settings (lock icon in address bar).'
+        ? 'Microphone blocked — click the lock icon in your address bar to allow mic access, then try again.'
         : event.error === 'audio-capture'
         ? 'No microphone found. Connect a mic and try again.'
         : event.error === 'network'
-        ? 'Network error — speech recognition needs internet.'
-        : `Error: ${event.error}`;
+        ? 'Network error — speech recognition needs internet. You can type a command below instead.'
+        : event.error === 'service-not-allowed'
+        ? 'Speech service unavailable in this browser. Type a command below instead.'
+        : `Error: ${event.error} — try typing a command below`;
+      vLog(errMsg);
       addNotification({ type: 'system', title: 'Voice Error', message: errMsg, icon: '🎤' });
-      cleanup();
+      cleanup(); // Don't close overlay — user can fall back to typing
     };
 
     recognition.onend = () => {
-      vLog('Session ended');
       if (!commandMatched && !stopped) {
-        // Auto-restart to keep listening
         vLog('Restarting...');
-        try {
-          setTimeout(() => {
-            if (!stopped && !commandMatched) {
-              try { recognition.start(); } catch (e) { vLog(`Restart failed: ${e.message}`); cleanup(); }
-            }
-          }, 200);
-        } catch {}
+        setTimeout(() => {
+          if (!stopped && !commandMatched) {
+            try { recognition.start(); } catch (e) { vLog(`Restart failed — type a command instead`); cleanup(); }
+          }
+        }, 200);
       }
     };
 
-    // Start it
+    // Actually start — no pre-checks, just try it
     try {
       recognition.start();
       voiceRecognitionRef.current = recognition;
       vLog('Starting speech recognition...');
     } catch (err) {
-      vLog(`Start failed: ${err.message}`);
-      addNotification({ type: 'system', title: 'Voice Error', message: 'Could not start: ' + err.message, icon: '🎤' });
-      cleanup();
+      vLog(`Could not start mic: ${err.message}. Type a command below.`);
+      cleanup(); // Leave overlay open for text input
       return;
     }
 
-    // Hard timeout after 25 seconds
+    // Hard timeout after 30 seconds
     setTimeout(() => {
       if (!commandMatched && !stopped) {
-        vLog('Timeout — no command detected');
+        vLog('Timeout — no command detected. Try again or type below.');
         try { recognition.stop(); } catch {}
-        cleanup();
+        cleanup(); // Leave overlay open
       }
-    }, 25000);
+    }, 30000);
   }, [voiceListening, vLog]);
 
   const stopVoiceCommand = useCallback(() => {
@@ -3944,7 +3931,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     // ── STEP 1: Navigation & action commands FIRST (before ticker extraction) ──
     // This prevents "live ticker" from being parsed as ticker "LIVE"
     const navCommands = [
-      // Multi-word phrases must come before single-word matches
+      // ── Multi-word phrases FIRST (before single-word matches) ──
       { match: () => c.includes('live ticker') || c.includes('stock chart') || c.includes('candlestick') || c.includes('candle chart'), msg: 'Opening Live Ticker', fn: () => setActiveTab('liveticker') },
       { match: () => c.includes('quick analysis'), msg: 'Opening Quick Analysis', fn: () => setActiveTab('quickanalysis') },
       { match: () => c.includes('paper trad') || c.includes('paper trade') || c.includes('simulator') || c.includes('practice'), msg: 'Opening Paper Trading', fn: () => setActiveTab('papertrading') },
@@ -3953,32 +3940,40 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       { match: () => c.includes('market summary') || c.includes('morning briefing') || c.includes('ai briefing') || c.includes('market briefing'), msg: 'Opening AI Briefing', fn: () => setActiveTab('briefing') },
       { match: () => c.includes('sector rotation'), msg: 'Opening Sectors', fn: () => setActiveTab('sectors') },
       { match: () => c.includes('options chain'), msg: 'Opening Options', fn: () => setActiveTab('options') },
-      { match: () => c.includes('position sizer'), msg: 'Opening Position Sizer', fn: () => setShowPositionSizer(true) },
-      { match: () => c.includes('theme builder') || c.includes('custom theme'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
+      { match: () => c.includes('position sizer') || c.includes('risk calculator') || c.includes('size calculator'), msg: 'Opening Position Sizer', fn: () => setShowPositionSizer(true) },
+      { match: () => c.includes('theme builder') || c.includes('custom theme') || c.includes('build theme') || c.includes('create theme'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
+      // ── Info pages — features, terms, privacy ──
+      { match: () => c.includes('feature') || c.includes('what can') || c.includes('show me feature') || c.includes('show feature') || c.includes('platform feature') || c.includes('all feature'), msg: 'Showing Features', fn: () => setShowInfoPage('features') },
+      { match: () => c.includes('terms of service') || c.includes('terms and condition') || c.includes('tos'), msg: 'Showing Terms of Service', fn: () => setShowInfoPage('terms') },
+      { match: () => c.includes('privacy policy') || c.includes('privacy') || c.includes('data policy'), msg: 'Showing Privacy Policy', fn: () => setShowInfoPage('privacy') },
+      // ── Theme commands ──
       { match: () => c.includes('dark mode') || c.includes('dark theme') || c.includes('go dark'), msg: 'Switched to Dark theme', fn: () => setThemeMode('dark') },
       { match: () => c.includes('light mode') || c.includes('light theme') || c.includes('go light') || c.includes('bright mode'), msg: 'Switched to Light theme', fn: () => setThemeMode('light') },
       { match: () => c.includes('midnight') || c.includes('default theme'), msg: 'Switched to Midnight theme', fn: () => setThemeMode('midnight') },
+      // ── Action commands ──
       { match: () => c.includes('new trade') || c.includes('add trade') || c.includes('log trade') || c.includes('enter trade') || c.includes('record trade'), msg: 'Opening Quick Trade Entry', fn: () => setShowQuickTradeEntry(true) },
-      { match: () => c.includes("what's new") || c.includes('changelog') || c.includes('change log') || c.includes('whats new'), msg: 'Showing Changelog', fn: () => setShowChangelog(true) },
-      // Single-word nav commands
-      { match: () => c.includes('dashboard') || c.includes('home') || c.includes('main page') || c.includes('main screen'), msg: 'Navigating to Dashboard', fn: () => setActiveTab('dashboard') },
-      { match: () => c.includes('journal'), msg: 'Navigating to Journal', fn: () => setActiveTab('journal') },
+      { match: () => c.includes("what's new") || c.includes('changelog') || c.includes('change log') || c.includes('whats new') || c.includes('update log') || c.includes('recent update'), msg: 'Showing Changelog', fn: () => setShowChangelog(true) },
+      { match: () => c.includes('sign out') || c.includes('log out') || c.includes('logout') || c.includes('sign off'), msg: 'Logging out...', fn: () => { try { window.dispatchEvent(new CustomEvent('modus-logout')); } catch {} } },
+      // ── Single-word nav commands ──
+      { match: () => c.includes('dashboard') || c.includes('home') || c.includes('main page') || c.includes('main screen') || c === 'go home', msg: 'Navigating to Dashboard', fn: () => setActiveTab('dashboard') },
+      { match: () => c.includes('journal') || c.includes('diary'), msg: 'Navigating to Journal', fn: () => setActiveTab('journal') },
       { match: () => c.includes('portfolio') || c.includes('my stocks') || c.includes('holdings') || c.includes('positions'), msg: 'Navigating to Portfolio', fn: () => setActiveTab('portfolio') },
-      { match: () => c.includes('screener') || c.includes('scanner'), msg: 'Opening Screener', fn: () => setActiveTab('screener') },
+      { match: () => c.includes('screener') || c.includes('scanner') || c.includes('screen stocks') || c.includes('find stocks'), msg: 'Opening Screener', fn: () => setActiveTab('screener') },
       { match: () => c.includes('news') || c.includes('headlines'), msg: 'Opening News', fn: () => setActiveTab('news') },
-      { match: () => c.includes('performance') || c.includes('stats') || c.includes('statistics'), msg: 'Opening Performance', fn: () => setActiveTab('performance') },
-      { match: () => c.includes('community') || c.includes('social'), msg: 'Opening Community', fn: () => setActiveTab('community') },
-      { match: () => c.includes('briefing'), msg: 'Opening AI Briefing', fn: () => setActiveTab('briefing') },
-      { match: () => c.includes('pricing') || c.includes('plans') || c.includes('subscription') || c.includes('upgrade') || c.includes('premium'), msg: 'Opening Pricing', fn: () => setActiveTab('pricing') },
-      { match: () => c.includes('option') || c.includes('greeks'), msg: 'Opening Options', fn: () => setActiveTab('options') },
-      { match: () => c.includes('crypto') || c.includes('bitcoin') || c.includes('ethereum') || c.includes('cryptocurrency'), msg: 'Opening Crypto', fn: () => setActiveTab('crypto') },
+      { match: () => c.includes('performance') || c.includes('stats') || c.includes('statistics') || c.includes('my results') || c.includes('how am i doing'), msg: 'Opening Performance', fn: () => setActiveTab('performance') },
+      { match: () => c.includes('community') || c.includes('social') || c.includes('other traders') || c.includes('forum'), msg: 'Opening Community', fn: () => setActiveTab('community') },
+      { match: () => c.includes('briefing') || c.includes('morning report') || c.includes('daily report'), msg: 'Opening AI Briefing', fn: () => setActiveTab('briefing') },
+      { match: () => c.includes('pricing') || c.includes('plans') || c.includes('subscription') || c.includes('upgrade') || c.includes('premium') || c.includes('pro'), msg: 'Opening Pricing', fn: () => setActiveTab('pricing') },
+      { match: () => c.includes('option') || c.includes('greeks') || c.includes('calls and puts') || c.includes('puts and calls'), msg: 'Opening Options', fn: () => setActiveTab('options') },
+      { match: () => c.includes('crypto') || c.includes('bitcoin') || c.includes('ethereum') || c.includes('cryptocurrency') || c.includes('coin'), msg: 'Opening Crypto', fn: () => setActiveTab('crypto') },
       { match: () => c.includes('sector'), msg: 'Opening Sectors', fn: () => setActiveTab('sectors') },
-      { match: () => c.includes('watchlist') || c.includes('watch list') || c.includes('my watch'), msg: 'Opening Watchlist', fn: () => setActiveTab('watchlist') },
-      { match: () => c.includes('setting') || c.includes('api key') || c.includes('config'), msg: 'Opening Settings', fn: () => setShowApiKeyModal(true) },
-      { match: () => c.includes('info') || c.includes('help') || c.includes('guide') || c.includes('tutorial'), msg: 'Opening Info & Help', fn: () => setActiveTab('info') },
-      { match: () => c.includes('shortcut') || c.includes('keyboard') || c.includes('hotkey'), msg: 'Showing Keyboard Shortcuts', fn: () => setShowShortcutsOverlay(true) },
-      { match: () => c.includes('alert') || c.includes('notification'), msg: 'Opening Alerts', fn: () => setShowNotificationCenter(true) },
-      { match: () => c.includes('customize'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
+      { match: () => c.includes('watchlist') || c.includes('watch list') || c.includes('my watch') || c.includes('favorites') || c.includes('favourites'), msg: 'Opening Watchlist', fn: () => setActiveTab('watchlist') },
+      { match: () => c.includes('setting') || c.includes('api key') || c.includes('config') || c.includes('preferences'), msg: 'Opening Settings', fn: () => setShowApiKeyModal(true) },
+      { match: () => c.includes('info') || c.includes('help') || c.includes('guide') || c.includes('tutorial') || c.includes('how to') || c.includes('documentation'), msg: 'Opening Info & Help', fn: () => setActiveTab('info') },
+      { match: () => c.includes('shortcut') || c.includes('keyboard') || c.includes('hotkey') || c.includes('keybind'), msg: 'Showing Keyboard Shortcuts', fn: () => setShowShortcutsOverlay(true) },
+      { match: () => c.includes('alert') || c.includes('notification') || c.includes('bell'), msg: 'Opening Alerts', fn: () => setShowNotificationCenter(true) },
+      { match: () => c.includes('customize') || c.includes('personalize'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
+      { match: () => c.includes('refresh') || c.includes('reload'), msg: 'Refreshing page...', fn: () => window.location.reload() },
     ];
 
     for (const nav of navCommands) {
@@ -15483,20 +15478,18 @@ INSTRUCTIONS:
                   );
                 })()}
                 {/* Theme toggle moved to Settings modal */}
-                {/* Voice Command Button */}
-                {voiceSupported && (
-                  <button
-                    onClick={voiceListening ? stopVoiceCommand : startVoiceCommand}
-                    title={voiceListening ? "Stop listening" : "Voice / Text Commands"}
-                    className={`p-2 rounded-lg transition-all flex items-center gap-1.5 border ${
-                      voiceListening
-                        ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse'
-                        : 'bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30'
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                  </button>
-                )}
+                {/* Voice Command Button — on dashboard toolbar */}
+                <button
+                  onClick={voiceListening ? stopVoiceCommand : startVoiceCommand}
+                  title={voiceListening ? "Stop listening" : "Voice Commands (V)"}
+                  className={`p-2 rounded-lg transition-all flex items-center gap-1.5 border ${
+                    voiceListening
+                      ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse'
+                      : 'bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                </button>
                 {/* PWA Install (Feature 7) — only show when actually installable */}
                 {!isAppInstalled && deferredPrompt && (
                   <button onClick={handleInstallPWA} title="Install MODUS App"
@@ -33698,59 +33691,19 @@ INSTRUCTIONS:
       {showVoiceOverlay && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-lg flex items-center justify-center z-[70] animate-fadeIn" onClick={stopVoiceCommand}>
           <div className="text-center max-w-lg w-full px-6" onClick={e => e.stopPropagation()}>
-            {/* Mic / Command icon animation */}
+            {/* Mic animation — always mic icon */}
             <div className={`w-28 h-28 mx-auto mb-6 rounded-full flex items-center justify-center transition-all duration-300 ${voiceListening ? 'bg-red-500/25 shadow-[0_0_60px_rgba(239,68,68,0.3)]' : 'bg-violet-500/25 shadow-[0_0_60px_rgba(139,92,246,0.3)]'}`}>
               <div className={`w-20 h-20 rounded-full flex items-center justify-center ${voiceListening ? 'bg-red-500/30 animate-pulse' : 'bg-violet-500/30'}`}>
-                {hasSpeechAPI() ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
-                )}
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
               </div>
             </div>
 
             <h2 className="text-2xl font-bold text-white mb-1">
-              {voiceListening ? 'Listening...' : hasSpeechAPI() ? 'Processing...' : 'Command Center'}
+              {voiceListening ? 'Listening...' : 'Voice Commands'}
             </h2>
-            <p className="text-sm text-slate-400 mb-1">
-              {hasSpeechAPI()
-                ? 'Speak a command clearly — try "go to dashboard" or "analyze AAPL"'
-                : 'Type a command below — try "dashboard" or "analyze AAPL"'}
+            <p className="text-sm text-slate-400 mb-4">
+              {voiceListening ? 'Speak clearly — try "check Tesla" or "go to dashboard"' : 'Say a command or type one below'}
             </p>
-            <p className="text-[10px] text-slate-600 mb-4">
-              {hasSpeechAPI() ? 'Voice supported in this browser — or type a command below' : 'Voice not available — type commands below'}
-            </p>
-
-            {/* Text command input — always shown for unsupported browsers, available as fallback for supported ones */}
-            <div className="bg-slate-800/60 border border-violet-500/30 rounded-xl px-4 py-3 mb-4 mx-auto max-w-sm">
-              <p className="text-[10px] text-violet-400 uppercase tracking-wider mb-2 font-bold">
-                {hasSpeechAPI() ? 'Or type a command:' : 'Type a command:'}
-              </p>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const input = e.target.elements.voiceTextInput;
-                const cmd = input.value.trim();
-                if (cmd) {
-                  vLog(`Command: "${cmd}"`);
-                  processVoiceCommand(cmd);
-                  input.value = '';
-                  // Close overlay after a brief delay so user sees the notification
-                  setTimeout(() => { setShowVoiceOverlay(false); setVoiceListening(false); }, 600);
-                }
-              }} className="flex gap-2">
-                <input
-                  name="voiceTextInput"
-                  type="text"
-                  placeholder='e.g. "dashboard", "analyze AAPL", "dark mode"'
-                  autoFocus={!hasSpeechAPI()}
-                  className="flex-1 bg-slate-900/80 border border-slate-600/40 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none"
-                  onClick={e => e.stopPropagation()}
-                />
-                <button type="submit" className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm text-white font-medium transition-colors">
-                  Go
-                </button>
-              </form>
-            </div>
 
             {/* Live transcript */}
             {voiceTranscript ? (
@@ -33764,28 +33717,55 @@ INSTRUCTIONS:
               </div>
             ) : null}
 
-            {/* Debug log — shows what the speech API is doing */}
+            {/* Status log */}
             {voiceDebugLog.length > 0 && (
               <div className="bg-slate-950/80 border border-slate-700/40 rounded-lg px-3 py-2 mb-4 mx-auto max-w-sm text-left">
-                <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-1 font-bold">Status Log</p>
+                <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-1 font-bold">Status</p>
                 {voiceDebugLog.map((msg, i) => (
                   <p key={i} className={`text-[10px] font-mono leading-relaxed ${
-                    msg.includes('Error') || msg.includes('failed') ? 'text-red-400' :
-                    msg.includes('Heard') || msg.includes('Speech') ? 'text-emerald-400' :
-                    msg.includes('active') || msg.includes('Starting') ? 'text-violet-400' :
+                    msg.includes('Error') || msg.includes('failed') || msg.includes('blocked') || msg.includes('unavailable') ? 'text-red-400' :
+                    msg.includes('Heard') || msg.includes('Speech') || msg.includes('Final') ? 'text-emerald-400' :
+                    msg.includes('active') || msg.includes('Starting') || msg.includes('connected') ? 'text-violet-400' :
                     'text-slate-500'
                   }`}>{msg}</p>
                 ))}
               </div>
             )}
 
-            {/* Command examples grid */}
+            {/* Text command input — always available as backup */}
+            <div className="bg-slate-800/60 border border-violet-500/30 rounded-xl px-4 py-3 mb-4 mx-auto max-w-sm">
+              <p className="text-[10px] text-violet-400 uppercase tracking-wider mb-2 font-bold">Or type a command:</p>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const input = e.target.elements.voiceTextInput;
+                const cmd = input.value.trim();
+                if (cmd) {
+                  vLog(`Command: "${cmd}"`);
+                  processVoiceCommand(cmd);
+                  input.value = '';
+                  stopVoiceCommand();
+                }
+              }} className="flex gap-2">
+                <input
+                  name="voiceTextInput"
+                  type="text"
+                  placeholder='"check Tesla", "dashboard", "dark mode"'
+                  className="flex-1 bg-slate-900/80 border border-slate-600/40 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none"
+                  onClick={e => e.stopPropagation()}
+                />
+                <button type="submit" className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm text-white font-medium transition-colors">
+                  Go
+                </button>
+              </form>
+            </div>
+
+            {/* Command examples */}
             <div className="grid grid-cols-2 gap-2 mb-4 text-left max-w-md mx-auto">
               {[
                 { cat: 'Navigate', cmds: '"Dashboard" · "Live ticker" · "Watchlist" · "Briefing" · "News"' },
                 { cat: 'Analyze', cmds: '"Check Tesla" · "Analyze Apple" · "NVDA" · "How\'s Ford"' },
                 { cat: 'Theme', cmds: '"Dark mode" · "Light theme" · "Midnight"' },
-                { cat: 'Actions', cmds: '"New trade" · "Position sizer" · "Options" · "Crypto"' },
+                { cat: 'Actions', cmds: '"New trade" · "Position sizer" · "Features" · "Crypto"' },
               ].map(g => (
                 <div key={g.cat} className="bg-slate-800/30 rounded-lg p-2.5 border border-slate-700/20">
                   <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-1">{g.cat}</div>
