@@ -3744,12 +3744,36 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     setVoiceDebugLog(prev => [...prev.slice(-8), `${new Date().toLocaleTimeString()} ${msg}`]);
   }, []);
 
+  // Detect browsers that have SpeechRecognition constructor but no actual backend service
+  const isRealSpeechSupported = useCallback(() => {
+    const ua = navigator.userAgent || '';
+    // Chrome and Edge work. Opera, Brave, Vivaldi, Samsung Internet are Chromium-based
+    // but may not route audio to Google's speech servers.
+    const isChrome = /Chrome\//.test(ua) && !/OPR\/|Opera|Brave|Vivaldi/.test(ua);
+    const isEdge = /Edg\//.test(ua);
+    return isChrome || isEdge;
+  }, []);
+
   const startVoiceCommand = useCallback(() => {
     if (voiceListening) return;
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Your browser does not support speech recognition. Use Chrome or Edge.', icon: '🎤' });
+      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Your browser does not support speech recognition. Please use Google Chrome or Microsoft Edge.', icon: '🎤' });
+      return;
+    }
+
+    // Check for browsers that have the API but don't actually support it
+    if (!isRealSpeechSupported()) {
+      addNotification({
+        type: 'system',
+        title: 'Browser Not Supported',
+        message: 'Voice commands require Google Chrome or Microsoft Edge. Opera, Brave, Safari, and Firefox do not support the Web Speech API. Please open MODUS in Chrome to use voice commands.',
+        icon: '🎤'
+      });
+      setVoiceDebugLog([`${new Date().toLocaleTimeString()} Your browser (Opera/other) does not support speech recognition. Use Chrome or Edge.`]);
+      setShowVoiceOverlay(true);
+      setTimeout(() => setShowVoiceOverlay(false), 5000);
       return;
     }
 
@@ -15460,7 +15484,7 @@ INSTRUCTIONS:
                 {voiceSupported && (
                   <button
                     onClick={voiceListening ? stopVoiceCommand : startVoiceCommand}
-                    title={voiceListening ? "Stop listening" : "Voice Command"}
+                    title={voiceListening ? "Stop listening" : "Voice Command (Chrome/Edge only)"}
                     className={`p-2 rounded-lg transition-all flex items-center gap-1.5 border ${
                       voiceListening
                         ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse'
@@ -33669,7 +33693,8 @@ INSTRUCTIONS:
             </div>
 
             <h2 className="text-2xl font-bold text-white mb-1">{voiceListening ? 'Listening...' : 'Processing...'}</h2>
-            <p className="text-sm text-slate-400 mb-4">Speak a command clearly — try "go to dashboard" or "analyze AAPL"</p>
+            <p className="text-sm text-slate-400 mb-1">Speak a command clearly — try "go to dashboard" or "analyze AAPL"</p>
+            <p className="text-[10px] text-slate-600 mb-4">Requires Google Chrome or Microsoft Edge</p>
 
             {/* Live transcript */}
             {voiceTranscript ? (
