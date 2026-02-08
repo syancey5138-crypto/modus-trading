@@ -26,84 +26,85 @@ const PLAN_TIERS = {
     badge: '🆓',
     tagline: 'Get started with essential trading tools',
     features: [
-      'Dashboard with 10+ widgets',
-      'Quick Analysis (5/day)',
-      'Trading Journal',
-      'Watchlist (20 symbols)',
-      'Community Feed (read)',
+      'Dashboard with core widgets',
+      'Quick Analysis (3/day)',
+      'Trading Journal (50 trades)',
+      'Watchlist (10 symbols)',
+      'Community Feed (read only)',
       'Market Overview',
       '3 built-in themes',
-      'Basic keyboard shortcuts',
     ],
-    limits: { analysisPerDay: 5, watchlistMax: 20, customThemes: 0 }
+    limits: { analysisPerDay: 3, watchlistMax: 10, customThemes: 0 }
   },
   plus: {
     name: 'Plus',
-    price: 9.99,
-    priceLabel: '$9.99/mo',
+    price: 12.99,
+    priceLabel: '$12.99/mo',
     color: 'blue',
     badge: '⚡',
     popular: false,
-    tagline: 'More power for active traders',
+    tagline: 'Essential upgrades for active traders',
     features: [
       'Everything in Standard',
-      'Unlimited Quick Analysis',
-      'AI Morning Briefing',
+      'Quick Analysis (15/day)',
+      'Watchlist (50 symbols)',
+      'Trading Journal (unlimited)',
       'Paper Trading Simulator',
-      'Voice Commands',
-      'Custom Theme Builder',
-      'Full Community Feed (post & read)',
+      'Full Community Feed',
       'Export trades to CSV',
-      'Notification Center',
-      'Position Sizer (full)',
+      'Keyboard shortcuts',
+      'Position Sizer (basic)',
     ],
-    limits: { analysisPerDay: Infinity, watchlistMax: 100, customThemes: 5 }
+    limits: { analysisPerDay: 15, watchlistMax: 50, customThemes: 0 }
   },
   pro: {
     name: 'Pro',
-    price: 24.99,
-    priceLabel: '$24.99/mo',
+    price: 29.99,
+    priceLabel: '$29.99/mo',
     color: 'violet',
     badge: '🚀',
     popular: true,
     tagline: 'Professional tools for serious traders',
     features: [
       'Everything in Plus',
+      'Unlimited Quick Analysis',
+      'AI Morning Briefing',
+      'Voice Commands',
+      'Custom Theme Builder (5 themes)',
+      'Watchlist (200 symbols)',
       'Sector Rotation (live)',
-      'Sector Breadth (live)',
       'Crypto Prices (live)',
       'Trade Plan Enforcement',
-      'XP & Gamification',
-      'Portfolio Heat Map',
+      'Position Sizer (full)',
       'Performance Analytics',
-      'Detailed Analysis Mode',
-      'Chart Drawing on Live Ticker',
-      'Options Chain',
-      'Screener Presets',
-      'Alert Backtesting',
+      'Notification Center',
     ],
-    limits: { analysisPerDay: Infinity, watchlistMax: 500, customThemes: 20 }
+    limits: { analysisPerDay: Infinity, watchlistMax: 200, customThemes: 5 }
   },
   promax: {
     name: 'Pro Max',
-    price: 49.99,
-    priceLabel: '$49.99/mo',
+    price: 59.99,
+    priceLabel: '$59.99/mo',
     color: 'amber',
     badge: '👑',
     popular: false,
     tagline: 'The ultimate trading command center',
     features: [
       'Everything in Pro',
-      'Multi-Timeframe View',
-      'Real-Time Collaboration (coming soon)',
-      'Brokerage Integration (coming soon)',
-      'Priority API access',
+      'Unlimited watchlist',
       'Unlimited custom themes',
-      'Advanced Screener Filters',
+      'Chart Drawing on Live Ticker',
+      'Options Chain & Greeks',
+      'Multi-Timeframe View',
+      'Portfolio Heat Map',
+      'XP & Gamification System',
+      'Sector Breadth (live)',
+      'Detailed Analysis Mode',
+      'Screener Presets & Filters',
+      'Alert Backtesting',
       'Trade Correlation Matrix',
-      'Market Breadth Advanced',
-      'Priority support',
-      'Early access to new features',
+      'Brokerage Integration (coming soon)',
+      'Priority support & early access',
     ],
     limits: { analysisPerDay: Infinity, watchlistMax: Infinity, customThemes: Infinity }
   }
@@ -2736,6 +2737,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [showDrawingTools, setShowDrawingTools] = useState(false);
   const [drawingColor, setDrawingColor] = useState('#8b5cf6');
   const drawingCanvasRef = useRef(null);
+  const [drawingPreview, setDrawingPreview] = useState(null);
 
   // NEW: Pricing Tier System (v3.1.0)
   const [userPlan, setUserPlan] = useState(() => {
@@ -2752,14 +2754,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     try { localStorage.setItem('modus_plan', userPlan); } catch {}
   }, [userPlan]);
 
-  const addDrawing = useCallback((type, data) => {
+  const addDrawing = useCallback((type, data, keepMode = false) => {
     const ticker = tickerSymbol || 'default';
     setDrawings(prev => ({
       ...prev,
       [ticker]: [...(prev[ticker] || []), { id: Date.now(), type, color: drawingColor, ...data, createdAt: new Date().toISOString() }]
     }));
-    setDrawingMode(null);
+    if (!keepMode) setDrawingMode(null);
     setDrawingStart(null);
+    setDrawingPreview(null);
   }, [tickerSymbol, drawingColor]);
 
   const clearDrawings = useCallback((ticker) => {
@@ -18522,8 +18525,83 @@ INSTRUCTIONS:
                                 </div>
                               )}
                             </div>
+
+                            {/* Chart Drawing Tools Toggle */}
+                            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-600">
+                              <button
+                                onClick={() => { setShowDrawingTools(!showDrawingTools); if (showDrawingTools) { setDrawingMode(null); setDrawingStart(null); setDrawingPreview(null); } }}
+                                className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                                  showDrawingTools ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
+                                }`}
+                              >
+                                {showDrawingTools ? '✅' : '✏️'} Draw
+                              </button>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Drawing Tools Toolbar */}
+                        {showDrawingTools && (
+                          <div className="mb-2 p-3 bg-gradient-to-r from-violet-500/10 to-slate-800/50 rounded-xl border border-violet-500/20">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-500 mr-1">Tools:</span>
+                                {[
+                                  { mode: 'line', icon: '📈', label: 'Trendline' },
+                                  { mode: 'horizontal', icon: '➖', label: 'Support/Resist' },
+                                  { mode: 'fibonacci', icon: '🔢', label: 'Fibonacci' },
+                                  { mode: 'rectangle', icon: '▢', label: 'Zone' },
+                                  { mode: 'text', icon: '💬', label: 'Note' },
+                                ].map(tool => (
+                                  <button key={tool.mode}
+                                    onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                                      drawingMode === tool.mode
+                                        ? 'bg-violet-600 text-white border border-violet-400 shadow-lg shadow-violet-500/20'
+                                        : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60 border border-slate-700/30'
+                                    }`}
+                                  >
+                                    <span>{tool.icon}</span> {tool.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-2 pl-3 border-l border-slate-600/50">
+                                <span className="text-xs text-slate-500">Color:</span>
+                                {['#8b5cf6', '#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#ec4899', '#ffffff'].map(c => (
+                                  <button key={c} onClick={() => setDrawingColor(c)}
+                                    className={`w-5 h-5 rounded-full transition-all ${drawingColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'}`}
+                                    style={{ background: c }} />
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-2 pl-3 border-l border-slate-600/50 ml-auto">
+                                {(drawings[tickerSymbol] || []).length > 0 && (
+                                  <>
+                                    <button onClick={() => {
+                                      const ticker = tickerSymbol || 'default';
+                                      setDrawings(prev => ({ ...prev, [ticker]: (prev[ticker] || []).slice(0, -1) }));
+                                    }} className="px-2 py-1 text-xs text-slate-400 hover:text-white bg-slate-700/30 hover:bg-slate-700/50 rounded transition-all">
+                                      Undo
+                                    </button>
+                                    <button onClick={() => clearDrawings()} className="px-2 py-1 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-all">
+                                      Clear All
+                                    </button>
+                                    <span className="text-[10px] text-slate-500">{(drawings[tickerSymbol] || []).length} drawn</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {drawingMode && (
+                              <div className="mt-2 text-xs text-violet-300 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                                {drawingMode === 'line' && 'Click and drag on the chart to draw a trendline'}
+                                {drawingMode === 'horizontal' && 'Click anywhere on the chart to place a support/resistance level'}
+                                {drawingMode === 'fibonacci' && 'Click and drag from high to low to draw Fibonacci retracement'}
+                                {drawingMode === 'rectangle' && 'Click and drag to highlight a price zone'}
+                                {drawingMode === 'text' && 'Click anywhere on the chart to add a text annotation'}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Chart Controls - Separate Panels */}
                         <div className="mb-4">
@@ -19083,7 +19161,216 @@ INSTRUCTIONS:
                                 {showComparison && comparisonData && <span className="text-amber-400">┄ {comparisonData.symbol} (normalized)</span>}
                               </div>
                             )}
-                            
+
+                            {/* ═══════════════════════════════════════════════ */}
+                            {/* CHART DRAWING OVERLAY */}
+                            {/* ═══════════════════════════════════════════════ */}
+                            {showDrawingTools && (() => {
+                              const dValidBars = tickerData.timeSeries.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
+                              if (dValidBars.length === 0) return null;
+                              const dMinP = Math.min(...dValidBars.map(b => b.low));
+                              const dMaxP = Math.max(...dValidBars.map(b => b.high));
+                              const dRange = dMaxP - dMinP || 1;
+                              const dPriceToY = (price) => 100 - (((price - dMinP) / dRange) * 95 + 5);
+                              const dYToPrice = (y) => dMinP + ((95 - y) / 95) * dRange;
+                              const numBars = tickerData.timeSeries.length;
+                              const tickerDraws = drawings[tickerSymbol] || [];
+
+                              const getChartCoords = (e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const x = ((e.clientX - rect.left) / rect.width) * numBars;
+                                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                                return { x: Math.max(0, Math.min(numBars, x)), y: Math.max(0, Math.min(100, y)), price: dYToPrice(y) };
+                              };
+
+                              return (
+                                <>
+                                  {/* Drawing SVG layer */}
+                                  <svg
+                                    ref={drawingCanvasRef}
+                                    className="absolute z-30"
+                                    style={{
+                                      left: '64px', right: '8px', top: 0, bottom: '32px',
+                                      width: 'calc(100% - 72px)', height: 'calc(100% - 32px)',
+                                      cursor: drawingMode ? 'crosshair' : 'default',
+                                      pointerEvents: drawingMode ? 'all' : 'none'
+                                    }}
+                                    preserveAspectRatio="none"
+                                    viewBox={`0 0 ${numBars} 100`}
+                                    onMouseDown={(e) => {
+                                      if (!drawingMode) return;
+                                      e.preventDefault();
+                                      const coords = getChartCoords(e);
+                                      if (drawingMode === 'text') {
+                                        const text = window.prompt('Enter annotation:');
+                                        if (text && text.trim()) addDrawing('text', { x: coords.x, price: coords.price, text: text.trim() }, true);
+                                        return;
+                                      }
+                                      if (drawingMode === 'horizontal') {
+                                        addDrawing('horizontal', { price: coords.price }, true);
+                                        return;
+                                      }
+                                      setDrawingStart(coords);
+                                    }}
+                                    onMouseMove={(e) => {
+                                      if (!drawingMode) return;
+                                      const coords = getChartCoords(e);
+                                      setDrawingPreview(coords);
+                                    }}
+                                    onMouseUp={(e) => {
+                                      if (!drawingMode || !drawingStart) return;
+                                      const coords = getChartCoords(e);
+                                      if (drawingMode === 'line') {
+                                        addDrawing('line', { x1: drawingStart.x, price1: drawingStart.price, x2: coords.x, price2: coords.price }, true);
+                                      } else if (drawingMode === 'rectangle') {
+                                        addDrawing('rectangle', { x1: drawingStart.x, price1: drawingStart.price, x2: coords.x, price2: coords.price }, true);
+                                      } else if (drawingMode === 'fibonacci') {
+                                        const highPrice = Math.max(drawingStart.price, coords.price);
+                                        const lowPrice = Math.min(drawingStart.price, coords.price);
+                                        addDrawing('fibonacci', { highPrice, lowPrice, x1: Math.min(drawingStart.x, coords.x), x2: Math.max(drawingStart.x, coords.x) }, true);
+                                      }
+                                    }}
+                                    onMouseLeave={() => { if (!drawingStart) setDrawingPreview(null); }}
+                                  >
+                                    {/* Crosshair guides */}
+                                    {drawingMode && drawingPreview && !drawingStart && (
+                                      <>
+                                        <line x1={drawingPreview.x} y1={0} x2={drawingPreview.x} y2={100} stroke="rgba(139,92,246,0.35)" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
+                                        <line x1={0} y1={drawingPreview.y} x2={numBars} y2={drawingPreview.y} stroke="rgba(139,92,246,0.35)" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
+                                      </>
+                                    )}
+
+                                    {/* Live preview while dragging */}
+                                    {drawingStart && drawingPreview && (
+                                      <>
+                                        {drawingMode === 'line' && (
+                                          <line x1={drawingStart.x} y1={dPriceToY(drawingStart.price)} x2={drawingPreview.x} y2={drawingPreview.y}
+                                            stroke={drawingColor} strokeWidth="0.4" strokeDasharray="1,0.5" opacity="0.8" />
+                                        )}
+                                        {drawingMode === 'rectangle' && (() => {
+                                          const sy = dPriceToY(drawingStart.price);
+                                          const rx = Math.min(drawingStart.x, drawingPreview.x);
+                                          const ry = Math.min(sy, drawingPreview.y);
+                                          const rw = Math.abs(drawingPreview.x - drawingStart.x);
+                                          const rh = Math.abs(drawingPreview.y - sy);
+                                          return <rect x={rx} y={ry} width={rw} height={rh} fill={drawingColor + '10'} stroke={drawingColor} strokeWidth="0.3" strokeDasharray="1,0.5" opacity="0.7" />;
+                                        })()}
+                                        {drawingMode === 'fibonacci' && (() => {
+                                          const fy1 = dPriceToY(drawingStart.price);
+                                          const fy2 = drawingPreview.y;
+                                          const fHighY = Math.min(fy1, fy2);
+                                          const fLowY = Math.max(fy1, fy2);
+                                          const fRange = fLowY - fHighY;
+                                          return [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].map((l, i) => (
+                                            <line key={i} x1={0} y1={fHighY + fRange * l} x2={numBars} y2={fHighY + fRange * l}
+                                              stroke={drawingColor} strokeWidth="0.15" strokeDasharray="1,1" opacity="0.5" />
+                                          ));
+                                        })()}
+                                      </>
+                                    )}
+
+                                    {/* Saved drawings - geometric shapes */}
+                                    {tickerDraws.map(d => {
+                                      if (d.type === 'line') {
+                                        return <line key={d.id} x1={d.x1} y1={dPriceToY(d.price1)} x2={d.x2} y2={dPriceToY(d.price2)}
+                                          stroke={d.color} strokeWidth="0.4" strokeLinecap="round" />;
+                                      }
+                                      if (d.type === 'horizontal') {
+                                        return <line key={d.id} x1={0} y1={dPriceToY(d.price)} x2={numBars} y2={dPriceToY(d.price)}
+                                          stroke={d.color} strokeWidth="0.3" strokeDasharray="2,1" />;
+                                      }
+                                      if (d.type === 'rectangle') {
+                                        const ry1 = dPriceToY(d.price1), ry2 = dPriceToY(d.price2);
+                                        return <rect key={d.id} x={Math.min(d.x1, d.x2)} y={Math.min(ry1, ry2)}
+                                          width={Math.abs(d.x2 - d.x1)} height={Math.abs(ry2 - ry1)}
+                                          fill={d.color + '12'} stroke={d.color} strokeWidth="0.3" rx="0.3" />;
+                                      }
+                                      if (d.type === 'fibonacci') {
+                                        const fhY = dPriceToY(d.highPrice);
+                                        const flY = dPriceToY(d.lowPrice);
+                                        const fr = flY - fhY;
+                                        return (
+                                          <g key={d.id}>
+                                            {[0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].map((l, i) => (
+                                              <line key={i} x1={d.x1} y1={fhY + fr * l} x2={d.x2} y2={fhY + fr * l}
+                                                stroke={d.color} strokeWidth="0.2" strokeDasharray="2,1" opacity={0.4 + l * 0.5} />
+                                            ))}
+                                            <rect x={d.x1} y={fhY} width={Math.abs(d.x2 - d.x1)} height={fr}
+                                              fill={d.color + '06'} stroke="none" />
+                                          </g>
+                                        );
+                                      }
+                                      return null;
+                                    })}
+                                  </svg>
+
+                                  {/* HTML overlay for text labels (avoids SVG text distortion from preserveAspectRatio=none) */}
+                                  <div className="absolute z-30 pointer-events-none" style={{ left: '64px', right: '8px', top: 0, bottom: '32px' }}>
+                                    {/* Crosshair price tag */}
+                                    {drawingMode && drawingPreview && (
+                                      <div className="absolute right-0" style={{ top: `${drawingPreview.y}%`, transform: 'translateY(-50%)' }}>
+                                        <span className="bg-violet-600 text-white text-[10px] font-mono px-1.5 py-0.5 rounded-l shadow-lg">
+                                          ${drawingPreview.price?.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* Horizontal line price labels */}
+                                    {tickerDraws.filter(d => d.type === 'horizontal').map(d => (
+                                      <div key={`hl-${d.id}`} className="absolute right-0" style={{ top: `${dPriceToY(d.price)}%`, transform: 'translateY(-50%)' }}>
+                                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-l shadow" style={{ background: d.color + 'dd', color: '#fff' }}>
+                                          ${d.price?.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    ))}
+
+                                    {/* Fibonacci level labels */}
+                                    {tickerDraws.filter(d => d.type === 'fibonacci').map(d => {
+                                      const fhY2 = dPriceToY(d.highPrice);
+                                      const flY2 = dPriceToY(d.lowPrice);
+                                      const fr2 = flY2 - fhY2;
+                                      return [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].map((l, i) => {
+                                        const yPos = fhY2 + fr2 * l;
+                                        const price = d.highPrice - (d.highPrice - d.lowPrice) * l;
+                                        return (
+                                          <div key={`fib-${d.id}-${i}`} className="absolute left-1" style={{ top: `${yPos}%`, transform: 'translateY(-50%)' }}>
+                                            <span className="text-[9px] font-mono px-1 py-0.5 rounded" style={{ color: d.color, background: 'rgba(15,23,42,0.85)' }}>
+                                              {(l * 100).toFixed(1)}% ${price?.toFixed(2)}
+                                            </span>
+                                          </div>
+                                        );
+                                      });
+                                    })}
+
+                                    {/* Text annotations */}
+                                    {tickerDraws.filter(d => d.type === 'text').map(d => (
+                                      <div key={`txt-${d.id}`} className="absolute" style={{
+                                        left: `${(d.x / numBars) * 100}%`,
+                                        top: `${dPriceToY(d.price)}%`,
+                                        transform: 'translate(-50%, -50%)'
+                                      }}>
+                                        <span className="text-[11px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap" style={{
+                                          color: d.color,
+                                          background: d.color + '20',
+                                          border: `1px solid ${d.color}40`
+                                        }}>
+                                          {d.text}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Drawing mode indicator on chart */}
+                                  {drawingMode && (
+                                    <div className="absolute top-2 left-20 z-40 bg-violet-600/90 text-white text-[10px] px-3 py-1.5 rounded-lg font-medium flex items-center gap-2 shadow-lg">
+                                      <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                      Drawing: {drawingMode} — {drawingMode === 'horizontal' || drawingMode === 'text' ? 'Click to place' : 'Click & drag'}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+
                             {/* Date labels on X-axis */}
                             <div className="absolute bottom-0 left-16 right-0 h-8 flex justify-between items-center text-xs text-slate-400 border-t border-slate-700 px-2 bg-slate-900/80">
                               {(() => {
@@ -31045,30 +31332,32 @@ INSTRUCTIONS:
                   </thead>
                   <tbody>
                     {[
-                      { name: 'Dashboard & Widgets', free: '✅', plus: '✅', pro: '✅', promax: '✅' },
-                      { name: 'Quick Analysis', free: '5/day', plus: '✅ Unlimited', pro: '✅ Unlimited', promax: '✅ Unlimited' },
-                      { name: 'Trading Journal', free: '✅', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Dashboard & Widgets', free: '✅ Core', plus: '✅', pro: '✅', promax: '✅ All' },
+                      { name: 'Quick Analysis', free: '3/day', plus: '15/day', pro: '✅ Unlimited', promax: '✅ Unlimited' },
+                      { name: 'Trading Journal', free: '50 trades', plus: '✅ Unlimited', pro: '✅ Unlimited', promax: '✅ Unlimited' },
                       { name: 'Market Overview', free: '✅', plus: '✅', pro: '✅', promax: '✅' },
-                      { name: 'Watchlist', free: '20 symbols', plus: '100 symbols', pro: '500 symbols', promax: '✅ Unlimited' },
-                      { name: 'AI Morning Briefing', free: '—', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Watchlist', free: '10 symbols', plus: '50 symbols', pro: '200 symbols', promax: '✅ Unlimited' },
                       { name: 'Paper Trading', free: '—', plus: '✅', pro: '✅', promax: '✅' },
-                      { name: 'Voice Commands', free: '—', plus: '✅', pro: '✅', promax: '✅' },
-                      { name: 'Custom Themes', free: '—', plus: '5 themes', pro: '20 themes', promax: '✅ Unlimited' },
                       { name: 'Community Feed', free: 'Read only', plus: '✅ Full', pro: '✅ Full', promax: '✅ Full' },
-                      { name: 'Position Sizer', free: 'Basic', plus: '✅ Full', pro: '✅ Full', promax: '✅ Full' },
                       { name: 'Export to CSV', free: '—', plus: '✅', pro: '✅', promax: '✅' },
+                      { name: 'Position Sizer', free: '—', plus: 'Basic', pro: '✅ Full', promax: '✅ Full' },
+                      { name: 'AI Morning Briefing', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Voice Commands', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Custom Themes', free: '—', plus: '—', pro: '5 themes', promax: '✅ Unlimited' },
                       { name: 'Sector Rotation (live)', free: '—', plus: '—', pro: '✅', promax: '✅' },
                       { name: 'Crypto Prices (live)', free: '—', plus: '—', pro: '✅', promax: '✅' },
                       { name: 'Trade Plan Enforcement', free: '—', plus: '—', pro: '✅', promax: '✅' },
-                      { name: 'XP & Gamification', free: '—', plus: '—', pro: '✅', promax: '✅' },
-                      { name: 'Options Chain', free: '—', plus: '—', pro: '✅', promax: '✅' },
-                      { name: 'Chart Drawing Tools', free: '—', plus: '—', pro: '✅', promax: '✅' },
                       { name: 'Performance Analytics', free: '—', plus: '—', pro: '✅', promax: '✅' },
-                      { name: 'Alert Backtesting', free: '—', plus: '—', pro: '✅', promax: '✅' },
+                      { name: 'Chart Drawing on Charts', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'Options Chain & Greeks', free: '—', plus: '—', pro: '—', promax: '✅' },
                       { name: 'Multi-Timeframe View', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'Portfolio Heat Map', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'XP & Gamification', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'Alert Backtesting', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'Trade Correlation Matrix', free: '—', plus: '—', pro: '—', promax: '✅' },
+                      { name: 'Screener Presets & Filters', free: '—', plus: '—', pro: '—', promax: '✅' },
                       { name: 'Brokerage Integration', free: '—', plus: '—', pro: '—', promax: '🔜 Coming' },
                       { name: 'Priority Support', free: '—', plus: '—', pro: '—', promax: '✅' },
-                      { name: 'Early Access Features', free: '—', plus: '—', pro: '—', promax: '✅' },
                     ].map((row, i) => (
                       <tr key={i} className={`border-b border-slate-700/20 ${i % 2 === 0 ? '' : 'bg-slate-800/20'}`}>
                         <td className="p-4 text-sm text-slate-300 font-medium">{row.name}</td>
