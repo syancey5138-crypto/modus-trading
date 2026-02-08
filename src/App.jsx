@@ -2791,6 +2791,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(false);
+  const [voiceDebugLog, setVoiceDebugLog] = useState([]);
 
   // ═══════════════════════════════════════════════
   // CRYPTO SUPPORT - CoinGecko API Integration
@@ -3732,126 +3733,149 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // VOICE COMMAND SYSTEM
   // =================================================================
   const voiceRecognitionRef = useRef(null);
-  const voiceActiveRef = useRef(false); // Tracks whether we WANT to be listening (survives re-renders & closures)
-  const voiceCommandMatchedRef = useRef(false); // Tracks whether a command was matched (to prevent restart)
 
+  // Check if Web Speech API exists on mount
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      setVoiceSupported(true);
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false; // Use single-shot + auto-restart (more reliable than continuous mode in Chrome)
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-      recognition.maxAlternatives = 3;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) setVoiceSupported(true);
+  }, []);
 
-      recognition.onresult = (event) => {
-        const lastResult = event.results[event.results.length - 1];
-        const transcript = lastResult[0].transcript;
-        const confidence = lastResult[0].confidence;
-        setVoiceTranscript(transcript);
-
-        if (lastResult.isFinal) {
-          // Try all alternatives if primary confidence is low
-          let bestTranscript = transcript;
-          if (confidence < 0.5 && lastResult.length > 1) {
-            for (let a = 0; a < lastResult.length; a++) {
-              if (lastResult[a].confidence > confidence) {
-                bestTranscript = lastResult[a].transcript;
-              }
-            }
-          }
-          // Accept anything (Chrome often reports confidence 0 for valid speech)
-          voiceCommandMatchedRef.current = true;
-          voiceActiveRef.current = false; // Stop listening after command
-          processVoiceCommand(bestTranscript.toLowerCase().trim());
-          try { recognition.stop(); } catch {}
-          setTimeout(() => { setVoiceListening(false); setShowVoiceOverlay(false); }, 1500);
-        }
-      };
-
-      recognition.onerror = (event) => {
-        // no-speech and aborted are normal — just let onend handle restart
-        if (event.error === 'no-speech' || event.error === 'aborted') return;
-        // Real errors — stop everything
-        voiceActiveRef.current = false;
-        setVoiceListening(false);
-        setShowVoiceOverlay(false);
-        const errMsg = event.error === 'not-allowed'
-          ? 'Microphone permission denied. Click the lock icon in your address bar to allow microphone access.'
-          : event.error === 'audio-capture'
-          ? 'No microphone detected. Please connect a microphone and try again.'
-          : event.error === 'network'
-          ? 'Network error — voice commands require an internet connection.'
-          : `Voice error: ${event.error}. Try again.`;
-        addNotification({ type: 'system', title: 'Voice Command', message: errMsg, icon: '🎤' });
-      };
-
-      recognition.onend = () => {
-        // Auto-restart if we're still supposed to be listening
-        // This is the KEY fix — Chrome's speech recognition stops after each phrase or no-speech timeout
-        // We restart it automatically so the mic stays hot until the user cancels or a command matches
-        if (voiceActiveRef.current && !voiceCommandMatchedRef.current) {
-          try {
-            setTimeout(() => {
-              if (voiceActiveRef.current) recognition.start();
-            }, 100);
-          } catch {}
-        } else {
-          setVoiceListening(false);
-        }
-      };
-
-      voiceRecognitionRef.current = recognition;
-    }
+  const vLog = useCallback((msg) => {
+    setVoiceDebugLog(prev => [...prev.slice(-8), `${new Date().toLocaleTimeString()} ${msg}`]);
   }, []);
 
   const startVoiceCommand = useCallback(() => {
     if (voiceListening) return;
-    if (!voiceRecognitionRef.current) {
-      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Voice commands require Chrome or Edge with Web Speech API support.', icon: '🎤' });
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Your browser does not support speech recognition. Use Chrome or Edge.', icon: '🎤' });
       return;
     }
 
-    // Start recognition directly — SpeechRecognition handles its own mic permissions.
-    // DO NOT use getUserMedia() before this — stopping that stream kills the mic
-    // before recognition.start() can claim it, which silently breaks everything.
-    try {
-      setVoiceTranscript('');
-      setVoiceListening(true);
-      setShowVoiceOverlay(true);
-      voiceActiveRef.current = true;
-      voiceCommandMatchedRef.current = false;
-      voiceRecognitionRef.current.start();
-      // Auto-stop after 20 seconds if no command matched
-      setTimeout(() => {
-        if (voiceActiveRef.current) {
-          voiceActiveRef.current = false;
-          if (voiceRecognitionRef.current) {
-            try { voiceRecognitionRef.current.stop(); } catch {}
-          }
-          setVoiceListening(false);
-          setShowVoiceOverlay(false);
-          addNotification({ type: 'system', title: 'Voice Timeout', message: 'No command detected. Tap the mic to try again.', icon: '🎤' });
-        }
-      }, 20000);
-    } catch (err) {
-      voiceActiveRef.current = false;
+    // Create a FRESH recognition instance every time (avoids stale state/closure bugs)
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 3;
+
+    // Clear old state
+    setVoiceTranscript('');
+    setVoiceDebugLog([]);
+    setVoiceListening(true);
+    setShowVoiceOverlay(true);
+
+    let commandMatched = false;
+    let stopped = false;
+
+    const cleanup = () => {
+      stopped = true;
+      voiceRecognitionRef.current = null;
       setVoiceListening(false);
       setShowVoiceOverlay(false);
-      const errMsg = err.message?.includes('already started')
-        ? 'Voice is already listening — speak your command.'
-        : err.name === 'not-allowed' || err.message?.includes('not-allowed')
-        ? 'Microphone permission denied. Allow mic access in your browser settings.'
-        : 'Could not start voice recognition: ' + (err.message || 'Unknown error');
+    };
+
+    recognition.onstart = () => {
+      vLog('Mic active — speak now');
+    };
+
+    recognition.onaudiostart = () => {
+      vLog('Audio stream connected');
+    };
+
+    recognition.onsoundstart = () => {
+      vLog('Sound detected');
+    };
+
+    recognition.onspeechstart = () => {
+      vLog('Speech detected!');
+    };
+
+    recognition.onresult = (event) => {
+      const lastResult = event.results[event.results.length - 1];
+      const transcript = lastResult[0].transcript;
+      const confidence = lastResult[0].confidence;
+      setVoiceTranscript(transcript);
+      vLog(`Heard: "${transcript}" (${(confidence * 100).toFixed(0)}%)`);
+
+      if (lastResult.isFinal && !commandMatched) {
+        commandMatched = true;
+        let bestTranscript = transcript;
+        // Check alternatives
+        if (lastResult.length > 1) {
+          for (let a = 0; a < lastResult.length; a++) {
+            if (lastResult[a].confidence > confidence) {
+              bestTranscript = lastResult[a].transcript;
+            }
+          }
+        }
+        vLog(`Final: "${bestTranscript}" — executing command`);
+        processVoiceCommand(bestTranscript.toLowerCase().trim());
+        try { recognition.stop(); } catch {}
+        setTimeout(cleanup, 1500);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      vLog(`Error: ${event.error}`);
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        // These are normal — onend will fire and we can restart
+        return;
+      }
+      // Fatal errors
+      const errMsg = event.error === 'not-allowed'
+        ? 'Microphone blocked. Allow mic in browser settings (lock icon in address bar).'
+        : event.error === 'audio-capture'
+        ? 'No microphone found. Connect a mic and try again.'
+        : event.error === 'network'
+        ? 'Network error — speech recognition needs internet.'
+        : `Error: ${event.error}`;
       addNotification({ type: 'system', title: 'Voice Error', message: errMsg, icon: '🎤' });
+      cleanup();
+    };
+
+    recognition.onend = () => {
+      vLog('Session ended');
+      if (!commandMatched && !stopped) {
+        // Auto-restart to keep listening
+        vLog('Restarting...');
+        try {
+          setTimeout(() => {
+            if (!stopped && !commandMatched) {
+              try { recognition.start(); } catch (e) { vLog(`Restart failed: ${e.message}`); cleanup(); }
+            }
+          }, 200);
+        } catch {}
+      }
+    };
+
+    // Start it
+    try {
+      recognition.start();
+      voiceRecognitionRef.current = recognition;
+      vLog('Starting speech recognition...');
+    } catch (err) {
+      vLog(`Start failed: ${err.message}`);
+      addNotification({ type: 'system', title: 'Voice Error', message: 'Could not start: ' + err.message, icon: '🎤' });
+      cleanup();
+      return;
     }
-  }, [voiceListening]);
+
+    // Hard timeout after 25 seconds
+    setTimeout(() => {
+      if (!commandMatched && !stopped) {
+        vLog('Timeout — no command detected');
+        try { recognition.stop(); } catch {}
+        cleanup();
+      }
+    }, 25000);
+  }, [voiceListening, vLog]);
 
   const stopVoiceCommand = useCallback(() => {
-    voiceActiveRef.current = false;
     if (voiceRecognitionRef.current) {
       try { voiceRecognitionRef.current.stop(); } catch {}
+      voiceRecognitionRef.current = null;
     }
     setVoiceListening(false);
     setShowVoiceOverlay(false);
@@ -33649,18 +33673,33 @@ INSTRUCTIONS:
 
             {/* Live transcript */}
             {voiceTranscript ? (
-              <div className="bg-slate-800/60 border border-emerald-500/30 rounded-xl px-4 py-3 mb-5 mx-auto max-w-sm">
+              <div className="bg-slate-800/60 border border-emerald-500/30 rounded-xl px-4 py-3 mb-4 mx-auto max-w-sm">
                 <p className="text-[10px] text-emerald-400 uppercase tracking-wider mb-1 font-bold">Heard:</p>
                 <p className="text-lg text-emerald-300 font-medium">"{voiceTranscript}"</p>
               </div>
             ) : voiceListening ? (
-              <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl px-4 py-3 mb-5 mx-auto max-w-sm">
+              <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl px-4 py-3 mb-4 mx-auto max-w-sm">
                 <p className="text-sm text-slate-500 animate-pulse">Waiting for speech...</p>
               </div>
             ) : null}
 
+            {/* Debug log — shows what the speech API is doing */}
+            {voiceDebugLog.length > 0 && (
+              <div className="bg-slate-950/80 border border-slate-700/40 rounded-lg px-3 py-2 mb-4 mx-auto max-w-sm text-left">
+                <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-1 font-bold">Status Log</p>
+                {voiceDebugLog.map((msg, i) => (
+                  <p key={i} className={`text-[10px] font-mono leading-relaxed ${
+                    msg.includes('Error') || msg.includes('failed') ? 'text-red-400' :
+                    msg.includes('Heard') || msg.includes('Speech') ? 'text-emerald-400' :
+                    msg.includes('active') || msg.includes('Starting') ? 'text-violet-400' :
+                    'text-slate-500'
+                  }`}>{msg}</p>
+                ))}
+              </div>
+            )}
+
             {/* Command examples grid */}
-            <div className="grid grid-cols-2 gap-2 mb-6 text-left max-w-md mx-auto">
+            <div className="grid grid-cols-2 gap-2 mb-4 text-left max-w-md mx-auto">
               {[
                 { cat: 'Navigate', cmds: '"Dashboard" · "Live ticker" · "Watchlist" · "Briefing"' },
                 { cat: 'Analyze', cmds: '"Analyze AAPL" · "Check TSLA" · "NVDA" · "How\'s MSFT"' },
