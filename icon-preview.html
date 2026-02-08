@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MODUS Icon Gallery — Premium Collection</title>
+    <title>MODUS — Icon Preview</title>
     <style>
         * {
             margin: 0;
@@ -12,153 +12,173 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 50%, #0f172a 100%);
-            color: #e2e8f0;
-            min-height: 100vh;
-            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0a0f1e 0%, #0d1228 50%, #0a0f1e 100%);
+            color: #e0e7ff;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 1;
         }
 
         .container {
+            position: relative;
+            z-index: 2;
             max-width: 1400px;
             margin: 0 auto;
+            padding: 60px 40px;
         }
 
-        .header {
+        header {
             text-align: center;
             margin-bottom: 60px;
             animation: fadeIn 0.8s ease-out;
         }
 
-        .header h1 {
-            font-size: 3em;
+        h1 {
+            font-size: 3.5rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #a855f7, #06b6d4, #10b65a, #fbbf24);
-            background-size: 200% 200%;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #06b6d4 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 15px;
-            animation: gradientShift 4s ease infinite;
+            letter-spacing: -1px;
         }
 
-        .header p {
-            font-size: 1.1em;
-            color: #cbd5e1;
+        .subtitle {
+            font-size: 1.1rem;
+            color: #a0aec0;
             font-weight: 300;
+            letter-spacing: 0.5px;
         }
 
-        .gallery {
+        .instruction {
+            font-size: 0.95rem;
+            color: #6b7280;
+            margin-top: 16px;
+            font-style: italic;
+        }
+
+        .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 28px;
-            margin-top: 40px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 32px;
+            animation: fadeIn 0.8s ease-out 0.2s both;
         }
 
-        @media (min-width: 768px) {
-            .gallery {
-                grid-template-columns: repeat(5, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .gallery {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .gallery {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        .icon-card {
-            background: rgba(15, 23, 42, 0.7);
-            border: 1px solid rgba(168, 85, 247, 0.2);
-            border-radius: 16px;
+        .card {
+            background: linear-gradient(135deg, rgba(30, 41, 82, 0.4) 0%, rgba(25, 35, 70, 0.3) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 20px;
             padding: 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.320, 1);
             backdrop-filter: blur(10px);
             position: relative;
             overflow: hidden;
         }
 
-        .icon-card::before {
+        .card::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
             opacity: 0;
-            transition: opacity 0.4s ease;
+            transition: opacity 0.4s ease-out;
+            pointer-events: none;
         }
 
-        .icon-card:hover {
+        .card:hover {
+            border-color: rgba(139, 92, 246, 0.5);
+            background: linear-gradient(135deg, rgba(40, 51, 102, 0.6) 0%, rgba(35, 45, 90, 0.5) 100%);
             transform: translateY(-8px) scale(1.02);
-            background: rgba(15, 23, 42, 0.95);
-            border-color: rgba(168, 85, 247, 0.5);
-            box-shadow: 0 20px 40px rgba(168, 85, 247, 0.15),
-                        0 0 20px rgba(6, 182, 212, 0.1);
+            box-shadow:
+                0 20px 40px rgba(139, 92, 246, 0.15),
+                0 0 60px rgba(6, 182, 212, 0.1),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
         }
 
-        .icon-card:hover::before {
+        .card:hover::before {
             opacity: 1;
         }
 
-        .icon-preview {
-            width: 120px;
-            height: 120px;
+        .icon-wrapper {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(6, 182, 212, 0.05));
-            border-radius: 12px;
-            border: 1px solid rgba(168, 85, 247, 0.1);
-            flex-shrink: 0;
-            position: relative;
-            z-index: 1;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(20, 30, 60, 0.4) 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            padding: 12px;
+            transition: all 0.4s ease-out;
         }
 
-        .icon-preview svg {
-            width: 100%;
-            height: 100%;
-            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-        }
-
-        .icon-info {
-            text-align: center;
-            position: relative;
-            z-index: 1;
+        .card:hover .icon-wrapper {
+            background: linear-gradient(135deg, rgba(25, 35, 70, 0.8) 0%, rgba(30, 40, 80, 0.6) 100%);
+            border-color: rgba(139, 92, 246, 0.3);
         }
 
         .icon-number {
             display: inline-block;
-            background: linear-gradient(135deg, #a855f7, #8b5cf6);
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
             color: white;
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 20px;
-            font-size: 0.75em;
-            font-weight: 600;
-            margin-bottom: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
         }
 
         .icon-name {
-            font-size: 1.1em;
-            font-weight: 600;
-            color: #e2e8f0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #f0f4ff;
         }
 
-        .icon-category {
-            font-size: 0.85em;
-            color: #94a3b8;
-            margin-top: 4px;
+        .icon-description {
+            font-size: 0.85rem;
+            color: #8b94ab;
+            line-height: 1.5;
+            opacity: 0;
+            transition: opacity 0.4s ease-out;
+        }
+
+        .card:hover .icon-description {
+            opacity: 1;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            transition: filter 0.4s ease-out;
+        }
+
+        .card:hover svg {
+            filter: drop-shadow(0 4px 12px rgba(139, 92, 246, 0.3));
         }
 
         @keyframes fadeIn {
@@ -172,1143 +192,539 @@
             }
         }
 
-        @keyframes gradientShift {
-            0%, 100% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
+        @media (max-width: 1200px) {
+            .grid {
+                grid-template-columns: repeat(4, 1fr);
             }
         }
 
-        .icon-card:nth-child(odd) {
-            animation: fadeIn 0.6s ease-out 0.1s backwards;
-        }
-
-        .icon-card:nth-child(even) {
-            animation: fadeIn 0.6s ease-out 0.2s backwards;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 60px;
-            padding-top: 40px;
-            border-top: 1px solid rgba(168, 85, 247, 0.1);
-            color: #64748b;
-            font-size: 0.9em;
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 24px;
+            }
+            h1 {
+                font-size: 2.5rem;
+            }
+            .container {
+                padding: 40px 20px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>MODUS Icon Gallery</h1>
-            <p>Premium Collection — 50 Professional Trading Platform Icons</p>
-        </div>
+        <header>
+            <h1>MODUS</h1>
+            <p class="subtitle">Choose Your Icon</p>
+            <p class="instruction">Click to select your favorite</p>
+        </header>
 
-        <div class="gallery" id="gallery">
-            <!-- Icons will be generated here -->
-        </div>
+        <div class="grid">
+            <!-- Icon 1: The M Shield -->
+            <div class="card">
+                <div class="icon-number">#1</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#c084fc;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#a855f7;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="shield-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#e9d5ff;stop-opacity:0.4" />
+                                <stop offset="100%" style="stop-color:#ddd6fe;stop-opacity:0.1" />
+                            </linearGradient>
+                            <filter id="shield-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+                                <feOffset dx="0" dy="3" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.3" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 30 L 140 50 L 140 110 Q 100 160 100 160 Q 100 160 60 110 L 60 50 Z" fill="url(#shield-grad)" filter="url(#shield-shadow)" />
+                        <path d="M 100 35 L 135 52 L 135 105 Q 100 150 100 150 Q 100 145 65 105 L 65 52 Z" fill="url(#shield-light)" />
+                        <path d="M 100 42 L 130 58 L 130 108 Q 100 148 100 148 Q 100 145 70 108 L 70 58 Z" fill="none" stroke="#fff" stroke-width="1" opacity="0.2" />
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-2">M</text>
+                        <text x="100" y="108" font-size="56" font-weight="800" fill="#4c1d95" text-anchor="middle" letter-spacing="-2" opacity="0.4" transform="translate(0,2)">M</text>
+                        <path d="M 75 125 Q 80 120 85 122 Q 90 124 95 119 Q 100 115 105 118" stroke="#06b6d4" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="75" cy="125" r="1.5" fill="#06b6d4" />
+                        <circle cx="105" cy="118" r="1.5" fill="#06b6d4" />
+                    </svg>
+                </div>
+                <div class="icon-name">The M Shield</div>
+                <div class="icon-description">Sleek metallic shield with bold typography and subtle chart accent</div>
+            </div>
 
-        <div class="footer">
-            <p>MODUS Premium Icon Collection © 2024 | Designed for Premium Trading Experience</p>
+            <!-- Icon 2: Candlestick Crown -->
+            <div class="card">
+                <div class="icon-number">#2</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="candle-green" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#34d399;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="candle-red" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#f87171;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#ef4444;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="candle-wick" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#fcd34d;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="glow-candle">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <rect x="55" y="95" width="18" height="45" rx="2" fill="url(#candle-green)" filter="url(#glow-candle)" />
+                        <rect x="58" y="90" width="3" height="8" fill="url(#candle-wick)" />
+                        <ellipse cx="59.5" cy="88" rx="2.5" ry="3" fill="#fbbf24" opacity="0.6" />
+                        <rect x="91" y="60" width="18" height="80" rx="2" fill="url(#candle-green)" filter="url(#glow-candle)" />
+                        <rect x="94" y="55" width="3" height="8" fill="url(#candle-wick)" />
+                        <ellipse cx="95.5" cy="53" rx="2.5" ry="3" fill="#fbbf24" opacity="0.8" />
+                        <rect x="127" y="95" width="18" height="45" rx="2" fill="url(#candle-red)" filter="url(#glow-candle)" />
+                        <rect x="130" y="90" width="3" height="8" fill="url(#candle-wick)" />
+                        <ellipse cx="131.5" cy="88" rx="2.5" ry="3" fill="#fcd34d" opacity="0.6" />
+                        <g filter="url(#glow-candle)">
+                            <circle cx="100" cy="48" r="8" fill="#fbbf24" opacity="0.3" />
+                            <path d="M 100 40 L 106 46 L 100 52 L 94 46 Z" fill="#fbbf24" />
+                            <path d="M 100 42 L 104 46 L 100 50 L 96 46 Z" fill="#fef3c7" opacity="0.6" />
+                        </g>
+                        <path d="M 55 58 L 55 52 M 100 40 L 100 28 M 145 58 L 145 52" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+                    </svg>
+                </div>
+                <div class="icon-name">Candlestick Crown</div>
+                <div class="icon-description">Three trading candlesticks with crown arrangement and glowing gem</div>
+            </div>
+
+            <!-- Icon 3: Bull Horns M -->
+            <div class="card">
+                <div class="icon-number">#3</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="bull-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#a855f7;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="bull-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ddd6fe;stop-opacity:0.6" />
+                                <stop offset="100%" style="stop-color:#cffafe;stop-opacity:0.2" />
+                            </linearGradient>
+                            <filter id="bull-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+                                <feOffset dx="0" dy="2" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.4" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 65 120 L 70 50 Q 72 45 75 48 L 80 120" stroke="url(#bull-grad)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#bull-shadow)" />
+                        <path d="M 65 120 L 70 50 Q 72 45 75 48 L 80 120" stroke="url(#bull-light)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+                        <line x1="100" y1="120" x2="100" y2="55" stroke="url(#bull-grad)" stroke-width="12" stroke-linecap="round" filter="url(#bull-shadow)" />
+                        <line x1="100" y1="120" x2="100" y2="55" stroke="url(#bull-light)" stroke-width="6" stroke-linecap="round" opacity="0.4" />
+                        <path d="M 120 120 L 125 50 Q 128 45 130 48 L 135 120" stroke="url(#bull-grad)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#bull-shadow)" />
+                        <path d="M 120 120 L 125 50 Q 128 45 130 48 L 135 120" stroke="url(#bull-light)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+                        <line x1="65" y1="120" x2="135" y2="120" stroke="url(#bull-grad)" stroke-width="10" stroke-linecap="round" />
+                        <path d="M 45 80 Q 55 75 65 78" stroke="#06b6d4" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6" />
+                        <path d="M 135 80 Q 145 75 155 78" stroke="#8b5cf6" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6" />
+                        <path d="M 50 100 Q 58 97 68 100" stroke="#06b6d4" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4" />
+                        <path d="M 132 100 Q 142 97 150 100" stroke="#8b5cf6" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4" />
+                    </svg>
+                </div>
+                <div class="icon-name">Bull Horns M</div>
+                <div class="icon-description">Bold M with gradient horns and momentum motion lines</div>
+            </div>
+
+            <!-- Icon 4: Pulse Chart Circle -->
+            <div class="card">
+                <div class="icon-number">#4</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="pulse-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#a855f7;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="pulse-line" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#10b981;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="pulse-glow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <circle cx="100" cy="100" r="75" fill="none" stroke="url(#pulse-ring)" stroke-width="3" opacity="0.8" />
+                        <circle cx="100" cy="100" r="70" fill="none" stroke="url(#pulse-ring)" stroke-width="1" opacity="0.3" />
+                        <circle cx="100" cy="100" r="60" fill="rgba(139, 92, 246, 0.05)" stroke="url(#pulse-ring)" stroke-width="1.5" opacity="0.5" />
+                        <path d="M 40 100 L 55 100 L 60 90 L 65 110 L 70 100 L 85 100 L 95 85 L 100 115 L 105 85 L 110 100 L 125 100 L 130 90 L 135 110 L 140 100 L 160 100" stroke="url(#pulse-line)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#pulse-glow)" />
+                        <circle cx="60" cy="90" r="2.5" fill="#06b6d4" opacity="0.8" filter="url(#pulse-glow)" />
+                        <circle cx="100" cy="115" r="2.5" fill="#10b981" opacity="0.8" filter="url(#pulse-glow)" />
+                        <circle cx="130" cy="90" r="2.5" fill="#06b6d4" opacity="0.8" filter="url(#pulse-glow)" />
+                        <circle cx="100" cy="100" r="4" fill="#fbbf24" opacity="0.6" filter="url(#pulse-glow)" />
+                    </svg>
+                </div>
+                <div class="icon-name">Pulse Chart Circle</div>
+                <div class="icon-description">EKG-style trading line with gradient ring and glowing nodes</div>
+            </div>
+
+            <!-- Icon 5: Geometric Prism -->
+            <div class="card">
+                <div class="icon-number">#5</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="prism-violet" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#c084fc;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="prism-cyan" x1="0%" y1="100%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#22d3ee;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="prism-emerald" x1="100%" y1="50%" x2="0%" y2="50%">
+                                <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#34d399;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="prism-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.4" />
+                                <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+                            </linearGradient>
+                            <filter id="prism-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
+                                <feOffset dx="2" dy="4" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.3" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 40 L 145 90 L 100 160 L 55 90 Z" fill="url(#prism-violet)" filter="url(#prism-shadow)" />
+                        <path d="M 100 50 L 130 90 L 100 150 L 70 90 Z" fill="url(#prism-light)" />
+                        <path d="M 55 90 L 70 90 L 100 160 L 100 160 Z" fill="url(#prism-emerald)" opacity="0.9" />
+                        <path d="M 145 90 L 130 90 L 100 160 L 100 160 Z" fill="url(#prism-cyan)" opacity="0.9" />
+                        <path d="M 100 40 L 55 90 L 70 90 L 100 50 Z" fill="url(#prism-cyan)" opacity="0.7" />
+                        <path d="M 100 40 L 145 90 L 130 90 L 100 50 Z" fill="url(#prism-emerald)" opacity="0.7" />
+                        <line x1="75" y1="90" x2="100" y2="130" stroke="#ffffff" stroke-width="1.5" opacity="0.3" />
+                        <line x1="125" y1="90" x2="100" y2="130" stroke="#ffffff" stroke-width="1.5" opacity="0.2" />
+                        <path d="M 100 70 L 115 90 L 100 110 L 85 90 Z" fill="#ffffff" opacity="0.15" />
+                    </svg>
+                </div>
+                <div class="icon-name">Geometric Prism</div>
+                <div class="icon-description">Faceted crystal with multi-gradient luxury aesthetic</div>
+            </div>
+
+            <!-- Icon 6: Neural Trading -->
+            <div class="card">
+                <div class="icon-number">#6</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="neural-base" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="neural-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="neural-glow">
+                                <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 70 70 Q 65 75 65 85 Q 65 100 70 110 Q 75 115 85 115 Q 90 110 90 100 Q 90 85 85 75 Q 80 65 70 70" fill="none" stroke="url(#neural-base)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M 130 70 Q 135 75 135 85 Q 135 100 130 110 Q 125 115 115 115 Q 110 110 110 100 Q 110 85 115 75 Q 120 65 130 70" fill="none" stroke="url(#neural-base)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M 75 68 Q 100 55 125 68" fill="none" stroke="url(#neural-base)" stroke-width="2" stroke-linecap="round" />
+                        <circle cx="60" cy="75" r="3.5" fill="url(#neural-accent)" filter="url(#neural-glow)" />
+                        <circle cx="100" cy="50" r="3.5" fill="url(#neural-accent)" filter="url(#neural-glow)" />
+                        <circle cx="140" cy="75" r="3.5" fill="url(#neural-accent)" filter="url(#neural-glow)" />
+                        <circle cx="70" cy="100" r="3" fill="#06b6d4" opacity="0.8" filter="url(#neural-glow)" />
+                        <circle cx="100" cy="105" r="3.5" fill="#10b981" filter="url(#neural-glow)" />
+                        <circle cx="130" cy="100" r="3" fill="#06b6d4" opacity="0.8" filter="url(#neural-glow)" />
+                        <circle cx="80" cy="125" r="2.5" fill="url(#neural-accent)" opacity="0.7" />
+                        <circle cx="120" cy="125" r="2.5" fill="url(#neural-accent)" opacity="0.7" />
+                        <line x1="60" y1="75" x2="70" y2="100" stroke="url(#neural-base)" stroke-width="1" opacity="0.6" />
+                        <line x1="100" y1="50" x2="100" y2="105" stroke="url(#neural-base)" stroke-width="1.5" opacity="0.7" />
+                        <line x1="140" y1="75" x2="130" y2="100" stroke="url(#neural-base)" stroke-width="1" opacity="0.6" />
+                        <line x1="70" y1="100" x2="80" y2="125" stroke="url(#neural-base)" stroke-width="0.8" opacity="0.5" />
+                        <line x1="100" y1="105" x2="80" y2="125" stroke="url(#neural-base)" stroke-width="0.8" opacity="0.5" />
+                        <line x1="100" y1="105" x2="120" y2="125" stroke="url(#neural-base)" stroke-width="0.8" opacity="0.5" />
+                        <line x1="130" y1="100" x2="120" y2="125" stroke="url(#neural-base)" stroke-width="0.8" opacity="0.5" />
+                        <line x1="60" y1="75" x2="100" y2="50" stroke="#06b6d4" stroke-width="0.7" opacity="0.4" />
+                        <line x1="100" y1="50" x2="140" y2="75" stroke="#06b6d4" stroke-width="0.7" opacity="0.4" />
+                    </svg>
+                </div>
+                <div class="icon-name">Neural Trading</div>
+                <div class="icon-description">AI-powered brain with interconnected glowing nodes</div>
+            </div>
+
+            <!-- Icon 7: Rising Arrow M -->
+            <div class="card">
+                <div class="icon-number">#7</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="arrow-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="arrow-light" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.3" />
+                                <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+                            </linearGradient>
+                            <filter id="arrow-shadow">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+                                <feOffset dx="0" dy="2" result="offsetblur" />
+                                <feComponentTransfer>
+                                    <feFuncA type="linear" slope="0.3" />
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <rect x="80" y="70" width="40" height="65" rx="3" fill="url(#arrow-grad)" filter="url(#arrow-shadow)" />
+                        <path d="M 60 75 L 100 35 L 140 75 Z" fill="url(#arrow-grad)" filter="url(#arrow-shadow)" />
+                        <path d="M 60 75 L 100 35 L 140 75 Z" fill="url(#arrow-light)" />
+                        <rect x="80" y="70" width="40" height="65" rx="3" fill="url(#arrow-light)" />
+                        <line x1="85" y1="110" x2="85" y2="80" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.7" />
+                        <line x1="100" y1="110" x2="100" y2="85" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.7" />
+                        <line x1="115" y1="110" x2="115" y2="80" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.7" />
+                        <path d="M 85 80 Q 92.5 87 100 85" stroke="#ffffff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.6" />
+                        <path d="M 100 85 Q 107.5 87 115 80" stroke="#ffffff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.6" />
+                        <rect x="78" y="125" width="6" height="8" fill="#ffffff" opacity="0.5" />
+                        <rect x="88" y="120" width="6" height="13" fill="#ffffff" opacity="0.6" />
+                        <rect x="98" y="115" width="6" height="18" fill="#ffffff" opacity="0.7" />
+                        <rect x="108" y="118" width="6" height="15" fill="#ffffff" opacity="0.6" />
+                        <rect x="118" y="123" width="6" height="10" fill="#ffffff" opacity="0.5" />
+                    </svg>
+                </div>
+                <div class="icon-name">Rising Arrow M</div>
+                <div class="icon-description">Upward arrow incorporating M with stacked chart bars</div>
+            </div>
+
+            <!-- Icon 8: Hexagonal Badge -->
+            <div class="card">
+                <div class="icon-number">#8</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="hex-outer" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="hex-inner" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.8" />
+                                <stop offset="100%" style="stop-color:#10b981;stop-opacity:0.8" />
+                            </linearGradient>
+                            <linearGradient id="hex-m-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="hex-glow">
+                                <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M 100 35 L 145 60 L 145 110 L 100 135 L 55 110 L 55 60 Z" fill="none" stroke="url(#hex-outer)" stroke-width="3" />
+                        <path d="M 100 50 L 135 70 L 135 110 L 100 130 L 65 110 L 65 70 Z" fill="none" stroke="url(#hex-outer)" stroke-width="1.5" opacity="0.5" />
+                        <circle cx="100" cy="40" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="125" cy="52" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="142" cy="70" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="142" cy="95" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="125" cy="125" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="100" cy="138" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="75" cy="125" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="58" cy="95" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="58" cy="70" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <circle cx="75" cy="52" r="2" fill="url(#hex-inner)" filter="url(#hex-glow)" />
+                        <text x="100" y="105" font-size="48" font-weight="800" fill="url(#hex-m-grad)" text-anchor="middle" letter-spacing="-2">M</text>
+                        <ellipse cx="100" cy="102" rx="28" ry="22" fill="url(#hex-m-grad)" opacity="0.15" />
+                    </svg>
+                </div>
+                <div class="icon-name">Hexagonal Badge</div>
+                <div class="icon-description">Premium hexagonal seal with data points and gradient M</div>
+            </div>
+
+            <!-- Icon 9: Market Compass -->
+            <div class="card">
+                <div class="icon-number">#9</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="compass-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#fcd34d;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="compass-violet" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="compass-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#22d3ee;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="compass-glow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <circle cx="100" cy="100" r="70" fill="none" stroke="url(#compass-gold)" stroke-width="2" opacity="0.6" />
+                        <circle cx="100" cy="100" r="60" fill="rgba(139, 92, 246, 0.08)" stroke="url(#compass-violet)" stroke-width="1.5" opacity="0.5" />
+                        <g transform="translate(100, 45)">
+                            <rect x="-4" y="0" width="8" height="12" fill="url(#compass-cyan)" />
+                            <line x1="0" y1="-3" x2="0" y2="0" stroke="#fbbf24" stroke-width="1" />
+                        </g>
+                        <g transform="translate(100, 155)">
+                            <path d="M 0 -8 L -6 0 L 6 0 Z" fill="url(#compass-violet)" filter="url(#compass-glow)" />
+                            <line x1="0" y1="0" x2="0" y2="6" stroke="url(#compass-violet)" stroke-width="1.5" />
+                        </g>
+                        <g transform="translate(155, 100)">
+                            <path d="M -8 0 L 0 -6 L 0 6 Z" fill="url(#compass-cyan)" filter="url(#compass-glow)" />
+                            <line x1="0" y1="0" x2="6" y2="0" stroke="url(#compass-cyan)" stroke-width="1.5" />
+                        </g>
+                        <g transform="translate(45, 100)">
+                            <rect x="-8" y="-2" width="2" height="4" fill="url(#compass-gold)" />
+                            <rect x="-4" y="-4" width="2" height="8" fill="url(#compass-gold)" />
+                            <rect x="0" y="-3" width="2" height="6" fill="url(#compass-gold)" />
+                            <rect x="4" y="-5" width="2" height="10" fill="url(#compass-gold)" />
+                        </g>
+                        <circle cx="100" cy="100" r="5" fill="url(#compass-gold)" filter="url(#compass-glow)" />
+                        <path d="M 100 95 L 103 100 L 100 105 L 97 100 Z" fill="url(#compass-violet)" opacity="0.8" />
+                        <circle cx="100" cy="40" r="2" fill="url(#compass-gold)" opacity="0.5" />
+                        <circle cx="160" cy="100" r="2" fill="url(#compass-gold)" opacity="0.5" />
+                        <circle cx="100" cy="160" r="2" fill="url(#compass-gold)" opacity="0.5" />
+                        <circle cx="40" cy="100" r="2" fill="url(#compass-gold)" opacity="0.5" />
+                    </svg>
+                </div>
+                <div class="icon-name">Market Compass</div>
+                <div class="icon-description">Compass rose with trading elements and rotating needle</div>
+            </div>
+
+            <!-- Icon 10: Quantum M -->
+            <div class="card">
+                <div class="icon-number">#10</div>
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="quantum-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#10b981;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="quantum-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.8" />
+                                <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.8" />
+                            </linearGradient>
+                            <filter id="quantum-particle-glow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <circle cx="100" cy="100" r="65" fill="none" stroke="url(#quantum-glow)" stroke-width="1.5" opacity="0.4" stroke-dasharray="5,5" />
+                        <circle cx="100" cy="100" r="50" fill="none" stroke="url(#quantum-primary)" stroke-width="1" opacity="0.3" />
+                        <g filter="url(#quantum-particle-glow)">
+                            <circle cx="65" cy="70" r="3.5" fill="url(#quantum-glow)" />
+                            <circle cx="62" cy="75" r="2.5" fill="#06b6d4" opacity="0.7" />
+                            <circle cx="68" cy="78" r="2" fill="#10b981" opacity="0.6" />
+                            <circle cx="60" cy="82" r="1.5" fill="#06b6d4" opacity="0.5" />
+                        </g>
+                        <g filter="url(#quantum-particle-glow)">
+                            <circle cx="100" cy="50" r="4.5" fill="url(#quantum-primary)" />
+                            <circle cx="96" cy="56" r="3" fill="#10b981" opacity="0.8" />
+                            <circle cx="104" cy="56" r="3" fill="#06b6d4" opacity="0.8" />
+                            <circle cx="100" cy="62" r="2.5" fill="#8b5cf6" opacity="0.7" />
+                            <circle cx="93" cy="58" r="1.5" fill="#06b6d4" opacity="0.4" />
+                            <circle cx="107" cy="58" r="1.5" fill="#10b981" opacity="0.4" />
+                        </g>
+                        <g filter="url(#quantum-particle-glow)">
+                            <circle cx="135" cy="70" r="3.5" fill="url(#quantum-glow)" />
+                            <circle cx="138" cy="75" r="2.5" fill="#06b6d4" opacity="0.7" />
+                            <circle cx="132" cy="78" r="2" fill="#10b981" opacity="0.6" />
+                            <circle cx="140" cy="82" r="1.5" fill="#06b6d4" opacity="0.5" />
+                        </g>
+                        <line x1="65" y1="70" x2="100" y2="50" stroke="url(#quantum-glow)" stroke-width="1.2" opacity="0.6" />
+                        <line x1="100" y1="50" x2="135" y2="70" stroke="url(#quantum-glow)" stroke-width="1.2" opacity="0.6" />
+                        <line x1="62" y1="75" x2="100" y2="62" stroke="url(#quantum-primary)" stroke-width="0.8" opacity="0.4" />
+                        <line x1="100" y1="62" x2="138" y2="75" stroke="url(#quantum-primary)" stroke-width="0.8" opacity="0.4" />
+                        <line x1="65" y1="85" x2="100" y2="110" stroke="url(#quantum-glow)" stroke-width="1" opacity="0.5" />
+                        <line x1="135" y1="85" x2="100" y2="110" stroke="url(#quantum-glow)" stroke-width="1" opacity="0.5" />
+                        <circle cx="100" cy="115" r="3" fill="url(#quantum-primary)" filter="url(#quantum-particle-glow)" />
+                        <circle cx="75" cy="120" r="2" fill="#10b981" opacity="0.6" filter="url(#quantum-particle-glow)" />
+                        <circle cx="125" cy="120" r="2" fill="#06b6d4" opacity="0.6" filter="url(#quantum-particle-glow)" />
+                        <circle cx="55" cy="100" r="1.5" fill="#06b6d4" opacity="0.4" filter="url(#quantum-particle-glow)" />
+                        <circle cx="145" cy="100" r="1.5" fill="#10b981" opacity="0.4" filter="url(#quantum-particle-glow)" />
+                        <circle cx="85" cy="130" r="1" fill="#8b5cf6" opacity="0.3" />
+                        <circle cx="115" cy="130" r="1" fill="#8b5cf6" opacity="0.3" />
+                    </svg>
+                </div>
+                <div class="icon-name">Quantum M</div>
+                <div class="icon-description">Futuristic M with particle dots and orbital rings</div>
+            </div>
         </div>
     </div>
 
     <script>
-        const icons = [
-            // CATEGORY 1: M LETTERMARKS (10 icons)
-            {
-                name: "3D Perspective M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m1g1" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="m1f1"><feGaussianBlur in="SourceGraphic" stdDeviation="1.5" /><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-opacity="0.4" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 30 85 L 40 30 Q 42 32 45 30 L 55 75 L 65 30 Q 68 32 70 30 L 80 85" fill="url(#m1g1)" filter="url(#m1f1)" opacity="0.95"/>
-                    <path d="M 30 85 L 40 30 Q 42 32 45 30 L 55 75" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
-                    <path d="M 65 30 Q 68 32 70 30 L 80 85" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
-                    <circle cx="30" cy="85" r="2.5" fill="#06b6d4" opacity="0.8"/>
-                    <circle cx="80" cy="85" r="2.5" fill="#06b6d4" opacity="0.8"/>
-                    <line x1="28" y1="87" x2="82" y2="87" stroke="rgba(168, 85, 247, 0.3)" stroke-width="1"/>
-                </svg>`
-            },
-            {
-                name: "Candlestick M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m2g" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#8b5cf6;stop-opacity:0.85" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="m2f"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="28" y="48" width="10" height="38" fill="url(#m2g)" filter="url(#m2f)"/>
-                    <rect x="28" y="45" width="10" height="3" fill="#10b65a" filter="url(#m2f)"/>
-                    <rect x="28" y="86" width="10" height="2" fill="#ef4444" filter="url(#m2f)"/>
-                    <line x1="33" y1="48" x2="33" y2="88" stroke="rgba(251, 191, 36, 0.4)" stroke-width="1"/>
-                    <rect x="42" y="38" width="10" height="48" fill="url(#m2g)" filter="url(#m2f)"/>
-                    <rect x="42" y="35" width="10" height="3" fill="#10b65a" filter="url(#m2f)"/>
-                    <rect x="42" y="86" width="10" height="2" fill="#ef4444" filter="url(#m2f)"/>
-                    <line x1="47" y1="38" x2="47" y2="88" stroke="rgba(251, 191, 36, 0.4)" stroke-width="1"/>
-                    <rect x="56" y="53" width="10" height="33" fill="url(#m2g)" filter="url(#m2f)"/>
-                    <rect x="56" y="50" width="10" height="3" fill="#10b65a" filter="url(#m2f)"/>
-                    <rect x="56" y="86" width="10" height="2" fill="#ef4444" filter="url(#m2f)"/>
-                    <line x1="61" y1="53" x2="61" y2="88" stroke="rgba(251, 191, 36, 0.4)" stroke-width="1"/>
-                    <rect x="70" y="32" width="10" height="54" fill="url(#m2g)" filter="url(#m2f)"/>
-                    <rect x="70" y="28" width="10" height="4" fill="#10b65a" filter="url(#m2f)"/>
-                    <rect x="70" y="86" width="10" height="2" fill="#ef4444" filter="url(#m2f)"/>
-                    <line x1="75" y1="32" x2="75" y2="88" stroke="rgba(251, 191, 36, 0.4)" stroke-width="1"/>
-                </svg>`
-            },
-            {
-                name: "M with Rising Chart",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m3g" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="m3f"><feGaussianBlur in="SourceGraphic" stdDeviation="1" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 30 75 L 40 35 L 50 55 L 60 35 L 70 75" stroke="url(#m3g)" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#m3f)"/>
-                    <path d="M 75 75 L 80 60 L 85 70 L 90 50 L 95 75" stroke="url(#m3g)" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#m3f)"/>
-                    <circle cx="30" cy="75" r="3" fill="#10b65a"/>
-                    <circle cx="95" cy="75" r="3" fill="#10b65a"/>
-                    <path d="M 28 77 L 97 77" stroke="rgba(168, 85, 247, 0.35)" stroke-width="1.5"/>
-                    <path d="M 30 75 L 40 35 L 50 55 L 60 35 L 70 75 L 75 75 L 80 60 L 85 70 L 90 50 L 95 75" fill="none" stroke="rgba(6, 182, 212, 0.15)" stroke-width="1.5" opacity="0.6"/>
-                </svg>`
-            },
-            {
-                name: "M with Bull Horns",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m4g" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="m4f"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-opacity="0.35" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 35 72 L 45 28 L 50 72 L 70 28 L 75 72" fill="none" stroke="url(#m4g)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#m4f)"/>
-                    <path d="M 40 28 L 30 8 L 36 22 L 38 15" fill="none" stroke="#10b65a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#m4f)"/>
-                    <path d="M 70 28 L 80 8 L 74 22 L 72 15" fill="none" stroke="#10b65a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#m4f)"/>
-                    <circle cx="40" cy="28" r="3" fill="#10b65a"/>
-                    <circle cx="70" cy="28" r="3" fill="#10b65a"/>
-                    <polygon points="35,72 50,72 75,72" fill="rgba(168, 85, 247, 0.2)"/>
-                </svg>`
-            },
-            {
-                name: "Geometric Faceted M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m5g1" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.9" />
-                        </linearGradient>
-                        <linearGradient id="m5g2" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.85" />
-                        </linearGradient>
-                        <filter id="m5f"><feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity="0.3" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <polygon points="30,85 40,35 50,60" fill="url(#m5g1)" filter="url(#m5f)"/>
-                    <polygon points="30,85 40,35 35,60" fill="url(#m5g2)" opacity="0.8" filter="url(#m5f)"/>
-                    <polygon points="40,35 50,60 45,75" fill="url(#m5g2)" filter="url(#m5f)"/>
-                    <polygon points="60,85 70,35 80,60" fill="url(#m5g1)" filter="url(#m5f)"/>
-                    <polygon points="60,85 70,35 65,60" fill="url(#m5g2)" opacity="0.8" filter="url(#m5f)"/>
-                    <polygon points="70,35 80,60 75,75" fill="url(#m5g2)" filter="url(#m5f)"/>
-                    <polygon points="50,60 60,85 50,75" fill="#06b6d4" opacity="0.75" filter="url(#m5f)"/>
-                    <polyline points="30,85 50,60 70,35 80,60 60,85" fill="none" stroke="rgba(251, 191, 36, 0.3)" stroke-width="0.5"/>
-                </svg>`
-            },
-            {
-                name: "Neon Glow M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <filter id="m6glow">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 35 80 L 45 35 L 50 65 L 60 35 L 70 80" stroke="#06b6d4" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#m6glow)"/>
-                    <path d="M 75 80 L 85 40 L 95 80" stroke="#a855f7" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#m6glow)"/>
-                    <circle cx="45" cy="35" r="3" fill="#fbbf24" filter="url(#m6glow)"/>
-                    <circle cx="60" cy="35" r="3" fill="#fbbf24" filter="url(#m6glow)"/>
-                    <circle cx="85" cy="40" r="3" fill="#fbbf24" filter="url(#m6glow)"/>
-                    <path d="M 30 83 L 100 83" stroke="rgba(6, 182, 212, 0.2)" stroke-width="1"/>
-                </svg>`
-            },
-            {
-                name: "Circuit Board M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m7g" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 30 80 L 45 30 L 50 60 L 65 30 L 70 80" stroke="url(#m7g)" stroke-width="2.5" fill="none" stroke-linecap="square"/>
-                    <circle cx="30" cy="80" r="2" fill="#06b6d4"/>
-                    <circle cx="45" cy="30" r="2" fill="#a855f7"/>
-                    <circle cx="50" cy="60" r="2" fill="#06b6d4"/>
-                    <circle cx="70" cy="80" r="2" fill="#a855f7"/>
-                    <path d="M 75 80 L 90 40 L 95 80" stroke="url(#m7g)" stroke-width="2.5" fill="none" stroke-linecap="square"/>
-                    <circle cx="90" cy="40" r="2" fill="#a855f7"/>
-                    <circle cx="95" cy="80" r="2" fill="#a855f7"/>
-                    <line x1="28" y1="82" x2="30" y2="80" stroke="rgba(168, 85, 247, 0.3)" stroke-width="0.5"/>
-                    <line x1="43" y1="32" x2="45" y2="30" stroke="rgba(6, 182, 212, 0.3)" stroke-width="0.5"/>
-                </svg>`
-            },
-            {
-                name: "Stacked Layers M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m8g" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.75" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 30 75 L 42 35 L 50 65 L 60 35 L 70 75" fill="url(#m8g)" opacity="0.95"/>
-                    <path d="M 30 75 L 42 35 L 50 65 L 60 35 L 70 75" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
-                    <path d="M 28 77 L 40 37 L 48 67 L 58 37 L 68 77" fill="none" stroke="#a855f7" stroke-width="1" opacity="0.4"/>
-                    <path d="M 26 79 L 38 39 L 46 69 L 56 39 L 66 79" fill="none" stroke="#06b6d4" stroke-width="0.8" opacity="0.3"/>
-                    <path d="M 75 75 L 90 40 L 95 75" fill="url(#m8g)" opacity="0.95"/>
-                    <path d="M 75 75 L 90 40 L 95 75" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
-                    <path d="M 73 77 L 88 42 L 93 77" fill="none" stroke="#a855f7" stroke-width="1" opacity="0.4"/>
-                </svg>`
-            },
-            {
-                name: "Gradient Split M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m9a" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <linearGradient id="m9b" x1="100%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 30 80 L 40 30 L 50 60" fill="url(#m9a)" stroke="url(#m9a)" stroke-width="2.5" stroke-linejoin="round"/>
-                    <path d="M 60 30 L 70 80" fill="url(#m9b)" stroke="url(#m9b)" stroke-width="2.5" stroke-linejoin="round"/>
-                    <path d="M 75 80 L 85 35 L 95 80" fill="url(#m9a)" stroke="url(#m9a)" stroke-width="2.5" stroke-linejoin="round"/>
-                    <circle cx="50" cy="60" r="2.5" fill="#fbbf24" opacity="0.8"/>
-                    <circle cx="70" cy="80" r="2.5" fill="#06b6d4" opacity="0.8"/>
-                </svg>`
-            },
-            {
-                name: "Negative Space M",
-                category: "Lettermark",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="m10g" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="m10f"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-opacity="0.3" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 30 85 L 45 30 L 55 85 L 65 30 L 80 85" fill="url(#m10g)" filter="url(#m10f)"/>
-                    <polygon points="45,45 50,40 55,45 50,50" fill="none" stroke="#0f172a" stroke-width="1.5"/>
-                    <polygon points="65,40 70,35 75,40 70,45" fill="none" stroke="#0f172a" stroke-width="1.5"/>
-                    <polygon points="38,80 42,72 46,80 42,88" fill="none" stroke="#0f172a" stroke-width="1" opacity="0.6"/>
-                </svg>`
-            },
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.style.animation = 'none';
+                setTimeout(() => {
+                    this.style.animation = '';
+                }, 10);
+            });
+        });
 
-            // CATEGORY 2: CHART/FINANCE (10 icons)
-            {
-                name: "Candlestick Overlay",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c1g" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <linearGradient id="c1r" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#f87171;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="c1f"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-opacity="0.3" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="26" y="52" width="12" height="38" fill="url(#c1g)" filter="url(#c1f)"/>
-                    <line x1="26" y1="48" x2="38" y2="48" stroke="#10b65a" stroke-width="2"/>
-                    <line x1="26" y1="90" x2="38" y2="90" stroke="#ef4444" stroke-width="2"/>
-                    <rect x="42" y="42" width="12" height="48" fill="url(#c1r)" filter="url(#c1f)"/>
-                    <line x1="42" y1="38" x2="54" y2="38" stroke="#10b65a" stroke-width="2"/>
-                    <line x1="42" y1="90" x2="54" y2="90" stroke="#ef4444" stroke-width="2"/>
-                    <rect x="58" y="47" width="12" height="43" fill="url(#c1g)" filter="url(#c1f)"/>
-                    <line x1="58" y1="45" x2="70" y2="45" stroke="#10b65a" stroke-width="2"/>
-                    <line x1="58" y1="90" x2="70" y2="90" stroke="#ef4444" stroke-width="2"/>
-                    <rect x="74" y="35" width="12" height="55" fill="url(#c1r)" filter="url(#c1f)"/>
-                    <line x1="74" y1="32" x2="86" y2="32" stroke="#10b65a" stroke-width="2"/>
-                    <line x1="74" y1="90" x2="86" y2="90" stroke="#ef4444" stroke-width="2"/>
-                    <path d="M 23 94 Q 55 91 90 88" stroke="rgba(168, 85, 247, 0.35)" stroke-width="1.5" fill="none" stroke-dasharray="3,2"/>
-                </svg>`
-            },
-            {
-                name: "Ascending Bars Pulse",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c2g" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="c2glow">
-                            <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="24" y="63" width="11" height="27" fill="url(#c2g)"/>
-                    <rect x="38" y="48" width="11" height="42" fill="url(#c2g)"/>
-                    <rect x="52" y="33" width="11" height="57" fill="url(#c2g)"/>
-                    <rect x="66" y="43" width="11" height="47" fill="url(#c2g)"/>
-                    <rect x="80" y="53" width="11" height="37" fill="url(#c2g)"/>
-                    <path d="M 21 92 L 29.5 90 L 43.5 75 L 57.5 60 L 71.5 70 L 90.5 82" stroke="#06b6d4" stroke-width="2" fill="none" stroke-linecap="round" filter="url(#c2glow)"/>
-                    <circle cx="29.5" cy="90" r="2" fill="#fbbf24"/>
-                    <circle cx="57.5" cy="60" r="2" fill="#fbbf24"/>
-                    <circle cx="90.5" cy="82" r="2" fill="#fbbf24"/>
-                </svg>`
-            },
-            {
-                name: "Mini Chart Moving Avg",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c3a" x1="0%" y1="100%" x2="0%" y2="0%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.35" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0.1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 23 75 L 33 65 L 43 70 L 53 50 L 63 60 L 73 45 L 83 55 L 97 35" fill="url(#c3a)" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M 23 75 L 33 65 L 43 70 L 53 50 L 63 60 L 73 45 L 83 55 L 97 35" fill="none" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round" stroke-linejoin="round"/>
-                    <line x1="23" y1="93" x2="97" y2="93" stroke="rgba(168, 85, 247, 0.25)" stroke-width="1.5"/>
-                    <circle cx="33" cy="65" r="2" fill="#06b6d4"/>
-                    <circle cx="73" cy="45" r="2" fill="#06b6d4"/>
-                    <circle cx="97" cy="35" r="2" fill="#a855f7"/>
-                </svg>`
-            },
-            {
-                name: "Pie Chart Glow",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c4a" x1="50%" y1="50%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.8" />
-                        </linearGradient>
-                        <linearGradient id="c4b" x1="50%" y1="50%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#10b65a;stop-opacity:0.8" />
-                        </linearGradient>
-                        <filter id="c4glow"><feGaussianBlur stdDeviation="2.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="60" r="32" fill="#0f172a" stroke="rgba(168, 85, 247, 0.25)" stroke-width="1.5"/>
-                    <path d="M 60 28 A 32 32 0 0 1 88.5 78.5 L 69.75 72.75 A 16 16 0 0 0 60 44 Z" fill="url(#c4a)" filter="url(#c4glow)"/>
-                    <path d="M 88.5 78.5 A 32 32 0 0 1 31.5 78.5 L 53.25 72.75 A 16 16 0 0 0 82.3 76.3 Z" fill="url(#c4b)" filter="url(#c4glow)"/>
-                    <path d="M 31.5 78.5 A 32 32 0 0 1 60 28 L 60 44 A 16 16 0 0 0 39.7 76.3 Z" fill="#fbbf24" opacity="0.9" filter="url(#c4glow)"/>
-                    <circle cx="60" cy="60" r="10" fill="#0f172a" stroke="rgba(168, 85, 247, 0.35)" stroke-width="1.5"/>
-                </svg>`
-            },
-            {
-                name: "Stacked Bar Chart",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c5a" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.85" />
-                        </linearGradient>
-                        <linearGradient id="c5b" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#10b65a;stop-opacity:0.85" />
-                        </linearGradient>
-                        <linearGradient id="c5c" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:0.85" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="23" y="52" width="22" height="9" fill="url(#c5a)"/>
-                    <rect x="23" y="63" width="16" height="9" fill="url(#c5b)"/>
-                    <rect x="23" y="74" width="13" height="9" fill="url(#c5c)"/>
-                    <rect x="48" y="42" width="28" height="9" fill="url(#c5a)"/>
-                    <rect x="48" y="53" width="19" height="9" fill="url(#c5b)"/>
-                    <rect x="48" y="64" width="16" height="9" fill="url(#c5c)"/>
-                    <rect x="78" y="47" width="25" height="9" fill="url(#c5a)"/>
-                    <rect x="78" y="58" width="18" height="9" fill="url(#c5b)"/>
-                    <rect x="78" y="69" width="15" height="9" fill="url(#c5c)"/>
-                </svg>`
-            },
-            {
-                name: "Area Chart Gradient",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c6" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:0.65" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0.15" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 23 80 L 38 60 L 53 50 L 68 65 L 83 45 L 98 55 L 98 95 L 23 95 Z" fill="url(#c6)" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <circle cx="23" cy="80" r="2.5" fill="#a855f7"/>
-                    <circle cx="38" cy="60" r="2.5" fill="#a855f7"/>
-                    <circle cx="53" cy="50" r="2.5" fill="#a855f7"/>
-                    <circle cx="68" cy="65" r="2.5" fill="#a855f7"/>
-                    <circle cx="83" cy="45" r="2.5" fill="#a855f7"/>
-                    <circle cx="98" cy="55" r="2.5" fill="#a855f7"/>
-                </svg>`
-            },
-            {
-                name: "Multi-Line Chart",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c7a" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.85" />
-                        </linearGradient>
-                        <linearGradient id="c7b" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#10b65a;stop-opacity:0.85" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 23 70 L 38 55 L 53 65 L 68 50 L 83 60" stroke="url(#c7a)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M 23 75 L 38 65 L 53 75 L 68 60 L 83 70" stroke="url(#c7b)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                    <circle cx="38" cy="55" r="2" fill="#a855f7"/>
-                    <circle cx="68" cy="50" r="2" fill="#a855f7"/>
-                    <circle cx="83" cy="60" r="2" fill="#a855f7"/>
-                    <circle cx="38" cy="65" r="2" fill="#06b6d4"/>
-                    <circle cx="68" cy="60" r="2" fill="#06b6d4"/>
-                    <circle cx="83" cy="70" r="2" fill="#06b6d4"/>
-                </svg>`
-            },
-            {
-                name: "Histogram Trend",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c8" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0.85" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="21" y="68" width="9" height="22" fill="url(#c8)" opacity="0.75"/>
-                    <rect x="31" y="58" width="9" height="32" fill="url(#c8)" opacity="0.8"/>
-                    <rect x="41" y="48" width="9" height="42" fill="url(#c8)" opacity="0.85"/>
-                    <rect x="51" y="53" width="9" height="37" fill="url(#c8)" opacity="0.9"/>
-                    <rect x="61" y="43" width="9" height="47" fill="url(#c8)" opacity="0.95"/>
-                    <rect x="71" y="63" width="9" height="27" fill="url(#c8)"/>
-                    <rect x="81" y="73" width="9" height="17" fill="url(#c8)"/>
-                    <path d="M 25.5 68 L 35.5 58 L 45.5 48 L 55.5 53 L 65.5 43 L 75.5 63 L 85.5 73" stroke="#a855f7" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-                </svg>`
-            },
-            {
-                name: "OHLC Candle Close",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <filter id="c10shadow"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-opacity="0.35" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <g filter="url(#c10shadow)">
-                        <rect x="33" y="38" width="16" height="37" fill="rgba(16, 182, 90, 0.18)" stroke="#10b65a" stroke-width="1.5"/>
-                        <line x1="41" y1="33" x2="41" y2="38" stroke="#10b65a" stroke-width="2"/>
-                        <line x1="41" y1="75" x2="41" y2="85" stroke="#ef4444" stroke-width="2"/>
-                        <rect x="33" y="38" width="16" height="22" fill="#10b65a" opacity="0.85"/>
-                    </g>
-                    <g filter="url(#c10shadow)">
-                        <rect x="56" y="43" width="16" height="32" fill="rgba(239, 68, 68, 0.18)" stroke="#ef4444" stroke-width="1.5"/>
-                        <line x1="64" y1="38" x2="64" y2="43" stroke="#10b65a" stroke-width="2"/>
-                        <line x1="64" y1="75" x2="64" y2="82" stroke="#ef4444" stroke-width="2"/>
-                        <rect x="56" y="53" width="16" height="22" fill="#ef4444" opacity="0.85"/>
-                    </g>
-                    <path d="M 38 68 Q 60 63 70 53" stroke="#a855f7" stroke-width="1.5" fill="none" stroke-dasharray="2,2" opacity="0.6"/>
-                </svg>`
-            },
-            {
-                name: "Volume Spike Pattern",
-                category: "Chart & Finance",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="c11" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0.8" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="20" y="70" width="7" height="20" fill="url(#c11)" opacity="0.6"/>
-                    <rect x="28" y="60" width="7" height="30" fill="url(#c11)" opacity="0.7"/>
-                    <rect x="36" y="40" width="7" height="50" fill="url(#c11)" opacity="0.95"/>
-                    <rect x="44" y="35" width="7" height="55" fill="url(#c11)"/>
-                    <rect x="52" y="45" width="7" height="45" fill="url(#c11)" opacity="0.95"/>
-                    <rect x="60" y="65" width="7" height="25" fill="url(#c11)" opacity="0.75"/>
-                    <rect x="68" y="75" width="7" height="15" fill="url(#c11)" opacity="0.65"/>
-                    <rect x="76" y="72" width="7" height="18" fill="url(#c11)" opacity="0.7"/>
-                    <rect x="84" y="68" width="7" height="22" fill="url(#c11)" opacity="0.75"/>
-                </svg>`
-            },
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animation = 'fadeIn 0.8s ease-out forwards';
+                }
+            });
+        }, { threshold: 0.1 });
 
-            // CATEGORY 3: ABSTRACT/TECH (10 icons)
-            {
-                name: "DNA Helix Double Spiral",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a1" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#10b65a;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="a1f"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-opacity="0.3" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 45 30 Q 50 42 45 50 Q 40 58 45 70 Q 50 82 45 92" stroke="url(#a1)" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#a1f)"/>
-                    <path d="M 75 30 Q 70 42 75 50 Q 80 58 75 70 Q 70 82 75 92" stroke="url(#a1)" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#a1f)"/>
-                    <line x1="45" y1="35" x2="75" y2="38" stroke="rgba(168, 85, 247, 0.5)" stroke-width="1.5"/>
-                    <line x1="42" y1="50" x2="78" y2="50" stroke="rgba(6, 182, 212, 0.5)" stroke-width="1.5"/>
-                    <line x1="45" y1="70" x2="75" y2="68" stroke="rgba(16, 182, 90, 0.5)" stroke-width="1.5"/>
-                    <circle cx="45" cy="50" r="2.5" fill="#06b6d4"/>
-                    <circle cx="75" cy="50" r="2.5" fill="#a855f7"/>
-                </svg>`
-            },
-            {
-                name: "Neural Network Nodes",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a2" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="a2glow"><feGaussianBlur stdDeviation="1.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="40" cy="35" r="5" fill="url(#a2)" filter="url(#a2glow)"/>
-                    <circle cx="80" cy="35" r="5" fill="url(#a2)" filter="url(#a2glow)"/>
-                    <circle cx="60" cy="60" r="6" fill="url(#a2)" filter="url(#a2glow)"/>
-                    <circle cx="40" cy="85" r="5" fill="url(#a2)" filter="url(#a2glow)"/>
-                    <circle cx="80" cy="85" r="5" fill="url(#a2)" filter="url(#a2glow)"/>
-                    <line x1="40" y1="35" x2="60" y2="60" stroke="url(#a2)" stroke-width="1.5" opacity="0.7"/>
-                    <line x1="80" y1="35" x2="60" y2="60" stroke="url(#a2)" stroke-width="1.5" opacity="0.7"/>
-                    <line x1="60" y1="60" x2="40" y2="85" stroke="url(#a2)" stroke-width="1.5" opacity="0.7"/>
-                    <line x1="60" y1="60" x2="80" y2="85" stroke="url(#a2)" stroke-width="1.5" opacity="0.7"/>
-                    <line x1="40" y1="35" x2="80" y2="35" stroke="rgba(6, 182, 212, 0.3)" stroke-width="1" opacity="0.5"/>
-                </svg>`
-            },
-            {
-                name: "Quantum Computing Pattern",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a3" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="40" cy="40" r="3.5" fill="url(#a3)"/>
-                    <circle cx="60" cy="40" r="3.5" fill="url(#a3)"/>
-                    <circle cx="80" cy="40" r="3.5" fill="url(#a3)"/>
-                    <circle cx="40" cy="60" r="3.5" fill="url(#a3)"/>
-                    <circle cx="60" cy="60" r="4.5" fill="#06b6d4"/>
-                    <circle cx="80" cy="60" r="3.5" fill="url(#a3)"/>
-                    <circle cx="40" cy="80" r="3.5" fill="url(#a3)"/>
-                    <circle cx="60" cy="80" r="3.5" fill="url(#a3)"/>
-                    <circle cx="80" cy="80" r="3.5" fill="url(#a3)"/>
-                    <path d="M 40 40 L 60 40 L 60 60 L 40 60 Z" fill="none" stroke="rgba(168, 85, 247, 0.35)" stroke-width="1.5"/>
-                    <path d="M 60 40 L 80 40 L 80 60 L 60 60 Z" fill="none" stroke="rgba(6, 182, 212, 0.35)" stroke-width="1.5"/>
-                    <path d="M 40 60 L 60 60 L 60 80 L 40 80 Z" fill="none" stroke="rgba(16, 182, 90, 0.35)" stroke-width="1.5"/>
-                </svg>`
-            },
-            {
-                name: "Blockchain Links",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a4" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="28" y="33" width="20" height="20" fill="none" stroke="url(#a4)" stroke-width="2.5" rx="3"/>
-                    <rect x="54" y="33" width="20" height="20" fill="none" stroke="url(#a4)" stroke-width="2.5" rx="3"/>
-                    <rect x="80" y="33" width="20" height="20" fill="none" stroke="url(#a4)" stroke-width="2.5" rx="3"/>
-                    <rect x="28" y="67" width="20" height="20" fill="none" stroke="url(#a4)" stroke-width="2.5" rx="3"/>
-                    <rect x="54" y="67" width="20" height="20" fill="none" stroke="url(#a4)" stroke-width="2.5" rx="3"/>
-                    <line x1="48" y1="43" x2="54" y2="43" stroke="url(#a4)" stroke-width="2"/>
-                    <line x1="74" y1="43" x2="80" y2="43" stroke="url(#a4)" stroke-width="2"/>
-                    <line x1="38" y1="53" x2="38" y2="67" stroke="url(#a4)" stroke-width="2"/>
-                    <line x1="64" y1="53" x2="64" y2="67" stroke="url(#a4)" stroke-width="2"/>
-                </svg>`
-            },
-            {
-                name: "AI Brain Circuits",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a5" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 50 32 Q 55 38 50 44 Q 45 38 50 32 Z" fill="url(#a5)"/>
-                    <path d="M 70 32 Q 75 38 70 44 Q 65 38 70 32 Z" fill="url(#a5)"/>
-                    <circle cx="60" cy="60" r="9" fill="none" stroke="url(#a5)" stroke-width="2.5"/>
-                    <circle cx="60" cy="60" r="5" fill="url(#a5)" opacity="0.7"/>
-                    <path d="M 50 44 L 54 52 L 60 50 L 66 52 L 70 44" fill="none" stroke="url(#a5)" stroke-width="2" stroke-linecap="round"/>
-                    <path d="M 52 68 Q 55 76 58 84 M 60 68 L 60 84 M 68 68 Q 65 76 62 84" fill="none" stroke="url(#a5)" stroke-width="2" stroke-linecap="round"/>
-                </svg>`
-            },
-            {
-                name: "Matrix Grid Data Points",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a6" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.85" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0.85" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <g stroke="url(#a6)" stroke-width="1.5" opacity="0.6">
-                        <line x1="28" y1="35" x2="92" y2="35"/>
-                        <line x1="28" y1="50" x2="92" y2="50"/>
-                        <line x1="28" y1="65" x2="92" y2="65"/>
-                        <line x1="28" y1="80" x2="92" y2="80"/>
-                        <line x1="35" y1="30" x2="35" y2="85"/>
-                        <line x1="50" y1="30" x2="50" y2="85"/>
-                        <line x1="65" y1="30" x2="65" y2="85"/>
-                        <line x1="80" y1="30" x2="80" y2="85"/>
-                    </g>
-                    <circle cx="35" cy="35" r="2.5" fill="#06b6d4"/>
-                    <circle cx="65" cy="50" r="3" fill="#a855f7"/>
-                    <circle cx="50" cy="65" r="2.5" fill="#06b6d4"/>
-                    <circle cx="80" cy="80" r="2.5" fill="#a855f7"/>
-                </svg>`
-            },
-            {
-                name: "Holographic Cube",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a7" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <polygon points="50,33 67,45 67,67 50,55" fill="url(#a7)" opacity="0.85"/>
-                    <polygon points="67,45 85,33 85,55 67,67" fill="url(#a7)" opacity="0.65"/>
-                    <polygon points="50,55 67,67 67,87 50,75" fill="url(#a7)" opacity="0.75"/>
-                    <polygon points="67,67 85,55 85,75 67,87" fill="url(#a7)" opacity="0.55"/>
-                    <polyline points="50,33 50,55 50,75" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0.6"/>
-                    <polyline points="85,33 85,55 85,75" fill="none" stroke="#a855f7" stroke-width="1" opacity="0.6"/>
-                </svg>`
-            },
-            {
-                name: "Digital Eye Scan",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a8" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <ellipse cx="60" cy="60" rx="16" ry="22" fill="none" stroke="url(#a8)" stroke-width="2.5"/>
-                    <circle cx="60" cy="60" r="11" fill="none" stroke="url(#a8)" stroke-width="2"/>
-                    <circle cx="60" cy="60" r="6" fill="#06b6d4" opacity="0.85"/>
-                    <circle cx="62" cy="57" r="2.5" fill="#fbbf24"/>
-                    <line x1="28" y1="60" x2="44" y2="60" stroke="url(#a8)" stroke-width="1.5" opacity="0.7"/>
-                    <line x1="76" y1="60" x2="92" y2="60" stroke="url(#a8)" stroke-width="1.5" opacity="0.7"/>
-                    <line x1="60" y1="28" x2="60" y2="38" stroke="url(#a8)" stroke-width="1.5" opacity="0.7"/>
-                    <line x1="60" y1="82" x2="60" y2="92" stroke="url(#a8)" stroke-width="1.5" opacity="0.7"/>
-                </svg>`
-            },
-            {
-                name: "Particle Constellation",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a9" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="a9glow"><feGaussianBlur stdDeviation="2" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="40" cy="35" r="2.5" fill="url(#a9)" filter="url(#a9glow)"/>
-                    <circle cx="80" cy="40" r="2.5" fill="url(#a9)" filter="url(#a9glow)"/>
-                    <circle cx="30" cy="70" r="3" fill="url(#a9)" filter="url(#a9glow)"/>
-                    <circle cx="70" cy="65" r="2.5" fill="url(#a9)" filter="url(#a9glow)"/>
-                    <circle cx="60" cy="90" r="2.5" fill="url(#a9)" filter="url(#a9glow)"/>
-                    <circle cx="90" cy="85" r="2" fill="url(#a9)" filter="url(#a9glow)"/>
-                    <line x1="40" y1="35" x2="60" y2="65" stroke="rgba(251, 191, 36, 0.35)" stroke-width="1"/>
-                    <line x1="80" y1="40" x2="70" y2="65" stroke="rgba(168, 85, 247, 0.35)" stroke-width="1"/>
-                    <line x1="30" y1="70" x2="60" y2="90" stroke="rgba(6, 182, 212, 0.35)" stroke-width="1"/>
-                </svg>`
-            },
-            {
-                name: "Wave Interference Pattern",
-                category: "Abstract & Tech",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="a10" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#10b65a;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="60" r="11" fill="none" stroke="url(#a10)" stroke-width="1.5" opacity="0.8"/>
-                    <circle cx="60" cy="60" r="22" fill="none" stroke="url(#a10)" stroke-width="1.5" opacity="0.6"/>
-                    <circle cx="60" cy="60" r="33" fill="none" stroke="url(#a10)" stroke-width="1.5" opacity="0.4"/>
-                    <circle cx="60" cy="60" r="6" fill="url(#a10)" opacity="0.85"/>
-                </svg>`
-            },
-
-            // CATEGORY 4: BULLS & BEARS (10 icons)
-            {
-                name: "Bull Head Glow",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b1" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="b1glow"><feGaussianBlur stdDeviation="2.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="65" r="20" fill="none" stroke="url(#b1)" stroke-width="2.5" filter="url(#b1glow)"/>
-                    <path d="M 48 43 L 42 20 L 50 38 L 48 33" fill="url(#b1)" filter="url(#b1glow)"/>
-                    <path d="M 72 43 L 78 20 L 70 38 L 72 33" fill="url(#b1)" filter="url(#b1glow)"/>
-                    <circle cx="55" cy="65" r="3" fill="#fbbf24"/>
-                    <circle cx="65" cy="65" r="3" fill="#fbbf24"/>
-                    <path d="M 55 76 L 60 82 L 65 76" fill="none" stroke="url(#b1)" stroke-width="2" stroke-linecap="round"/>
-                </svg>`
-            },
-            {
-                name: "Bear Silhouette",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b2" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="48" r="13" fill="url(#b2)"/>
-                    <circle cx="50" cy="38" r="3.5" fill="url(#b2)"/>
-                    <circle cx="70" cy="38" r="3.5" fill="url(#b2)"/>
-                    <circle cx="60" cy="75" r="16" fill="url(#b2)" opacity="0.85"/>
-                    <path d="M 48 65 L 42 88 M 72 65 L 78 88" stroke="url(#b2)" stroke-width="3.5" stroke-linecap="round"/>
-                    <circle cx="57" cy="48" r="2" fill="#0f172a"/>
-                    <circle cx="63" cy="48" r="2" fill="#0f172a"/>
-                </svg>`
-            },
-            {
-                name: "Bull Charging Chart",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b3" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="45" cy="55" r="14" fill="url(#b3)"/>
-                    <path d="M 38 46 L 32 32 L 40 44 L 37 36" fill="url(#b3)"/>
-                    <path d="M 52 46 L 58 32 L 50 44 L 53 36" fill="url(#b3)"/>
-                    <path d="M 35 67 L 32 88 M 55 67 L 52 88" stroke="url(#b3)" stroke-width="3" stroke-linecap="round"/>
-                    <path d="M 60 75 L 70 65 L 80 55 L 90 45" stroke="url(#b3)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                    <circle cx="90" cy="45" r="2" fill="#fbbf24"/>
-                </svg>`
-            },
-            {
-                name: "Bear Claw Mark",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b4" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#f87171;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 35 33 L 55 82" stroke="url(#b4)" stroke-width="3.5" stroke-linecap="round"/>
-                    <path d="M 50 33 L 65 87" stroke="url(#b4)" stroke-width="3.5" stroke-linecap="round"/>
-                    <path d="M 65 33 L 75 87" stroke="url(#b4)" stroke-width="3.5" stroke-linecap="round"/>
-                    <path d="M 80 33 L 85 87" stroke="url(#b4)" stroke-width="3.5" stroke-linecap="round"/>
-                    <circle cx="55" cy="82" r="2.5" fill="#ef4444"/>
-                    <circle cx="75" cy="87" r="2.5" fill="#ef4444"/>
-                </svg>`
-            },
-            {
-                name: "Bull Horns Diamond",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b5" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 45 55 L 35 23 L 45 43 L 43 35" fill="url(#b5)"/>
-                    <path d="M 75 55 L 85 23 L 75 43 L 77 35" fill="url(#b5)"/>
-                    <polygon points="60,33 55,55 60,77 65,55" fill="url(#b5)"/>
-                    <polygon points="60,33 55,55 60,77 65,55" fill="none" stroke="#fbbf24" stroke-width="1.5" opacity="0.8"/>
-                    <circle cx="60" cy="55" r="3.5" fill="#06b6d4" opacity="0.9"/>
-                </svg>`
-            },
-            {
-                name: "Bull Motion Lines",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b6" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="45" cy="60" r="15" fill="url(#b6)" opacity="0.9"/>
-                    <path d="M 38 48 L 30 38 L 38 46 L 36 40" fill="url(#b6)"/>
-                    <path d="M 52 48 L 60 38 L 52 46 L 54 40" fill="url(#b6)"/>
-                    <line x1="60" y1="60" x2="85" y2="60" stroke="url(#b6)" stroke-width="2.5" stroke-linecap="round"/>
-                    <line x1="62" y1="50" x2="82" y2="50" stroke="url(#b6)" stroke-width="2" opacity="0.75" stroke-linecap="round"/>
-                    <line x1="62" y1="70" x2="82" y2="70" stroke="url(#b6)" stroke-width="2" opacity="0.75" stroke-linecap="round"/>
-                </svg>`
-            },
-            {
-                name: "Bull and Bear Facing",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b7a" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0.9" />
-                        </linearGradient>
-                        <linearGradient id="b7b" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0.9" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="38" cy="60" r="11" fill="url(#b7a)"/>
-                    <path d="M 34 49 L 28 38 L 32 47 L 30 41" fill="url(#b7a)"/>
-                    <path d="M 42 49 L 48 38 L 44 47 L 46 41" fill="url(#b7a)"/>
-                    <circle cx="82" cy="60" r="11" fill="url(#b7b)"/>
-                    <circle cx="76" cy="51" r="3" fill="url(#b7b)"/>
-                    <circle cx="88" cy="51" r="3" fill="url(#b7b)"/>
-                    <line x1="49" y1="60" x2="75" y2="60" stroke="rgba(168, 85, 247, 0.3)" stroke-width="1" stroke-dasharray="2.5,2.5"/>
-                </svg>`
-            },
-            {
-                name: "Horns as Candlesticks",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b8g" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <linearGradient id="b8r" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#f87171;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <rect x="36" y="38" width="10" height="32" fill="url(#b8g)"/>
-                    <line x1="36" y1="36" x2="46" y2="36" stroke="#10b65a" stroke-width="2"/>
-                    <line x1="36" y1="70" x2="46" y2="70" stroke="#ef4444" stroke-width="2"/>
-                    <rect x="72" y="43" width="10" height="27" fill="url(#b8r)"/>
-                    <line x1="72" y1="41" x2="82" y2="41" stroke="#10b65a" stroke-width="2"/>
-                    <line x1="72" y1="70" x2="82" y2="70" stroke="#ef4444" stroke-width="2"/>
-                    <circle cx="41" cy="55" r="9" fill="none" stroke="rgba(16, 182, 90, 0.35)" stroke-width="1.5"/>
-                    <circle cx="77" cy="60" r="9" fill="none" stroke="rgba(239, 68, 68, 0.35)" stroke-width="1.5"/>
-                </svg>`
-            },
-            {
-                name: "Bull Eye Target",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b9" x1="50%" y1="50%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#fbbf24;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="60" r="27" fill="none" stroke="url(#b9)" stroke-width="1.5" opacity="0.65"/>
-                    <circle cx="60" cy="60" r="19" fill="none" stroke="url(#b9)" stroke-width="1.5" opacity="0.75"/>
-                    <circle cx="60" cy="60" r="12" fill="none" stroke="url(#b9)" stroke-width="1.5" opacity="0.85"/>
-                    <circle cx="60" cy="60" r="5" fill="url(#b9)"/>
-                    <path d="M 45 48 L 35 38 L 43 46 L 41 40" fill="url(#b9)"/>
-                </svg>`
-            },
-            {
-                name: "Bear Descend Pattern",
-                category: "Bulls & Bears",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="b10" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 30 38 L 40 58 L 50 48 L 60 75 L 70 60 L 80 87" stroke="url(#b10)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                    <circle cx="30" cy="38" r="2.5" fill="#ef4444"/>
-                    <circle cx="80" cy="87" r="2.5" fill="#a855f7"/>
-                    <circle cx="60" cy="75" r="2.5" fill="#ef4444"/>
-                </svg>`
-            },
-
-            // CATEGORY 5: PREMIUM EMBLEMS (10 icons)
-            {
-                name: "Shield with M",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e1" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="e1shadow"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-opacity="0.35" /></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 35 33 L 60 23 L 85 33 L 85 53 Q 60 77 60 87 Q 60 77 35 53 Z" fill="url(#e1)" filter="url(#e1shadow)"/>
-                    <path d="M 35 33 L 60 23 L 85 33 L 85 53 Q 60 77 60 87 Q 60 77 35 53 Z" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.6"/>
-                    <path d="M 50 48 L 58 48 L 54 65 L 60 65 L 52 82 M 60 48 L 68 48 L 64 65 L 70 65 L 62 82" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>`
-            },
-            {
-                name: "Hexagonal Badge",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e2" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="50%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <polygon points="60,28 85,41 85,67 60,80 35,67 35,41" fill="url(#e2)" opacity="0.9"/>
-                    <polygon points="60,28 85,41 85,67 60,80 35,67 35,41" fill="none" stroke="#06b6d4" stroke-width="1.5"/>
-                    <polygon points="60,41 76,50 76,63 60,72 44,63 44,50" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
-                    <circle cx="60" cy="56" r="3.5" fill="#fbbf24"/>
-                </svg>`
-            },
-            {
-                name: "Circular Seal Crown",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e3" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="60" r="32" fill="none" stroke="url(#e3)" stroke-width="2.5"/>
-                    <circle cx="60" cy="60" r="30" fill="none" stroke="url(#e3)" stroke-width="0.5" opacity="0.5"/>
-                    <path d="M 44 58 L 40 38 L 46 50 L 52 33 L 60 50 L 68 33 L 74 50 L 80 38 L 76 58" fill="url(#e3)"/>
-                    <path d="M 44 58 L 76 58" stroke="url(#e3)" stroke-width="1.5" opacity="0.6"/>
-                </svg>`
-            },
-            {
-                name: "Diamond Inner Glow",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e4" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                        <filter id="e4glow"><feGaussianBlur stdDeviation="2.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <polygon points="60,28 87,60 60,92 33,60" fill="url(#e4)" filter="url(#e4glow)" opacity="0.95"/>
-                    <polygon points="60,28 87,60 60,92 33,60" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
-                    <polygon points="60,43 74,60 60,77 46,60" fill="none" stroke="rgba(251, 191, 36, 0.5)" stroke-width="1.5" opacity="0.8"/>
-                    <circle cx="60" cy="60" r="6" fill="#fbbf24" opacity="0.75"/>
-                </svg>`
-            },
-            {
-                name: "Star Burst Emblem",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e5" x1="50%" y1="50%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="60" r="13" fill="url(#e5)"/>
-                    <path d="M 60 28 L 65 48 L 85 48 L 70 60 L 75 80 L 60 68 L 45 80 L 50 60 L 35 48 L 55 48 Z" fill="url(#e5)" opacity="0.9"/>
-                    <circle cx="60" cy="60" r="9" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.75"/>
-                </svg>`
-            },
-            {
-                name: "Trophy Cup Icon",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e6" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 38 38 L 38 55 Q 38 66 50 69 L 70 69 Q 82 66 82 55 L 82 38 Z" fill="url(#e6)"/>
-                    <ellipse cx="60" cy="38" rx="22" ry="7" fill="url(#e6)" opacity="0.85"/>
-                    <path d="M 40 69 L 35 88 L 45 82 L 75 82 L 85 88 L 80 69" fill="none" stroke="url(#e6)" stroke-width="2.5" stroke-linecap="round"/>
-                    <line x1="38" y1="38" x2="35" y2="28" stroke="url(#e6)" stroke-width="2.5" stroke-linecap="round"/>
-                    <line x1="82" y1="38" x2="85" y2="28" stroke="url(#e6)" stroke-width="2.5" stroke-linecap="round"/>
-                </svg>`
-            },
-            {
-                name: "Rocket Launch Trail",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e7" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <polygon points="60,28 70,55 60,50 50,55" fill="url(#e7)"/>
-                    <rect x="54" y="50" width="12" height="28" fill="url(#e7)"/>
-                    <polygon points="54,78 46,92 60,80 74,92 66,78" fill="url(#e7)"/>
-                    <path d="M 50 72 Q 40 82 35 98" stroke="url(#e7)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.85"/>
-                    <path d="M 70 72 Q 80 82 85 98" stroke="url(#e7)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.85"/>
-                    <circle cx="60" cy="55" r="3.5" fill="#fbbf24" opacity="0.95"/>
-                </svg>`
-            },
-            {
-                name: "Compass Rose Data",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e8" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#10b65a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <circle cx="60" cy="60" r="27" fill="none" stroke="url(#e8)" stroke-width="2" opacity="0.65"/>
-                    <path d="M 60 33 L 66 55 L 60 60 L 54 55 Z" fill="url(#e8)"/>
-                    <path d="M 87 60 L 65 66 L 60 60 L 65 54 Z" fill="url(#e8)" opacity="0.85"/>
-                    <path d="M 60 87 L 54 65 L 60 60 L 66 65 Z" fill="url(#e8)" opacity="0.75"/>
-                    <path d="M 33 60 L 55 54 L 60 60 L 55 66 Z" fill="url(#e8)" opacity="0.85"/>
-                    <line x1="33" y1="60" x2="87" y2="60" stroke="rgba(168, 85, 247, 0.25)" stroke-width="1.5"/>
-                    <line x1="60" y1="33" x2="60" y2="87" stroke="rgba(16, 182, 90, 0.25)" stroke-width="1.5"/>
-                </svg>`
-            },
-            {
-                name: "Lightning Bolt Crest",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e9" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <polygon points="40,33 55,50 50,65 65,50 60,82 75,67 60,50 70,33" fill="url(#e9)"/>
-                    <polygon points="40,33 55,50 50,65 65,50 60,82 75,67 60,50 70,33" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.75"/>
-                    <circle cx="50" cy="60" r="2.5" fill="#fbbf24"/>
-                    <circle cx="65" cy="50" r="2.5" fill="#06b6d4"/>
-                </svg>`
-            },
-            {
-                name: "Infinity Loop Gradient",
-                category: "Premium Emblem",
-                svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="e10a" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
-                        </linearGradient>
-                        <linearGradient id="e10b" x1="100%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#10b65a;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="120" height="120" fill="none"/>
-                    <path d="M 35 60 Q 35 43 50 43 Q 62 43 62 55 Q 62 67 50 67 Q 40 67 40 60" fill="none" stroke="url(#e10a)" stroke-width="3.5" stroke-linecap="round"/>
-                    <path d="M 85 60 Q 85 43 70 43 Q 58 43 58 55 Q 58 67 70 67 Q 80 67 80 60" fill="none" stroke="url(#e10b)" stroke-width="3.5" stroke-linecap="round"/>
-                </svg>`
-            }
-        ];
-
-        const gallery = document.getElementById('gallery');
-        icons.forEach((icon, index) => {
-            const card = document.createElement('div');
-            card.className = 'icon-card';
-            card.innerHTML = `
-                <div class="icon-preview">
-                    ${icon.svg}
-                </div>
-                <div class="icon-info">
-                    <div class="icon-number">#${index + 1}</div>
-                    <div class="icon-name">${icon.name}</div>
-                    <div class="icon-category">${icon.category}</div>
-                </div>
-            `;
-            gallery.appendChild(card);
+        document.querySelectorAll('.card').forEach(card => {
+            observer.observe(card);
         });
     </script>
 </body>

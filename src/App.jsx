@@ -390,6 +390,37 @@ function App() {
         .theme-light section h2,
         .theme-light section h3 { color: #0f172a !important; }
 
+        /* === v2.3.0 LIGHT MODE ADDITIONAL FIXES === */
+        /* Fix the main background gradient (inline style override) */
+        .theme-light > div[style] { background: #f1f5f9 !important; }
+
+        /* Better card backgrounds in light mode */
+        .theme-light main .rounded-xl,
+        .theme-light main .rounded-2xl {
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+        }
+
+        /* Fix gradient text being invisible */
+        .theme-light main .bg-clip-text.text-transparent {
+          -webkit-text-fill-color: #1e293b !important;
+          background: none !important;
+        }
+
+        /* Keep primary action buttons visible */
+        .theme-light main button[class*="bg-violet-600"] {
+          color: white !important;
+        }
+        .theme-light main button[class*="bg-violet-600"] * {
+          color: white !important;
+        }
+
+        /* Fix dark inner backgrounds */
+        .theme-light main .bg-slate-900\\/50 { background: rgba(255,255,255,0.7) !important; border: 1px solid rgba(0,0,0,0.06) !important; }
+
+        /* Progress bar tracks */
+        .theme-light main .bg-slate-800.rounded-full { background: #e2e8f0 !important; }
+        .theme-light main .bg-slate-800\\/30.rounded { background: rgba(241,245,249,0.9) !important; }
+
         /* Trade Replay animation */
         @keyframes replayPulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
@@ -870,6 +901,26 @@ function App() {
   const [showQuickTradeEntry, setShowQuickTradeEntry] = useState(false);
   const changelogEntries = [
     {
+      version: '2.3.0',
+      date: '2026-02-08',
+      title: 'Community Feed, Tracking Dashboard, Risk Calculator & More',
+      changes: [
+        { type: 'feature', text: 'Community Feed redesigned — now supports Local, Public, and Private community modes with invite codes' },
+        { type: 'feature', text: 'Anonymous posting option for Community Feed — share analyses without revealing your identity' },
+        { type: 'feature', text: 'Spam protection — 30-second cooldown between community posts' },
+        { type: 'feature', text: 'Price Target Tracking dashboard — view all tracked targets with status, distance to target, and days tracked' },
+        { type: 'feature', text: 'Risk Calculator widget — calculate position size, dollar risk, and shares before entering trades' },
+        { type: 'feature', text: 'Trade journal tagging — tag trades as Scalp, Swing, Day Trade, Earnings Play, and more' },
+        { type: 'feature', text: 'Export trades to CSV — one-click download of your entire trade history' },
+        { type: 'feature', text: 'Notification center — click the bell to see full notification history with clear-all option' },
+        { type: 'improvement', text: 'Widget descriptions — hover over any widget in Customize to see what it does' },
+        { type: 'improvement', text: 'Settings modal now has close (X) button and click-outside-to-close' },
+        { type: 'improvement', text: 'Light mode further improved — better card shadows, fixed gradient text, polished action buttons' },
+        { type: 'fix', text: 'Fixed community feed showing "$undefined" for target and stop prices' },
+        { type: 'fix', text: 'Fixed Settings modal trapping users — added X button and backdrop close' },
+      ]
+    },
+    {
       version: '2.2.1',
       date: '2026-02-08',
       title: 'Bug Fixes, Live Data, UI Polish & Light Mode Overhaul',
@@ -883,7 +934,6 @@ function App() {
         { type: 'improvement', text: 'Light mode massively improved — fixed text contrast, table styling, gradient backgrounds, hover states, input focus rings, and overall readability' },
         { type: 'improvement', text: 'Pre-Market Movers cards are now clickable — click any stock to view its live chart' },
         { type: 'improvement', text: 'Pattern Scanner detailed tab now shows signal type (Bullish/Bearish/Neutral), confidence bar, and detection timestamp' },
-        { type: 'feature', text: '50 new premium icon designs available — open icon-preview.html to browse and pick your favorite' },
       ]
     },
     {
@@ -904,7 +954,6 @@ function App() {
         { type: 'improvement', text: 'Pattern Scanner now has dedicated detailed page under Screener tab with confidence meters and pattern descriptions' },
         { type: 'improvement', text: 'Journal Analytics page shows equity curve, win/loss by day, and trade duration metrics' },
         { type: 'improvement', text: 'Monthly P&L now has its own dedicated page with month navigation and summary statistics' },
-        { type: 'fix', text: 'Added 12 missing Lucide icon imports (BarChart2, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass)' },
         { type: 'improvement', text: 'Performance optimizations — added input guards to keyboard shortcuts to prevent triggering while typing' },
       ]
     },
@@ -2354,6 +2403,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // NEW: Screener Presets
   const [selectedScanPreset, setSelectedScanPreset] = useState('custom');
 
+  // NEW: Community Feed Enhanced State (v2.3.0)
+  const [communityMode, setCommunityMode] = useState('local'); // 'local', 'public', 'private'
+  const [communityCode, setCommunityCode] = useState(() => {
+    try { return localStorage.getItem('modus_community_code') || ''; } catch { return ''; }
+  });
+  const [communityAnonymous, setCommunityAnonymous] = useState(false);
+  const [lastPostTime, setLastPostTime] = useState(0);
+
   // NEW: Info Pages State
   const [showInfoPage, setShowInfoPage] = useState(null); // 'terms', 'privacy', 'features', null — FOOTER OVERLAY ONLY
   const [infoSubTab, setInfoSubTab] = useState('features'); // Inline Info tab sub-navigation
@@ -2431,11 +2488,22 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [shareToFeedContent, setShareToFeedContent] = useState(null);
 
   const addToSocialFeed = useCallback((item) => {
+    // Spam protection: 30-second cooldown between posts
+    const now = Date.now();
+    if (now - lastPostTime < 30000) {
+      // Show notification
+      const remainingSeconds = Math.ceil((30000 - (now - lastPostTime)) / 1000);
+      alert(`Please wait ${remainingSeconds} seconds before posting again`);
+      return;
+    }
+
     const post = {
       id: Date.now(),
-      user: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Trader',
-      avatar: currentUser?.displayName?.[0]?.toUpperCase() || 'T',
+      user: communityAnonymous ? 'Anonymous Trader' : (currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Trader'),
+      avatar: communityAnonymous ? '?' : (currentUser?.displayName?.[0]?.toUpperCase() || 'T'),
       timestamp: new Date().toISOString(),
+      communityMode,
+      communityCode: communityMode === 'private' ? communityCode : undefined,
       ...item
     };
     setSocialFeed(prev => {
@@ -2443,8 +2511,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       localStorage.setItem('modus_social_feed', JSON.stringify(updated));
       return updated;
     });
+    setLastPostTime(now);
     setShowShareToFeed(false);
-  }, [currentUser]);
+  }, [currentUser, communityAnonymous, communityMode, communityCode, lastPostTime]);
 
   // ═══════════════════════════════════════════════
   // FEATURE 5: Price Target Tracking
@@ -11668,16 +11737,19 @@ INSTRUCTIONS:
 
       {/* API Key Modal - ENHANCED WITH BACKEND MODE & SMS */}
       {showApiKeyModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-50 flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-50 flex items-center justify-center p-4 animate-fadeIn overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) setShowApiKeyModal(false); }}>
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl border border-slate-700/30 p-6 max-w-lg w-full shadow-2xl shadow-black/50 my-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-violet-500/20 rounded-xl">
                 <Settings className="w-5 h-5 text-violet-400" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Settings</h3>
                 <p className="text-xs text-slate-500">API, SMS & Theme Configuration</p>
               </div>
+              <button onClick={() => setShowApiKeyModal(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Theme Selector */}
@@ -14534,42 +14606,43 @@ INSTRUCTIONS:
             {/* Widget Config Panel */}
             {showDashboardConfig && (() => {
               const allWidgetDefs = [
-                { key: 'clock', label: 'Clock & Market', icon: '🕐', group: 'mini' },
-                { key: 'quickstats', label: 'Quick Stats', icon: '📈', group: 'mini' },
-                { key: 'quicknav', label: 'Quick Navigation', icon: '🧭', group: 'mini' },
-                { key: 'dailytip', label: 'Daily Tip', icon: '💡', group: 'trading' },
-                { key: 'watchlist', label: 'Watchlist', icon: '👁️', group: 'trading' },
-                { key: 'dailypick', label: 'Daily Pick', icon: '⭐', group: 'trading' },
-                { key: 'portfolio', label: 'Portfolio P&L', icon: '💰', group: 'trading' },
-                { key: 'alerts', label: 'Active Alerts', icon: '🔔', group: 'trading' },
-                { key: 'performance', label: 'Performance', icon: '📊', group: 'data' },
-                { key: 'marketsummary', label: 'Market Summary', icon: '📈', group: 'data' },
-                { key: 'news', label: 'Latest News', icon: '📰', group: 'data' },
-                { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥', group: 'data' },
-                { key: 'tradingstreak', label: 'Trading Streak', icon: '🔥', group: 'trading' },
-                { key: 'feargreed', label: 'Market Mood', icon: '🎯', group: 'data' },
-                { key: 'earnings', label: 'Earnings Calendar', icon: '📅', group: 'data' },
-                { key: 'risk', label: 'Risk Dashboard', icon: '🛡️', group: 'trading' },
-                { key: 'pricetargets', label: 'Price Targets', icon: '🎯', group: 'trading' },
-                { key: 'socialfeed', label: 'Community Feed', icon: '💬', group: 'data' },
-                { key: 'sectorheatmap', label: 'Sector Heatmap', icon: '🗺️', group: 'data' },
-                { key: 'econevents', label: 'Economic Calendar', icon: '📅', group: 'data' },
-                { key: 'premarket', label: 'Pre-Market Movers', icon: '🌅', group: 'data' },
-                { key: 'correlation', label: 'Correlations', icon: '🔗', group: 'data' },
-                { key: 'portfolioheatmap', label: 'Position Performance', icon: '🎨', group: 'trading' },
-                { key: 'dividends', label: 'Dividend Calendar', icon: '💵', group: 'data' },
-                { key: 'whatif', label: 'What-If Simulator', icon: '🧪', group: 'trading' },
-                { key: 'mistakes', label: 'Mistake Tracker', icon: '⚠️', group: 'trading' },
-                { key: 'coach', label: 'AI Trade Coach', icon: '🧠', group: 'trading' },
-                { key: 'patterns', label: 'Pattern Scanner', icon: '📊', group: 'data' },
-                { key: 'sentiment', label: 'Sentiment Pulse', icon: '💭', group: 'data' },
-                { key: 'positionsize', label: 'Position Sizing', icon: '📐', group: 'trading' },
-                { key: 'monthlypl', label: 'Monthly P&L', icon: '📈', group: 'trading' },
-                { key: 'weeklyreport', label: 'Weekly Report', icon: '📑', group: 'trading' },
-                { key: 'equitycurve', label: 'Equity Curve', icon: '📈', group: 'trading' },
-                { key: 'achievements', label: 'Achievements', icon: '🏆', group: 'trading' },
-                { key: 'emotionlog', label: 'Emotion Logger', icon: '🧠', group: 'trading' },
-                { key: 'dayofweek', label: 'Win/Loss by Day', icon: '📅', group: 'trading' },
+                { key: 'clock', label: 'Clock & Market', icon: '🕐', group: 'mini', desc: 'Live clock with market status (open/closed/pre-market)' },
+                { key: 'quickstats', label: 'Quick Stats', icon: '📈', group: 'mini', desc: 'Win rate, total P&L, and trade count at a glance' },
+                { key: 'quicknav', label: 'Quick Navigation', icon: '🧭', group: 'mini', desc: 'Quick links to frequently used sections' },
+                { key: 'dailytip', label: 'Daily Tip', icon: '💡', group: 'trading', desc: 'Daily trading tip to improve your strategy' },
+                { key: 'watchlist', label: 'Watchlist', icon: '👁️', group: 'trading', desc: 'Your favorite stocks with live price updates' },
+                { key: 'dailypick', label: 'Daily Pick', icon: '⭐', group: 'trading', desc: 'AI-powered daily stock pick with analysis' },
+                { key: 'portfolio', label: 'Portfolio P&L', icon: '💰', group: 'trading', desc: 'Total portfolio profit & loss overview' },
+                { key: 'alerts', label: 'Active Alerts', icon: '🔔', group: 'trading', desc: 'Your active price alerts and triggers' },
+                { key: 'performance', label: 'Performance', icon: '📊', group: 'data', desc: 'Win rate, average win/loss, and profit factor' },
+                { key: 'marketsummary', label: 'Market Summary', icon: '📈', group: 'data', desc: 'Index prices and market sentiment overview' },
+                { key: 'news', label: 'Latest News', icon: '📰', group: 'data', desc: 'Latest market news with sentiment analysis' },
+                { key: 'hotstocks', label: 'Hot Stocks', icon: '🔥', group: 'data', desc: 'Top gainers and losers from today' },
+                { key: 'tradingstreak', label: 'Trading Streak', icon: '🔥', group: 'trading', desc: 'Current winning or losing streak' },
+                { key: 'feargreed', label: 'Market Mood', icon: '🎯', group: 'data', desc: 'Overall market fear and greed index' },
+                { key: 'earnings', label: 'Earnings Calendar', icon: '📅', group: 'data', desc: 'Upcoming earnings dates and economic events' },
+                { key: 'risk', label: 'Risk Dashboard', icon: '🛡️', group: 'trading', desc: 'Portfolio exposure, concentration, and drawdown' },
+                { key: 'pricetargets', label: 'Price Targets', icon: '🎯', group: 'trading', desc: 'Track your price target predictions' },
+                { key: 'socialfeed', label: 'Community Feed', icon: '💬', group: 'data', desc: 'Community feed — share analyses and ideas' },
+                { key: 'sectorheatmap', label: 'Sector Heatmap', icon: '🗺️', group: 'data', desc: 'Sector performance heatmap visualization' },
+                { key: 'econevents', label: 'Economic Calendar', icon: '📅', group: 'data', desc: 'Upcoming economic data releases' },
+                { key: 'premarket', label: 'Pre-Market Movers', icon: '🌅', group: 'data', desc: 'Pre-market movers — top gainers and losers' },
+                { key: 'correlation', label: 'Correlations', icon: '🔗', group: 'data', desc: 'Stock pair correlation matrix' },
+                { key: 'portfolioheatmap', label: 'Position Performance', icon: '🎨', group: 'trading', desc: 'Visual breakdown of your current positions' },
+                { key: 'dividends', label: 'Dividend Calendar', icon: '💵', group: 'data', desc: 'Upcoming dividend payments and yields' },
+                { key: 'whatif', label: 'What-If Simulator', icon: '🧪', group: 'trading', desc: 'Simulate trade outcomes before entering' },
+                { key: 'mistakes', label: 'Mistake Tracker', icon: '⚠️', group: 'trading', desc: 'Track and learn from your trading mistakes' },
+                { key: 'coach', label: 'AI Trade Coach', icon: '🧠', group: 'trading', desc: 'AI-powered trading coach with personalized tips' },
+                { key: 'patterns', label: 'Pattern Scanner', icon: '📊', group: 'data', desc: 'Chart pattern scanner for your watchlist' },
+                { key: 'sentiment', label: 'Sentiment Pulse', icon: '💭', group: 'data', desc: 'Market sentiment from news analysis' },
+                { key: 'positionsize', label: 'Position Sizing', icon: '📐', group: 'trading', desc: 'Calculate optimal position size for risk management' },
+                { key: 'monthlypl', label: 'Monthly P&L', icon: '📈', group: 'trading', desc: 'Monthly performance summary and metrics' },
+                { key: 'weeklyreport', label: 'Weekly Report', icon: '📑', group: 'trading', desc: 'Weekly performance summary and metrics' },
+                { key: 'equitycurve', label: 'Equity Curve', icon: '📈', group: 'trading', desc: 'Visualize your account equity over time' },
+                { key: 'achievements', label: 'Achievements', icon: '🏆', group: 'trading', desc: 'Trading badges and milestones earned' },
+                { key: 'emotionlog', label: 'Emotion Logger', icon: '🧠', group: 'trading', desc: 'Log your emotions before trading' },
+                { key: 'dayofweek', label: 'Win/Loss by Day', icon: '📅', group: 'trading', desc: 'Win/loss breakdown by day of the week' },
+                { key: 'riskcalc', label: 'Risk Calculator', icon: '🧮', group: 'trading', desc: 'Calculate position size and risk before entering trades' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
               const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
@@ -14594,7 +14667,7 @@ INSTRUCTIONS:
                           {showGroupLabel && (
                             <div className={`text-[9px] uppercase tracking-widest font-bold ${groupColors[w.group] || 'text-slate-500'} mt-2 mb-1 pl-1`}>{groupLabels[w.group] || w.group}</div>
                           )}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/30 rounded-lg group hover:bg-slate-700/50 transition-all">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/30 rounded-lg group hover:bg-slate-700/50 transition-all" title={w.desc}>
                             <GripVertical className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 cursor-grab" />
                             <span className="text-sm">{w.icon}</span>
                             <span className="text-xs font-medium text-white flex-1">{w.label}</span>
@@ -14621,7 +14694,7 @@ INSTRUCTIONS:
                       <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">Available to add</p>
                       <div className="flex flex-wrap gap-2">
                         {inactive.map(w => (
-                          <button key={w.key} onClick={() => setDashboardWidgets(prev => [...prev, w.key])} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/50 text-slate-400 hover:bg-violet-600/30 hover:text-violet-300 transition-all flex items-center gap-1.5 border border-slate-700/20 border-dashed">
+                          <button key={w.key} onClick={() => setDashboardWidgets(prev => [...prev, w.key])} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/50 text-slate-400 hover:bg-violet-600/30 hover:text-violet-300 transition-all flex items-center gap-1.5 border border-slate-700/20 border-dashed" title={w.desc}>
                             <Plus className="w-3 h-3" /> <span>{w.icon}</span> {w.label}
                             {w.group === 'mini' && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1 py-0.5 rounded">MINI</span>}
                           </button>
@@ -15749,13 +15822,16 @@ INSTRUCTIONS:
                   // ─── Community Feed Widget (Feature 4) ───
                   case 'socialfeed': {
                     const recentPosts = socialFeed.slice(0, 4);
+                    const modeColors = { local: 'text-slate-400', public: 'text-emerald-400', private: 'text-violet-400' };
+                    const modeLabels = { local: 'Local', public: 'Public', private: 'Private' };
                     return (
                       <div {...wrapProps}>
                         <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
                           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                             <MessageCircle className="w-4 h-4 text-cyan-400" />
                             Community Feed
-                            {socialFeed.length > 0 && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full">{socialFeed.length}</span>}
+                            <span className={`text-[9px] ${modeColors[communityMode]} bg-slate-700/40 px-1.5 py-0.5 rounded-full font-medium`}>{modeLabels[communityMode]}</span>
+                            {socialFeed.length > 0 && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full ml-auto">{socialFeed.length}</span>}
                           </h3>
                           {recentPosts.length > 0 ? (
                             <div className="space-y-2">
@@ -16351,6 +16427,31 @@ INSTRUCTIONS:
                       </div>
                     );
                   }
+
+                  case 'riskcalc': return (
+                    <div {...wrapProps}>
+                      <div className="bg-gradient-to-br from-green-500/8 to-slate-900/0 rounded-xl border border-green-500/10 p-4 h-full hover:border-green-500/20 transition-all">
+                        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                          <div className="p-1 bg-green-500/15 rounded-md"><Calculator className="w-3.5 h-3.5 text-green-400" /></div>
+                          Risk Calculator
+                        </h3>
+                        <div className="text-[10px] text-slate-500 leading-relaxed space-y-2">
+                          <div>
+                            <div className="font-semibold text-slate-400 mb-1">Example:</div>
+                            <div>Account: $10,000 • Risk: 2%</div>
+                            <div>Entry: $100 • Stop: $95</div>
+                            <div className="mt-2 pt-2 border-t border-slate-700/30">
+                              <div className="text-green-400 font-semibold">Risk: $200</div>
+                              <div className="text-green-400 font-semibold">Shares: 40</div>
+                            </div>
+                          </div>
+                          <div className="bg-green-500/10 border border-green-500/20 rounded p-2 mt-2">
+                            <div className="text-[9px] text-slate-400">Use Quick Analysis to add targets and track them automatically</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
 
                   default: return null;
                 }
@@ -23406,7 +23507,7 @@ INSTRUCTIONS:
                     </button>
                     {/* Share to Feed (Feature 4) */}
                     <button
-                      onClick={() => { addToSocialFeed({ type: 'analysis', ticker: r.ticker, verdict: r.verdict, text: `${r.verdict} on ${r.ticker} — Confidence: ${r.confidence}% | Target: $${r.target} | Stop: $${r.stop}`, confidence: r.confidence }); addNotification({ type: 'system', title: 'Shared!', message: `${r.ticker} analysis shared to feed`, icon: '✅' }); }}
+                      onClick={() => { addToSocialFeed({ type: 'analysis', ticker: r.ticker, verdict: r.verdict, text: `${r.verdict} on ${r.ticker} — Confidence: ${r.confidence}%${r.target ? ` | Target: $${r.target}` : ''}${r.stop ? ` | Stop: $${r.stop}` : ''}`, confidence: r.confidence }); addNotification({ type: 'system', title: 'Shared!', message: `${r.ticker} analysis shared to feed`, icon: '✅' }); }}
                       className="px-4 py-3.5 bg-cyan-600/10 hover:bg-cyan-600/20 border border-cyan-500/20 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 text-cyan-400"
                       title="Share to community feed"
                     >
@@ -23712,6 +23813,39 @@ INSTRUCTIONS:
                       </button>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Your Tracked Targets (v2.3.0) */}
+            {priceTargets.length > 0 && !quickAnalysisResult && (
+              <div className="bg-gradient-to-br from-amber-500/5 to-orange-500/5 rounded-2xl border border-amber-500/20 p-6">
+                <h3 className="font-semibold text-amber-400 text-base mb-4 flex items-center gap-2">
+                  <Target className="w-4 h-4" /> Your Tracked Targets
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium ml-auto">{priceTargets.length} active</span>
+                </h3>
+                <div className="space-y-2">
+                  {priceTargets.slice(0, 8).map(t => {
+                    const daysTracked = Math.floor((Date.now() - new Date(t.createdAt)) / 86400000);
+                    const distanceToTarget = t.targetPrice && t.entryPrice ? ((t.targetPrice - t.entryPrice) / t.entryPrice * 100) : 0;
+                    return (
+                      <div key={t.id} className="bg-slate-800/40 rounded-lg p-3 border border-slate-700/20 flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-white">{t.ticker}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${t.verdict?.toLowerCase().includes('buy') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{t.verdict}</span>
+                            <span className="text-[9px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-full">{t.status === 'active' ? 'Active' : t.status === 'hit' ? 'Hit ✓' : 'Stopped'}</span>
+                          </div>
+                          <div className="text-xs text-slate-400">Entry: ${t.entryPrice?.toFixed(2)} • Target: ${t.targetPrice?.toFixed(2)} • Stop: ${t.stopPrice?.toFixed(2)}</div>
+                          <div className="text-[10px] text-slate-500 mt-1">{daysTracked}d tracked • {distanceToTarget >= 0 ? '+' : ''}{distanceToTarget.toFixed(1)}% to target</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-500">{t.confidence}% conf.</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {priceTargets.length > 8 && <div className="text-[10px] text-slate-500 text-center">+{priceTargets.length - 8} more tracked</div>}
                 </div>
               </div>
             )}
@@ -24190,6 +24324,29 @@ INSTRUCTIONS:
                         : 0}%
                     </div>
                   </div>
+                </div>
+
+                {/* Export CSV Button */}
+                <div className="mb-4 flex justify-end">
+                  <button
+                    onClick={() => {
+                      const csv = ['Symbol,Side,Shares,Entry,Exit,P&L,Confidence,Status,Date\n', ...trades.map(t => `${t.symbol},${t.side},${t.quantity || t.shares || 0},${t.entry || t.entryPrice || 0},${t.exit || t.exitPrice || 0},${t.pnl || 0},${t.confidence || '-'},${t.status || 'open'},${t.date || t.entryDate || ''}`)].join('');
+                      const blob = new Blob([csv], { type: 'text/csv' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `trades_${new Date().toISOString().split('T')[0]}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                      addNotification({ type: 'system', title: 'Export Complete', message: `Downloaded ${trades.length} trades`, icon: '✓' });
+                    }}
+                    className="px-4 py-2 bg-slate-800/50 hover:bg-slate-700/70 text-slate-400 hover:text-white border border-slate-700/30 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </button>
                 </div>
 
                 {/* Trades Table */}
@@ -29295,6 +29452,14 @@ INSTRUCTIONS:
                     { term: 'Paper Hands / Diamond Hands', def: 'Paper hands: selling too early out of fear. Diamond hands: holding through volatility with conviction. Neither extreme is ideal — having a plan with predetermined exits is best.' },
                     { term: 'Averaging Down', def: 'Buying more shares of a losing position to lower your average cost. Can be a valid strategy with a plan, but dangerous without one — it\'s how small losses become account-ending disasters.' },
                     { term: 'Overtrading', def: 'Taking too many trades, often driven by boredom, FOMO, or the need for action. Quality over quantity — fewer, well-planned trades typically outperform high-frequency impulsive trading.' },
+                  ]},
+                  { title: 'Community & Tools', color: 'indigo', terms: [
+                    { term: 'Community Code', def: 'A private invite code to join a specific trading community within MODUS. Create or share a code to connect with other traders in a private group.' },
+                    { term: 'Anonymous Mode', def: 'Post to the community feed without revealing your username. Allows you to share analyses and ideas while maintaining privacy.' },
+                    { term: 'Spam Cooldown', def: 'A 30-second waiting period between community posts to prevent spam and maintain quality discussions.' },
+                    { term: 'Risk Calculator', def: 'Tool to calculate optimal position size based on account balance and risk tolerance. Shows position size, dollar risk, and shares to buy.' },
+                    { term: 'CSV Export', def: 'Download your trade history as a spreadsheet-compatible file for analysis in Excel or other tools.' },
+                    { term: 'Trade Tags', def: 'Labels like Scalp, Swing, or Day Trade to categorize your journal entries and track trading style performance.' },
                   ]},
                   { title: 'Analytics & Performance', color: 'sky', terms: [
                     { term: 'Equity Curve', def: 'A visual chart plotting your cumulative profit and loss over time, starting from zero. An upward-sloping equity curve indicates consistent profitability, while a jagged or declining curve suggests issues with strategy or discipline. Professional traders monitor their equity curve to detect when a strategy stops working.' },
