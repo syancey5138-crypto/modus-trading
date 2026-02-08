@@ -132,25 +132,48 @@ function App() {
           --border-color: rgba(148, 163, 184, 0.2);
           --accent: #7c3aed;
         }
+        /* Light theme — a clean, soft look (not eye-burning white) */
         .theme-light body,
-        .theme-light .min-h-screen { background: var(--bg-primary) !important; color: var(--text-primary) !important; }
-        .theme-light .card-premium,
-        .theme-light .glass { background: var(--bg-card) !important; border-color: var(--border-color) !important; }
-        .theme-light .bg-slate-900 { background: var(--bg-primary) !important; }
+        .theme-light .min-h-screen { background: #f0f2f5 !important; color: #1a1a2e !important; }
+        .theme-light .card-premium { background: rgba(255,255,255,0.9) !important; border-color: rgba(0,0,0,0.08) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
+        .theme-light .card-premium:hover { border-color: rgba(124,58,237,0.2) !important; }
+        .theme-light .glass { background: rgba(255,255,255,0.85) !important; border-color: rgba(0,0,0,0.06) !important; }
+        .theme-light .bg-slate-900 { background: #f0f2f5 !important; }
         .theme-light .bg-slate-800\\/30,
         .theme-light .bg-slate-800\\/40,
         .theme-light .bg-slate-800\\/50,
-        .theme-light .bg-slate-800\\/60 { background: var(--bg-secondary) !important; }
-        .theme-light .text-white { color: var(--text-primary) !important; }
-        .theme-light .text-slate-400,
-        .theme-light .text-slate-300 { color: var(--text-secondary) !important; }
-        .theme-light .text-slate-500,
-        .theme-light .text-slate-600 { color: var(--text-muted) !important; }
+        .theme-light .bg-slate-800\\/60 { background: rgba(255,255,255,0.7) !important; }
+        .theme-light .bg-slate-700\\/30,
+        .theme-light .bg-slate-700\\/50 { background: rgba(0,0,0,0.04) !important; }
+        .theme-light .text-white { color: #1a1a2e !important; }
+        .theme-light .text-slate-300 { color: #374151 !important; }
+        .theme-light .text-slate-400 { color: #6b7280 !important; }
+        .theme-light .text-slate-500 { color: #9ca3af !important; }
+        .theme-light .text-slate-600 { color: #9ca3af !important; }
+        .theme-light .text-slate-200 { color: #374151 !important; }
+        .theme-light .border-slate-700\\/10,
+        .theme-light .border-slate-700\\/15,
         .theme-light .border-slate-700\\/20,
         .theme-light .border-slate-700\\/30,
-        .theme-light .border-slate-700\\/50 { border-color: var(--border-color) !important; }
-        .theme-light .sidebar-glass { background: rgba(255,255,255,0.92) !important; border-right-color: var(--border-color) !important; }
-        .theme-light .bg-gradient-to-b.from-slate-900 { background: linear-gradient(to bottom, var(--bg-primary), var(--bg-secondary)) !important; }
+        .theme-light .border-slate-700\\/50 { border-color: rgba(0,0,0,0.08) !important; }
+        .theme-light .sidebar-glass { background: rgba(255,255,255,0.95) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+        .theme-light .bg-gradient-to-b { background: linear-gradient(to bottom, #f0f2f5, #e8eaee) !important; }
+        .theme-light .bg-gradient-to-br { background: linear-gradient(to bottom right, rgba(255,255,255,0.8), rgba(248,250,252,0.6)) !important; }
+        /* Light theme gradient overrides for colored widgets */
+        .theme-light [class*="from-emerald-500"],
+        .theme-light [class*="from-orange-500"],
+        .theme-light [class*="from-blue-500"],
+        .theme-light [class*="from-cyan-500"],
+        .theme-light [class*="from-amber-500"],
+        .theme-light [class*="from-indigo-500"],
+        .theme-light [class*="from-violet-500"],
+        .theme-light [class*="from-red-500"],
+        .theme-light [class*="from-rose-500"],
+        .theme-light [class*="from-green-500"] { background: rgba(255,255,255,0.85) !important; }
+        .theme-light .divide-slate-700 > * + * { border-color: rgba(0,0,0,0.06) !important; }
+        .theme-light input, .theme-light textarea, .theme-light select { background: rgba(255,255,255,0.9) !important; color: #1a1a2e !important; border-color: rgba(0,0,0,0.12) !important; }
+        .theme-light input::placeholder, .theme-light textarea::placeholder { color: #9ca3af !important; }
+        .theme-light .bg-gradient-to-r.from-violet-500\\/10 { background: rgba(255,255,255,0.8) !important; }
 
         /* Trade Replay animation */
         @keyframes replayPulse {
@@ -632,18 +655,25 @@ function App() {
     {
       version: '2.0.0',
       date: '2026-02-08',
-      title: '8 Major Features — Earnings, Replay, Risk, Social, Targets, Groups, PWA & Themes',
+      title: '8 Major Features + Full Widget Redesign',
       changes: [
         { type: 'feature', text: 'Earnings Calendar Widget — upcoming earnings with dates, EPS estimates, and watchlist highlighting' },
         { type: 'feature', text: 'Trade Replay Mode — review closed trades with visual entry/exit chart, P&L breakdown, and share option' },
         { type: 'feature', text: 'Risk Dashboard Widget — real-time portfolio exposure, concentration risk, max drawdown, and risk score' },
         { type: 'feature', text: 'Community Feed — share Quick Analysis results and trade replays to a social feed' },
-        { type: 'feature', text: 'Price Target Tracking — track Quick Analysis predictions with hit rate scoring' },
+        { type: 'feature', text: 'Price Target Tracking — auto-tracks Quick Analysis predictions with hit rate scoring' },
         { type: 'feature', text: 'Custom Watchlist Groups — organize watchlist into custom groups (Tech, Earnings, Momentum, etc.)' },
         { type: 'feature', text: 'PWA Support — install MODUS as a standalone app with offline caching and push notification capability' },
         { type: 'feature', text: 'Theme Toggle — switch between Midnight, Dark, and Light themes from the dashboard' },
-        { type: 'improvement', text: 'Share and Track buttons on Quick Analysis results for community sharing and target tracking' },
-        { type: 'improvement', text: 'Trade Replay button on closed trades in the journal for post-trade review' },
+        { type: 'improvement', text: 'Complete widget redesign — every widget now has gradient backgrounds, icon badges, colored borders, and polished empty states' },
+        { type: 'improvement', text: 'Light theme is now a soft off-white instead of harsh pure white' },
+        { type: 'improvement', text: 'Earnings Calendar badges use clean "1D", "TDY" format instead of ugly "Tomorrow" text' },
+        { type: 'improvement', text: 'PWA install only shows when browser actually supports installation' },
+        { type: 'improvement', text: 'Market Summary shows index full names (S&P 500, Nasdaq, etc.) and average market change' },
+        { type: 'improvement', text: 'News items now have colored sentiment borders (green=bullish, red=bearish)' },
+        { type: 'improvement', text: 'Hot Stocks has labeled Gainers/Losers sections with trend arrows' },
+        { type: 'improvement', text: 'Portfolio shows total value, allocation bars, and clickable positions' },
+        { type: 'feature', text: 'Keyboard shortcut: "t" cycles themes, "d" goes to dashboard, "j" goes to journal' },
       ]
     },
     {
@@ -1581,6 +1611,10 @@ CRITICAL RULES:
         };
         setQuickAnalysisResult(result);
         setQuickAnalysisHistory(prev => [result, ...prev.filter(h => h.ticker !== sym)].slice(0, 10));
+        // Auto-track price target (Feature 5)
+        if (safeTarget > 0 && safeStop > 0) {
+          addPriceTarget(sym, result.price, safeTarget, safeStop, result.verdict, safeConfidence);
+        }
       } else {
         throw new Error('Could not parse analysis response');
       }
@@ -2560,6 +2594,18 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // "q" to go to Quick Analysis
       if (e.key === 'q' && !e.metaKey && !e.ctrlKey) {
         setActiveTab('quickanalysis');
+      }
+      // "t" to cycle themes
+      if (e.key === 't' && !e.metaKey && !e.ctrlKey && activeTab === 'dashboard') {
+        setThemeMode(prev => prev === 'midnight' ? 'dark' : prev === 'dark' ? 'light' : 'midnight');
+      }
+      // "d" to go to dashboard
+      if (e.key === 'd' && !e.metaKey && !e.ctrlKey) {
+        setActiveTab('dashboard');
+      }
+      // "j" to go to journal
+      if (e.key === 'j' && !e.metaKey && !e.ctrlKey) {
+        setActiveTab('journal');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -12418,8 +12464,8 @@ INSTRUCTIONS:
         </div>
       )}
 
-      {/* PWA INSTALL BANNER (Feature 7) */}
-      {showInstallBanner && !isAppInstalled && (
+      {/* PWA INSTALL BANNER (Feature 7) — only when browser supports install */}
+      {showInstallBanner && !isAppInstalled && deferredPrompt && (
         <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-[55] animate-slideUp">
           <div className="bg-gradient-to-r from-violet-900/95 to-slate-900/95 backdrop-blur-xl rounded-2xl border border-violet-500/30 p-4 shadow-2xl shadow-violet-500/10">
             <div className="flex items-start gap-3">
@@ -13986,9 +14032,9 @@ INSTRUCTIONS:
                     </button>
                   ))}
                 </div>
-                {/* PWA Install (Feature 7) */}
-                {!isAppInstalled && (
-                  <button onClick={() => deferredPrompt ? handleInstallPWA() : setShowInstallBanner(true)} title="Install MODUS App"
+                {/* PWA Install (Feature 7) — only show when actually installable */}
+                {!isAppInstalled && deferredPrompt && (
+                  <button onClick={handleInstallPWA} title="Install MODUS App"
                     className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30">
                     <Download className="w-3.5 h-3.5" />
                     <span className="hidden md:inline">Install</span>
@@ -14391,9 +14437,10 @@ INSTRUCTIONS:
                     return (
                       <div {...wrapProps}>
                         <div className={`bg-gradient-to-br ${colorMap[todayTip.color] || colorMap.violet} rounded-xl border p-4 relative overflow-hidden h-full`}>
-                          <div className="absolute top-2 right-3 text-3xl opacity-10">💡</div>
+                          <div className="absolute top-2 right-3 text-3xl opacity-[0.06]">💡</div>
                           <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
-                            <Lightbulb className="w-4 h-4" /> Daily Tip
+                            <div className="p-1 bg-white/10 rounded-md"><Lightbulb className="w-3.5 h-3.5" /></div>
+                            Daily Tip
                             <span className={`text-[10px] ${badgeMap[todayTip.color]} px-1.5 py-0.5 rounded-full ml-auto font-semibold`}>{todayTip.cat}</span>
                           </h3>
                           <p className="text-xs text-slate-200 leading-relaxed">{todayTip.tip}</p>
@@ -14412,10 +14459,11 @@ INSTRUCTIONS:
                     const filteredWatchlist = activeWatchlistGroup === 'All' ? watchlist : (watchlistGroups[activeWatchlistGroup] || []).filter(s => watchlist.includes(s));
                     return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className="bg-gradient-to-br from-violet-500/8 to-slate-900/0 rounded-xl border border-violet-500/10 p-4 h-full hover:border-violet-500/20 transition-all">
                         <h3 className="text-sm font-bold mb-2 flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-violet-400" /> Watchlist
-                          <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{filteredWatchlist.length}</span>
+                          <div className="p-1 bg-violet-500/15 rounded-md"><Eye className="w-3.5 h-3.5 text-violet-400" /></div>
+                          Watchlist
+                          <span className="text-[10px] bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded-full ml-auto font-medium">{filteredWatchlist.length}</span>
                         </h3>
                         {/* Group Tabs (Feature 6) */}
                         <div className="flex items-center gap-1 mb-2 flex-wrap">
@@ -14541,58 +14589,83 @@ INSTRUCTIONS:
                   }
 
                   // ─── Portfolio ─────────────────────
-                  case 'portfolio': return (
+                  case 'portfolio': {
+                    const totalValue = portfolio.reduce((s, p) => s + (parseFloat(p.avgPrice || 0) * parseInt(p.quantity || 0)), 0);
+                    return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className="bg-gradient-to-br from-emerald-500/8 to-slate-900/0 rounded-xl border border-emerald-500/10 p-4 h-full hover:border-emerald-500/20 transition-all">
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                          <DollarSign className="w-4 h-4 text-emerald-400" /> Portfolio
-                          <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full ml-auto">{portfolio.length} positions</span>
+                          <div className="p-1 bg-emerald-500/15 rounded-md"><DollarSign className="w-3.5 h-3.5 text-emerald-400" /></div>
+                          Portfolio
+                          <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-full ml-auto font-medium">{portfolio.length} positions</span>
                         </h3>
                         {portfolio.length > 0 ? (
                           <div>
-                            {portfolio.slice(0, 5).map(pos => (
-                              <div key={pos.symbol} className="flex items-center justify-between py-1.5 text-sm">
-                                <span className="font-medium">{pos.symbol}</span>
-                                <span className="text-xs text-slate-400">{pos.quantity} @ ${parseFloat(pos.avgPrice || 0).toFixed(2)}</span>
+                            {totalValue > 0 && (
+                              <div className="mb-3 pb-2 border-b border-slate-700/20">
+                                <div className="text-[10px] text-slate-500 uppercase">Total Value</div>
+                                <div className="text-lg font-bold text-emerald-400">${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                               </div>
-                            ))}
-                            <button onClick={() => setActiveTab('portfolio')} className="mt-2 text-xs text-violet-400 hover:text-violet-300">View all →</button>
+                            )}
+                            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                              {portfolio.slice(0, 5).map(pos => {
+                                const posValue = parseFloat(pos.avgPrice || 0) * parseInt(pos.quantity || 0);
+                                const pct = totalValue > 0 ? (posValue / totalValue * 100) : 0;
+                                return (
+                                  <div key={pos.symbol} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-800/40 transition-all cursor-pointer group" onClick={() => { setTickerSymbol(pos.symbol); setActiveTab('ticker'); }}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold group-hover:text-violet-300 transition-colors">{pos.symbol}</span>
+                                      <div className="w-12 h-1 bg-slate-700/30 rounded-full overflow-hidden"><div className="h-full bg-emerald-500/50 rounded-full" style={{ width: `${pct}%` }} /></div>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400">{pos.quantity} @ ${parseFloat(pos.avgPrice || 0).toFixed(2)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <button onClick={() => setActiveTab('portfolio')} className="mt-2 text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors">View all →</button>
                           </div>
                         ) : (
                           <div className="text-center py-4">
-                            <DollarSign className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                            <p className="text-xs text-slate-500 mb-2">No positions tracked yet</p>
-                            <button onClick={() => setActiveTab('portfolio')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">
+                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-emerald-500/10 flex items-center justify-center"><DollarSign className="w-6 h-6 text-emerald-500/40" /></div>
+                            <p className="text-xs text-slate-400 mb-1">No positions tracked yet</p>
+                            <p className="text-[10px] text-slate-600 mb-3">Add your holdings to track portfolio value</p>
+                            <button onClick={() => setActiveTab('portfolio')} className="text-[10px] text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 hover:border-emerald-500/40 px-3 py-1.5 rounded-lg transition-all">
                               + Add position
                             </button>
                           </div>
                         )}
                       </div>
                     </div>
-                  );
+                    );
+                  }
 
                   // ─── Active Alerts ─────────────────────
                   case 'alerts': return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className="bg-gradient-to-br from-orange-500/8 to-slate-900/0 rounded-xl border border-orange-500/10 p-4 h-full hover:border-orange-500/20 transition-all">
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-orange-400" /> Active Alerts
-                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full ml-auto">{enabledAlertCount} active</span>
+                          <div className="p-1 bg-orange-500/15 rounded-md"><Bell className="w-3.5 h-3.5 text-orange-400" /></div>
+                          Active Alerts
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ml-auto font-medium ${enabledAlertCount > 0 ? 'bg-orange-500/15 text-orange-400' : 'bg-slate-700/50 text-slate-500'}`}>{enabledAlertCount} active</span>
                         </h3>
                         {alerts.filter(a => a.enabled).length > 0 ? (
                           <div className="space-y-1.5 max-h-40 overflow-y-auto">
                             {alerts.filter(a => a.enabled).slice(0, 5).map(alert => (
-                              <div key={alert.id} className="flex items-center justify-between px-2 py-1.5 bg-slate-800/30 rounded-lg text-xs">
-                                <span className="font-medium">{alert.symbol}</span>
-                                <span className="text-slate-400">{alert.condition} ${parseFloat(alert.price || 0).toFixed(2)}</span>
+                              <div key={alert.id} className="flex items-center justify-between px-2.5 py-2 bg-slate-800/30 rounded-lg text-xs border border-slate-700/10 hover:border-orange-500/15 transition-all group">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-1.5 h-1.5 rounded-full ${alert.condition === 'above' ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`} />
+                                  <span className="font-bold group-hover:text-orange-300 transition-colors">{alert.symbol}</span>
+                                </div>
+                                <span className="text-slate-400 font-mono">{alert.condition === 'above' ? '↑' : '↓'} ${parseFloat(alert.price || 0).toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <div className="text-center py-4">
-                            <Bell className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                            <p className="text-xs text-slate-500 mb-2">No active alerts</p>
-                            <button onClick={() => setActiveTab('alerts')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">
+                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-orange-500/10 flex items-center justify-center"><Bell className="w-6 h-6 text-orange-500/40" /></div>
+                            <p className="text-xs text-slate-400 mb-1">No active alerts</p>
+                            <p className="text-[10px] text-slate-600 mb-3">Get notified when stocks hit your target price</p>
+                            <button onClick={() => setActiveTab('alerts')} className="text-[10px] text-orange-400 hover:text-orange-300 border border-orange-500/20 hover:border-orange-500/40 px-3 py-1.5 rounded-lg transition-all">
                               + Set a price alert
                             </button>
                           </div>
@@ -14606,52 +14679,57 @@ INSTRUCTIONS:
                     const pm = performanceMetrics;
                     const wins = pm.totalTrades > 0 ? Math.round(pm.totalTrades * pm.winRate / 100) : 0;
                     const losses = pm.totalTrades - wins;
+                    const perfColor = pm.totalPnL >= 0 ? 'from-blue-500/10' : 'from-red-500/8';
+                    const perfBorder = pm.totalPnL >= 0 ? 'border-blue-500/10 hover:border-blue-500/20' : 'border-red-500/10 hover:border-red-500/20';
                     return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className={`bg-gradient-to-br ${perfColor} to-slate-900/0 rounded-xl border ${perfBorder} p-4 h-full transition-all`}>
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                          <BarChart3 className="w-4 h-4 text-blue-400" /> Performance
-                          <button onClick={() => setActiveTab('performance')} className="ml-auto text-[9px] text-violet-400 hover:text-violet-300 transition-colors">Details →</button>
+                          <div className="p-1 bg-blue-500/15 rounded-md"><BarChart3 className="w-3.5 h-3.5 text-blue-400" /></div>
+                          Performance
+                          <button onClick={() => setActiveTab('performance')} className="ml-auto text-[9px] text-blue-400 hover:text-blue-300 transition-colors">Details →</button>
                         </h3>
                         {pm.totalTrades > 0 ? (
                           <div>
+                            {/* Big P&L number */}
+                            <div className="text-center mb-3">
+                              <div className={`text-2xl font-bold ${pm.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {pm.totalPnL >= 0 ? '+' : ''}${pm.totalPnL.toFixed(0)}
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-0.5">Total P&L</div>
+                            </div>
                             {/* Win/Loss Visual Bar */}
                             <div className="mb-3">
-                              <div className="flex items-center justify-between text-[10px] mb-1">
-                                <span className="text-emerald-400 font-semibold">{wins}W</span>
-                                <span className="text-slate-500">{pm.winRate.toFixed(0)}%</span>
-                                <span className="text-red-400 font-semibold">{losses}L</span>
+                              <div className="flex items-center justify-between text-[10px] mb-1.5">
+                                <span className="text-emerald-400 font-bold">{wins}W</span>
+                                <span className="text-white font-semibold">{pm.winRate.toFixed(0)}% win rate</span>
+                                <span className="text-red-400 font-bold">{losses}L</span>
                               </div>
-                              <div className="flex h-2 rounded-full overflow-hidden bg-slate-700/30">
-                                <div className="bg-emerald-500 transition-all duration-700" style={{ width: `${pm.winRate}%` }} />
-                                <div className="bg-red-500 transition-all duration-700" style={{ width: `${100 - pm.winRate}%` }} />
+                              <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-700/30">
+                                <div className="bg-emerald-500 rounded-l-full transition-all duration-700" style={{ width: `${pm.winRate}%` }} />
+                                <div className="bg-red-500 rounded-r-full transition-all duration-700" style={{ width: `${100 - pm.winRate}%` }} />
                               </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              <div>
-                                <div className="text-[10px] text-slate-500 uppercase">Total P&L</div>
-                                <div className={`text-sm font-bold ${pm.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {pm.totalPnL >= 0 ? '+' : ''}${pm.totalPnL.toFixed(0)}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-[10px] text-slate-500 uppercase">Avg/Trade</div>
+                            {/* Stats row */}
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700/20">
+                              <div className="bg-slate-800/30 rounded-lg p-2 text-center">
+                                <div className="text-[9px] text-slate-500 uppercase">Avg/Trade</div>
                                 <div className={`text-sm font-bold ${(pm.totalPnL / pm.totalTrades) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                   {(pm.totalPnL / pm.totalTrades) >= 0 ? '+' : ''}${(pm.totalPnL / pm.totalTrades).toFixed(0)}
                                 </div>
                               </div>
-                              <div>
-                                <div className="text-[10px] text-slate-500 uppercase">PF</div>
+                              <div className="bg-slate-800/30 rounded-lg p-2 text-center">
+                                <div className="text-[9px] text-slate-500 uppercase">Profit Factor</div>
                                 <div className="text-sm font-bold text-white">{pm.profitFactor === Infinity ? '∞' : pm.profitFactor.toFixed(2)}</div>
                               </div>
                             </div>
                           </div>
                         ) : (
                           <div className="text-center py-3">
-                            <BarChart3 className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                            <p className="text-xs text-slate-500 mb-1">No performance data yet</p>
-                            <p className="text-[10px] text-slate-600 mb-2">Log your first trade to start tracking win rate, P&L, and profit factor</p>
-                            <button onClick={() => setActiveTab('journal')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">Go to Journal →</button>
+                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-blue-500/10 flex items-center justify-center"><BarChart3 className="w-6 h-6 text-blue-500/40" /></div>
+                            <p className="text-xs text-slate-400 mb-1">No performance data yet</p>
+                            <p className="text-[10px] text-slate-600 mb-3">Log trades to track win rate, P&L, and profit factor</p>
+                            <button onClick={() => setActiveTab('journal')} className="text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/20 hover:border-blue-500/40 px-3 py-1.5 rounded-lg transition-all">Go to Journal →</button>
                           </div>
                         )}
                       </div>
@@ -14660,26 +14738,37 @@ INSTRUCTIONS:
                   }
 
                   // ─── Market Summary ─────────────────────
-                  case 'marketsummary': return (
+                  case 'marketsummary': {
+                    const allChgs = ['SPY', 'QQQ', 'DIA', 'IWM'].map(s => marketData.indices[s]?.changePercent || 0);
+                    const avgMkt = allChgs.reduce((a, b) => a + b, 0) / allChgs.length;
+                    const mktGrad = avgMkt >= 0 ? 'from-cyan-500/8' : 'from-red-500/8';
+                    const mktBrd = avgMkt >= 0 ? 'border-cyan-500/10 hover:border-cyan-500/20' : 'border-red-500/10 hover:border-red-500/20';
+                    return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className={`bg-gradient-to-br ${mktGrad} to-slate-900/0 rounded-xl border ${mktBrd} p-4 h-full transition-all`}>
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                          <Activity className="w-4 h-4 text-cyan-400" /> Market Summary
-                          <button onClick={() => setActiveTab('ticker')} className="ml-auto text-[9px] text-violet-400 hover:text-violet-300 transition-colors">View chart →</button>
+                          <div className="p-1 bg-cyan-500/15 rounded-md"><Activity className="w-3.5 h-3.5 text-cyan-400" /></div>
+                          Market Summary
+                          <div className={`ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded ${avgMkt >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                            {avgMkt >= 0 ? '↑' : '↓'} {Math.abs(avgMkt).toFixed(2)}%
+                          </div>
                         </h3>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           {['SPY', 'QQQ', 'DIA', 'IWM'].map(idx => {
                             const d = marketData.indices[idx];
                             const chg = d?.changePercent || 0;
+                            const nameMap = { SPY: 'S&P 500', QQQ: 'Nasdaq', DIA: 'Dow Jones', IWM: 'Russell 2K' };
                             return (
-                              <button key={idx} onClick={() => { setTickerSymbol(idx); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/30 transition-all group">
-                                <span className="font-medium text-white group-hover:text-violet-300 transition-colors">{idx}</span>
+                              <button key={idx} onClick={() => { setTickerSymbol(idx); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-2 px-2.5 rounded-lg hover:bg-slate-800/40 border border-transparent hover:border-slate-700/20 transition-all group">
+                                <div>
+                                  <span className="font-bold text-white group-hover:text-cyan-300 transition-colors">{idx}</span>
+                                  <span className="text-[9px] text-slate-500 ml-1.5">{nameMap[idx]}</span>
+                                </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-mono text-slate-300">${(d?.price || 0).toFixed(2)}</span>
-                                  <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${chg >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                                    <span className={`font-medium ${chg >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                      {chg >= 0 ? '+' : ''}{chg.toFixed(2)}%
-                                    </span>
+                                  <span className="font-mono text-slate-300 text-[11px]">${(d?.price || 0).toFixed(2)}</span>
+                                  <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-semibold ${chg >= 0 ? 'bg-emerald-500/12 text-emerald-400' : 'bg-red-500/12 text-red-400'}`}>
+                                    {chg >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                                    <span>{chg >= 0 ? '+' : ''}{chg.toFixed(2)}%</span>
                                   </div>
                                 </div>
                               </button>
@@ -14688,38 +14777,43 @@ INSTRUCTIONS:
                         </div>
                       </div>
                     </div>
-                  );
+                    );
+                  }
 
                   // ─── Latest News ─────────────────────
                   case 'news': return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className="bg-gradient-to-br from-indigo-500/8 to-slate-900/0 rounded-xl border border-indigo-500/10 p-4 h-full hover:border-indigo-500/20 transition-all">
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                          <Newspaper className="w-4 h-4 text-blue-400" /> Latest News
-                          <button onClick={() => generateNewsFeed()} className="ml-auto p-1 rounded hover:bg-slate-700/50 text-slate-500 hover:text-white transition-all" title="Refresh news">
-                            <RefreshCw className={`w-3 h-3 ${loadingNews ? 'animate-spin' : ''}`} />
+                          <div className="p-1 bg-indigo-500/15 rounded-md"><Newspaper className="w-3.5 h-3.5 text-indigo-400" /></div>
+                          Latest News
+                          <button onClick={() => generateNewsFeed()} className="ml-auto p-1.5 rounded-md hover:bg-slate-700/50 text-slate-500 hover:text-indigo-400 transition-all" title="Refresh news">
+                            <RefreshCw className={`w-3.5 h-3.5 ${loadingNews ? 'animate-spin' : ''}`} />
                           </button>
                         </h3>
                         {loadingNews ? (
-                          <div className="flex items-center justify-center py-6 gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin text-violet-400" />
-                            <span className="text-xs text-slate-500">Fetching news...</span>
+                          <div className="flex flex-col items-center justify-center py-6 gap-2">
+                            <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                            <span className="text-[10px] text-slate-500">Fetching latest news...</span>
                           </div>
                         ) : newsFeed.length > 0 ? (
-                          <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {newsFeed.slice(0, 5).map((item, i) => (
-                              <div key={item.url || item.title || i} className="text-xs text-slate-300 py-1.5 border-b border-slate-800/30 last:border-0 flex items-start gap-1.5">
-                                <span className={`inline-block w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${item.sentiment === 'bullish' ? 'bg-emerald-400' : item.sentiment === 'bearish' ? 'bg-red-400' : 'bg-slate-500'}`} />
-                                <span className="leading-relaxed">{(item.headline || item.title || '').substring(0, 90)}{(item.headline || item.title || '').length > 90 ? '...' : ''}</span>
-                              </div>
-                            ))}
-                            <button onClick={() => setActiveTab('news')} className="text-xs text-violet-400 hover:text-violet-300 mt-1">View all news →</button>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {newsFeed.slice(0, 5).map((item, i) => {
+                              const sentColor = item.sentiment === 'bullish' ? 'border-l-emerald-500' : item.sentiment === 'bearish' ? 'border-l-red-500' : 'border-l-slate-600';
+                              return (
+                                <div key={item.url || item.title || i} className={`text-xs text-slate-300 py-2 px-2.5 rounded-lg bg-slate-800/20 border-l-2 ${sentColor} hover:bg-slate-800/40 transition-all`}>
+                                  <span className="leading-relaxed">{(item.headline || item.title || '').substring(0, 90)}{(item.headline || item.title || '').length > 90 ? '...' : ''}</span>
+                                </div>
+                              );
+                            })}
+                            <button onClick={() => setActiveTab('news')} className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors mt-1">View all news →</button>
                           </div>
                         ) : (
                           <div className="text-center py-4">
-                            <Newspaper className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                            <p className="text-xs text-slate-500 mb-2">No news loaded yet</p>
-                            <button onClick={() => generateNewsFeed()} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">Load market news</button>
+                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-indigo-500/10 flex items-center justify-center"><Newspaper className="w-6 h-6 text-indigo-500/40" /></div>
+                            <p className="text-xs text-slate-400 mb-1">No news loaded yet</p>
+                            <p className="text-[10px] text-slate-600 mb-3">Get AI-curated market news and sentiment</p>
+                            <button onClick={() => generateNewsFeed()} className="text-[10px] text-indigo-400 hover:text-indigo-300 border border-indigo-500/20 hover:border-indigo-500/40 px-3 py-1.5 rounded-lg transition-all">Load market news</button>
                           </div>
                         )}
                       </div>
@@ -14729,31 +14823,45 @@ INSTRUCTIONS:
                   // ─── Hot Stocks ─────────────────────
                   case 'hotstocks': return (
                     <div {...wrapProps}>
-                      <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4 h-full hover:border-slate-600/30 transition-all">
+                      <div className="bg-gradient-to-br from-orange-500/10 to-slate-900/0 rounded-xl border border-orange-500/10 p-4 h-full hover:border-orange-500/20 transition-all">
                         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                          <Flame className="w-4 h-4 text-orange-400" /> Hot Stocks
-                          <button onClick={() => setActiveTab('hotstocks')} className="ml-auto text-[9px] text-violet-400 hover:text-violet-300 transition-colors">View all →</button>
+                          <div className="p-1 bg-orange-500/15 rounded-md"><Flame className="w-3.5 h-3.5 text-orange-400" /></div>
+                          Hot Stocks
+                          <button onClick={() => setActiveTab('hotstocks')} className="ml-auto text-[9px] text-orange-400 hover:text-orange-300 transition-colors">View all →</button>
                         </h3>
                         {hotStocks.gainers?.length > 0 || hotStocks.losers?.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {(hotStocks.gainers || []).slice(0, 4).map((s, i) => (
-                              <button key={s.symbol || `g${i}`} onClick={() => { setTickerSymbol(s.symbol); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/30 transition-all group">
-                                <span className="font-medium group-hover:text-violet-300 transition-colors">{s.symbol}</span>
-                                <span className="text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded">+{(s.changePercent || 0).toFixed(2)}%</span>
-                              </button>
-                            ))}
-                            {(hotStocks.losers || []).slice(0, 2).map((s, i) => (
-                              <button key={s.symbol || `l${i}`} onClick={() => { setTickerSymbol(s.symbol); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/30 transition-all group">
-                                <span className="font-medium group-hover:text-violet-300 transition-colors">{s.symbol}</span>
-                                <span className="text-red-400 font-medium bg-red-500/10 px-1.5 py-0.5 rounded">{(s.changePercent || 0).toFixed(2)}%</span>
-                              </button>
-                            ))}
+                          <div>
+                            {(hotStocks.gainers || []).length > 0 && <div className="text-[9px] text-emerald-500/60 uppercase tracking-wider font-bold mb-1">Gainers</div>}
+                            <div className="space-y-1 mb-2">
+                              {(hotStocks.gainers || []).slice(0, 4).map((s, i) => (
+                                <button key={s.symbol || `g${i}`} onClick={() => { setTickerSymbol(s.symbol); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-emerald-500/5 border border-transparent hover:border-emerald-500/10 transition-all group">
+                                  <span className="font-bold group-hover:text-emerald-300 transition-colors">{s.symbol}</span>
+                                  <div className="flex items-center gap-1">
+                                    <TrendingUp className="w-2.5 h-2.5 text-emerald-400" />
+                                    <span className="text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded-md">+{(s.changePercent || 0).toFixed(2)}%</span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                            {(hotStocks.losers || []).length > 0 && <div className="text-[9px] text-red-500/60 uppercase tracking-wider font-bold mb-1 pt-1 border-t border-slate-700/20">Losers</div>}
+                            <div className="space-y-1">
+                              {(hotStocks.losers || []).slice(0, 2).map((s, i) => (
+                                <button key={s.symbol || `l${i}`} onClick={() => { setTickerSymbol(s.symbol); setActiveTab('ticker'); }} className="w-full flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-red-500/5 border border-transparent hover:border-red-500/10 transition-all group">
+                                  <span className="font-bold group-hover:text-red-300 transition-colors">{s.symbol}</span>
+                                  <div className="flex items-center gap-1">
+                                    <TrendingDown className="w-2.5 h-2.5 text-red-400" />
+                                    <span className="text-red-400 font-semibold bg-red-500/10 px-1.5 py-0.5 rounded-md">{(s.changePercent || 0).toFixed(2)}%</span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         ) : (
                           <div className="text-center py-4">
-                            <Flame className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                            <p className="text-xs text-slate-500 mb-2">No scan data yet</p>
-                            <button onClick={() => setActiveTab('hotstocks')} className="text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all">Run Market Scanner</button>
+                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-orange-500/10 flex items-center justify-center"><Flame className="w-6 h-6 text-orange-500/40" /></div>
+                            <p className="text-xs text-slate-400 mb-1">No scan data yet</p>
+                            <p className="text-[10px] text-slate-600 mb-3">Scan the market for top movers</p>
+                            <button onClick={() => setActiveTab('hotstocks')} className="text-[10px] text-orange-400 hover:text-orange-300 border border-orange-500/20 hover:border-orange-500/40 px-3 py-1.5 rounded-lg transition-all">Run Market Scanner</button>
                           </div>
                         )}
                       </div>
@@ -14943,37 +15051,38 @@ INSTRUCTIONS:
                     const watchlistEarnings = upcomingEarnings.filter(e => watchlist.includes(e.ticker));
                     return (
                       <div {...wrapProps}>
-                        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
+                        <div className="bg-gradient-to-br from-amber-500/8 to-slate-900/0 rounded-xl p-4 border border-amber-500/10 hover:border-amber-500/20 transition-all">
                           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-amber-400" />
+                            <div className="p-1 bg-amber-500/15 rounded-md"><Calendar className="w-3.5 h-3.5 text-amber-400" /></div>
                             Earnings Calendar
                             {watchlistEarnings.length > 0 && (
-                              <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-medium">{watchlistEarnings.length} on watchlist</span>
+                              <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded-full font-medium ml-auto">{watchlistEarnings.length} on watchlist</span>
                             )}
                           </h3>
                           {upcomingEarnings.length > 0 ? (
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               {upcomingEarnings.map((e, i) => {
                                 const daysDiff = Math.ceil((e.date - now) / 86400000);
-                                const dayLabel = daysDiff === 0 ? 'Today' : daysDiff === 1 ? 'Tomorrow' : `${daysDiff}d`;
+                                const dayLabel = daysDiff === 0 ? 'TDY' : daysDiff === 1 ? '1D' : `${daysDiff}D`;
                                 const isOnWatchlist = watchlist.includes(e.ticker);
+                                const urgencyColor = daysDiff <= 1 ? 'bg-red-500/20 text-red-400 border-red-500/20' : daysDiff <= 3 ? 'bg-amber-500/15 text-amber-400 border-amber-500/15' : 'bg-slate-700/30 text-slate-400 border-slate-700/20';
                                 return (
                                   <button key={i} onClick={() => { setTickerSymbol(e.ticker); setActiveTab('ticker'); }}
-                                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all hover:bg-slate-700/30 ${isOnWatchlist ? 'bg-amber-500/5 border border-amber-500/10' : ''}`}>
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold ${daysDiff <= 1 ? 'bg-red-500/20 text-red-400' : daysDiff <= 3 ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-400'}`}>
+                                    className={`w-full flex items-center gap-2.5 p-2.5 rounded-lg text-left transition-all hover:bg-slate-800/40 border ${isOnWatchlist ? 'border-amber-500/15 bg-amber-500/5' : 'border-slate-700/10 hover:border-amber-500/10'}`}>
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-extrabold border ${urgencyColor}`}>
                                       {dayLabel}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-bold text-white">{e.ticker}</span>
-                                        <span className={`text-[9px] px-1 py-0.5 rounded ${e.time === 'BMO' ? 'bg-blue-500/20 text-blue-400' : 'bg-violet-500/20 text-violet-400'}`}>{e.time === 'BMO' ? '☀ Pre' : '🌙 After'}</span>
+                                        <span className={`text-[8px] px-1 py-0.5 rounded-md font-medium ${e.time === 'BMO' ? 'bg-sky-500/15 text-sky-400' : 'bg-violet-500/15 text-violet-400'}`}>{e.time === 'BMO' ? 'Pre-Mkt' : 'After-Hrs'}</span>
                                         {isOnWatchlist && <Eye className="w-3 h-3 text-amber-400" />}
                                       </div>
                                       <div className="text-[10px] text-slate-500 truncate">{e.company}</div>
                                     </div>
                                     <div className="text-right">
-                                      <div className="text-[10px] text-slate-400">Est. EPS</div>
-                                      <div className="text-xs font-semibold text-emerald-400">{e.estEPS}</div>
+                                      <div className="text-[9px] text-slate-500 uppercase">Est. EPS</div>
+                                      <div className="text-xs font-bold text-emerald-400">{e.estEPS}</div>
                                     </div>
                                   </button>
                                 );
@@ -14981,8 +15090,8 @@ INSTRUCTIONS:
                             </div>
                           ) : (
                             <div className="text-center py-4">
-                              <Calendar className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                              <p className="text-xs text-slate-500">No upcoming earnings</p>
+                              <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-amber-500/10 flex items-center justify-center"><Calendar className="w-6 h-6 text-amber-500/40" /></div>
+                              <p className="text-xs text-slate-400">No upcoming earnings</p>
                             </div>
                           )}
                         </div>
@@ -14995,11 +15104,12 @@ INSTRUCTIONS:
                     const riskColor = dashRiskMetrics.riskScore <= 30 ? 'text-emerald-400' : dashRiskMetrics.riskScore <= 60 ? 'text-amber-400' : 'text-red-400';
                     const riskBarColor = dashRiskMetrics.riskScore <= 30 ? 'bg-emerald-500' : dashRiskMetrics.riskScore <= 60 ? 'bg-amber-500' : 'bg-red-500';
                     const riskLabel = dashRiskMetrics.riskScore <= 30 ? 'Low Risk' : dashRiskMetrics.riskScore <= 60 ? 'Moderate' : 'High Risk';
+                    const riskGrad = dashRiskMetrics.riskScore <= 30 ? 'from-emerald-500/8' : dashRiskMetrics.riskScore <= 60 ? 'from-amber-500/8' : 'from-red-500/8';
                     return (
                       <div {...wrapProps}>
-                        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/20 hover:border-violet-500/20 transition-all">
+                        <div className={`bg-gradient-to-br ${riskGrad} to-slate-900/0 rounded-xl p-4 border border-slate-700/10 hover:border-violet-500/20 transition-all`}>
                           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-blue-400" />
+                            <div className="p-1 bg-blue-500/15 rounded-md"><Shield className="w-3.5 h-3.5 text-blue-400" /></div>
                             Risk Dashboard
                           </h3>
                           {trades.length > 0 ? (
