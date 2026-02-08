@@ -14290,10 +14290,10 @@ INSTRUCTIONS:
 
                   // ─── Market Mood / Fear & Greed Estimate ─────────────────────
                   case 'feargreed': {
-                    const spyData = marketOverviewData?.['SPY'] || {};
-                    const vixData = marketOverviewData?.['%5EVIX'] || marketOverviewData?.['VIX'] || {};
-                    const vixPrice = vixData.price || vixData.regularMarketPrice || 0;
-                    const spyChange = spyData.changePercent || spyData.regularMarketChangePercent || 0;
+                    const spyData = marketData?.indices?.SPY || {};
+                    const vixData = marketData?.vix || {};
+                    const vixPrice = vixData.price || 0;
+                    const spyChange = spyData.changePercent || 0;
                     let moodScore = 50;
                     if (vixPrice > 0) {
                       if (vixPrice < 15) moodScore += 25;
