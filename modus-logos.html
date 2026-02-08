@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MODUS Logo Designs - Trading Analysis Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1a1f35 100%);
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #a78bfa 0%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .logo-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 30px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: fadeInUp 0.6s ease-out forwards;
+            opacity: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .logo-card:nth-child(1) { animation-delay: 0.1s; }
+        .logo-card:nth-child(2) { animation-delay: 0.2s; }
+        .logo-card:nth-child(3) { animation-delay: 0.3s; }
+        .logo-card:nth-child(4) { animation-delay: 0.4s; }
+        .logo-card:nth-child(5) { animation-delay: 0.5s; }
+
+        .logo-card:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(168, 139, 250, 0.1) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+            pointer-events: none;
+        }
+
+        .logo-card:hover {
+            transform: translateY(-8px);
+            border-color: #64748b;
+            box-shadow: 0 20px 40px rgba(168, 139, 250, 0.15);
+        }
+
+        .logo-card:hover:before {
+            opacity: 1;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1a1f35 100%);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            min-height: 200px;
+        }
+
+        .logo-container svg {
+            max-width: 100%;
+            height: auto;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
+        }
+
+        .logo-info h3 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        .logo-info p {
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .logo-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: rgba(168, 139, 250, 0.15);
+            border: 1px solid rgba(168, 139, 250, 0.3);
+            color: #c4b5fd;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        footer {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9rem;
+            padding-top: 30px;
+            border-top: 1px solid #334155;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .gallery {
+                grid-template-columns: 1fr;
+            }
+
+            .logo-container {
+                min-height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>MODUS Logo Designs</h1>
+            <p class="subtitle">AI-Powered Stock Trading Analysis Platform</p>
+        </header>
+
+        <div class="gallery">
+            <!-- Logo 1: MODUS Pulse -->
+            <div class="logo-card">
+                <div class="logo-container">
+                    <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#7c3aed;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="pulseGlow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                            <filter id="shadowPulse">
+                                <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+                            </filter>
+                        </defs>
+
+                        <!-- Base text background -->
+                        <text x="200" y="125" font-family="'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="700" text-anchor="middle" fill="#1e293b" opacity="0.5">MODUS</text>
+
+                        <!-- M -->
+                        <text x="55" y="125" font-family="'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="700" fill="#e2e8f0" filter="url(#shadowPulse)">M</text>
+
+                        <!-- O (first) - will be replaced with pulse -->
+                        <text x="120" y="125" font-family="'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="700" fill="none">O</text>
+
+                        <!-- Pulse visualization replacing O -->
+                        <circle cx="120" cy="100" r="22" fill="none" stroke="url(#pulseGradient)" stroke-width="3" opacity="0.3"/>
+                        <circle cx="120" cy="100" r="18" fill="none" stroke="url(#pulseGradient)" stroke-width="2" opacity="0.6"/>
+                        <circle cx="120" cy="100" r="14" fill="url(#pulseGradient)" opacity="0.8"/>
+
+                        <!-- Pulse line extending right -->
+                        <path d="M 145 100 Q 165 95, 185 105 T 225 100 T 265 105"
+                              stroke="url(#pulseGradient)" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#pulseGlow)"/>
+
+                        <!-- D -->
+                        <text x="235" y="125" font-family="'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="700" fill="#e2e8f0" filter="url(#shadowPulse)">D</text>
+
+                        <!-- U -->
+                        <text x="305" y="125" font-family="'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="700" fill="#e2e8f0" filter="url(#shadowPulse)">U</text>
+
+                        <!-- S -->
+                        <text x="360" y="125" font-family="'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="700" fill="#e2e8f0" filter="url(#shadowPulse)">S</text>
+                    </svg>
+                </div>
+                <div class="logo-info">
+                    <h3>MODUS Pulse</h3>
+                    <p>The heartbeat of the market. The "O" transforms into a living pulse that flows into a stock chart line, representing the alive, dynamic nature of trading.</p>
+                    <div class="logo-tags">
+                        <span class="tag">Alive & Dynamic</span>
+                        <span class="tag">Purple-Cyan</span>
+                        <span class="tag">Heartbeat</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logo 2: MODUS Analytics -->
+            <div class="logo-card">
+                <div class="logo-container">
+                    <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="bullishGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.8" />
+                                <stop offset="100%" style="stop-color:#34d399;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="candleGlow">
+                                <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                            <filter id="textShadow">
+                                <feDropShadow dx="0" dy="3" stdDeviation="2" flood-opacity="0.4"/>
+                            </filter>
+                        </defs>
+
+                        <!-- Background glow -->
+                        <rect x="0" y="0" width="400" height="200" fill="none"/>
+
+                        <!-- Candlestick 1 (M) -->
+                        <g transform="translate(45, 0)">
+                            <rect x="2" y="95" width="12" height="35" fill="url(#bullishGradient)" filter="url(#candleGlow)"/>
+                            <rect x="0" y="92" width="16" height="3" fill="#10b981"/>
+                            <line x1="8" y1="92" x2="8" y2="130" stroke="#10b981" stroke-width="1"/>
+                        </g>
+
+                        <!-- Candlestick 2 (O) -->
+                        <g transform="translate(110, 0)">
+                            <rect x="2" y="75" width="12" height="55" fill="url(#bullishGradient)" filter="url(#candleGlow)"/>
+                            <rect x="0" y="72" width="16" height="3" fill="#10b981"/>
+                            <line x1="8" y1="72" x2="8" y2="130" stroke="#10b981" stroke-width="1"/>
+                        </g>
+
+                        <!-- Candlestick 3 (D) -->
+                        <g transform="translate(175, 0)">
+                            <rect x="2" y="55" width="12" height="75" fill="url(#bullishGradient)" filter="url(#candleGlow)"/>
+                            <rect x="0" y="52" width="16" height="3" fill="#10b981"/>
+                            <line x1="8" y1="52" x2="8" y2="130" stroke="#10b981" stroke-width="1"/>
+                        </g>
+
+                        <!-- Candlestick 4 (U) -->
+                        <g transform="translate(240, 0)">
+                            <rect x="2" y="35" width="12" height="95" fill="url(#bullishGradient)" filter="url(#candleGlow)"/>
+                            <rect x="0" y="32" width="16" height="3" fill="#10b981"/>
+                            <line x1="8" y1="32" x2="8" y2="130" stroke="#10b981" stroke-width="1"/>
+                        </g>
+
+                        <!-- Candlestick 5 (S) -->
+                        <g transform="translate(305, 0)">
+                            <rect x="2" y="20" width="12" height="110" fill="url(#bullishGradient)" filter="url(#candleGlow)"/>
+                            <rect x="0" y="17" width="16" height="3" fill="#10b981"/>
+                            <line x1="8" y1="17" x2="8" y2="130" stroke="#10b981" stroke-width="1"/>
+                        </g>
+
+                        <!-- Text overlay -->
+                        <text x="200" y="165" font-family="'Helvetica Neue', Arial, sans-serif" font-size="68" font-weight="700" text-anchor="middle" fill="#e2e8f0" filter="url(#textShadow)" letter-spacing="2">MODUS</text>
+
+                        <!-- Subtitle -->
+                        <text x="200" y="185" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="600" text-anchor="middle" fill="#94a3b8" letter-spacing="1">TRADING PLATFORM</text>
+                    </svg>
+                </div>
+                <div class="logo-info">
+                    <h3>MODUS Analytics</h3>
+                    <p>Rising candlesticks represent bullish growth and upward momentum. Each letter aligns with progressively taller candles, symbolizing a methodical climb to success.</p>
+                    <div class="logo-tags">
+                        <span class="tag">Bullish Trend</span>
+                        <span class="tag">Green Gradient</span>
+                        <span class="tag">Growth</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logo 3: MODUS Circuit -->
+            <div class="logo-card">
+                <div class="logo-container">
+                    <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="circuitGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.8" />
+                                <stop offset="100%" style="stop-color:#0891b2;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="nodeGlow">
+                                <feGaussianBlur stdDeviation="2"/>
+                                <feMerge>
+                                    <feMergeNode/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                            <filter id="circuitShadow">
+                                <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.5"/>
+                            </filter>
+                            <radialGradient id="nodePulse" r="50%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0" />
+                            </radialGradient>
+                        </defs>
+
+                        <!-- Circuit traces connecting letters -->
+                        <!-- M to O -->
+                        <path d="M 90 100 L 110 85 L 130 100" stroke="url(#circuitGradient)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#circuitShadow)"/>
+
+                        <!-- O to D -->
+                        <path d="M 150 100 L 170 115 L 195 100" stroke="url(#circuitGradient)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#circuitShadow)"/>
+
+                        <!-- D to U -->
+                        <path d="M 215 100 L 240 90 L 260 110" stroke="url(#circuitGradient)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#circuitShadow)"/>
+
+                        <!-- U to S -->
+                        <path d="M 280 100 L 305 105 L 325 95" stroke="url(#circuitGradient)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#circuitShadow)"/>
+
+                        <!-- Connection nodes (glowing dots) -->
+                        <circle cx="110" cy="85" r="5" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="110" cy="85" r="3" fill="#06b6d4"/>
+
+                        <circle cx="170" cy="115" r="5" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="170" cy="115" r="3" fill="#06b6d4"/>
+
+                        <circle cx="240" cy="90" r="5" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="240" cy="90" r="3" fill="#06b6d4"/>
+
+                        <circle cx="305" cy="105" r="5" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="305" cy="105" r="3" fill="#06b6d4"/>
+
+                        <!-- Letter nodes -->
+                        <circle cx="55" cy="110" r="6" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="55" cy="110" r="4" fill="#06b6d4"/>
+
+                        <circle cx="140" cy="105" r="6" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="140" cy="105" r="4" fill="#06b6d4"/>
+
+                        <circle cx="210" cy="108" r="6" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="210" cy="108" r="4" fill="#06b6d4"/>
+
+                        <circle cx="280" cy="112" r="6" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="280" cy="112" r="4" fill="#06b6d4"/>
+
+                        <circle cx="340" cy="105" r="6" fill="url(#nodePulse)" filter="url(#nodeGlow)"/>
+                        <circle cx="340" cy="105" r="4" fill="#06b6d4"/>
+
+                        <!-- Main text -->
+                        <text x="200" y="140" font-family="'Courier New', monospace" font-size="70" font-weight="700" text-anchor="middle" fill="#e2e8f0" filter="url(#circuitShadow)" letter-spacing="3">MODUS</text>
+                    </svg>
+                </div>
+                <div class="logo-info">
+                    <h3>MODUS Circuit</h3>
+                    <p>Circuit board traces with glowing nodes represent AI and technological intelligence. The interconnected design shows how data flows through the platform, powering intelligent trading decisions.</p>
+                    <div class="logo-tags">
+                        <span class="tag">Tech Intelligence</span>
+                        <span class="tag">Cyan Glow</span>
+                        <span class="tag">AI-Powered</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logo 4: MODUS Horizon -->
+            <div class="logo-card">
+                <div class="logo-container">
+                    <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="horizonGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#d946ef;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="sunGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="horizonGlow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                            <filter id="textGlow">
+                                <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.4"/>
+                            </filter>
+                        </defs>
+
+                        <!-- Rising sun arc -->
+                        <path d="M 80 150 Q 200 60, 320 150" stroke="url(#sunGradient)" stroke-width="4" fill="none" stroke-linecap="round" filter="url(#horizonGlow)"/>
+
+                        <!-- Sun glow -->
+                        <circle cx="200" cy="70" r="28" fill="url(#sunGradient)" opacity="0.3" filter="url(#horizonGlow)"/>
+                        <circle cx="200" cy="70" r="22" fill="url(#sunGradient)" opacity="0.5" filter="url(#horizonGlow)"/>
+                        <circle cx="200" cy="70" r="16" fill="url(#sunGradient)" filter="url(#horizonGlow)"/>
+
+                        <!-- Horizon line -->
+                        <path d="M 20 160 L 380 160" stroke="url(#horizonGradient)" stroke-width="3" opacity="0.8" filter="url(#horizonGlow)"/>
+
+                        <!-- Growth rays -->
+                        <line x1="100" y1="150" x2="100" y2="120" stroke="url(#horizonGradient)" stroke-width="1.5" opacity="0.4"/>
+                        <line x1="150" y1="155" x2="150" y2="100" stroke="url(#horizonGradient)" stroke-width="1.5" opacity="0.5"/>
+                        <line x1="200" y1="160" x2="200" y2="70" stroke="url(#horizonGradient)" stroke-width="2" opacity="0.6"/>
+                        <line x1="250" y1="155" x2="250" y2="100" stroke="url(#horizonGradient)" stroke-width="1.5" opacity="0.5"/>
+                        <line x1="300" y1="150" x2="300" y2="120" stroke="url(#horizonGradient)" stroke-width="1.5" opacity="0.4"/>
+
+                        <!-- Main text - bold and confident -->
+                        <text x="200" y="95" font-family="'Helvetica Neue', Arial, sans-serif" font-size="72" font-weight="900" text-anchor="middle" fill="#f1f5f9" filter="url(#textGlow)" letter-spacing="2">MODUS</text>
+                    </svg>
+                </div>
+                <div class="logo-info">
+                    <h3>MODUS Horizon</h3>
+                    <p>A rising sun over the horizon symbolizes growth, new opportunities, and the journey ahead. Bold, confident typography conveys ambition and forward momentum in your trading career.</p>
+                    <div class="logo-tags">
+                        <span class="tag">Growth & Ambition</span>
+                        <span class="tag">Warm Gradient</span>
+                        <span class="tag">Forward Motion</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logo 5: MODUS Blueprint -->
+            <div class="logo-card">
+                <div class="logo-container">
+                    <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="blueprintGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="blueprintGlow">
+                                <feGaussianBlur stdDeviation="1"/>
+                                <feMerge>
+                                    <feMergeNode/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                            <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0ea5e9" stroke-width="0.5" opacity="0.2"/>
+                            </pattern>
+                        </defs>
+
+                        <!-- Grid background -->
+                        <rect width="400" height="200" fill="url(#gridPattern)"/>
+
+                        <!-- Outer measurement frame -->
+                        <g stroke="url(#blueprintGradient)" stroke-width="1.5" fill="none" opacity="0.6">
+                            <!-- Top measurement line -->
+                            <line x1="30" y1="20" x2="370" y2="20"/>
+                            <line x1="30" y1="15" x2="30" y2="25"/>
+                            <line x1="370" y1="15" x2="370" y2="25"/>
+                            <text x="200" y="12" font-family="monospace" font-size="8" text-anchor="middle" fill="#0ea5e9" opacity="0.5">370px</text>
+
+                            <!-- Left measurement line -->
+                            <line x1="20" y1="40" x2="20" y2="160"/>
+                            <line x1="15" y1="40" x2="25" y2="40"/>
+                            <line x1="15" y1="160" x2="25" y2="160"/>
+                            <text x="10" y="105" font-family="monospace" font-size="8" text-anchor="end" fill="#0ea5e9" opacity="0.5">120px</text>
+                        </g>
+
+                        <!-- Crosshairs around text -->
+                        <g stroke="url(#blueprintGradient)" stroke-width="1" opacity="0.4" filter="url(#blueprintGlow)">
+                            <!-- Left crosshair -->
+                            <line x1="35" y1="95" x2="35" y2="120"/>
+                            <line x1="25" y1="107" x2="45" y2="107"/>
+                            <circle cx="35" cy="107" r="3" fill="none" stroke="url(#blueprintGradient)" stroke-width="0.5"/>
+
+                            <!-- Right crosshair -->
+                            <line x1="365" y1="95" x2="365" y2="120"/>
+                            <line x1="355" y1="107" x2="375" y2="107"/>
+                            <circle cx="365" cy="107" r="3" fill="none" stroke="url(#blueprintGradient)" stroke-width="0.5"/>
+                        </g>
+
+                        <!-- Main text with thin, precise lines -->
+                        <text x="200" y="130" font-family="'Courier New', monospace" font-size="66" font-weight="600" text-anchor="middle" fill="#e0f2fe" filter="url(#blueprintGlow)" letter-spacing="4" stroke="url(#blueprintGradient)" stroke-width="0.5" opacity="0.95">MODUS</text>
+
+                        <!-- Dimension lines and marks -->
+                        <g stroke="url(#blueprintGradient)" stroke-width="0.8" fill="none" opacity="0.5">
+                            <!-- M dimension -->
+                            <line x1="45" y1="150" x2="45" y2="160"/>
+                            <line x1="45" y1="155" x2="65" y2="155"/>
+                            <line x1="65" y1="150" x2="65" y2="160"/>
+
+                            <!-- S dimension -->
+                            <line x1="335" y1="150" x2="335" y2="160"/>
+                            <line x1="335" y1="155" x2="355" y2="155"/>
+                            <line x1="355" y1="150" x2="355" y2="160"/>
+                        </g>
+
+                        <!-- Center alignment marks -->
+                        <circle cx="200" cy="100" r="2" fill="#0ea5e9" opacity="0.4"/>
+                        <g stroke="#0ea5e9" stroke-width="0.5" opacity="0.3">
+                            <line x1="195" y1="100" x2="205" y2="100"/>
+                            <line x1="200" y1="95" x2="200" y2="105"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="logo-info">
+                    <h3>MODUS Blueprint</h3>
+                    <p>Styled like an architect's blueprint with precise lines, grids, and measurement marks. This design embodies the systematic, disciplined methodology that "MODUS" represents—the method behind successful trading.</p>
+                    <div class="logo-tags">
+                        <span class="tag">Precision & Method</span>
+                        <span class="tag">Blue Grid</span>
+                        <span class="tag">Technical</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>MODUS — Trading with Method. AI-Powered Analysis. Systematic Success.</p>
+        </footer>
+    </div>
+</body>
+</html>

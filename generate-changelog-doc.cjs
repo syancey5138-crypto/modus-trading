@@ -615,9 +615,10 @@ let totalFeatures = 0, totalFixes = 0, totalImprovements = 0;
 versions.forEach(v => {
   v.sections.forEach(section => {
     section.items.forEach(item => {
-      if (section.type === 'Features' || section.type === 'Major Features') totalFeatures++;
-      if (section.type === 'Bug Fixes') totalFixes++;
-      if (section.type === 'Improvements' || section.type === 'UI Enhancements' || section.type === 'Design & UX Improvements') totalImprovements++;
+      const t = section.type.toLowerCase();
+      if (t.includes('feature') || t.includes('major')) totalFeatures++;
+      else if (t.includes('fix')) totalFixes++;
+      else totalImprovements++;
     });
   });
 });
@@ -628,33 +629,26 @@ const children = [];
 children.push(
   new Paragraph({ spacing: { after: 100 }, children: [] }),
   new Paragraph({ spacing: { after: 100 }, children: [] }),
-  new Paragraph({ spacing: { after: 100 }, children: [] }),
   new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { after: 200 },
-    children: [new TextRun({ text: "MODUS", font: "Arial", size: 80, bold: true, color: VIOLET })]
+    children: [new TextRun({ text: "MODUS", font: "Arial", size: 72, bold: true, color: VIOLET })]
   }),
   new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { after: 100 },
-    children: [new TextRun({ text: "TRADING PLATFORM", font: "Arial", size: 32, color: SLATE, characterSpacing: 400 })]
+    children: [new TextRun({ text: "TRADING PLATFORM", font: "Arial", size: 28, color: SLATE, characterSpacing: 300 })]
   }),
-  new Paragraph({ spacing: { after: 500 }, children: [] }),
+  new Paragraph({ spacing: { after: 400 }, children: [] }),
   new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { after: 200 },
-    children: [new TextRun({ text: "Detailed Change Log", font: "Arial", size: 44, bold: true, color: DARK })]
+    children: [new TextRun({ text: "Complete Change Log", font: "Arial", size: 40, bold: true, color: DARK })]
   }),
   new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { after: 100 },
-    children: [new TextRun({ text: "Complete Feature & Update Documentation", font: "Arial", size: 22, italics: true, color: SLATE })]
-  }),
-  new Paragraph({ spacing: { after: 300 }, children: [] }),
-  new Paragraph({
-    alignment: AlignmentType.CENTER,
-    spacing: { after: 100 },
-    children: [new TextRun({ text: "February 5, 2026 — February 8, 2026", font: "Arial", size: 26, color: SLATE })]
+    children: [new TextRun({ text: "February 5, 2026 \u2014 February 8, 2026", font: "Arial", size: 24, color: SLATE })]
   }),
   new Paragraph({ spacing: { after: 600 }, children: [] }),
 );
@@ -688,57 +682,71 @@ children.push(
   new Paragraph({ children: [new PageBreak()] })
 );
 
+// ═══ Helper: map section type to badge label/color ═══
+function sectionTypeInfo(type) {
+  const t = type.toLowerCase();
+  if (t.includes('feature') || t.includes('major')) return { label: 'NEW', color: GREEN, bg: "D1FAE5" };
+  if (t.includes('fix')) return { label: 'FIXED', color: RED, bg: "FEE2E2" };
+  return { label: 'IMPROVED', color: BLUE, bg: "DBEAFE" };
+}
+
 // ═══ EACH VERSION ═══
 versions.forEach((ver, vi) => {
   // Version header
   children.push(
     new Paragraph({
-      spacing: { before: vi === 0 ? 0 : 400, after: 60 },
+      spacing: { before: vi === 0 ? 0 : 300, after: 100 },
       children: [
-        new TextRun({ text: `${ver.version}`, font: "Arial", size: 36, bold: true, color: VIOLET }),
-        new TextRun({ text: `  —  ${ver.date}`, font: "Arial", size: 20, color: SLATE }),
+        new TextRun({ text: `${ver.version}`, font: "Arial", size: 32, bold: true, color: VIOLET }),
+        new TextRun({ text: `  \u2014  ${ver.date}`, font: "Arial", size: 22, color: SLATE }),
       ]
     }),
     new Paragraph({
-      spacing: { after: 240 },
-      children: [new TextRun({ text: ver.title, font: "Arial", size: 26, italics: true, color: SLATE })]
+      spacing: { after: 200 },
+      children: [new TextRun({ text: ver.title, font: "Arial", size: 24, italics: true, color: SLATE })]
     }),
   );
 
-  // Sections
-  ver.sections.forEach((section, si) => {
-    // Section heading
-    children.push(
-      new Paragraph({
-        spacing: { before: si > 0 ? 160 : 0, after: 140 },
-        children: [new TextRun({ text: section.type, font: "Arial", size: 22, bold: true, color: DARK })]
-      })
-    );
-
-    // Items
-    section.items.forEach((item, ii) => {
-      // Item title (bold)
-      children.push(
-        new Paragraph({
-          spacing: { before: ii > 0 ? 80 : 0, after: 60 },
-          children: [new TextRun({ text: item.title, font: "Arial", size: 20, bold: true, color: VIOLET })]
-        })
-      );
-
-      // Item description (regular text, wrapped)
-      children.push(
-        new Paragraph({
-          spacing: { after: ii === section.items.length - 1 ? 0 : 120 },
-          alignment: AlignmentType.JUSTIFIED,
-          children: [new TextRun({ text: item.description, font: "Arial", size: 20, color: DARK })]
-        })
-      );
+  // Build table rows from all sections
+  const rows = [];
+  ver.sections.forEach(section => {
+    const info = sectionTypeInfo(section.type);
+    section.items.forEach(item => {
+      rows.push(new TableRow({
+        children: [
+          new TableCell({
+            borders,
+            width: { size: 1200, type: WidthType.DXA },
+            shading: { fill: info.bg, type: ShadingType.CLEAR },
+            margins: cellMargins,
+            verticalAlign: "center",
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: info.label, font: "Arial", size: 16, bold: true, color: info.color })] })]
+          }),
+          new TableCell({
+            borders,
+            width: { size: 8160, type: WidthType.DXA },
+            margins: cellMargins,
+            children: [
+              new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: item.title, font: "Arial", size: 20, bold: true, color: VIOLET })] }),
+              new Paragraph({ children: [new TextRun({ text: item.description, font: "Arial", size: 20, color: DARK })] }),
+            ]
+          }),
+        ]
+      }));
     });
   });
 
-  // Page break between versions (but not after the last one)
+  children.push(
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [1200, 8160],
+      rows
+    }),
+  );
+
+  // Separator / page break
   if (vi < versions.length - 1) {
-    children.push(new Paragraph({ children: [new PageBreak()] }));
+    children.push(new Paragraph({ spacing: { before: 200, after: 200 }, children: [] }));
   }
 });
 
@@ -747,33 +755,21 @@ children.push(
   new Paragraph({ children: [new PageBreak()] }),
   new Paragraph({
     spacing: { after: 200 },
-    children: [new TextRun({ text: "About This Document", font: "Arial", size: 32, bold: true, color: DARK })]
+    children: [new TextRun({ text: "About This Document", font: "Arial", size: 28, bold: true, color: DARK })]
   }),
   new Paragraph({
-    spacing: { after: 180 },
-    children: [new TextRun({ text: "Purpose", font: "Arial", size: 22, bold: true, color: VIOLET })]
+    spacing: { after: 120 },
+    children: [new TextRun({ text: "This document catalogs every change made to MODUS Trading Platform from v1.2.0 (February 5, 2026) through v2.3.0 (February 8, 2026). It is automatically generated and will be updated with each new release.", font: "Arial", size: 20, color: SLATE })]
   }),
   new Paragraph({
-    spacing: { after: 160 },
-    children: [new TextRun({ text: "This document provides a comprehensive, detailed record of every change, feature, improvement, and bug fix made to the MODUS Trading Platform from version 1.2.0 (February 5, 2026) through version 2.3.0 (February 8, 2026). It serves as both a user guide to new features and a technical reference document for the development team.", font: "Arial", size: 20, color: SLATE })]
-  }),
-  new Paragraph({
-    spacing: { after: 180 },
-    children: [new TextRun({ text: "About MODUS", font: "Arial", size: 22, bold: true, color: VIOLET })]
-  }),
-  new Paragraph({
-    spacing: { after: 160 },
-    children: [new TextRun({ text: "MODUS is an AI-powered stock analysis and trading journal platform built with React, Firebase, and Vite. It features live market data, AI-driven technical analysis, community features, comprehensive portfolio management tools, real-time notifications, and an intuitive dashboard for tracking trades and analyzing performance. MODUS empowers traders with the tools and insights they need to make better trading decisions.", font: "Arial", size: 20, color: SLATE })]
-  }),
-  new Paragraph({
-    spacing: { after: 180 },
-    children: [new TextRun({ text: "Document Generation", font: "Arial", size: 22, bold: true, color: VIOLET })]
+    spacing: { after: 120 },
+    children: [new TextRun({ text: "MODUS is an AI-powered stock analysis and trading journal platform built with React, Firebase, and Vite. It features live market data, AI-driven analysis, community features, and comprehensive portfolio management tools.", font: "Arial", size: 20, color: SLATE })]
   }),
   new Paragraph({
     spacing: { after: 200 },
     children: [
-      new TextRun({ text: "This changelog is automatically generated from source data. ", font: "Arial", size: 20, color: SLATE }),
-      new TextRun({ text: "Last updated: February 8, 2026 at " + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), font: "Arial", size: 20, bold: true, color: VIOLET }),
+      new TextRun({ text: "Last updated: ", font: "Arial", size: 20, color: SLATE }),
+      new TextRun({ text: "February 8, 2026 at " + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), font: "Arial", size: 20, bold: true, color: VIOLET }),
     ]
   }),
 );
@@ -782,7 +778,7 @@ const doc = new Document({
   styles: {
     default: {
       document: {
-        run: { font: "Arial", size: 22 }
+        run: { font: "Arial", size: 24 }
       }
     },
   },
@@ -798,8 +794,8 @@ const doc = new Document({
         children: [new Paragraph({
           alignment: AlignmentType.RIGHT,
           children: [
-            new TextRun({ text: "MODUS", font: "Arial", size: 18, bold: true, color: VIOLET }),
-            new TextRun({ text: "  |  Detailed Change Log", font: "Arial", size: 18, color: SLATE }),
+            new TextRun({ text: "MODUS", font: "Arial", size: 16, bold: true, color: VIOLET }),
+            new TextRun({ text: "  |  Change Log", font: "Arial", size: 16, color: SLATE }),
           ]
         })]
       })
@@ -820,7 +816,7 @@ const doc = new Document({
 });
 
 Packer.toBuffer(doc).then(buffer => {
-  const outPath = '/sessions/magical-ecstatic-mccarthy/mnt/Tradevision_MODUS/MODUS_Changelog_Detailed_Feb2026.docx';
+  const outPath = '/sessions/magical-ecstatic-mccarthy/mnt/Tradevision_MODUS/MODUS_Changelog_Feb7_2026.docx';
   fs.writeFileSync(outPath, buffer);
   console.log(`✓ Created: ${outPath}`);
   console.log(`  Size: ${(buffer.length / 1024).toFixed(1)} KB`);
