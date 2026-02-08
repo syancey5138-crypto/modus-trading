@@ -215,6 +215,15 @@ function App() {
           --border-color: rgba(148, 163, 184, 0.2);
           --accent: #7c3aed;
         }
+        /* Custom theme uses CSS variables set via JS */
+        .theme-custom {
+          background: var(--bg-primary) !important;
+          color: var(--text-primary) !important;
+        }
+        .theme-custom body,
+        .theme-custom .min-h-screen { background: var(--bg-primary) !important; color: var(--text-primary) !important; }
+        .theme-custom .sidebar-glass { background: var(--bg-secondary) !important; }
+        .theme-custom header[class*="border-b"] { background: var(--bg-secondary) !important; }
         /*
          * LIGHT THEME — Premium Financial App Look
          * Strategy: Keep sidebar + header DARK, lighten main content only.
@@ -3185,8 +3194,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   useEffect(() => {
     localStorage.setItem('modus_theme', themeMode);
     const root = document.documentElement;
-    root.classList.remove('theme-midnight', 'theme-dark', 'theme-light');
-    root.classList.add(`theme-${themeMode}`);
+    root.classList.remove('theme-midnight', 'theme-dark', 'theme-light', 'theme-custom');
+    // For custom themes (themeMode starts with 'custom-'), use 'theme-custom' class
+    // For built-in themes, use the theme name directly
+    if (themeMode.startsWith('custom-')) {
+      root.classList.add('theme-custom');
+    } else {
+      root.classList.add(`theme-${themeMode}`);
+    }
   }, [themeMode]);
 
   // ═══════════════════════════════════════════════
@@ -3636,7 +3651,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   }, []);
 
   const startVoiceCommand = useCallback(async () => {
-    if (!voiceRecognitionRef.current || voiceListening) return;
+    if (voiceListening) return;
+    if (!voiceRecognitionRef.current) {
+      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Voice commands require Chrome or Edge. Make sure your browser supports the Web Speech API.', icon: '🎤' });
+      return;
+    }
+
+    // Check if mediaDevices API is available (requires HTTPS or localhost)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      addNotification({ type: 'system', title: 'Voice Unavailable', message: 'Microphone access requires HTTPS. Voice commands are not available on insecure (HTTP) connections.', icon: '🎤' });
+      return;
+    }
 
     // First, request microphone permission explicitly — this triggers the browser popup
     try {
@@ -3648,7 +3673,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       addNotification({
         type: 'system',
         title: 'Microphone Access Denied',
-        message: 'MODUS needs microphone permission for voice commands. Check your browser settings and allow microphone access for this site.',
+        message: err.name === 'NotAllowedError'
+          ? 'Microphone permission was denied. Click the lock/site-settings icon in your address bar to allow microphone access.'
+          : err.name === 'NotFoundError'
+          ? 'No microphone detected. Please connect a microphone and try again.'
+          : 'Could not access microphone: ' + (err.message || err.name),
         icon: '🎤'
       });
       return;
@@ -3666,7 +3695,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       addNotification({
         type: 'system',
         title: 'Voice Error',
-        message: err.message?.includes('already started') ? 'Voice is already listening.' : 'Could not start voice recognition. Try again.',
+        message: err.message?.includes('already started') ? 'Voice is already listening.' : 'Could not start voice recognition: ' + (err.message || 'Unknown error'),
         icon: '🎤'
       });
     }
@@ -17316,7 +17345,8 @@ INSTRUCTIONS:
                   // ─── Crypto Prices ─────────────────────
                   case 'crypto': {
                     return (
-                      <div key={wKey} {...wrapProps(wKey)} className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4 hover:border-amber-500/20 transition-all">
+                      <div {...wrapProps}>
+                        <div className="bg-gradient-to-br from-amber-500/10 to-slate-900/0 rounded-xl border border-amber-500/20 p-4 h-full hover:border-amber-500/30 transition-all">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-bold text-white flex items-center gap-2">
                             <span className="text-amber-400">₿</span> Crypto Prices
@@ -17385,6 +17415,7 @@ INSTRUCTIONS:
                           </button>
                         </div>
                         <div className="mt-2 text-[9px] text-slate-600 text-center">Powered by CoinGecko • Updates every 30s</div>
+                        </div>
                       </div>
                     );
                   }
@@ -17584,7 +17615,8 @@ INSTRUCTIONS:
                     const canvasW = 400;
                     const canvasH = 250;
                     return (
-                      <div key={wKey} {...wrapProps(wKey)} className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4 hover:border-violet-500/20 transition-all">
+                      <div {...wrapProps}>
+                        <div className="bg-gradient-to-br from-violet-500/10 to-slate-900/0 rounded-xl border border-violet-500/20 p-4 h-full hover:border-violet-500/30 transition-all">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-sm font-bold text-white flex items-center gap-2">
                             <Pencil className="w-4 h-4 text-violet-400" /> Chart Drawing Tools
@@ -17641,8 +17673,8 @@ INSTRUCTIONS:
                               const y = ((e.clientY - rect.top) / rect.height) * canvasH;
 
                               if (drawingMode === 'text') {
-                                const text = prompt('Enter annotation text:');
-                                if (text) addDrawing('text', { x, y, text });
+                                const text = window.prompt('Enter annotation text:');
+                                if (text && text.trim()) addDrawing('text', { x, y, text: text.trim() });
                                 return;
                               }
                               if (drawingMode === 'horizontal') {
@@ -17752,6 +17784,7 @@ INSTRUCTIONS:
                             ))}
                           </div>
                         )}
+                        </div>
                       </div>
                     );
                   }
