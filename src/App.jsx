@@ -2587,6 +2587,39 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // NEW: Screener Presets
   const [selectedScanPreset, setSelectedScanPreset] = useState('custom');
 
+  // ═══════════════════════════════════════════════
+  // CHART DRAWING TOOLS
+  // ═══════════════════════════════════════════════
+  const [drawingMode, setDrawingMode] = useState(null); // 'line', 'horizontal', 'fibonacci', 'rectangle', 'text'
+  const [drawings, setDrawings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_drawings')) || {}; } catch { return {}; }
+  });
+  const [activeDrawing, setActiveDrawing] = useState(null);
+  const [drawingStart, setDrawingStart] = useState(null);
+  const [showDrawingTools, setShowDrawingTools] = useState(false);
+  const [drawingColor, setDrawingColor] = useState('#8b5cf6');
+  const drawingCanvasRef = useRef(null);
+
+  // Persist drawings
+  useEffect(() => {
+    localStorage.setItem('modus_drawings', JSON.stringify(drawings));
+  }, [drawings]);
+
+  const addDrawing = useCallback((type, data) => {
+    const ticker = tickerSymbol || 'default';
+    setDrawings(prev => ({
+      ...prev,
+      [ticker]: [...(prev[ticker] || []), { id: Date.now(), type, color: drawingColor, ...data, createdAt: new Date().toISOString() }]
+    }));
+    setDrawingMode(null);
+    setDrawingStart(null);
+  }, [tickerSymbol, drawingColor]);
+
+  const clearDrawings = useCallback((ticker) => {
+    setDrawings(prev => ({ ...prev, [ticker || tickerSymbol || 'default']: [] }));
+    addNotification({ type: 'success', title: 'Drawings Cleared', message: 'All drawings removed from this chart', icon: '🗑️' });
+  }, [tickerSymbol]);
+
   // NEW: Community Feed Enhanced State (v2.3.0)
   const [communityMode, setCommunityMode] = useState('local'); // 'local', 'public', 'private'
   const [communityCode, setCommunityCode] = useState(() => {
@@ -2602,6 +2635,62 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // NEW: Keyboard Shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Voice Commands
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [showVoiceOverlay, setShowVoiceOverlay] = useState(false);
+
+  // ═══════════════════════════════════════════════
+  // CRYPTO SUPPORT - CoinGecko API Integration
+  // ═══════════════════════════════════════════════
+  const [cryptoMode, setCryptoMode] = useState(false);
+  const [cryptoData, setCryptoData] = useState({});
+  const [cryptoWatchlist, setCryptoWatchlist] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_crypto_watchlist')) || ['bitcoin', 'ethereum', 'solana', 'cardano', 'dogecoin']; } catch { return ['bitcoin', 'ethereum', 'solana', 'cardano', 'dogecoin']; }
+  });
+  const [loadingCrypto, setLoadingCrypto] = useState(false);
+  const [cryptoSearch, setCryptoSearch] = useState('');
+
+  // Persist crypto watchlist
+  useEffect(() => {
+    localStorage.setItem('modus_crypto_watchlist', JSON.stringify(cryptoWatchlist));
+  }, [cryptoWatchlist]);
+
+  // Crypto ticker mapping
+  const CRYPTO_MAP = {
+    BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', ADA: 'cardano', DOGE: 'dogecoin',
+    DOT: 'polkadot', AVAX: 'avalanche-2', MATIC: 'matic-network', LINK: 'chainlink',
+    UNI: 'uniswap', ATOM: 'cosmos', XRP: 'ripple', LTC: 'litecoin', BNB: 'binancecoin',
+    SHIB: 'shiba-inu', APT: 'aptos', ARB: 'arbitrum', OP: 'optimism', SUI: 'sui',
+    NEAR: 'near', FTM: 'fantom', ALGO: 'algorand', XLM: 'stellar', VET: 'vechain'
+  };
+  const CRYPTO_SYMBOLS = Object.fromEntries(Object.entries(CRYPTO_MAP).map(([k, v]) => [v, k]));
+
+  const fetchCryptoPrices = useCallback(async () => {
+    if (cryptoWatchlist.length === 0) return;
+    setLoadingCrypto(true);
+    try {
+      const ids = cryptoWatchlist.join(',');
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`);
+      if (res.ok) {
+        const data = await res.json();
+        setCryptoData(data);
+      }
+    } catch (err) {
+      log('Crypto fetch error:', err);
+    } finally {
+      setLoadingCrypto(false);
+    }
+  }, [cryptoWatchlist]);
+
+  // Auto-refresh crypto every 30 seconds
+  useEffect(() => {
+    fetchCryptoPrices();
+    const interval = setInterval(fetchCryptoPrices, 30000);
+    return () => clearInterval(interval);
+  }, [fetchCryptoPrices]);
 
   // ═══════════════════════════════════════════════
   // FEATURE 1: Earnings Calendar Widget
@@ -3084,6 +3173,63 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     root.classList.add(`theme-${themeMode}`);
   }, [themeMode]);
 
+  // ═══════════════════════════════════════════════
+  // CUSTOM THEME BUILDER
+  // ═══════════════════════════════════════════════
+  const [showThemeBuilder, setShowThemeBuilder] = useState(false);
+  const [customThemes, setCustomThemes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_custom_themes')) || []; } catch { return []; }
+  });
+  const [editingTheme, setEditingTheme] = useState({
+    name: 'My Custom Theme',
+    bgPrimary: '#0f172a',
+    bgSecondary: '#1e293b',
+    bgCard: '#0f172a',
+    textPrimary: '#f8fafc',
+    textSecondary: '#94a3b8',
+    accent: '#8b5cf6',
+    borderColor: '#1e293b'
+  });
+
+  // Save custom themes to localStorage
+  useEffect(() => {
+    localStorage.setItem('modus_custom_themes', JSON.stringify(customThemes));
+  }, [customThemes]);
+
+  const applyCustomTheme = useCallback((theme) => {
+    const root = document.documentElement;
+    root.classList.remove('theme-midnight', 'theme-dark', 'theme-light', 'theme-custom');
+    root.classList.add('theme-custom');
+    root.style.setProperty('--bg-primary', theme.bgPrimary);
+    root.style.setProperty('--bg-secondary', theme.bgSecondary);
+    root.style.setProperty('--bg-card', theme.bgCard);
+    root.style.setProperty('--text-primary', theme.textPrimary);
+    root.style.setProperty('--text-secondary', theme.textSecondary);
+    root.style.setProperty('--accent', theme.accent);
+    root.style.setProperty('--border-color', theme.borderColor);
+    setThemeMode('custom-' + theme.name);
+    addNotification({ type: 'success', title: 'Theme Applied', message: `"${theme.name}" is now active`, icon: '🎨' });
+  }, []);
+
+  const saveCustomTheme = useCallback(() => {
+    const exists = customThemes.findIndex(t => t.name === editingTheme.name);
+    if (exists >= 0) {
+      setCustomThemes(prev => prev.map((t, i) => i === exists ? { ...editingTheme } : t));
+    } else {
+      setCustomThemes(prev => [...prev, { ...editingTheme }]);
+    }
+    applyCustomTheme(editingTheme);
+    addNotification({ type: 'success', title: 'Theme Saved', message: `"${editingTheme.name}" saved successfully`, icon: '🎨' });
+  }, [editingTheme, customThemes, applyCustomTheme]);
+
+  const deleteCustomTheme = useCallback((name) => {
+    setCustomThemes(prev => prev.filter(t => t.name !== name));
+    if (themeMode === 'custom-' + name) {
+      setThemeMode('midnight');
+    }
+    addNotification({ type: 'success', title: 'Theme Deleted', message: `"${name}" removed`, icon: '🗑️' });
+  }, [themeMode]);
+
   // Guided Setup Wizard
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [setupStep, setSetupStep] = useState(0);
@@ -3092,9 +3238,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [dashboardWidgets, setDashboardWidgets] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('modus_dashboard_widgets')) || [
-        'clock', 'quickstats', 'quicknav', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news'
+        'clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'darkpool', 'sectorrotation', 'marketbreadth', 'socialsentiment', 'tradeplan'
       ];
-    } catch { return ['clock', 'quickstats', 'quicknav', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news']; }
+    } catch { return ['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'darkpool', 'sectorrotation', 'marketbreadth', 'socialsentiment', 'tradeplan']; }
   });
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState(null);
@@ -3304,8 +3450,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [marketBreadth, setMarketBreadth] = useState(null);
   const [loadingBreadth, setLoadingBreadth] = useState(false);
   
-  // PHASE 3: Drawing Tools
-  const [drawings, setDrawings] = useState([]);
+  // PHASE 3: Drawing Tools (main state at line ~2593)
+  // const [drawings] already declared above with localStorage persistence
   const [activeTool, setActiveTool] = useState(null);
   const [showDrawingToolbar, setShowDrawingToolbar] = useState(false);
   
@@ -3427,6 +3573,125 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab]);
+
+  // =================================================================
+  // VOICE COMMAND SYSTEM
+  // =================================================================
+  const voiceRecognitionRef = useRef(null);
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+        setVoiceTranscript(transcript);
+
+        if (event.results[0].isFinal) {
+          processVoiceCommand(transcript.toLowerCase().trim());
+          setTimeout(() => { setVoiceListening(false); setShowVoiceOverlay(false); }, 1500);
+        }
+      };
+
+      recognition.onerror = () => {
+        setVoiceListening(false);
+        setShowVoiceOverlay(false);
+        addNotification({ type: 'system', title: 'Voice Error', message: 'Could not understand. Try again.', icon: '🎤' });
+      };
+
+      recognition.onend = () => {
+        setVoiceListening(false);
+      };
+
+      voiceRecognitionRef.current = recognition;
+    }
+  }, []);
+
+  const startVoiceCommand = useCallback(() => {
+    if (voiceRecognitionRef.current && !voiceListening) {
+      setVoiceTranscript('');
+      setVoiceListening(true);
+      setShowVoiceOverlay(true);
+      voiceRecognitionRef.current.start();
+    }
+  }, [voiceListening]);
+
+  const stopVoiceCommand = useCallback(() => {
+    if (voiceRecognitionRef.current && voiceListening) {
+      voiceRecognitionRef.current.stop();
+      setVoiceListening(false);
+      setShowVoiceOverlay(false);
+    }
+  }, [voiceListening]);
+
+  const processVoiceCommand = useCallback((cmd) => {
+    // Navigation commands
+    if (cmd.includes('dashboard') || cmd.includes('home')) {
+      setActiveTab('dashboard');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Navigating to Dashboard', icon: '🎤' });
+    } else if (cmd.includes('journal') || cmd.includes('trade log')) {
+      setActiveTab('journal');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Navigating to Journal', icon: '🎤' });
+    } else if (cmd.includes('quick analysis') || cmd.includes('analyze') || cmd.includes('analysis')) {
+      const tickerMatch = cmd.match(/(?:analyze|analysis|look at|check)\s+([a-z]{1,5})/i);
+      if (tickerMatch) {
+        const ticker = tickerMatch[1].toUpperCase();
+        setQuickAnalysisTicker(ticker);
+        setActiveTab('quickanalysis');
+        addNotification({ type: 'success', title: 'Voice Command', message: `Analyzing ${ticker}`, icon: '🎤' });
+      } else {
+        setActiveTab('quickanalysis');
+        addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Quick Analysis', icon: '🎤' });
+      }
+    } else if (cmd.includes('portfolio')) {
+      setActiveTab('portfolio');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Navigating to Portfolio', icon: '🎤' });
+    } else if (cmd.includes('screener') || cmd.includes('scanner')) {
+      setActiveTab('screener');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Screener', icon: '🎤' });
+    } else if (cmd.includes('paper trad')) {
+      setActiveTab('papertrading');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Paper Trading', icon: '🎤' });
+    } else if (cmd.includes('news') || cmd.includes('market news')) {
+      setActiveTab('news');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening News', icon: '🎤' });
+    } else if (cmd.includes('performance')) {
+      setActiveTab('performance');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Performance', icon: '🎤' });
+    } else if (cmd.includes('settings') || cmd.includes('api key')) {
+      setShowApiKeyModal(true);
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Settings', icon: '🎤' });
+    }
+    // Theme commands
+    else if (cmd.includes('dark mode') || cmd.includes('dark theme')) {
+      setThemeMode('dark');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Switched to Dark theme', icon: '🎤' });
+    } else if (cmd.includes('light mode') || cmd.includes('light theme')) {
+      setThemeMode('light');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Switched to Light theme', icon: '🎤' });
+    } else if (cmd.includes('midnight') || cmd.includes('default theme')) {
+      setThemeMode('midnight');
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Switched to Midnight theme', icon: '🎤' });
+    }
+    // Action commands
+    else if (cmd.includes('new trade') || cmd.includes('add trade') || cmd.includes('log trade')) {
+      setShowQuickTradeEntry(true);
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Opening Quick Trade Entry', icon: '🎤' });
+    } else if (cmd.includes('shortcut') || cmd.includes('keyboard')) {
+      setShowShortcutsOverlay(true);
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Showing Keyboard Shortcuts', icon: '🎤' });
+    } else if (cmd.includes('what\'s new') || cmd.includes('changelog') || cmd.includes('updates')) {
+      setShowChangelog(true);
+      addNotification({ type: 'success', title: 'Voice Command', message: 'Showing Changelog', icon: '🎤' });
+    } else {
+      addNotification({ type: 'system', title: 'Voice Command', message: `Didn't recognize: "${cmd}"`, icon: '🎤' });
+    }
+  }, []);
 
   // =================================================================
   // OPTIONS TRADING STATE VARIABLES
@@ -9551,11 +9816,16 @@ INSTRUCTIONS:
         e.preventDefault();
         setActiveTab('watchlist');
       }
+
+      // v: Voice Command
+      if (e.key === 'v' && voiceSupported && !e.ctrlKey && !e.metaKey) {
+        startVoiceCommand();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showNotificationCenter, showShareModal, showInfoPage, showShortcuts]);
+  }, [showNotificationCenter, showShareModal, showInfoPage, showShortcuts, voiceSupported, startVoiceCommand]);
 
   // Request notification permission on first load
   useEffect(() => {
@@ -12025,7 +12295,7 @@ INSTRUCTIONS:
             {/* Theme Selector */}
             <div className="mb-6">
               <label className="block text-sm text-slate-300 font-medium mb-3">Theme</label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 {[
                   { key: 'midnight', label: 'Midnight', emoji: '🌙', desc: 'Deep navy with purple accents' },
                   { key: 'dark', label: 'Dark', emoji: '🌑', desc: 'Classic dark mode' },
@@ -12038,7 +12308,32 @@ INSTRUCTIONS:
                     <div className="text-[10px] text-slate-500 mt-0.5">{t.desc}</div>
                   </button>
                 ))}
+                <button onClick={() => setShowThemeBuilder(true)}
+                  className="p-3 rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/30 hover:border-violet-500/30 hover:bg-violet-500/10 transition-all text-center">
+                  <div className="text-xl mb-1">🎨</div>
+                  <div className="text-sm font-semibold text-slate-400">Custom</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Create your own</div>
+                </button>
               </div>
+
+              {customThemes.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Your Custom Themes</p>
+                  {customThemes.map(t => (
+                    <div key={t.name} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg border border-slate-700/30">
+                      <div className="flex gap-1">
+                        <div className="w-4 h-4 rounded-full border border-slate-600" style={{ background: t.accent }} />
+                        <div className="w-4 h-4 rounded-full border border-slate-600" style={{ background: t.bgPrimary }} />
+                        <div className="w-4 h-4 rounded-full border border-slate-600" style={{ background: t.textPrimary }} />
+                      </div>
+                      <span className="text-xs font-medium text-slate-300 flex-1">{t.name}</span>
+                      <button onClick={() => applyCustomTheme(t)} className="text-[10px] text-violet-400 hover:text-violet-300 font-medium">Apply</button>
+                      <button onClick={() => { setEditingTheme(t); setShowThemeBuilder(true); }} className="text-[10px] text-slate-500 hover:text-slate-300">Edit</button>
+                      <button onClick={() => deleteCustomTheme(t.name)} className="text-[10px] text-red-500 hover:text-red-400">Delete</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* API Mode Selector */}
@@ -14855,6 +15150,20 @@ INSTRUCTIONS:
                   );
                 })()}
                 {/* Theme toggle moved to Settings modal */}
+                {/* Voice Command Button */}
+                {voiceSupported && (
+                  <button
+                    onClick={voiceListening ? stopVoiceCommand : startVoiceCommand}
+                    title={voiceListening ? "Stop listening" : "Voice Command"}
+                    className={`p-2 rounded-lg transition-all flex items-center gap-1.5 border ${
+                      voiceListening
+                        ? 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse'
+                        : 'bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30'
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                  </button>
+                )}
                 {/* PWA Install (Feature 7) — only show when actually installable */}
                 {!isAppInstalled && deferredPrompt && (
                   <button onClick={handleInstallPWA} title="Install MODUS App"
@@ -14916,18 +15225,27 @@ INSTRUCTIONS:
                 { key: 'markethours', label: 'Market Hours', icon: '⏰', group: 'mini', desc: 'Countdown to market open/close with pre-market and after-hours status' },
                 { key: 'econcalendar', label: 'Economic Calendar', icon: '📅', group: 'data', desc: 'Upcoming economic events — Fed meetings, CPI, jobs reports, GDP releases' },
                 { key: 'heatmap', label: 'Portfolio Heat Map', icon: '🗺️', group: 'trading', desc: 'Visual grid of your positions colored by daily P&L from green to red' },
+                { key: 'crypto', label: 'Crypto Prices', icon: '₿', group: 'data', desc: 'Live cryptocurrency prices from CoinGecko — Bitcoin, Ethereum, and more' },
+                { key: 'drawingtools', label: 'Drawing Tools', icon: '✏️', group: 'trading', desc: 'Draw trendlines, support/resistance, Fibonacci, and annotations on charts' },
+                { key: 'morningbrief', label: 'Morning Briefing', icon: '☀️', group: 'data', desc: 'AI-generated daily market briefing with key events and stocks to watch' },
+                { key: 'tradeplan', label: 'Trade Plan', icon: '📋', group: 'trading', desc: 'Set and enforce daily trade limits, max loss, and trading rules' },
+                { key: 'darkpool', label: 'Dark Pool Activity', icon: '🏦', group: 'data', desc: 'Track unusual institutional block trades and dark pool volume' },
+                { key: 'sectorrotation', label: 'Sector Rotation', icon: '🔄', group: 'data', desc: 'Visualize which sectors are rotating in and out of favor' },
+                { key: 'marketbreadth', label: 'Market Breadth', icon: '📶', group: 'data', desc: 'Advance/decline ratio and market participation strength' },
+                { key: 'socialsentiment', label: 'Social Sentiment', icon: '📱', group: 'data', desc: 'Trending tickers with AI sentiment from social media data' },
+                { key: 'xp', label: 'XP & Level', icon: '⭐', group: 'mini', desc: 'Your trading XP, level progression, and achievement tracking' },
               ];
               const orderedActive = dashboardWidgets.map(k => allWidgetDefs.find(w => w.key === k)).filter(Boolean);
               const inactive = allWidgetDefs.filter(w => !dashboardWidgets.includes(w.key));
               const groupLabels = { mini: 'Mini Widgets', trading: 'Trading', data: 'Market Data' };
               const groupColors = { mini: 'text-cyan-400', trading: 'text-violet-400', data: 'text-emerald-400' };
               return (
-                <div className="mb-6 p-4 bg-slate-800/30 rounded-xl border border-slate-700/20 animate-fadeIn">
+                <div className="mb-6 p-5 bg-gradient-to-br from-slate-800/40 to-slate-900/40 rounded-2xl border border-slate-700/20 animate-fadeIn shadow-xl shadow-black/10">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold">Widgets & Layout</h3>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-slate-500">Drag cards or use arrows to reorder</span>
-                      <button onClick={() => setDashboardWidgets(['clock', 'quickstats', 'quicknav', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news'])} className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors">Reset to default</button>
+                      <button onClick={() => setDashboardWidgets(['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'darkpool', 'sectorrotation', 'marketbreadth', 'socialsentiment', 'tradeplan'])} className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors">Reset to default</button>
                     </div>
                   </div>
                   {/* Active widgets - grouped by category */}
@@ -14940,11 +15258,16 @@ INSTRUCTIONS:
                           {showGroupLabel && (
                             <div className={`text-[9px] uppercase tracking-widest font-bold ${groupColors[w.group] || 'text-slate-500'} mt-2 mb-1 pl-1`}>{groupLabels[w.group] || w.group}</div>
                           )}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/30 rounded-lg group hover:bg-slate-700/50 transition-all" title={w.desc}>
+                          <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-700/30 rounded-lg group hover:bg-slate-700/50 transition-all">
                             <GripVertical className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 cursor-grab" />
-                            <span className="text-sm">{w.icon}</span>
-                            <span className="text-xs font-medium text-white flex-1">{w.label}</span>
-                            {w.group === 'mini' && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded font-medium">MINI</span>}
+                            <span className="text-base">{w.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-white">{w.label}</span>
+                                {w.group === 'mini' && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded font-medium">MINI</span>}
+                              </div>
+                              <p className="text-[10px] text-slate-500 truncate">{w.desc}</p>
+                            </div>
                             <div className="flex items-center gap-0.5">
                               <button onClick={() => moveWidget(w.key, 'up')} disabled={idx === 0} className="p-1 rounded hover:bg-slate-600/50 text-slate-500 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-500 transition-all">
                                 <ChevronUp className="w-3.5 h-3.5" />
@@ -14964,15 +15287,40 @@ INSTRUCTIONS:
                   {/* Inactive widgets - grouped */}
                   {inactive.length > 0 && (
                     <div>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">Available to add</p>
-                      <div className="flex flex-wrap gap-2">
-                        {inactive.map(w => (
-                          <button key={w.key} onClick={() => setDashboardWidgets(prev => [...prev, w.key])} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/50 text-slate-400 hover:bg-violet-600/30 hover:text-violet-300 transition-all flex items-center gap-1.5 border border-slate-700/20 border-dashed" title={w.desc}>
-                            <Plus className="w-3 h-3" /> <span>{w.icon}</span> {w.label}
-                            {w.group === 'mini' && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-1 py-0.5 rounded">MINI</span>}
-                          </button>
-                        ))}
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs text-slate-300 font-bold flex items-center gap-2">
+                          <Plus className="w-3.5 h-3.5 text-violet-400" /> Available to Add
+                          <span className="text-[10px] bg-slate-700/50 text-slate-500 px-1.5 py-0.5 rounded-full">{inactive.length}</span>
+                        </p>
                       </div>
+                      {Object.entries(
+                        inactive.reduce((groups, w) => {
+                          const g = w.group || 'other';
+                          if (!groups[g]) groups[g] = [];
+                          groups[g].push(w);
+                          return groups;
+                        }, {})
+                      ).map(([group, widgets]) => (
+                        <div key={group} className="mb-4">
+                          <div className={`text-[9px] uppercase tracking-widest font-bold mb-2 ${groupColors[group] || 'text-slate-500'}`}>
+                            {groupLabels[group] || group}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {widgets.map(w => (
+                              <button key={w.key} onClick={() => { setDashboardWidgets(prev => [...prev, w.key]); addNotification({ type: 'success', title: 'Widget Added', message: `${w.label} added to dashboard`, icon: w.icon }); }}
+                                className="text-left p-3 rounded-xl bg-slate-800/40 border border-slate-700/20 hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-base">{w.icon}</span>
+                                  <span className="text-xs font-semibold text-white group-hover:text-violet-300 transition-colors">{w.label}</span>
+                                  {w.group === 'mini' && <span className="text-[8px] bg-cyan-500/20 text-cyan-400 px-1 py-0.5 rounded font-bold">MINI</span>}
+                                  <Plus className="w-3.5 h-3.5 text-slate-600 group-hover:text-violet-400 ml-auto transition-colors" />
+                                </div>
+                                <p className="text-[10px] text-slate-500 leading-relaxed group-hover:text-slate-400 transition-colors">{w.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -16913,6 +17261,82 @@ INSTRUCTIONS:
                     );
                   }
 
+                  // ─── Crypto Prices ─────────────────────
+                  case 'crypto': {
+                    return (
+                      <div key={wKey} {...wrapProps(wKey)} className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4 hover:border-amber-500/20 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <span className="text-amber-400">₿</span> Crypto Prices
+                            <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-medium">LIVE</span>
+                          </h3>
+                          <button onClick={fetchCryptoPrices} className={`p-1.5 rounded-lg hover:bg-slate-700/50 transition-all ${loadingCrypto ? 'animate-spin' : ''}`}>
+                            <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {cryptoWatchlist.map(id => {
+                            const d = cryptoData[id];
+                            const symbol = CRYPTO_SYMBOLS[id] || id.toUpperCase().slice(0, 4);
+                            const name = id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
+                            const price = d?.usd;
+                            const change = d?.usd_24h_change;
+                            const vol = d?.usd_24h_vol;
+                            const mcap = d?.usd_market_cap;
+                            const isUp = change > 0;
+                            return (
+                              <div key={id} className="flex items-center gap-3 px-3 py-2 bg-slate-700/20 rounded-lg hover:bg-slate-700/30 transition-all cursor-pointer"
+                                onClick={() => { setTickerSymbol(symbol); setCryptoMode(true); }}>
+                                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400">{symbol.slice(0, 3)}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-white text-sm">{symbol}</span>
+                                    <span className="text-[10px] text-slate-500 truncate">{name}</span>
+                                  </div>
+                                  {mcap && <div className="text-[9px] text-slate-600">MCap: ${(mcap / 1e9).toFixed(1)}B</div>}
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-bold text-white">${price ? price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: price < 1 ? 6 : 2 }) : '--'}</div>
+                                  <div className={`text-[10px] font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {change ? `${isUp ? '+' : ''}${change.toFixed(2)}%` : '--'}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Add Crypto */}
+                        <div className="mt-3 flex gap-2">
+                          <input type="text" placeholder="Add crypto (e.g. BTC, SOL)..." value={cryptoSearch}
+                            onChange={e => setCryptoSearch(e.target.value.toUpperCase())}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && cryptoSearch) {
+                                const id = CRYPTO_MAP[cryptoSearch] || cryptoSearch.toLowerCase();
+                                if (!cryptoWatchlist.includes(id)) {
+                                  setCryptoWatchlist(prev => [...prev, id]);
+                                  setCryptoSearch('');
+                                  addNotification({ type: 'success', title: 'Crypto Added', message: `${cryptoSearch} added to watchlist`, icon: '₿' });
+                                }
+                              }
+                            }}
+                            className="flex-1 bg-slate-800/50 border border-slate-700/30 rounded-lg px-3 py-1.5 text-xs text-white focus:border-amber-500/50 focus:outline-none" />
+                          <button onClick={() => {
+                            if (cryptoSearch) {
+                              const id = CRYPTO_MAP[cryptoSearch] || cryptoSearch.toLowerCase();
+                              if (!cryptoWatchlist.includes(id)) {
+                                setCryptoWatchlist(prev => [...prev, id]);
+                                setCryptoSearch('');
+                              }
+                            }
+                          }} className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-medium hover:bg-amber-500/30 transition-all">
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="mt-2 text-[9px] text-slate-600 text-center">Powered by CoinGecko • Updates every 30s</div>
+                      </div>
+                    );
+                  }
+
                   default: return null;
 
                   // ─── AI Morning Briefing (v3.0.0) ─────────────────────
@@ -17094,6 +17518,185 @@ INSTRUCTIONS:
                             </div>
                           </div>
                         </div>
+                      </div>
+                    );
+                  }
+
+                  // ─── Chart Drawing Tools ─────────────────────
+                  case 'drawingtools': {
+                    const ticker = tickerSymbol || 'default';
+                    const tickerDrawings = drawings[ticker] || [];
+                    const canvasW = 400;
+                    const canvasH = 250;
+                    return (
+                      <div key={wKey} {...wrapProps(wKey)} className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4 hover:border-violet-500/20 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Pencil className="w-4 h-4 text-violet-400" /> Chart Drawing Tools
+                            {tickerSymbol && <span className="text-[10px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-medium">{tickerSymbol}</span>}
+                          </h3>
+                          <div className="flex items-center gap-1">
+                            {tickerDrawings.length > 0 && (
+                              <button onClick={() => clearDrawings()} className="text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-all">Clear All</button>
+                            )}
+                            <span className="text-[10px] text-slate-500">{tickerDrawings.length} drawing{tickerDrawings.length !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+
+                        {/* Tool Selector */}
+                        <div className="flex gap-1.5 mb-3">
+                          {[
+                            { mode: 'line', icon: '📈', label: 'Trendline' },
+                            { mode: 'horizontal', icon: '➖', label: 'H-Line' },
+                            { mode: 'fibonacci', icon: '🔢', label: 'Fib' },
+                            { mode: 'rectangle', icon: '▢', label: 'Rectangle' },
+                            { mode: 'text', icon: '💬', label: 'Text' },
+                          ].map(tool => (
+                            <button key={tool.mode}
+                              onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
+                              className={`px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 ${
+                                drawingMode === tool.mode
+                                  ? 'bg-violet-600 text-white border border-violet-500'
+                                  : 'bg-slate-700/30 text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700/20'
+                              }`}
+                              title={tool.label}
+                            >
+                              <span>{tool.icon}</span> {tool.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Color Picker */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-[10px] text-slate-500">Color:</span>
+                          {['#8b5cf6', '#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#ec4899'].map(c => (
+                            <button key={c} onClick={() => setDrawingColor(c)}
+                              className={`w-5 h-5 rounded-full transition-all ${drawingColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : 'hover:scale-110'}`}
+                              style={{ background: c }} />
+                          ))}
+                        </div>
+
+                        {/* Drawing Canvas */}
+                        <div className="relative bg-slate-900/60 rounded-lg border border-slate-700/30 overflow-hidden" style={{ cursor: drawingMode ? 'crosshair' : 'default' }}>
+                          <svg ref={drawingCanvasRef} width="100%" height={canvasH} viewBox={`0 0 ${canvasW} ${canvasH}`}
+                            onMouseDown={e => {
+                              if (!drawingMode) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const x = ((e.clientX - rect.left) / rect.width) * canvasW;
+                              const y = ((e.clientY - rect.top) / rect.height) * canvasH;
+
+                              if (drawingMode === 'text') {
+                                const text = prompt('Enter annotation text:');
+                                if (text) addDrawing('text', { x, y, text });
+                                return;
+                              }
+                              if (drawingMode === 'horizontal') {
+                                addDrawing('horizontal', { y });
+                                return;
+                              }
+                              setDrawingStart({ x, y });
+                            }}
+                            onMouseUp={e => {
+                              if (!drawingMode || !drawingStart) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const x = ((e.clientX - rect.left) / rect.width) * canvasW;
+                              const y = ((e.clientY - rect.top) / rect.height) * canvasH;
+
+                              if (drawingMode === 'line') {
+                                addDrawing('line', { x1: drawingStart.x, y1: drawingStart.y, x2: x, y2: y });
+                              } else if (drawingMode === 'rectangle') {
+                                addDrawing('rectangle', { x1: drawingStart.x, y1: drawingStart.y, x2: x, y2: y });
+                              } else if (drawingMode === 'fibonacci') {
+                                const high = Math.min(drawingStart.y, y);
+                                const low = Math.max(drawingStart.y, y);
+                                addDrawing('fibonacci', { high, low, x1: drawingStart.x, x2: x });
+                              }
+                              setDrawingStart(null);
+                            }}
+                          >
+                            {/* Grid */}
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <line key={`h${i}`} x1={0} y1={i * (canvasH / 5)} x2={canvasW} y2={i * (canvasH / 5)} stroke="rgba(148,163,184,0.08)" strokeWidth="1" />
+                            ))}
+                            {Array.from({ length: 8 }).map((_, i) => (
+                              <line key={`v${i}`} x1={i * (canvasW / 8)} y1={0} x2={i * (canvasW / 8)} y2={canvasH} stroke="rgba(148,163,184,0.08)" strokeWidth="1" />
+                            ))}
+
+                            {/* Simulated Price Line */}
+                            <polyline fill="none" stroke="rgba(139,92,246,0.4)" strokeWidth="2"
+                              points={Array.from({ length: 50 }).map((_, i) => {
+                                const x = (i / 49) * canvasW;
+                                const y = canvasH / 2 + Math.sin(i * 0.3) * 40 + Math.sin(i * 0.7) * 20 + Math.cos(i * 0.15) * 30;
+                                return `${x},${y}`;
+                              }).join(' ')} />
+
+                            {/* Rendered Drawings */}
+                            {tickerDrawings.map(d => {
+                              if (d.type === 'line') {
+                                return <line key={d.id} x1={d.x1} y1={d.y1} x2={d.x2} y2={d.y2} stroke={d.color} strokeWidth="2" strokeLinecap="round" />;
+                              }
+                              if (d.type === 'horizontal') {
+                                return <line key={d.id} x1={0} y1={d.y} x2={canvasW} y2={d.y} stroke={d.color} strokeWidth="1.5" strokeDasharray="6,4" />;
+                              }
+                              if (d.type === 'rectangle') {
+                                const x = Math.min(d.x1, d.x2), y = Math.min(d.y1, d.y2);
+                                const w = Math.abs(d.x2 - d.x1), h = Math.abs(d.y2 - d.y1);
+                                return <rect key={d.id} x={x} y={y} width={w} height={h} fill={d.color + '15'} stroke={d.color} strokeWidth="1.5" rx="2" />;
+                              }
+                              if (d.type === 'fibonacci') {
+                                const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+                                const range = d.low - d.high;
+                                return (
+                                  <g key={d.id}>
+                                    {levels.map((l, i) => {
+                                      const y = d.high + range * l;
+                                      return (
+                                        <g key={i}>
+                                          <line x1={0} y1={y} x2={canvasW} y2={y} stroke={d.color} strokeWidth="1" strokeDasharray="4,3" opacity={0.6 + l * 0.3} />
+                                          <text x={5} y={y - 3} fill={d.color} fontSize="9" opacity="0.8">{(l * 100).toFixed(1)}%</text>
+                                        </g>
+                                      );
+                                    })}
+                                  </g>
+                                );
+                              }
+                              if (d.type === 'text') {
+                                return (
+                                  <g key={d.id}>
+                                    <rect x={d.x - 2} y={d.y - 12} width={d.text.length * 6 + 8} height={16} rx="3" fill={d.color + '30'} stroke={d.color} strokeWidth="0.5" />
+                                    <text x={d.x + 2} y={d.y} fill={d.color} fontSize="10" fontWeight="bold">{d.text}</text>
+                                  </g>
+                                );
+                              }
+                              return null;
+                            })}
+                          </svg>
+
+                          {/* Drawing Mode Indicator */}
+                          {drawingMode && (
+                            <div className="absolute top-2 left-2 bg-violet-600/90 text-white text-[10px] px-2 py-1 rounded-lg font-medium flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                              Drawing: {drawingMode} — Click to place
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Saved Drawings List */}
+                        {tickerDrawings.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Saved Drawings</div>
+                            {tickerDrawings.slice(-5).reverse().map(d => (
+                              <div key={d.id} className="flex items-center gap-2 text-[10px] text-slate-400 px-2 py-1 bg-slate-700/20 rounded">
+                                <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
+                                <span className="capitalize">{d.type}</span>
+                                <span className="text-slate-600">{new Date(d.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <button onClick={() => setDrawings(prev => ({
+                                  ...prev, [ticker]: (prev[ticker] || []).filter(dd => dd.id !== d.id)
+                                }))} className="ml-auto text-red-500 hover:text-red-400">×</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -32352,6 +32955,7 @@ INSTRUCTIONS:
                   ]},
                   { category: 'Actions', shortcuts: [
                     { key: 'n', desc: 'Quick Trade Entry' },
+                    { key: 'v', desc: 'Voice Command' },
                     { key: '?', desc: 'Show this shortcuts overlay' },
                   ]},
                 ].map(group => (
@@ -32367,6 +32971,139 @@ INSTRUCTIONS:
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Command Overlay */}
+      {showVoiceOverlay && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[70] animate-fadeIn" onClick={stopVoiceCommand}>
+          <div className="text-center" onClick={e => e.stopPropagation()}>
+            <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${voiceListening ? 'bg-red-500/30 animate-pulse' : 'bg-violet-500/30'}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={voiceListening ? '#f87171' : '#a78bfa'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">{voiceListening ? 'Listening...' : 'Processing...'}</h2>
+            {voiceTranscript && (
+              <p className="text-lg text-violet-300 mb-4 max-w-md mx-auto">"{voiceTranscript}"</p>
+            )}
+            <p className="text-sm text-slate-400 mb-6">Try: "Analyze AAPL" · "Go to journal" · "Dark mode" · "New trade"</p>
+            <button onClick={stopVoiceCommand} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-300 transition-all">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Theme Builder Modal */}
+      {showThemeBuilder && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn" onClick={() => setShowThemeBuilder(false)}>
+          <div className="bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-700/30 bg-gradient-to-r from-violet-500/10 to-pink-500/10">
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-lg flex items-center gap-2">🎨 Custom Theme Builder</h2>
+                <button onClick={() => setShowThemeBuilder(false)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Create your own color theme for MODUS</p>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
+              {/* Theme Name */}
+              <div className="mb-6">
+                <label className="block text-xs text-slate-400 font-medium mb-2">Theme Name</label>
+                <input type="text" value={editingTheme.name} onChange={e => setEditingTheme(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full bg-slate-800/50 border border-slate-700/30 rounded-lg px-3 py-2 text-white text-sm focus:border-violet-500 focus:outline-none" />
+              </div>
+
+              {/* Color Pickers Grid */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {[
+                  { key: 'bgPrimary', label: 'Background Primary', desc: 'Main page background' },
+                  { key: 'bgSecondary', label: 'Background Secondary', desc: 'Cards and panels' },
+                  { key: 'bgCard', label: 'Card Background', desc: 'Widget card fill' },
+                  { key: 'textPrimary', label: 'Text Primary', desc: 'Main text color' },
+                  { key: 'textSecondary', label: 'Text Secondary', desc: 'Muted text and labels' },
+                  { key: 'accent', label: 'Accent Color', desc: 'Buttons, links, highlights' },
+                  { key: 'borderColor', label: 'Border Color', desc: 'Card and section borders' },
+                ].map(c => (
+                  <div key={c.key} className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700/20">
+                    <input type="color" value={editingTheme[c.key]} onChange={e => setEditingTheme(prev => ({ ...prev, [c.key]: e.target.value }))}
+                      className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent" />
+                    <div>
+                      <div className="text-xs font-medium text-white">{c.label}</div>
+                      <div className="text-[10px] text-slate-500">{c.desc}</div>
+                      <div className="text-[10px] text-slate-600 font-mono">{editingTheme[c.key]}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Live Preview */}
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Live Preview</h3>
+                <div className="rounded-xl border overflow-hidden" style={{ background: editingTheme.bgPrimary, borderColor: editingTheme.borderColor }}>
+                  {/* Preview Header */}
+                  <div className="px-4 py-3 flex items-center justify-between" style={{ background: editingTheme.bgSecondary, borderBottom: `1px solid ${editingTheme.borderColor}` }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ background: editingTheme.accent }} />
+                      <span className="text-sm font-bold" style={{ color: editingTheme.textPrimary }}>MODUS</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="px-2 py-1 rounded text-[10px] font-medium" style={{ background: editingTheme.accent + '33', color: editingTheme.accent }}>Dashboard</div>
+                      <div className="px-2 py-1 rounded text-[10px]" style={{ color: editingTheme.textSecondary }}>Journal</div>
+                    </div>
+                  </div>
+                  {/* Preview Body */}
+                  <div className="p-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-lg p-3" style={{ background: editingTheme.bgSecondary, border: `1px solid ${editingTheme.borderColor}` }}>
+                      <div className="text-xs font-bold mb-1" style={{ color: editingTheme.textPrimary }}>Portfolio Value</div>
+                      <div className="text-lg font-bold" style={{ color: editingTheme.accent }}>$24,582.10</div>
+                      <div className="text-[10px]" style={{ color: editingTheme.textSecondary }}>+2.4% today</div>
+                    </div>
+                    <div className="rounded-lg p-3" style={{ background: editingTheme.bgSecondary, border: `1px solid ${editingTheme.borderColor}` }}>
+                      <div className="text-xs font-bold mb-1" style={{ color: editingTheme.textPrimary }}>Win Rate</div>
+                      <div className="text-lg font-bold text-emerald-400">68.5%</div>
+                      <div className="text-[10px]" style={{ color: editingTheme.textSecondary }}>Last 30 days</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preset Starters */}
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Quick Presets</h3>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { name: 'Ocean Blue', bgPrimary: '#0a1628', bgSecondary: '#112240', bgCard: '#0a1628', textPrimary: '#ccd6f6', textSecondary: '#8892b0', accent: '#64ffda', borderColor: '#233554' },
+                    { name: 'Sunset', bgPrimary: '#1a1016', bgSecondary: '#2d1b24', bgCard: '#1a1016', textPrimary: '#f5e6d3', textSecondary: '#c7a98a', accent: '#ff6b35', borderColor: '#3d2831' },
+                    { name: 'Forest', bgPrimary: '#0d1f0d', bgSecondary: '#1a331a', bgCard: '#0d1f0d', textPrimary: '#d4edda', textSecondary: '#8fbc8f', accent: '#00d68f', borderColor: '#2d4a2d' },
+                    { name: 'Cyberpunk', bgPrimary: '#0a0a1a', bgSecondary: '#15152d', bgCard: '#0a0a1a', textPrimary: '#e0e0ff', textSecondary: '#8888bb', accent: '#ff00ff', borderColor: '#2a2a4a' },
+                    { name: 'Warm Gray', bgPrimary: '#1c1917', bgSecondary: '#292524', bgCard: '#1c1917', textPrimary: '#fafaf9', textSecondary: '#a8a29e', accent: '#f59e0b', borderColor: '#44403c' },
+                  ].map(preset => (
+                    <button key={preset.name} onClick={() => setEditingTheme(preset)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/30 hover:border-violet-500/30 transition-all text-xs">
+                      <div className="flex gap-0.5">
+                        <div className="w-3 h-3 rounded-full" style={{ background: preset.accent }} />
+                        <div className="w-3 h-3 rounded-full" style={{ background: preset.bgPrimary }} />
+                      </div>
+                      <span className="text-slate-300">{preset.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button onClick={saveCustomTheme}
+                  className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                  <Save className="w-4 h-4" /> Save & Apply Theme
+                </button>
+                <button onClick={() => { applyCustomTheme(editingTheme); }}
+                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-300 transition-all">
+                  Preview
+                </button>
               </div>
             </div>
           </div>
