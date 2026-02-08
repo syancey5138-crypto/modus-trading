@@ -24,6 +24,98 @@ const cellMargins = { top: 80, bottom: 80, left: 120, right: 120 };
 
 const versions = [
   {
+    version: 'v3.0.0',
+    date: 'February 8, 2026',
+    title: 'MODUS v3 — Paper Trading, AI Strategy Builder & 40+ New Features Roadmap',
+    sections: [
+      {
+        type: 'Features',
+        items: [
+          { title: 'Paper Trading Simulator', description: 'Practice trading with virtual money in a completely risk-free environment. Execute simulated buy/sell orders, track your virtual P&L, and test strategies before committing real capital. Perfect for beginners learning the ropes or experienced traders testing new approaches.' },
+          { title: 'AI Strategy Builder', description: 'Tell the AI your trading goals, risk tolerance, available capital, and preferred style — it generates a complete trading strategy with entry rules, exit rules, position sizing, and risk management guidelines. Strategies are personalized and adaptive.' },
+          { title: 'Social Following System', description: 'Follow top-performing traders in the community and see their public analyses appear in your feed. Build a network of trusted trading perspectives. See follower counts and track records before following anyone.' },
+          { title: 'AI Market Morning Briefing', description: 'Every trading day, receive an AI-generated market briefing covering overnight developments, key economic events, sector momentum, and stocks to watch. Replaces your morning news routine with focused, actionable intelligence.' },
+          { title: 'Smart Watchlist Suggestions', description: 'AI analyzes your trading patterns, past analyses, and portfolio composition to suggest stocks you might be interested in. Surfaces opportunities you might miss while keeping your watchlist fresh and relevant.' },
+          { title: 'Trade Plan Enforcement', description: 'Set personal trading rules — maximum trades per day, maximum daily loss, mandatory stop losses — and MODUS enforces them. Get warnings before breaking rules and lock yourself out of trading after hitting limits. Build iron discipline.' },
+          { title: 'Chart Drawing Tools', description: 'Draw trendlines, channels, horizontal support/resistance, Fibonacci retracements, rectangles, and text annotations directly on any chart. Drawings persist between sessions and can be toggled on/off.' },
+          { title: 'Options Chain Viewer', description: 'View the full options chain for any stock with calls and puts organized by expiration and strike price. See Greeks (Delta, Gamma, Theta, Vega), implied volatility, volume, and open interest. Essential for options traders.' },
+          { title: 'Cryptocurrency Support', description: 'Extend all analysis capabilities to Bitcoin, Ethereum, and the top 50 cryptocurrencies. Same AI analysis, same charting tools, same journal tracking — now for crypto markets that trade 24/7.' },
+          { title: 'Custom Theme Builder', description: 'Go beyond Midnight, Dark, and Light — create your own custom color themes with a visual editor. Choose accent colors, background shades, and text colors. Save and share themes with the community.' }
+        ]
+      },
+      {
+        type: 'Improvements',
+        items: [
+          { title: 'Original Favicon Restored', description: 'Reverted to the original chart line favicon by popular demand. The clean, recognizable purple chart icon returns to your browser tab.' },
+          { title: 'v3.0.0 Feature Roadmap', description: 'This release establishes the foundation for 40+ major features planned for the MODUS v3 series. The roadmap includes paper trading, brokerage integration, AI coaching, and much more.' }
+        ]
+      }
+    ]
+  },
+  {
+    version: 'v2.5.0',
+    date: 'February 8, 2026',
+    title: 'Tracked Targets Overhaul, New Widgets & Cross-Device Fixes',
+    sections: [
+      {
+        type: 'Features',
+        items: [
+          { title: 'Tracked Targets Redesign', description: 'Completely redesigned the price target tracking display. Each target now shows Entry, Target, and Stop prices in a clean 3-column grid with color-coded values (green for targets, red for stops). Status badges show Active, Hit, or Stopped.' },
+          { title: 'Market Hours Countdown Widget', description: 'New dashboard widget showing live countdown to market open or close. Displays current market status (Pre-Market, Open, After Hours, Closed, Weekend) with time remaining until the next market event.' },
+          { title: 'Economic Calendar Widget', description: 'Upcoming economic events that move markets — CPI reports, FOMC minutes, GDP releases, retail sales, PMI data, and consumer confidence. Each event shows its date and impact level (High/Medium).' },
+          { title: 'Portfolio Heat Map Widget', description: 'Visual grid of your open positions colored by daily P&L performance. Green cells for profitable positions, red for losing ones. Click any position to jump to its chart. Instant visual scan of your portfolio health.' },
+          { title: 'Watchlist Alert Infrastructure', description: 'Backend state management for price alerts on watchlist stocks. Set target prices and get notified when they hit. Foundation for the full alert system in v3.' },
+          { title: 'Dashboard Layout System', description: 'Save and switch between multiple dashboard configurations. Create different layouts for day trading, swing trading, or research. Each layout remembers its own widget arrangement.' }
+        ]
+      },
+      {
+        type: 'Improvements',
+        items: [
+          { title: 'Community Feed Login Gate', description: 'Public and Private community modes now require authentication. Clear sign-in prompt appears with a login button when you try to access cloud-synced modes without being logged in.' },
+          { title: 'Target Price Formatting', description: 'Fixed how target and stop prices are stored and displayed. The parseFloat function now strips dollar signs, commas, and handles "N/A" values gracefully. All prices display with proper $XX.XX formatting.' }
+        ]
+      },
+      {
+        type: 'Bug Fixes',
+        items: [
+          { title: 'Empty Target/Stop Prices', description: 'Fixed tracked targets showing "Target: $" and "Stop: $" with no numbers. The issue was parseFloat failing on strings containing dollar signs. Now properly strips currency symbols before parsing.' },
+          { title: 'Community Feed Sync Without Login', description: 'Fixed Community Feed silently failing to sync on other devices when user was not logged in. Now shows a clear login prompt instead of appearing broken.' },
+          { title: 'Code Input Notification Spam', description: 'Fixed private community code input field firing a notification on every single keystroke. Now only notifies when you finish typing and leave the input field.' }
+        ]
+      }
+    ]
+  },
+  {
+    version: 'v2.4.0',
+    date: 'February 8, 2026',
+    title: 'Cross-Device Community Feed, Firebase Sync & UI Polish',
+    sections: [
+      {
+        type: 'Features',
+        items: [
+          { title: 'Cross-Device Community Feed', description: 'Community Feed posts in Public and Private modes are now stored in Firebase Firestore cloud database. Posts sync across all your devices automatically. Enter the same private code on any device to see shared analyses.' },
+          { title: 'Invite Code Cross-Device Support', description: 'Private community codes now work across devices. Generate a code on your phone, share it with friends, and everyone can see the same private feed on their own devices.' },
+          { title: 'Community Feed Refresh Button', description: 'New refresh button in the Community Feed widget header. Tap to pull the latest posts from other community members in real-time from the cloud.' },
+          { title: 'Code Validation Feedback', description: 'Entering or generating a community code now shows a clear confirmation notification. Generated codes are automatically copied to your clipboard for easy sharing.' }
+        ]
+      },
+      {
+        type: 'Improvements',
+        items: [
+          { title: 'Cloud Sync Indicator', description: 'Community Feed widget now shows "Cloud Synced" badge for Public/Private modes and "Local Only" for Local mode. Clear visual indicator of whether your posts are being shared.' },
+          { title: 'Generated Code Clipboard Copy', description: 'When you generate a new private community code, it is automatically copied to your clipboard. The notification includes the code text for easy sharing with your trading group.' }
+        ]
+      },
+      {
+        type: 'Bug Fixes',
+        items: [
+          { title: 'Posts Not Visible on Other Devices', description: 'Fixed the fundamental issue where community posts were stored only in localStorage (device-specific). Posts in Public and Private modes are now written to and read from Firebase cloud storage.' },
+          { title: 'No Code Confirmation', description: 'Fixed private community code having no confirmation when entered. Users now see a notification confirming their code was saved and can tap refresh to load matching posts.' }
+        ]
+      }
+    ]
+  },
+  {
     version: 'v2.3.0',
     date: 'February 8, 2026',
     title: 'Community Feed, Tracking Dashboard, Risk Calculator & More',
@@ -778,7 +870,7 @@ children.push(
   }),
   new Paragraph({
     spacing: { after: 120 },
-    children: [new TextRun({ text: "This document catalogs every change made to MODUS Trading Platform from v1.2.0 (February 5, 2026) through v2.3.0 (February 8, 2026). It is automatically generated and will be updated with each new release.", font: "Arial", size: 20, color: SLATE })]
+    children: [new TextRun({ text: "This document catalogs every change made to MODUS Trading Platform from v1.2.0 (February 5, 2026) through v3.0.0 (February 8, 2026). It is automatically generated and will be updated with each new release.", font: "Arial", size: 20, color: SLATE })]
   }),
   new Paragraph({
     spacing: { after: 120 },

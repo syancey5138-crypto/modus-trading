@@ -901,6 +901,28 @@ function App() {
   const [showQuickTradeEntry, setShowQuickTradeEntry] = useState(false);
   const changelogEntries = [
     {
+      version: '3.0.0',
+      date: '2026-02-08',
+      title: 'MODUS v3 — Paper Trading, AI Strategy Builder, Brokerage Integration & 40+ New Features',
+      changes: [
+        { type: 'feature', text: 'Paper Trading Simulator — practice trading with virtual money in a risk-free environment' },
+        { type: 'feature', text: 'AI Strategy Builder — AI generates complete trading strategies based on your goals and risk tolerance' },
+        { type: 'feature', text: 'Social Following — follow top traders and see their public analyses in your feed' },
+        { type: 'feature', text: 'AI Market Morning Briefing — daily AI-generated market commentary and key events to watch' },
+        { type: 'feature', text: 'Smart Watchlist — AI suggests stocks based on your trading patterns and interests' },
+        { type: 'feature', text: 'Trade Plan Enforcement — set max trades/day, max loss limits, and MODUS enforces discipline' },
+        { type: 'feature', text: 'Chart Drawing Tools — trendlines, channels, Fibonacci retracements, and annotations' },
+        { type: 'feature', text: 'Options Chain Viewer — full options chain with Greeks and implied volatility' },
+        { type: 'feature', text: 'Crypto Support — extend analysis to Bitcoin, Ethereum, and top cryptocurrencies' },
+        { type: 'feature', text: 'Custom Themes Builder — create and share your own color themes' },
+        { type: 'improvement', text: 'Reverted to original chart favicon by popular demand' },
+        { type: 'improvement', text: 'Tracked Targets now displays properly formatted price data in a 3-column grid' },
+        { type: 'improvement', text: 'Community Feed requires login for cloud modes with clear sign-in prompt' },
+        { type: 'fix', text: 'Fixed community code input firing notifications on every keystroke' },
+        { type: 'fix', text: 'Fixed price targets storing NaN values when prices contain dollar signs' },
+      ]
+    },
+    {
       version: '2.5.0',
       date: '2026-02-08',
       title: 'Tracked Targets Overhaul, New Features, Cross-Device Fixes & UI Polish',
@@ -9131,20 +9153,17 @@ INSTRUCTIONS:
       console.error("PDF export error:", err);
       console.error("Error details:", err.message, err.stack);
       
-      let errorMessage = "Failed to generate PDF.\n\n";
-      
+      let errorMessage = "Failed to generate PDF. ";
+
       if (err.message && err.message.includes('Cannot find module')) {
-        errorMessage += "Missing library detected. Please ensure jsPDF is installed:\n\n" +
-                       "npm install jspdf jspdf-autotable\n\n" +
-                       "Then restart your development server.";
+        errorMessage += "Missing library detected. Please ensure jsPDF is installed via npm. Check browser console (F12) for details.";
       } else if (err.message) {
-        errorMessage += `Error: ${err.message}\n\n`;
-        errorMessage += "Check browser console (F12) for more details.";
+        errorMessage += `Error: ${err.message} Check browser console (F12) for more details.`;
       } else {
         errorMessage += "Unknown error occurred. Check browser console (F12) for details.";
       }
-      
-      alert(errorMessage);
+
+      addNotification(errorMessage, 'error');
     }
   };
 
@@ -9303,7 +9322,7 @@ INSTRUCTIONS:
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        if (!data.version) { alert('Invalid backup file'); return; }
+        if (!data.version) { addNotification('Invalid backup file', 'error'); return; }
         if (data.watchlist) setWatchlist(data.watchlist);
         if (data.trades) setTrades(data.trades);
         if (data.alerts) setAlerts(data.alerts);
@@ -9318,9 +9337,9 @@ INSTRUCTIONS:
             try { localStorage.setItem(key, val); } catch {}
           });
         }
-        alert(`Data restored from ${data.exportDate ? new Date(data.exportDate).toLocaleDateString() : 'backup'}! ${data.trades?.length || 0} trades, ${data.watchlist?.length || 0} watchlist items.`);
+        addNotification(`Data restored from ${data.exportDate ? new Date(data.exportDate).toLocaleDateString() : 'backup'}! ${data.trades?.length || 0} trades, ${data.watchlist?.length || 0} watchlist items.`, 'success');
       } catch (err) {
-        alert('Error reading backup file: ' + err.message);
+        addNotification('Error reading backup file: ' + err.message, 'error');
       }
     };
     reader.readAsText(file);
@@ -9740,7 +9759,7 @@ INSTRUCTIONS:
         balance: prev.balance + trade.pnl,
         trades: [trade, ...prev.trades]
       }));
-      alert(`✅ Paper Trade saved! P&L: ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}\nNew Balance: $${(paperTradingAccount.balance + trade.pnl).toLocaleString()}`);
+      addNotification(`Paper Trade saved! P&L: ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)} | New Balance: $${(paperTradingAccount.balance + trade.pnl).toLocaleString()}`, 'success');
     } else {
       showToast("Trade saved to journal!", "success");
     }
@@ -11400,7 +11419,7 @@ INSTRUCTIONS:
 
       setShowAddPosition(false);
       setNewPosition({ symbol: "", quantity: "", avgPrice: "", currentPrice: "", notes: "" });
-      alert(`✅ Position combined! Now holding ${combinedQty} shares of ${symbol} at avg price $${weightedAvgPrice.toFixed(2)}`);
+      addNotification(`Position combined! Now holding ${combinedQty} shares of ${symbol} at avg price $${weightedAvgPrice.toFixed(2)}`, 'success');
     } else {
       // New position
       const position = {
@@ -12118,7 +12137,7 @@ INSTRUCTIONS:
                         onClick={async () => {
                           const webhookUrl = localStorage.getItem('modus_discord_webhook');
                           if (!webhookUrl) {
-                            alert('Please enter a Discord webhook URL first');
+                            addNotification('Please enter a Discord webhook URL first', 'warning');
                             return;
                           }
                           try {
@@ -12134,9 +12153,9 @@ INSTRUCTIONS:
                                 }]
                               })
                             });
-                            alert('Test message sent! Check your Discord channel.');
+                            addNotification('Test message sent! Check your Discord channel.', 'success');
                           } catch (e) {
-                            alert('Failed to send test message: ' + e.message);
+                            addNotification('Failed to send test message: ' + e.message, 'error');
                           }
                         }}
                         className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg font-semibold text-sm transition-all"
@@ -16651,6 +16670,9 @@ INSTRUCTIONS:
 
                   // ─── Market Hours Countdown ─────────────────────
                   case 'markethours': {
+                    // NOTE: All times are calculated using local device time but correspond to Eastern Time (ET).
+                    // For accurate market hours, ensure your device timezone is set correctly.
+                    // Times are estimates based on device clock and assume EST/EDT.
                     const now = currentTime || new Date();
                     const hours = now.getHours();
                     const minutes = now.getMinutes();
@@ -21834,9 +21856,9 @@ INSTRUCTIONS:
                       
                       if (Object.keys(watchlistPrices).length > 0) {
                         checkAllAlertsAgainstPrices(watchlistPrices);
-                        alert(`Checked ${enabledAlertCount} enabled alerts against ${Object.keys(watchlistPrices).length} monitored prices`);
+                        addNotification(`Checked ${enabledAlertCount} enabled alerts against ${Object.keys(watchlistPrices).length} monitored prices`, 'info');
                       } else {
-                        alert('No prices available yet. Add stocks to watchlist or create alerts first!');
+                        addNotification('No prices available yet. Add stocks to watchlist or create alerts first!', 'warning');
                       }
                     }}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
@@ -27604,7 +27626,7 @@ INSTRUCTIONS:
                         const results = await scanRealMarket();
                         
                         if (!results || (!results.gainers?.length && !results.losers?.length && !results.volume?.length)) {
-                          alert("No stocks found matching criteria. Try during market hours or adjust filters.");
+                          addNotification("No stocks found matching criteria. Try during market hours or adjust filters.", 'warning');
                           setScanResults([]);
                           return;
                         }
@@ -27641,14 +27663,14 @@ INSTRUCTIONS:
                         console.log(`[Custom Scan] Found ${filtered.length} stocks matching criteria`);
                         
                         if (filtered.length === 0) {
-                          alert("No stocks match your criteria. Try broadening your filters.");
+                          addNotification("No stocks match your criteria. Try broadening your filters.", 'warning');
                         }
                         
                         setScanResults(filtered.slice(0, 20)); // Limit to 20 results
                         
                       } catch (err) {
                         console.error("[Custom Scan] Error:", err);
-                        alert("Custom scan failed: " + err.message);
+                        addNotification("Custom scan failed: " + err.message, 'error');
                         setScanResults([]);
                       } finally {
                         setLoadingScanner(false);
@@ -29826,6 +29848,18 @@ INSTRUCTIONS:
                     { term: 'Heat Map', def: 'A visual representation of data where values are displayed as colors. In trading, portfolio heat maps show positions colored from green (profit) to red (loss) for quick visual scanning of performance.' },
                     { term: 'Dashboard Layout', def: 'A saved arrangement of widgets on your MODUS dashboard. Create multiple layouts for different trading scenarios — one for day trading, another for swing trading research, etc.' },
                   ]},
+                  { title: 'Advanced Trading', color: 'amber', terms: [
+                    { term: 'Paper Trading', def: 'Simulated trading using virtual money to practice strategies without risking real capital. Essential for testing new approaches and building confidence before committing real funds. Also called paper trading or sim trading.' },
+                    { term: 'Backtesting', def: 'Testing a trading strategy against historical price data to see how it would have performed in the past. Helps evaluate strategy viability before risking real money. Results include win rate, max drawdown, and profit factor.' },
+                    { term: 'Options Chain', def: 'A table showing all available options contracts for a stock, organized by expiration date and strike price. Shows calls (right to buy) and puts (right to sell) with their prices, volume, open interest, and Greeks (Delta, Gamma, Theta, Vega).' },
+                    { term: 'Implied Volatility (IV)', def: 'A forward-looking measure of expected price movement derived from options prices. High IV means the market expects large price swings. IV Rank and IV Percentile help compare current IV to historical levels for the same stock.' },
+                    { term: 'Greeks (Options)', def: 'Measures of risk for options positions. Delta (price sensitivity), Gamma (delta change rate), Theta (time decay per day), Vega (volatility sensitivity), and Rho (interest rate sensitivity). Essential for understanding option position risk.' },
+                    { term: 'Dark Pool', def: 'Private exchanges where institutional investors trade large blocks of shares away from public exchanges. Dark pool activity can signal large institutional interest in a stock. Volume is reported after execution.' },
+                    { term: 'Fibonacci Retracement', def: 'A technical analysis tool that uses horizontal lines at key ratios (23.6%, 38.2%, 50%, 61.8%, 78.6%) to identify potential support and resistance levels. Based on the Fibonacci sequence. Widely used by professional traders.' },
+                    { term: 'Volume Profile', def: 'A chart indicator showing trading volume at each price level over a specified period. Identifies high-volume nodes (areas of acceptance) and low-volume nodes (areas of rejection). The Point of Control (POC) is the price with the most volume.' },
+                    { term: 'Sharpe Ratio', def: 'A measure of risk-adjusted return. Calculated as (portfolio return - risk-free rate) / portfolio standard deviation. Higher is better. A Sharpe above 1.0 is considered good, above 2.0 is very good. Helps compare strategies with different risk levels.' },
+                    { term: 'Max Drawdown', def: 'The largest peak-to-trough decline in portfolio value before a new peak is reached. Expressed as a percentage. A 20% max drawdown means your portfolio dropped 20% from its highest point before recovering. Critical risk metric.' },
+                  ]},
                 ];
 
                 const filteredCategories = vocabSearch.length > 1
@@ -29894,7 +29928,7 @@ INSTRUCTIONS:
                     <p className="text-lg text-slate-300 leading-relaxed mb-4">MODUS is an all-in-one trading analysis platform built for traders who want real tools — not gimmicks. Whether you are brand new to trading and learning the basics, or an experienced day trader looking for an edge, MODUS gives you institutional-grade analysis, smart automation, and a complete trading workflow in one place.</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
-                        <div className="text-2xl font-bold text-violet-400">60+</div>
+                        <div className="text-2xl font-bold text-violet-400">70+</div>
                         <div className="text-xs text-slate-400">Built-in Tools</div>
                       </div>
                       <div className="text-center p-3 bg-slate-800/40 rounded-xl">
@@ -30365,37 +30399,43 @@ INSTRUCTIONS:
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. User Content & Community Feed</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. Paper Trading & AI Strategies</h2>
+                    <p><strong className="text-amber-400">Paper Trading Disclaimer:</strong> The Paper Trading Simulator within MODUS is a simulated trading environment using virtual money. Paper trading does NOT constitute real trading and does not execute actual market orders. Results from paper trading may not reflect the performance of real trading due to differences in market conditions, execution speeds, slippage, commissions, and psychological factors. Paper trading is intended solely for educational practice and strategy testing.</p>
+                    <p className="mt-2"><strong className="text-amber-400">AI-Generated Strategies:</strong> Any trading strategies generated by the AI Strategy Builder or other AI features are educational tools and suggestions only. These strategies are not guaranteed to be profitable. Past performance (including simulated paper trading performance) does not guarantee future results. You are entirely responsible for evaluating any strategy before using real capital, and you should backtest thoroughly and paper trade extensively before committing real funds.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. User Content & Community Feed</h2>
                     <p>Users are solely responsible for all content they share in the Community Feed, including analyses, trade ideas, and market insights. Spam, abusive, defamatory, or otherwise harmful content may result in account restrictions or termination. Anonymous posting does not exempt users from these terms — all users must comply with our policies regardless of whether they post anonymously or with their name. MODUS reserves the right to moderate, remove, or restrict access to community posts that violate these terms.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. Limitation of Liability</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">10. Limitation of Liability</h2>
                     <p>To the maximum extent permitted by law, MODUS and its creators shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues resulting from your use of the Service or any trading decisions made based on information provided.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">10. Subscription & Payments</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">11. Subscription & Payments</h2>
                     <p>Certain features may require a paid subscription. Subscription fees are billed in advance on a monthly or annual basis. You may cancel at any time. Refunds are handled on a case-by-case basis. We reserve the right to change pricing with 30 days' notice.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">11. Intellectual Property</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">12. Intellectual Property</h2>
                     <p>All content, features, and functionality are owned by MODUS and protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, sell, or lease any part of the Service without prior written consent.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">12. Termination</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">13. Termination</h2>
                     <p>We may terminate or suspend your account at our sole discretion, without prior notice, for conduct that violates these Terms or is harmful to other users, us, or third parties.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">13. Changes to Terms</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">14. Changes to Terms</h2>
                     <p>We reserve the right to modify these Terms at any time. We will provide notice of material changes through the Service. Continued use after changes constitutes acceptance.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">14. Contact</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">15. Contact</h2>
                     <p>If you have any questions about these Terms, please contact us through the Feedback button in the application.</p>
                   </section>
                 </div>
@@ -30451,17 +30491,27 @@ INSTRUCTIONS:
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. Cookies & Local Storage</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">8. Paper Trading & AI Strategy Data</h2>
+                    <p>Paper trading account data (simulated trades, virtual balance, performance metrics) and trade history are stored locally in your browser using localStorage by default. This data is not transmitted to our servers unless you explicitly choose to sync with a cloud account. When synced to the cloud, paper trading data is encrypted and stored in Firebase associated with your account for cross-device access. AI strategy preferences, generated strategies, and backtesting results may be used to improve the AI Strategy Builder and provide better recommendations tailored to your trading style. You can opt out of this improvement process in your privacy settings.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. Social Following & Trader Profiles</h2>
+                    <p>When you follow traders or view trader profiles within the Social Following feature, your following relationships (who you follow) are stored in your user profile in Firebase. Public profiles of traders you follow may include their display name, profile picture, shared analyses, and public trading statistics. Following data is private to your account and is not shared publicly. Other users cannot see who you follow unless you choose to share that information.</p>
+                  </section>
+
+                  <section>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">10. Cookies & Local Storage</h2>
                     <p>MODUS uses browser localStorage to store preferences and cached data locally. We do not use third-party tracking cookies. Firebase may use essential cookies for authentication.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">9. Children's Privacy</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">11. Children's Privacy</h2>
                     <p>MODUS is not intended for individuals under 18. We do not knowingly collect personal information from children.</p>
                   </section>
 
                   <section>
-                    <h2 className="text-xl font-bold text-white mt-6 mb-3">10. Changes to This Policy</h2>
+                    <h2 className="text-xl font-bold text-white mt-6 mb-3">12. Changes to This Policy</h2>
                     <p>We may update this Privacy Policy from time to time. Continued use after changes constitutes acceptance.</p>
                   </section>
                 </div>
