@@ -1078,10 +1078,12 @@ function App() {
   
   // API Keys & Backend Mode
   const [apiKey, setApiKey] = useState("");
-  const [stockApiKey, setStockApiKey] = useState(""); // NEW: For stock ticker data
+  const [stockApiKey, setStockApiKey] = useState(""); // For stock ticker data
+  // speechApiKey removed — voice uses native browser Speech Recognition
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
-  const [stockApiKeyInput, setStockApiKeyInput] = useState(""); // NEW
+  const [stockApiKeyInput, setStockApiKeyInput] = useState("");
+  // speechApiKeyInput removed — no longer needed
 
   // Changelog / Updates notification system
   const [showChangelog, setShowChangelog] = useState(false);
@@ -3877,6 +3879,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
     setVoiceListening(false);
     setShowVoiceOverlay(false);
+    setVoiceTranscript('');
   }, []);
 
   const processVoiceCommand = useCallback((cmd) => {
@@ -4468,7 +4471,6 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
     const savedStockKey = sessionStorage.getItem("modus_stock_api_key");
     if (savedStockKey) {
-      // Clean saved stock key
       const cleanStockKey = savedStockKey.trim().replace(/[\u0000-\u001F\u007F-\uFFFF]/g, '').replace(/\s+/g, '');
       setStockApiKey(cleanStockKey);
     }
@@ -12745,6 +12747,12 @@ INSTRUCTIONS:
                       ✅ Live Ticker works WITHOUT this key (uses Yahoo Finance)
                     </p>
                   </div>
+                </div>
+
+                <div className="mt-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <p className="text-xs text-emerald-300">
+                    Voice commands use your browser's built-in speech recognition. Works in Chrome, Safari, and Edge.
+                  </p>
                 </div>
               </div>
             )}
