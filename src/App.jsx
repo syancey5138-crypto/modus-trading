@@ -7105,6 +7105,11 @@ OUTPUT FORMAT (strict JSON, no explanations):
                 recommendation = direction === 'LONG' ? 'LEAN_BUY' : 'LEAN_SELL';
               }
               
+              // Calculate confidence same as Daily Pick
+              const confidenceFromConfirmations = Math.min(30, confirmations * 10);
+              const confidenceFromScore = Math.min(25, netScore * 0.5);
+              const calculatedConfidence = Math.min(95, Math.round(40 + confidenceFromConfirmations + confidenceFromScore));
+
               realIndicators = {
                 ticker: detectedTicker,
                 currentPrice: currentPrice.toFixed(2),
@@ -7120,7 +7125,9 @@ OUTPUT FORMAT (strict JSON, no explanations):
                 bearishScore,
                 direction,
                 netScore,
+                confirmations,
                 calculatedRecommendation: recommendation,
+                calculatedConfidence,
                 dataSource: 'Yahoo Finance (Live)',
                 barsAnalyzed: closes.length
               };
@@ -7837,38 +7844,88 @@ OUTPUT JSON:
 
       setAnalysisProgress(100);
       
-      // RECONCILIATION: If we have real calculated indicators, use them to validate/override AI recommendation
+      // RECONCILIATION: When real calculated indicators are available, they are PRIMARY
+      // This ensures Analysis aligns with Daily Pick (both use the same algorithm)
       let reconciledFinal = { ...final };
       if (realIndicators) {
         const aiRec = final.recommendation;
         const calcRec = realIndicators.calculatedRecommendation;
-        
-        // Check if AI and calculated recommendations conflict
+
+        // Real data is always primary — use calculated recommendation
         const aiIsBullish = aiRec?.includes('BUY');
         const aiIsBearish = aiRec?.includes('SELL');
         const calcIsBullish = calcRec?.includes('BUY');
         const calcIsBearish = calcRec?.includes('SELL');
-        
-        if ((aiIsBullish && calcIsBearish) || (aiIsBearish && calcIsBullish)) {
-          // CONFLICT: Use calculated recommendation (based on real data)
-          console.log(`[Chart Analysis] ⚠️ CONFLICT: AI says ${aiRec}, Calculated says ${calcRec}. Using calculated.`);
+        const aiIsNeutral = !aiIsBullish && !aiIsBearish; // WAIT, HOLD, etc.
+
+        const hasDirectionalConflict = (aiIsBullish && calcIsBearish) || (aiIsBearish && calcIsBullish);
+        const aiDisagrees = aiRec !== calcRec;
+
+        if (hasDirectionalConflict || (aiIsNeutral && (calcIsBullish || calcIsBearish)) || (aiDisagrees && (calcIsBullish || calcIsBearish))) {
+          // USE CALCULATED: Real data takes priority over AI visual interpretation
+          console.log(`[Chart Analysis] 📊 Using calculated recommendation: AI said ${aiRec}, Real data says ${calcRec}. Real data is primary.`);
           reconciledFinal.recommendation = calcRec;
           reconciledFinal.reconciled = true;
           reconciledFinal.aiOriginal = aiRec;
-          reconciledFinal.reconciliationNote = `Note: AI visual analysis suggested ${aiRec}, but calculated technical indicators (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend: ${realIndicators.trend}) indicate ${calcRec}. Using calculated recommendation for accuracy.`;
+          reconciledFinal.directionalBias = realIndicators.direction;
+          reconciledFinal.reconciliationNote = hasDirectionalConflict
+            ? `AI visual analysis suggested ${aiRec}, but calculated technical indicators (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend: ${realIndicators.trend}) indicate ${calcRec}. Using calculated recommendation for accuracy.`
+            : `Calculated from live data: RSI ${realIndicators.rsi}, MACD ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend ${realIndicators.trend}. ${aiRec !== calcRec ? `AI suggested ${aiRec}.` : ''}`;
         } else {
-          // NO CONFLICT: AI and calculation agree
+          // AGREEMENT: Both AI and calculation align
           reconciledFinal.reconciled = false;
           reconciledFinal.dataValidated = true;
+          reconciledFinal.directionalBias = realIndicators.direction;
         }
-        
-        // Add calculated confidence
-        reconciledFinal.calculatedConfidence = Math.min(95, 50 + realIndicators.netScore);
-        
+
+        // Use confidence calculated same way as Daily Pick
+        reconciledFinal.calculatedConfidence = realIndicators.calculatedConfidence;
+        reconciledFinal.confidence = realIndicators.calculatedConfidence;
+
         // Adjust summary to reflect real data
         reconciledFinal.summary = `${realIndicators.trend} trend | RSI: ${realIndicators.rsi} | MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'} | Score: Bull ${realIndicators.bullishScore} / Bear ${realIndicators.bearishScore}`;
+
+        // FALLBACK: Calculate stop/target levels from real data when Claude didn't provide numbers
+        const ieEntry = parseFloat(tradeSetup?.immediateEntry?.entry);
+        const ieStop = parseFloat(tradeSetup?.immediateEntry?.stop || tradeSetup?.immediateEntry?.stopLoss);
+        const ieTarget = parseFloat(tradeSetup?.immediateEntry?.target1);
+
+        if (realIndicators.currentPrice && (!ieStop || isNaN(ieStop) || !ieTarget || isNaN(ieTarget))) {
+          const price = parseFloat(realIndicators.currentPrice);
+          const config = tradeTypeConfig[effectiveTradeType] || tradeTypeConfig.swing;
+          const dir = realIndicators.direction;
+
+          // Calculate same way as Daily Pick: percentage-based from current price
+          const stopPct = dir === 'LONG' ? -config.stopPct : config.stopPct;
+          const t1Pct = dir === 'LONG' ? config.target1Pct : -config.target1Pct;
+          const t2Pct = dir === 'LONG' ? config.target2Pct : -config.target2Pct;
+
+          const calcStop = price * (1 + stopPct / 100);
+          const calcTarget1 = price * (1 + t1Pct / 100);
+          const calcTarget2 = price * (1 + t2Pct / 100);
+          const calcRisk = Math.abs(price - calcStop);
+          const calcReward = Math.abs(calcTarget1 - price);
+          const calcRR = calcRisk > 0 ? (calcReward / calcRisk).toFixed(2) : '1.50';
+
+          // Fill in missing fields on tradeSetup
+          if (!tradeSetup.immediateEntry) tradeSetup.immediateEntry = {};
+          if (!ieEntry || isNaN(ieEntry)) tradeSetup.immediateEntry.entry = price.toFixed(2);
+          if (!ieStop || isNaN(ieStop)) tradeSetup.immediateEntry.stop = calcStop.toFixed(2);
+          if (!ieTarget || isNaN(ieTarget)) tradeSetup.immediateEntry.target1 = calcTarget1.toFixed(2);
+          if (!tradeSetup.immediateEntry.target2 || isNaN(parseFloat(tradeSetup.immediateEntry.target2))) {
+            tradeSetup.immediateEntry.target2 = calcTarget2.toFixed(2);
+          }
+          if (!tradeSetup.immediateEntry.riskRewardRatio) {
+            tradeSetup.immediateEntry.riskRewardRatio = `1:${calcRR}`;
+          }
+          if (!tradeSetup.tradeDirection || tradeSetup.tradeDirection === 'NEUTRAL') {
+            tradeSetup.tradeDirection = dir;
+          }
+
+          console.log(`[Chart Analysis] 📐 Fallback levels: Entry=$${price.toFixed(2)}, Stop=$${calcStop.toFixed(2)}, Target=$${calcTarget1.toFixed(2)}, R:R=1:${calcRR}`);
+        }
       }
-      
+
       const fullAnalysis = {
         context,
         patterns,
