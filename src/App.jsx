@@ -21304,14 +21304,14 @@ INSTRUCTIONS:
                       {/* Entry Conditions */}
                       {(analysis.recommendations?.scenarioAnalysis?.bullishScenario?.requiredConditions?.length > 0 ||
                         analysis.recommendations?.scenarioAnalysis?.bearishScenario?.requiredConditions?.length > 0 ||
-                        setup.pullbackEntry?.triggerCondition) && (
+                        analysis.tradeSetup?.pullbackEntry?.triggerCondition) && (
                         <div className="mt-4 pt-4 border-t border-violet-500/20">
                           <div className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Entry Conditions</div>
                           <div className="space-y-1.5">
-                            {setup.pullbackEntry?.triggerCondition && (
+                            {analysis.tradeSetup?.pullbackEntry?.triggerCondition && (
                               <div className="flex items-start gap-2 text-xs">
                                 <span className="text-violet-400 mt-0.5">▸</span>
-                                <span className="text-slate-300">{setup.pullbackEntry.triggerCondition}</span>
+                                <span className="text-slate-300">{analysis.tradeSetup.pullbackEntry.triggerCondition}</span>
                               </div>
                             )}
                             {(isBuy ? analysis.recommendations?.scenarioAnalysis?.bullishScenario?.requiredConditions : analysis.recommendations?.scenarioAnalysis?.bearishScenario?.requiredConditions)?.slice(0, 4).map((cond, i) => (
