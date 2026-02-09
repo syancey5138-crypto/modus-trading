@@ -1,4 +1,4 @@
-// Vercel Serverless Function - Batch Alert Processing
+// Vercel Serverless Function - Batch Alert Processing via EmailJS
 // Handles high-volume alerts with rate limiting and queuing
 
 // Carrier email-to-SMS gateways
@@ -130,16 +130,10 @@ export default async function handler(req, res) {
     const phoneNumber = cleanPhone.length === 11 ? cleanPhone.slice(1) : cleanPhone;
     const smsEmail = `${phoneNumber}@${gateway}`;
 
-    const brevoKey = process.env.BREVO_API_KEY;
-
-    if (!brevoKey) {
-      return res.status(500).json({
-        error: 'Batch SMS service not configured. Please check server environment variables.'
-      });
-    }
-
-    const senderEmail = process.env.SENDER_EMAIL || 'modus.ai.noreply@gmail.com';
-    const senderName = process.env.SENDER_NAME || 'MODUS Alerts';
+    // EmailJS credentials
+    const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_wka2oph';
+    const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_1bn2e5y';
+    const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'P3MjxM_aqWY9csXhF';
 
     // Alert type emojis
     const alertEmojis = {
@@ -183,25 +177,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // Send batched messages
+    // Send batched messages via EmailJS
     const results = [];
     for (const batch of batches) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
 
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
           method: 'POST',
-          headers: {
-            'api-key': brevoKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sender: { name: senderName, email: senderEmail },
-            to: [{ email: smsEmail }],
-            subject: 'MODUS',
-            textContent: batch,
+            service_id: serviceId,
+            template_id: templateId,
+            user_id: publicKey,
+            template_params: {
+              to_email: smsEmail,
+              subject: 'MODUS',
+              message: batch,
+            },
           }),
           signal: controller.signal,
         });
@@ -209,8 +203,7 @@ export default async function handler(req, res) {
         clearTimeout(timeout);
 
         if (response.ok) {
-          const data = await response.json();
-          results.push({ success: true, id: data.id });
+          results.push({ success: true });
           incrementRateLimit();
         } else {
           const errorText = await response.text();

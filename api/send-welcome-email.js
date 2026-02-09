@@ -1,5 +1,5 @@
-// Vercel Serverless Function - Welcome Email via Brevo
-// Sends a branded welcome email when new users sign up
+// Vercel Serverless Function - Welcome Email via EmailJS
+// Sends a welcome email when new users sign up
 
 export const config = {
   maxDuration: 15,
@@ -21,75 +21,22 @@ function getCorsOrigin(req) {
   return origin || '*';
 }
 
-function getWelcomeHtml(name) {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="display:inline-block;background:linear-gradient(135deg,#8b5cf6,#6d28d9);padding:16px 32px;border-radius:16px;margin-bottom:16px;">
-        <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">MODUS</h1>
-      </div>
-      <p style="color:#94a3b8;font-size:14px;margin:0;">AI-Powered Trading Analysis</p>
-    </div>
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;margin-bottom:24px;">
-      <h2 style="color:#ffffff;font-size:22px;margin:0 0 8px 0;">Welcome aboard, ${name}!</h2>
-      <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:0 0 24px 0;">
-        Your MODUS account is live. Here's what you can do right away:
-      </p>
-      <div style="margin-bottom:24px;">
-        <div style="display:flex;align-items:flex-start;margin-bottom:16px;">
-          <span style="color:#8b5cf6;font-size:18px;margin-right:12px;line-height:1.4;">&#9672;</span>
-          <div>
-            <div style="color:#ffffff;font-size:14px;font-weight:600;">Upload a chart for AI analysis</div>
-            <div style="color:#64748b;font-size:13px;">Get instant pattern recognition and trade signals</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:flex-start;margin-bottom:16px;">
-          <span style="color:#8b5cf6;font-size:18px;margin-right:12px;line-height:1.4;">&#9672;</span>
-          <div>
-            <div style="color:#ffffff;font-size:14px;font-weight:600;">Practice with Paper Trading</div>
-            <div style="color:#64748b;font-size:13px;">$100K virtual balance to test strategies risk-free</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:flex-start;margin-bottom:16px;">
-          <span style="color:#8b5cf6;font-size:18px;margin-right:12px;line-height:1.4;">&#9672;</span>
-          <div>
-            <div style="color:#ffffff;font-size:14px;font-weight:600;">Track your trades in the Journal</div>
-            <div style="color:#64748b;font-size:13px;">Log entries, tag strategies, and review your performance</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:flex-start;">
-          <span style="color:#8b5cf6;font-size:18px;margin-right:12px;line-height:1.4;">&#9672;</span>
-          <div>
-            <div style="color:#ffffff;font-size:14px;font-weight:600;">Set up SMS & voice alerts</div>
-            <div style="color:#64748b;font-size:13px;">Never miss a price target or market move</div>
-          </div>
-        </div>
-      </div>
-      <div style="text-align:center;margin-top:28px;">
-        <a href="https://modus-trading.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:600;font-size:15px;">
-          Open MODUS Dashboard
-        </a>
-      </div>
-    </div>
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="color:#8b5cf6;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px 0;">Quick Tip</p>
-      <p style="color:#94a3b8;font-size:14px;line-height:1.5;margin:0;">
-        Press <strong style="color:#e2e8f0;">V</strong> anytime to activate voice commands.
-        Try saying "check Tesla" or "show features" for hands-free navigation.
-      </p>
-    </div>
-    <div style="text-align:center;padding-top:16px;border-top:1px solid #1e293b;">
-      <p style="color:#475569;font-size:12px;margin:0;">
-        MODUS Trading Platform &mdash; AI-powered analysis for smarter trades
-      </p>
-    </div>
-  </div>
-</body>
-</html>`.trim();
+function getWelcomeText(name) {
+  return `Welcome aboard, ${name}!
+
+Your MODUS account is live. Here's what you can do right away:
+
+- Upload a chart for AI analysis — get instant pattern recognition and trade signals
+- Practice with Paper Trading — $100K virtual balance to test strategies risk-free
+- Track your trades in the Journal — log entries, tag strategies, review performance
+- Set up SMS & voice alerts — never miss a price target or market move
+
+Pro tip: Press V anytime to activate voice commands. Try "check Tesla" or "show features".
+
+Open MODUS: https://modus-trading.vercel.app
+
+Happy trading!
+— The MODUS Team`;
 }
 
 export default async function handler(req, res) {
@@ -103,11 +50,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const brevoKey = process.env.BREVO_API_KEY;
-    if (!brevoKey) {
-      return res.status(500).json({ error: 'Brevo API key not configured.' });
-    }
-
     const { email, displayName } = req.body;
 
     if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -115,32 +57,35 @@ export default async function handler(req, res) {
     }
 
     const name = displayName || email.split('@')[0];
-    const senderEmail = process.env.SENDER_EMAIL || 'modus.ai.noreply@gmail.com';
-    const senderName = process.env.SENDER_NAME || 'MODUS Trading';
 
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    // EmailJS credentials (same as client-side — public keys, safe to include)
+    const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_wka2oph';
+    const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_1bn2e5y';
+    const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'P3MjxM_aqWY9csXhF';
+
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
       method: 'POST',
-      headers: {
-        'api-key': brevoKey,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email: email, name: name }],
-        subject: 'Welcome to MODUS — Your AI Trading Dashboard',
-        htmlContent: getWelcomeHtml(name),
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: publicKey,
+        template_params: {
+          to_email: email,
+          subject: `Welcome to MODUS, ${name}!`,
+          message: getWelcomeText(name),
+        },
       }),
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Brevo API error:', response.status, errText);
-      return res.status(200).json({ success: false, debug: `Brevo ${response.status}: ${errText}` });
+    // EmailJS returns 'OK' as text on success (status 200)
+    if (response.ok) {
+      return res.status(200).json({ success: true });
     }
 
-    const data = await response.json();
-    return res.status(200).json({ success: true, messageId: data.messageId });
+    const errText = await response.text();
+    console.error('EmailJS error:', response.status, errText);
+    return res.status(200).json({ success: false, debug: `EmailJS ${response.status}: ${errText}` });
 
   } catch (error) {
     console.error('Welcome email error:', error);

@@ -1,4 +1,4 @@
-// Vercel Serverless Function - Update/Announcement Email via Brevo
+// Vercel Serverless Function - Update/Announcement Email via EmailJS
 // Sends announcement emails to opted-in mailing list subscribers
 // Requires admin secret to prevent unauthorized use
 
@@ -41,12 +41,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Unauthorized. Admin secret required.' });
     }
 
-    const brevoKey = process.env.BREVO_API_KEY;
-    if (!brevoKey) {
-      return res.status(500).json({ error: 'Brevo API key not configured.' });
-    }
-
-    const { recipients, subject, heading, body, ctaText, ctaUrl } = req.body;
+    const { recipients, subject, body, ctaText, ctaUrl } = req.body;
 
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({ error: 'Recipients array is required.' });
@@ -63,56 +58,33 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Maximum 100 recipients per batch.' });
     }
 
-    const senderEmail = process.env.SENDER_EMAIL || 'modus.ai.noreply@gmail.com';
-    const senderName = process.env.SENDER_NAME || 'MODUS Trading';
-    const emailHeading = heading || subject;
+    // EmailJS credentials
+    const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_wka2oph';
+    const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_1bn2e5y';
+    const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'P3MjxM_aqWY9csXhF';
+
     const buttonText = ctaText || 'Open MODUS';
     const buttonUrl = ctaUrl || 'https://modus-trading.vercel.app';
+
+    // Build the message body
+    const messageText = `${body}\n\n${buttonText}: ${buttonUrl}`;
 
     // Send individually for deliverability
     const results = [];
     for (const email of recipients) {
       try {
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
           method: 'POST',
-          headers: {
-            'api-key': brevoKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sender: { name: senderName, email: senderEmail },
-            to: [{ email: email, name: email.split('@')[0] }],
-            subject: subject,
-            htmlContent: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="display:inline-block;background:linear-gradient(135deg,#8b5cf6,#6d28d9);padding:12px 24px;border-radius:12px;">
-        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">MODUS</h1>
-      </div>
-    </div>
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;margin-bottom:24px;">
-      <h2 style="color:#ffffff;font-size:20px;margin:0 0 16px 0;">${emailHeading}</h2>
-      <div style="color:#94a3b8;font-size:15px;line-height:1.7;">${body}</div>
-      <div style="text-align:center;margin-top:28px;">
-        <a href="${buttonUrl}" style="display:inline-block;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:600;font-size:15px;">
-          ${buttonText}
-        </a>
-      </div>
-    </div>
-    <div style="text-align:center;padding-top:16px;border-top:1px solid #1e293b;">
-      <p style="color:#475569;font-size:12px;margin:0;">
-        You're receiving this because you subscribed to MODUS updates.
-      </p>
-    </div>
-  </div>
-</body>
-</html>
-            `.trim(),
+            service_id: serviceId,
+            template_id: templateId,
+            user_id: publicKey,
+            template_params: {
+              to_email: email,
+              subject: subject,
+              message: messageText,
+            },
           }),
         });
 
@@ -123,6 +95,11 @@ export default async function handler(req, res) {
         }
       } catch {
         results.push({ email, sent: false });
+      }
+
+      // Small delay between sends to avoid rate limiting
+      if (recipients.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
