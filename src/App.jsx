@@ -7009,40 +7009,100 @@ OUTPUT FORMAT (strict JSON, no explanations):
               const trendSlope = (recentCloses[recentCloses.length - 1] - recentCloses[0]) / recentCloses[0] * 100;
               const trend = trendSlope > 1 ? 'UPTREND' : trendSlope < -1 ? 'DOWNTREND' : 'SIDEWAYS';
               
-              // Calculate score (same as Daily Pick)
-              let bullishScore = 50;
-              let bearishScore = 50;
-              
-              if (rsi < 30) bullishScore += 15;
-              else if (rsi < 40) bullishScore += 10;
-              else if (rsi > 70) bearishScore += 15;
-              else if (rsi > 60) bearishScore += 5;
-              
-              if (macdHistogram > 0 && currentMACD > 0) bullishScore += 15;
-              else if (macdHistogram > 0) bullishScore += 10;
-              else if (macdHistogram < 0 && currentMACD < 0) bearishScore += 15;
-              else if (macdHistogram < 0) bearishScore += 10;
-              
-              if (currentPrice > sma20[sma20.length - 1]) bullishScore += 10;
-              else bearishScore += 10;
-              
-              if (sma50.length > 0 && currentPrice > sma50[sma50.length - 1]) bullishScore += 10;
-              else if (sma50.length > 0) bearishScore += 10;
-              
-              if (trend === 'UPTREND') bullishScore += 15;
-              else if (trend === 'DOWNTREND') bearishScore += 15;
-              
+              // Calculate score (aligned with Daily Pick's algorithm)
+              let bullishScore = 0;
+              let bearishScore = 0;
+              let confirmations = 0;
+
+              // === RSI ANALYSIS (same thresholds as Daily Pick) ===
+              if (rsi < 25) {
+                bullishScore += 20;
+                confirmations++;
+              } else if (rsi < 35) {
+                bullishScore += 12;
+              } else if (rsi > 75) {
+                bearishScore += 20;
+                confirmations++;
+              } else if (rsi > 65) {
+                bearishScore += 12;
+              }
+
+              // === MACD ANALYSIS (same normalized strength as Daily Pick) ===
+              const macdStrength = Math.abs(macdHistogram / currentPrice) * 10000;
+              if (macdHistogram > 0 && macdStrength > 0.5) {
+                bullishScore += 15;
+                if (macdStrength > 1.5) confirmations++;
+              } else if (macdHistogram < 0 && macdStrength > 0.5) {
+                bearishScore += 15;
+                if (macdStrength > 1.5) confirmations++;
+              }
+
+              // === MOVING AVERAGE ANALYSIS (same % thresholds as Daily Pick) ===
+              const priceSma20Pct = ((currentPrice - sma20[sma20.length - 1]) / sma20[sma20.length - 1]) * 100;
+              if (priceSma20Pct > 2) bullishScore += 10;
+              else if (priceSma20Pct < -2) bearishScore += 10;
+
+              const lastSma50 = sma50.length > 0 ? sma50[sma50.length - 1] : null;
+              if (lastSma50) {
+                const priceSma50Pct = ((currentPrice - lastSma50) / lastSma50) * 100;
+                if (priceSma50Pct > 3) {
+                  bullishScore += 12;
+                  confirmations++;
+                } else if (priceSma50Pct < -3) {
+                  bearishScore += 12;
+                  confirmations++;
+                }
+              }
+
+              // === TREND ANALYSIS (same graded logic as Daily Pick) ===
+              if (trend === 'UPTREND' && trendSlope > 2) {
+                bullishScore += 15;
+                confirmations++;
+              } else if (trend === 'UPTREND') {
+                bullishScore += 8;
+              } else if (trend === 'DOWNTREND' && trendSlope < -2) {
+                bearishScore += 15;
+                confirmations++;
+              } else if (trend === 'DOWNTREND') {
+                bearishScore += 8;
+              }
+
+              // === VOLUME CONFIRMATION (same as Daily Pick) ===
+              if (volumes && volumes.length >= 20) {
+                const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+                const currentVolume = volumes[volumes.length - 1];
+                const volumeRatio = avgVolume > 0 ? currentVolume / avgVolume : 1;
+                if (volumeRatio > 1.8) {
+                  if (changePercent > 1) {
+                    bullishScore += 12;
+                    confirmations++;
+                  } else if (changePercent < -1) {
+                    bearishScore += 12;
+                    confirmations++;
+                  }
+                }
+              }
+
+              // === MOMENTUM CHECK (same as Daily Pick) ===
+              if (closes.length >= 5) {
+                const recentChange = ((closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]) * 100;
+                if (recentChange > 1.5) bullishScore += 8;
+                else if (recentChange < -1.5) bearishScore += 8;
+              }
+
               const direction = bullishScore > bearishScore ? 'LONG' : 'SHORT';
-              const netScore = direction === 'LONG' ? bullishScore - bearishScore : bearishScore - bullishScore;
-              
-              // Determine recommendation
+              const netScore = Math.abs(bullishScore - bearishScore);
+
+              // === RECOMMENDATION (same stricter thresholds as Daily Pick) ===
+              const hasStrongSignal = confirmations >= 2;
+              const hasModerateSignal = confirmations >= 1 && netScore >= 15;
               let recommendation = 'HOLD';
-              if (direction === 'LONG') {
-                if (netScore >= 25) recommendation = 'STRONG_BUY';
-                else if (netScore >= 15) recommendation = 'BUY';
-              } else {
-                if (netScore >= 25) recommendation = 'STRONG_SELL';
-                else if (netScore >= 15) recommendation = 'SELL';
+              if (hasStrongSignal && netScore >= 30) {
+                recommendation = direction === 'LONG' ? 'STRONG_BUY' : 'STRONG_SELL';
+              } else if (hasModerateSignal && netScore >= 20) {
+                recommendation = direction === 'LONG' ? 'BUY' : 'SELL';
+              } else if (netScore >= 12) {
+                recommendation = direction === 'LONG' ? 'LEAN_BUY' : 'LEAN_SELL';
               }
               
               realIndicators = {
@@ -20938,7 +20998,7 @@ INSTRUCTIONS:
                             <span className="text-sm font-semibold text-slate-200">Key Levels:</span>
                             <span className="ml-2 text-sm text-slate-300">
                               Entry: {analysis.tradeSetup?.immediateEntry?.entry || 'N/A'} |
-                              Stop: {analysis.tradeSetup?.immediateEntry?.stopLoss || 'N/A'} |
+                              Stop: {analysis.tradeSetup?.immediateEntry?.stop || analysis.tradeSetup?.immediateEntry?.stopLoss || 'N/A'} |
                               Target: {analysis.tradeSetup?.immediateEntry?.target1 || 'N/A'}
                             </span>
                           </div>
@@ -20987,13 +21047,13 @@ INSTRUCTIONS:
                   </div>
 
                   {/* Risk/Reward Visual Bar */}
-                  {analysis?.tradeSetup?.immediateEntry?.entry && analysis?.tradeSetup?.immediateEntry?.stopLoss && analysis?.tradeSetup?.immediateEntry?.target1 && (
+                  {analysis?.tradeSetup?.immediateEntry?.entry && (analysis?.tradeSetup?.immediateEntry?.stop || analysis?.tradeSetup?.immediateEntry?.stopLoss) && analysis?.tradeSetup?.immediateEntry?.target1 && (
                     <div className="mt-4 p-4 bg-slate-800/30 rounded-xl border border-slate-700/20">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-slate-300">Risk / Reward Visualizer</span>
                         {(() => {
                           const entry = parseFloat(analysis.tradeSetup.immediateEntry.entry);
-                          const stop = parseFloat(analysis.tradeSetup.immediateEntry.stopLoss);
+                          const stop = parseFloat(analysis.tradeSetup.immediateEntry.stop || analysis.tradeSetup.immediateEntry.stopLoss);
                           const target = parseFloat(analysis.tradeSetup.immediateEntry.target1);
                           const risk = Math.abs(entry - stop);
                           const reward = Math.abs(target - entry);
@@ -21012,7 +21072,7 @@ INSTRUCTIONS:
 
                       {(() => {
                         const entry = parseFloat(analysis.tradeSetup.immediateEntry.entry);
-                        const stop = parseFloat(analysis.tradeSetup.immediateEntry.stopLoss);
+                        const stop = parseFloat(analysis.tradeSetup.immediateEntry.stop || analysis.tradeSetup.immediateEntry.stopLoss);
                         const target1 = parseFloat(analysis.tradeSetup.immediateEntry.target1);
                         const target2 = analysis.tradeSetup.immediateEntry.target2 ? parseFloat(analysis.tradeSetup.immediateEntry.target2) : null;
                         const isLong = entry > stop;
