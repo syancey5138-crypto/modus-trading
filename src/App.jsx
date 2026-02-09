@@ -14262,7 +14262,14 @@ INSTRUCTIONS:
                           localStorage.setItem('modus_beta_emails', JSON.stringify(emails));
                           trackEvent('conversion', 'beta_signup', 'landing_page');
 
-                          // Send notification via EmailJS
+                          // Send welcome email to the subscriber via Resend
+                          fetch('/api/send-welcome-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: betaEmail, displayName: betaEmail.split('@')[0] })
+                          }).catch(() => {});
+
+                          // Notify you about the new signup via EmailJS
                           try {
                             await fetch('https://api.emailjs.com/api/v1.0/email/send', {
                               method: 'POST',
@@ -14273,7 +14280,7 @@ INSTRUCTIONS:
                                 user_id: 'P3MjxM_aqWY9csXhF',
                                 template_params: {
                                   to_email: 'steventox5138@gmail.com',
-                                  subject: '🎉 New MODUS Beta Signup!',
+                                  subject: 'New MODUS Beta Signup!',
                                   message: `New beta signup:\n\nEmail: ${betaEmail}\nDate: ${new Date().toLocaleString()}\nTotal signups: ${emails.length}`,
                                 },
                               }),
