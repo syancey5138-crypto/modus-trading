@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Maximum 100 recipients per batch.' });
     }
 
-    const senderEmail = process.env.SENDER_EMAIL || 'steventox5138@gmail.com';
+    const senderEmail = process.env.SENDER_EMAIL || 'modus.ai.noreply@gmail.com';
     const senderName = process.env.SENDER_NAME || 'MODUS Trading';
     const emailHeading = heading || subject;
     const buttonText = ctaText || 'Open MODUS';

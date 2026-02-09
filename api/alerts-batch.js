@@ -138,7 +138,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const senderEmail = process.env.SENDER_EMAIL || 'steventox5138@gmail.com';
+    const senderEmail = process.env.SENDER_EMAIL || 'modus.ai.noreply@gmail.com';
     const senderName = process.env.SENDER_NAME || 'MODUS Alerts';
 
     // Alert type emojis

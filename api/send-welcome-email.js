@@ -115,7 +115,7 @@ export default async function handler(req, res) {
     }
 
     const name = displayName || email.split('@')[0];
-    const senderEmail = process.env.SENDER_EMAIL || 'steventox5138@gmail.com';
+    const senderEmail = process.env.SENDER_EMAIL || 'modus.ai.noreply@gmail.com';
     const senderName = process.env.SENDER_NAME || 'MODUS Trading';
 
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
