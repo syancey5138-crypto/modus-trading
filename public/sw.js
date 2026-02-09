@@ -1,5 +1,6 @@
 // MODUS Service Worker - PWA Support
-const CACHE_NAME = 'modus-v2.0.0';
+// Cache version — increment on each deploy to bust stale caches
+const CACHE_NAME = 'modus-v2.1.0';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

@@ -5725,13 +5725,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const sma50 = sma(closes, 50);
 
     // Fast MACD
-    const ema12 = closes.slice(-26).reduce((acc, val, i) => acc + val * Math.pow(2/13, 25-i), 0) / closes.slice(-26).reduce((acc, _, i) => acc + Math.pow(2/13, 25-i), 0);
-    const ema26 = closes.slice(-26).reduce((acc, val, i) => acc + val * Math.pow(2/27, 25-i), 0) / closes.slice(-26).reduce((acc, _, i) => acc + Math.pow(2/27, 25-i), 0);
+    const ema12Denom = closes.slice(-26).reduce((acc, _, i) => acc + Math.pow(2/13, 25-i), 0);
+    const ema26Denom = closes.slice(-26).reduce((acc, _, i) => acc + Math.pow(2/27, 25-i), 0);
+    const ema12 = ema12Denom > 0 ? closes.slice(-26).reduce((acc, val, i) => acc + val * Math.pow(2/13, 25-i), 0) / ema12Denom : 0;
+    const ema26 = ema26Denom > 0 ? closes.slice(-26).reduce((acc, val, i) => acc + val * Math.pow(2/27, 25-i), 0) / ema26Denom : 0;
     const macdLine = ema12 - ema26;
 
     // Volume analysis
-    const recentVol = bars.slice(-5).reduce((s, b) => s + b.volume, 0) / 5;
-    const avgVol = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
+    const recentVolSlice = bars.slice(-5);
+    const avgVolSlice = bars.slice(-20);
+    const recentVol = recentVolSlice.length > 0 ? recentVolSlice.reduce((s, b) => s + b.volume, 0) / recentVolSlice.length : 0;
+    const avgVol = avgVolSlice.length > 0 ? avgVolSlice.reduce((s, b) => s + b.volume, 0) / avgVolSlice.length : 0;
     const volumeRatio = avgVol > 0 ? recentVol / avgVol : 1;
 
     // ATR/Volatility calculation
@@ -5744,8 +5748,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
       trueRanges.push(tr);
     }
-    const atr = trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length;
-    const atrPercent = (atr / currentPrice) * 100;
+    const atr = trueRanges.length > 0 ? trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length : 0;
+    const atrPercent = currentPrice > 0 ? (atr / currentPrice) * 100 : 0;
     // 5-level volatility categorization
     const volatilityCategory =
       atrPercent >= 4.0 ? 'High' :
@@ -5754,7 +5758,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       atrPercent >= 0.8 ? 'Low-Medium' : 'Low';
 
     // Trend
-    const trendSlope = (closes[closes.length - 1] - closes[closes.length - 20]) / closes[closes.length - 20] * 100;
+    const trendRef = closes.length >= 20 ? closes[closes.length - 20] : closes[0];
+    const trendSlope = trendRef > 0 ? (closes[closes.length - 1] - trendRef) / trendRef * 100 : 0;
     const trend = trendSlope > 1 ? 'UPTREND' : trendSlope < -1 ? 'DOWNTREND' : 'SIDEWAYS';
 
     // IMPROVED SCORING - More conservative, requires confirmation
@@ -6111,7 +6116,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           if (!prev || !prev.timeSeries || prev.timeSeries.length === 0) return prev;
 
           // Reject suspicious price jumps (>10%)
-          if (freshPrice && Math.abs(freshPrice - prev.currentPrice) / prev.currentPrice > 0.10) {
+          if (freshPrice && prev.currentPrice > 0 && Math.abs(freshPrice - prev.currentPrice) / prev.currentPrice > 0.10) {
             console.log(`[Auto-Refresh] ⚠️ Rejected suspicious price change`);
             return { ...prev, lastUpdate: new Date(), lastRealUpdate: Date.now(), isLive: true };
           }
@@ -8573,8 +8578,8 @@ OUTPUT JSON:
           const recentBars = bars.slice(-20);
           const highs = recentBars.map(b => b.high);
           const lows = recentBars.map(b => b.low);
-          const highSlope = (highs[highs.length - 1] - highs[0]) / highs[0] * 100;
-          const lowSlope = (lows[lows.length - 1] - lows[0]) / lows[0] * 100;
+          const highSlope = highs.length > 0 && highs[0] > 0 ? (highs[highs.length - 1] - highs[0]) / highs[0] * 100 : 0;
+          const lowSlope = lows.length > 0 && lows[0] > 0 ? (lows[lows.length - 1] - lows[0]) / lows[0] * 100 : 0;
           const trend = highSlope > 1 && lowSlope > 1 ? 'UPTREND' : 
                         highSlope < -1 && lowSlope < -1 ? 'DOWNTREND' : 'SIDEWAYS';
           
@@ -10314,8 +10319,8 @@ INSTRUCTIONS:
     }
 
     // Simplified Sharpe-like ratio (annualized)
-    const avgReturn = results.reduce((sum, r) => sum + r.pnlPercent, 0) / results.length;
-    const variance = results.reduce((sum, r) => sum + Math.pow(r.pnlPercent - avgReturn, 2), 0) / results.length;
+    const avgReturn = results.length > 0 ? results.reduce((sum, r) => sum + r.pnlPercent, 0) / results.length : 0;
+    const variance = results.length > 0 ? results.reduce((sum, r) => sum + Math.pow(r.pnlPercent - avgReturn, 2), 0) / results.length : 0;
     const stdDev = Math.sqrt(variance) || 1;
     const sharpe = (avgReturn / stdDev) * Math.sqrt(252);
 
@@ -10325,7 +10330,7 @@ INSTRUCTIONS:
       totalTrades: trades.length,
       closedTrades: closedTrades.length,
       openTrades: trades.length - closedTrades.length,
-      winRate: (wins.length / results.length) * 100,
+      winRate: results.length > 0 ? (wins.length / results.length) * 100 : 0,
       wins: wins.length,
       losses: losses.length,
       totalPnL,
@@ -10335,7 +10340,7 @@ INSTRUCTIONS:
       bestTrade: sorted[0] || null,
       worstTrade: sorted[sorted.length - 1] || null,
       streak,
-      avgHoldTime: results.reduce((sum, r) => sum + r.holdDays, 0) / results.length,
+      avgHoldTime: results.length > 0 ? results.reduce((sum, r) => sum + r.holdDays, 0) / results.length : 0,
       sharpe: isFinite(sharpe) ? sharpe : 0,
       monthlyPnL: results.reduce((acc, r) => {
         if (r.exitDate) {
@@ -10914,22 +10919,24 @@ INSTRUCTIONS:
     console.log(`[Economic Calendar] ⏰ Next auto-refresh in ${(msUntilMidnight / 1000 / 60 / 60).toFixed(1)} hours (at midnight)`);
     
     // Set up midnight refresh
+    let dailyInterval = null;
     const midnightTimer = setTimeout(() => {
-      console.log("[Economic Calendar] 🌙 Midnight refresh triggered!");
+      console.log("[Economic Calendar] Midnight refresh triggered");
       const newEvents = generateEconomicEvents();
       setEconomicEvents(newEvents);
-      
+
       // Set up daily refresh interval
-      const dailyInterval = setInterval(() => {
-        console.log("[Economic Calendar] 📅 Daily refresh - generating fresh events...");
+      dailyInterval = setInterval(() => {
+        console.log("[Economic Calendar] Daily refresh - generating fresh events");
         const refreshedEvents = generateEconomicEvents();
         setEconomicEvents(refreshedEvents);
       }, 24 * 60 * 60 * 1000); // Every 24 hours
-      
-      return () => clearInterval(dailyInterval);
     }, msUntilMidnight);
-    
-    return () => clearTimeout(midnightTimer);
+
+    return () => {
+      clearTimeout(midnightTimer);
+      if (dailyInterval) clearInterval(dailyInterval);
+    };
   }, []);
   
   // ========================
@@ -27076,15 +27083,15 @@ INSTRUCTIONS:
                       <div className="h-2 bg-slate-700 rounded-full overflow-hidden flex">
                         <div
                           className="bg-emerald-500 transition-all"
-                          style={{ width: `${(advancing / sectors.length) * 100}%` }}
+                          style={{ width: `${sectors.length > 0 ? (advancing / sectors.length) * 100 : 0}%` }}
                         />
                         <div
                           className="bg-slate-500 transition-all"
-                          style={{ width: `${(unchanged / sectors.length) * 100}%` }}
+                          style={{ width: `${sectors.length > 0 ? (unchanged / sectors.length) * 100 : 0}%` }}
                         />
                         <div
                           className="bg-red-500 transition-all"
-                          style={{ width: `${(declining / sectors.length) * 100}%` }}
+                          style={{ width: `${sectors.length > 0 ? (declining / sectors.length) * 100 : 0}%` }}
                         />
                       </div>
                     </>
@@ -30933,14 +30940,14 @@ INSTRUCTIONS:
                   <div className="bg-gradient-to-br from-green-900/30 to-green-800/10 border border-green-500/30 rounded-lg p-6">
                     <div className="text-xs text-slate-400 mb-2">Profitable</div>
                     <div className="text-3xl font-bold text-green-400">
-                      {((alertPerformance.filter(a => a.profitable).length / alertPerformance.length) * 100).toFixed(1)}%
+                      {alertPerformance.length > 0 ? ((alertPerformance.filter(a => a.profitable).length / alertPerformance.length) * 100).toFixed(1) : '0.0'}%
                     </div>
                   </div>
-                  
+
                   <div className="bg-gradient-to-br from-blue-900/30 to-blue-800/10 border border-blue-500/30 rounded-lg p-6">
                     <div className="text-xs text-slate-400 mb-2">Avg Return</div>
                     <div className="text-3xl font-bold text-blue-400">
-                      {(alertPerformance.reduce((sum, a) => sum + a.return24h, 0) / alertPerformance.length).toFixed(2)}%
+                      {alertPerformance.length > 0 ? (alertPerformance.reduce((sum, a) => sum + a.return24h, 0) / alertPerformance.length).toFixed(2) : '0.00'}%
                     </div>
                   </div>
                   
