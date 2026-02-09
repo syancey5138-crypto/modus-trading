@@ -1,4 +1,4 @@
-// Vercel Serverless Function - Update/Announcement Email via Resend
+// Vercel Serverless Function - Update/Announcement Email via Brevo
 // Sends announcement emails to opted-in mailing list subscribers
 // Requires admin secret to prevent unauthorized use
 
@@ -41,9 +41,9 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Unauthorized. Admin secret required.' });
     }
 
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) {
-      return res.status(500).json({ error: 'Resend API key not configured.' });
+    const brevoKey = process.env.BREVO_API_KEY;
+    if (!brevoKey) {
+      return res.status(500).json({ error: 'Brevo API key not configured.' });
     }
 
     const { recipients, subject, heading, body, ctaText, ctaUrl } = req.body;
@@ -63,26 +63,28 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Maximum 100 recipients per batch.' });
     }
 
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'MODUS <onboarding@resend.dev>';
+    const senderEmail = process.env.SENDER_EMAIL || 'steventox5138@gmail.com';
+    const senderName = process.env.SENDER_NAME || 'MODUS Trading';
     const emailHeading = heading || subject;
     const buttonText = ctaText || 'Open MODUS';
     const buttonUrl = ctaUrl || 'https://modus-trading.vercel.app';
 
-    // Send individually for deliverability (avoids BCC issues)
+    // Send individually for deliverability
     const results = [];
     for (const email of recipients) {
       try {
-        const response = await fetch('https://api.resend.com/emails', {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${resendKey}`,
+            'api-key': brevoKey,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
           body: JSON.stringify({
-            from: fromAddress,
-            to: [email],
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email: email, name: email.split('@')[0] }],
             subject: subject,
-            html: `
+            htmlContent: `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>

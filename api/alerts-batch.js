@@ -130,13 +130,16 @@ export default async function handler(req, res) {
     const phoneNumber = cleanPhone.length === 11 ? cleanPhone.slice(1) : cleanPhone;
     const smsEmail = `${phoneNumber}@${gateway}`;
 
-    const resendApiKey = process.env.RESEND_API_KEY;
+    const brevoKey = process.env.BREVO_API_KEY;
 
-    if (!resendApiKey) {
+    if (!brevoKey) {
       return res.status(500).json({
         error: 'Batch SMS service not configured. Please check server environment variables.'
       });
     }
+
+    const senderEmail = process.env.SENDER_EMAIL || 'steventox5138@gmail.com';
+    const senderName = process.env.SENDER_NAME || 'MODUS Alerts';
 
     // Alert type emojis
     const alertEmojis = {
@@ -187,17 +190,18 @@ export default async function handler(req, res) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
 
-        const response = await fetch('https://api.resend.com/emails', {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
+            'api-key': brevoKey,
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${resendApiKey}`,
+            'Accept': 'application/json',
           },
           body: JSON.stringify({
-            from: 'MODUS Alerts <alerts@resend.dev>',
-            to: smsEmail,
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email: smsEmail }],
             subject: 'MODUS',
-            text: batch,
+            textContent: batch,
           }),
           signal: controller.signal,
         });
