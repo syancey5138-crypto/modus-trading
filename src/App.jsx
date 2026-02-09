@@ -3287,6 +3287,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -3294,19 +3295,27 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       setDeferredPrompt(e);
       setShowInstallBanner(true);
     };
+    const installedHandler = () => { setIsAppInstalled(true); setShowInstallBanner(false); };
     window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', () => { setIsAppInstalled(true); setShowInstallBanner(false); });
+    window.addEventListener('appinstalled', installedHandler);
     if (window.matchMedia('(display-mode: standalone)').matches) setIsAppInstalled(true);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', installedHandler);
+    };
   }, []);
 
   const handleInstallPWA = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const result = await deferredPrompt.userChoice;
-    if (result.outcome === 'accepted') setIsAppInstalled(true);
-    setDeferredPrompt(null);
-    setShowInstallBanner(false);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const result = await deferredPrompt.userChoice;
+      if (result.outcome === 'accepted') setIsAppInstalled(true);
+      setDeferredPrompt(null);
+      setShowInstallBanner(false);
+    } else {
+      // No native prompt available — show manual install guide
+      setShowInstallGuide(true);
+    }
   };
 
   // ═══════════════════════════════════════════════
@@ -3945,10 +3954,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       { match: () => c.includes('options chain'), msg: 'Opening Options', fn: () => setActiveTab('options') },
       { match: () => c.includes('position sizer') || c.includes('risk calculator') || c.includes('size calculator'), msg: 'Opening Position Sizer', fn: () => setShowPositionSizer(true) },
       { match: () => c.includes('theme builder') || c.includes('custom theme') || c.includes('build theme') || c.includes('create theme'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
-      // ── Info pages — features, terms, privacy ──
-      { match: () => c.includes('feature') || c.includes('what can') || c.includes('show me feature') || c.includes('show feature') || c.includes('platform feature') || c.includes('all feature'), msg: 'Showing Features', fn: () => setShowInfoPage('features') },
-      { match: () => c.includes('terms of service') || c.includes('terms and condition') || c.includes('tos'), msg: 'Showing Terms of Service', fn: () => setShowInfoPage('terms') },
-      { match: () => c.includes('privacy policy') || c.includes('privacy') || c.includes('data policy'), msg: 'Showing Privacy Policy', fn: () => setShowInfoPage('privacy') },
+      // ── Info pages — navigate to Info & Legal tab with correct sub-tab ──
+      { match: () => c.includes('feature') || c.includes('what can') || c.includes('show me feature') || c.includes('show feature') || c.includes('platform feature') || c.includes('all feature'), msg: 'Showing Features', fn: () => { setActiveTab('info'); setInfoSubTab('features'); } },
+      { match: () => c.includes('terms of service') || c.includes('terms and condition') || c.includes('tos'), msg: 'Showing Terms of Service', fn: () => { setActiveTab('info'); setInfoSubTab('terms'); } },
+      { match: () => c.includes('privacy policy') || c.includes('privacy') || c.includes('data policy'), msg: 'Showing Privacy Policy', fn: () => { setActiveTab('info'); setInfoSubTab('privacy'); } },
       // ── Theme commands ──
       { match: () => c.includes('dark mode') || c.includes('dark theme') || c.includes('go dark'), msg: 'Switched to Dark theme', fn: () => setThemeMode('dark') },
       { match: () => c.includes('light mode') || c.includes('light theme') || c.includes('go light') || c.includes('bright mode'), msg: 'Switched to Light theme', fn: () => setThemeMode('light') },
@@ -3971,6 +3980,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       { match: () => c.includes('crypto') || c.includes('bitcoin') || c.includes('ethereum') || c.includes('cryptocurrency') || c.includes('coin'), msg: 'Opening Crypto', fn: () => setActiveTab('crypto') },
       { match: () => c.includes('sector'), msg: 'Opening Sectors', fn: () => setActiveTab('sectors') },
       { match: () => c.includes('watchlist') || c.includes('watch list') || c.includes('my watch') || c.includes('favorites') || c.includes('favourites'), msg: 'Opening Watchlist', fn: () => setActiveTab('watchlist') },
+      { match: () => c.includes('install') || c.includes('download app') || c.includes('add to home'), msg: 'Install MODUS', fn: () => handleInstallPWA() },
       { match: () => c.includes('setting') || c.includes('api key') || c.includes('config') || c.includes('preferences'), msg: 'Opening Settings', fn: () => setShowApiKeyModal(true) },
       { match: () => c.includes('info') || c.includes('help') || c.includes('guide') || c.includes('tutorial') || c.includes('how to') || c.includes('documentation'), msg: 'Opening Info & Help', fn: () => setActiveTab('info') },
       { match: () => c.includes('shortcut') || c.includes('keyboard') || c.includes('hotkey') || c.includes('keybind'), msg: 'Showing Keyboard Shortcuts', fn: () => setShowShortcutsOverlay(true) },
@@ -13954,6 +13964,58 @@ INSTRUCTIONS:
         </div>
       )}
 
+      {/* PWA INSTALL GUIDE — manual instructions when native prompt unavailable */}
+      {showInstallGuide && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowInstallGuide(false); }}>
+          <div className="bg-slate-900 border border-slate-700/50 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-violet-500/20 rounded-xl">
+                    <Download className="w-5 h-5 text-violet-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Install MODUS</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Add to your home screen for the full app experience</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowInstallGuide(false)} className="text-slate-500 hover:text-white transition-colors p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-4 bg-slate-800/60 rounded-xl border border-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-base">🖥️</span>
+                  <h4 className="text-sm font-semibold text-white">Chrome / Edge (Desktop)</h4>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">Click the install icon in your address bar (right side), or open the browser menu (⋮) and select <span className="text-violet-300 font-medium">"Install MODUS Trading Platform"</span></p>
+              </div>
+              <div className="p-4 bg-slate-800/60 rounded-xl border border-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-base">📱</span>
+                  <h4 className="text-sm font-semibold text-white">Safari (iPhone / iPad)</h4>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">Tap the Share button (square with arrow), scroll down and tap <span className="text-violet-300 font-medium">"Add to Home Screen"</span>, then tap Add</p>
+              </div>
+              <div className="p-4 bg-slate-800/60 rounded-xl border border-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-base">🌐</span>
+                  <h4 className="text-sm font-semibold text-white">Android (Chrome)</h4>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">Tap the browser menu (⋮) and select <span className="text-violet-300 font-medium">"Add to Home screen"</span> or <span className="text-violet-300 font-medium">"Install app"</span></p>
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+              <button onClick={() => setShowInstallGuide(false)} className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold rounded-xl transition-all">
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* GUIDED SETUP WIZARD */}
       {showSetupWizard && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
@@ -15378,6 +15440,15 @@ INSTRUCTIONS:
                           </div>
                         </div>
                         <div className="p-1.5">
+                          {!isAppInstalled && (
+                            <button
+                              onClick={() => { setShowUserMenu(false); handleInstallPWA(); }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-violet-300 hover:bg-violet-500/10 rounded-lg transition-colors"
+                            >
+                              <Download className="w-4 h-4 text-violet-400" />
+                              Install MODUS
+                            </button>
+                          )}
                           <button
                             onClick={() => { setShowUserMenu(false); setShowApiKeyModal(true); }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/70 rounded-lg transition-colors"
@@ -15498,10 +15569,10 @@ INSTRUCTIONS:
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
                 </button>
-                {/* PWA Install (Feature 7) — only show when actually installable */}
-                {!isAppInstalled && deferredPrompt && (
+                {/* PWA Install (Feature 7) — always show when not installed */}
+                {!isAppInstalled && (
                   <button onClick={handleInstallPWA} title="Install MODUS App"
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30">
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${deferredPrompt ? 'bg-violet-600/20 hover:bg-violet-500/30 text-violet-300 hover:text-violet-200 border-violet-500/30 hover:border-violet-400/50' : 'bg-slate-800/50 hover:bg-violet-500/20 text-slate-400 hover:text-violet-400 border-slate-700/30 hover:border-violet-500/30'}`}>
                     <Download className="w-3.5 h-3.5" />
                     <span className="hidden md:inline">Install</span>
                   </button>
@@ -33566,10 +33637,15 @@ INSTRUCTIONS:
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => {
-                    const symbol = document.getElementById('livePortfolioSymbol').value;
-                    const quantity = parseFloat(document.getElementById('livePortfolioQuantity').value);
-                    const entryPrice = parseFloat(document.getElementById('livePortfolioEntry').value);
-                    
+                    const symbolEl = document.getElementById('livePortfolioSymbol');
+                    const quantityEl = document.getElementById('livePortfolioQuantity');
+                    const entryEl = document.getElementById('livePortfolioEntry');
+                    if (!symbolEl || !quantityEl || !entryEl) return;
+
+                    const symbol = symbolEl.value;
+                    const quantity = parseFloat(quantityEl.value);
+                    const entryPrice = parseFloat(entryEl.value);
+
                     if (symbol && quantity && entryPrice) {
                       setLivePortfolio(prev => ({
                         ...prev,
@@ -33583,9 +33659,9 @@ INSTRUCTIONS:
                         }]
                       }));
                       setShowAddPortfolioPosition(false);
-                      document.getElementById('livePortfolioSymbol').value = '';
-                      document.getElementById('livePortfolioQuantity').value = '';
-                      document.getElementById('livePortfolioEntry').value = '';
+                      symbolEl.value = '';
+                      quantityEl.value = '';
+                      entryEl.value = '';
                     }
                   }}
                   className="flex-1 bg-violet-600 hover:bg-violet-500 text-white rounded-lg py-3 font-semibold transition-colors"
