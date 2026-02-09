@@ -142,7 +142,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Resend API error:', response.status, errText);
-      throw new Error('Email service temporarily unavailable');
+      return res.status(200).json({ success: false, debug: `Resend ${response.status}: ${errText}` });
     }
 
     const data = await response.json();
@@ -150,7 +150,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Welcome email error:', error);
-    // Don't fail signup if email fails — just log it
-    return res.status(200).json({ success: false, warning: 'Email could not be sent, but account was created.' });
+    return res.status(200).json({ success: false, debug: error.message });
   }
 }
