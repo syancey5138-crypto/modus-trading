@@ -130,7 +130,7 @@ export function AuthProvider({ children }) {
   }
 
   // Initialize user document on first login
-  async function initializeUserDoc(user) {
+  async function initializeUserDoc(user, options = {}) {
     try {
       const userRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(userRef);
@@ -142,6 +142,7 @@ export function AuthProvider({ children }) {
           displayName: user.displayName || user.email?.split('@')[0],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
+          mailingList: options.subscribe !== false, // Default true unless explicitly false
           watchlist: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'],
           paperTrading: {
             balance: 100000,
@@ -173,12 +174,12 @@ export function AuthProvider({ children }) {
   }
 
   // Sign up
-  async function signup(email, password, displayName) {
+  async function signup(email, password, displayName, options = {}) {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     if (displayName) {
       await updateProfile(result.user, { displayName });
     }
-    await initializeUserDoc(result.user);
+    await initializeUserDoc(result.user, options);
     return result;
   }
 

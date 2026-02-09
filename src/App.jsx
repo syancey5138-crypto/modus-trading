@@ -1853,6 +1853,7 @@ function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
+  const [authSubscribe, setAuthSubscribe] = useState(true); // Opt-in to mailing list (default checked)
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -1984,11 +1985,18 @@ function App() {
         setAuthEmail('');
         setAuthPassword('');
       } else if (authMode === 'signup') {
-        await signup(authEmail, authPassword, authName);
+        await signup(authEmail, authPassword, authName, { subscribe: authSubscribe });
+        // Send welcome email in background (don't block signup)
+        fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authEmail, displayName: authName || authEmail.split('@')[0] })
+        }).catch(() => {}); // Silent fail — account is already created
         setShowAuthModal(false);
         setAuthEmail('');
         setAuthPassword('');
         setAuthName('');
+        setAuthSubscribe(true);
       } else if (authMode === 'reset') {
         await resetPassword(authEmail);
         setAuthError('Password reset email sent! Check your inbox.');
@@ -13082,6 +13090,24 @@ INSTRUCTIONS:
                     />
                   </div>
                 </div>
+              )}
+
+              {/* Mailing list opt-in (signup only) */}
+              {authMode === 'signup' && (
+                <label className="flex items-center gap-2.5 cursor-pointer group py-1">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={authSubscribe}
+                      onChange={(e) => setAuthSubscribe(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center ${authSubscribe ? 'bg-violet-600 border-violet-500' : 'bg-slate-800 border-slate-600 group-hover:border-slate-500'}`}>
+                      {authSubscribe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                  </div>
+                  <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Send me updates about new features and improvements</span>
+                </label>
               )}
 
               {/* Error Message */}
