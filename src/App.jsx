@@ -1986,11 +1986,21 @@ function App() {
         setAuthPassword('');
       } else if (authMode === 'signup') {
         await signup(authEmail, authPassword, authName, { subscribe: authSubscribe });
-        // Send welcome email in background (don't block signup)
-        fetch('/api/send-welcome-email', {
+        // Send welcome email in background via EmailJS (client-side, don't block signup)
+        const welcomeName = authName || authEmail.split('@')[0];
+        fetch('https://api.emailjs.com/api/v1.0/email/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: authEmail, displayName: authName || authEmail.split('@')[0] })
+          body: JSON.stringify({
+            service_id: 'service_wka2oph',
+            template_id: 'template_1bn2e5y',
+            user_id: 'P3MjxM_aqWY9csXhF',
+            template_params: {
+              to_email: authEmail,
+              subject: `Welcome to MODUS, ${welcomeName}!`,
+              message: `Welcome aboard, ${welcomeName}!\n\nYour MODUS account is live. Here's what you can do:\n\n- Upload a chart for AI analysis\n- Practice with Paper Trading ($100K virtual balance)\n- Track your trades in the Journal\n- Set up SMS & voice alerts\n\nPro tip: Press V anytime to activate voice commands.\n\nOpen MODUS: https://modus-trading.vercel.app\n\nHappy trading!\n— The MODUS Team`
+            }
+          })
         }).catch(() => {}); // Silent fail — account is already created
         setShowAuthModal(false);
         setAuthEmail('');
@@ -14262,11 +14272,20 @@ INSTRUCTIONS:
                           localStorage.setItem('modus_beta_emails', JSON.stringify(emails));
                           trackEvent('conversion', 'beta_signup', 'landing_page');
 
-                          // Send welcome email to the subscriber via Resend
-                          fetch('/api/send-welcome-email', {
+                          // Send welcome email to the subscriber via EmailJS (client-side)
+                          fetch('https://api.emailjs.com/api/v1.0/email/send', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: betaEmail, displayName: betaEmail.split('@')[0] })
+                            body: JSON.stringify({
+                              service_id: 'service_wka2oph',
+                              template_id: 'template_1bn2e5y',
+                              user_id: 'P3MjxM_aqWY9csXhF',
+                              template_params: {
+                                to_email: betaEmail,
+                                subject: 'Welcome to MODUS!',
+                                message: `Thanks for signing up for MODUS!\n\nYou'll be the first to know when new features drop.\n\nOpen MODUS: https://modus-trading.vercel.app\n\n— The MODUS Team`
+                              }
+                            })
                           }).catch(() => {});
 
                           // Notify you about the new signup via EmailJS
