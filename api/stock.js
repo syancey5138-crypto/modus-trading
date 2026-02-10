@@ -37,11 +37,11 @@ export default async function handler(req, res) {
 
   const { symbol, interval, range } = req.query;
 
-  if (!symbol || !/^[A-Z]{1,5}$/.test(symbol.toUpperCase())) {
-    return res.status(400).json({ error: 'Invalid symbol. Must be 1-5 uppercase letters.' });
+  if (!symbol || !/^\^?[A-Z]{1,5}$/i.test(symbol.trim())) {
+    return res.status(400).json({ error: 'Invalid symbol. Must be 1-5 letters, optionally prefixed with ^.' });
   }
 
-  const sym = symbol.toUpperCase();
+  const sym = symbol.trim().toUpperCase();
   const int = interval || '1d';
   const rng = range || '3mo';
 

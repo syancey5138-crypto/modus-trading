@@ -5321,15 +5321,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // IMPROVED: Fetch actual current quote with CORS proxy fallbacks
   const fetchCurrentQuote = async (symbol) => {
     console.log(`[Real-Time] Fetching current quote for ${symbol}...`);
-    
+
     const yahooUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d`;
     const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d`;
-    
+
+    // PRIORITY: Server-side proxy first (works in ALL browsers, no CORS)
+    const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+    const serverProxyUrl = `${apiBase}/api/stock?symbol=${encodeURIComponent(symbol)}&interval=1m&range=1d`;
+
     const proxyUrls = [
-      yahooUrl1,
-      yahooUrl2,
+      serverProxyUrl,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl1)}`,
-      `https://corsproxy.io/?${encodeURIComponent(yahooUrl2)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl1)}`,
       `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl1)}`,
     ];
@@ -5509,7 +5511,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     try {
       const yahooNewsUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}&newsCount=${limit}&quotesCount=0&enableFuzzyQuery=false&enableNavLinks=false`;
 
+      // PRIORITY: Server-side proxy first (works in ALL browsers, no CORS)
+      const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+      const serverNewsUrl = `${apiBase}/api/news?symbol=${encodeURIComponent(symbol)}&count=${limit}`;
+
       const proxyUrls = [
+        serverNewsUrl,
         `https://corsproxy.io/?${encodeURIComponent(yahooNewsUrl)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooNewsUrl)}`,
       ];
@@ -12741,9 +12748,13 @@ INSTRUCTIONS:
     const yahooUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1m&range=1d`;
     const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1m&range=1d`;
 
+    // PRIORITY: Server-side proxy first (works in ALL browsers, no CORS)
+    const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+    const serverProxyUrl = `${apiBase}/api/stock?symbol=${encodeURIComponent(symbol)}&interval=1m&range=1d`;
+
     const proxyUrls = [
+      serverProxyUrl,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl1)}`,
-      `https://corsproxy.io/?${encodeURIComponent(yahooUrl2)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl1)}`,
       `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl1)}`,
       `https://thingproxy.freeboard.io/fetch/${yahooUrl1}`,
