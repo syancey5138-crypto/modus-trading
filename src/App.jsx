@@ -3074,6 +3074,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
   }, [communityMode, communityCode]);
 
+  // AUTO-LOAD community posts when mode changes or user signs in
+  useEffect(() => {
+    if (communityMode !== 'local') {
+      // Load from Firestore when switching to public/private mode
+      loadCommunityPosts();
+    }
+  }, [communityMode, communityCode, currentUser]);
+
   const addToSocialFeed = useCallback((item) => {
     // Spam protection: 30-second cooldown between posts
     const now = Date.now();
@@ -3505,9 +3513,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [dashboardWidgets, setDashboardWidgets] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('modus_dashboard_widgets')) || [
-        'clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'sectorrotation', 'marketbreadth', 'tradeplan'
+        'clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'socialfeed', 'morningbrief', 'sectorrotation', 'marketbreadth', 'tradeplan'
       ];
-    } catch { return ['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'morningbrief', 'sectorrotation', 'marketbreadth', 'tradeplan']; }
+    } catch { return ['clock', 'quickstats', 'quicknav', 'xp', 'dailytip', 'watchlist', 'dailypick', 'portfolio', 'alerts', 'performance', 'marketsummary', 'news', 'socialfeed', 'morningbrief', 'sectorrotation', 'marketbreadth', 'tradeplan']; }
   });
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState(null);
@@ -3595,6 +3603,22 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   useEffect(() => {
     try { localStorage.setItem('modus_dashboard_widgets', JSON.stringify(dashboardWidgets)); } catch {}
   }, [dashboardWidgets]);
+
+  // Migration: ensure socialfeed widget is present for existing users
+  useEffect(() => {
+    if (!dashboardWidgets.includes('socialfeed')) {
+      setDashboardWidgets(prev => {
+        const newsIdx = prev.indexOf('news');
+        const updated = [...prev];
+        if (newsIdx >= 0) {
+          updated.splice(newsIdx + 1, 0, 'socialfeed');
+        } else {
+          updated.push('socialfeed');
+        }
+        return updated;
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [priceChange, setPriceChange] = useState(null); // { amount: 0.50, percent: 0.12, direction: 'up' }
   const [isRefreshing, setIsRefreshing] = useState(false); // Subtle refresh indicator
@@ -6414,12 +6438,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const yahooUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
     const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
 
-    // Optimized proxy list - only the fastest/most reliable ones
+    // PRIORITY: Try our own server-side proxy first (works in ALL browsers, no CORS)
+    const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+    const serverProxyUrl = `${apiBase}/api/stock?symbol=${symbol}&interval=${interval}&range=${range}`;
+
+    // Optimized proxy list - server proxy first, then CORS proxies as fallback
     const proxyUrls = [
-      yahooUrl1,
-      yahooUrl2,
+      serverProxyUrl,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl1)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl1)}`,
+      yahooUrl1,
+      yahooUrl2,
     ];
 
     // FAST: Try all proxies in PARALLEL with Promise.any - 2s timeout for speed
@@ -16597,7 +16626,7 @@ INSTRUCTIONS:
                               </div>
                               <div>
                                 <div className="text-[10px] text-slate-500">Target</div>
-                                <div className="font-semibold text-emerald-400">${parseFloat(dailyPick.target || 0).toFixed(2)}</div>
+                                <div className="font-semibold text-emerald-400">${parseFloat(dailyPick.target1 || dailyPick.target || 0).toFixed(2)}</div>
                               </div>
                               <div>
                                 <div className="text-[10px] text-slate-500">Stop</div>
