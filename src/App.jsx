@@ -1791,7 +1791,18 @@ function App() {
   const lastRefreshTimeRef = useRef(Date.now()); // REF for accurate countdown
   const tickerChartRef = useRef(null);
   const tickerLoadingRef = useRef(false); // Ref to track loading state for auto-refresh
-  
+
+  // ── Interactive Chart: Zoom, Pan, Crosshair ──
+  const [chartZoom, setChartZoom] = useState(1); // 1 = normal, 0.3–6 range
+  const [chartScrollOffset, setChartScrollOffset] = useState(-1); // -1 = auto-scroll to latest; px offset otherwise
+  const [chartIsDragging, setChartIsDragging] = useState(false);
+  const chartDragStartX = useRef(0);
+  const chartDragStartOffset = useRef(0);
+  const [chartCrosshair, setChartCrosshair] = useState(null); // { x, y, price, time, barIndex }
+  const chartAreaRef = useRef(null); // inner chart area (excludes Y-axis)
+  const pinchStartDist = useRef(0);
+  const pinchStartZoom = useRef(1);
+
   // NEW: Price Alerts State
   const [alerts, setAlerts] = useState([]);
   const [showCreateAlert, setShowCreateAlert] = useState(false);
@@ -6588,6 +6599,142 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       setLoadingComparison(false);
     }
   }, [tickerTimeframe]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // INTERACTIVE CHART: Zoom, Pan, Crosshair — handler functions
+  // ═══════════════════════════════════════════════════════════════
+
+  // Reset scroll to latest when new ticker loads
+  useEffect(() => {
+    if (tickerData?.timeSeries?.length > 0) {
+      setChartScrollOffset(-1); // -1 = auto-scroll to latest
+      setChartZoom(1);
+    }
+  }, [tickerData?.symbol]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compute visible candle range from zoom + scroll
+  const getChartLayout = useCallback(() => {
+    const totalBars = tickerData?.timeSeries?.length || 0;
+    if (totalBars === 0) return { candleW: 6, gap: 2, stride: 8, visStart: 0, visEnd: 0, maxOffset: 0 };
+
+    const candleW = Math.max(3, Math.round(6 * chartZoom));
+    const gap = Math.max(1, Math.round(2 * chartZoom));
+    const stride = candleW + gap;
+    const containerW = chartAreaRef.current?.offsetWidth || 800;
+    const visibleCount = Math.ceil(containerW / stride) + 1;
+    const maxOffset = Math.max(0, totalBars * stride - containerW);
+
+    // -1 means scroll to latest
+    const realOffset = chartScrollOffset < 0 ? maxOffset : Math.min(chartScrollOffset, maxOffset);
+    const visStart = Math.max(0, Math.floor(realOffset / stride));
+    const visEnd = Math.min(totalBars, visStart + visibleCount);
+
+    return { candleW, gap, stride, visStart, visEnd, maxOffset, realOffset, containerW, totalBars };
+  }, [tickerData?.timeSeries?.length, chartZoom, chartScrollOffset]);
+
+  const handleChartWheel = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+
+    setChartZoom(prevZoom => {
+      const newZoom = Math.max(0.3, Math.min(6, prevZoom * factor));
+      // Adjust scroll to keep candle under cursor stable
+      if (chartAreaRef.current) {
+        const rect = chartAreaRef.current.getBoundingClientRect();
+        const cursorFrac = (e.clientX - rect.left) / rect.width;
+        const totalBars = tickerData?.timeSeries?.length || 100;
+
+        const oldStride = Math.max(3, Math.round(6 * prevZoom)) + Math.max(1, Math.round(2 * prevZoom));
+        const newStride = Math.max(3, Math.round(6 * newZoom)) + Math.max(1, Math.round(2 * newZoom));
+        const oldMax = Math.max(0, totalBars * oldStride - rect.width);
+        const newMax = Math.max(0, totalBars * newStride - rect.width);
+
+        setChartScrollOffset(prevOff => {
+          const realOff = prevOff < 0 ? oldMax : Math.min(prevOff, oldMax);
+          const candleAtCursor = (realOff + cursorFrac * rect.width) / oldStride;
+          const newOff = candleAtCursor * newStride - cursorFrac * rect.width;
+          return Math.max(0, Math.min(newOff, newMax));
+        });
+      }
+      return newZoom;
+    });
+  }, [tickerData?.timeSeries?.length]);
+
+  const handleChartMouseDown = useCallback((e) => {
+    if (drawingMode) return;
+    setChartIsDragging(true);
+    chartDragStartX.current = e.clientX;
+    const layout = getChartLayout();
+    chartDragStartOffset.current = layout.realOffset;
+  }, [drawingMode, getChartLayout]);
+
+  const handleChartMouseMove = useCallback((e) => {
+    // Drag-to-pan
+    if (chartIsDragging && !drawingMode) {
+      const dx = e.clientX - chartDragStartX.current;
+      const layout = getChartLayout();
+      setChartScrollOffset(Math.max(0, Math.min(chartDragStartOffset.current - dx, layout.maxOffset)));
+    }
+    // Crosshair
+    if (chartAreaRef.current) {
+      const rect = chartAreaRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+        setChartCrosshair({ x, y, w: rect.width, h: rect.height });
+      } else {
+        setChartCrosshair(null);
+      }
+    }
+  }, [chartIsDragging, drawingMode, getChartLayout]);
+
+  const handleChartMouseUp = useCallback(() => {
+    setChartIsDragging(false);
+  }, []);
+
+  const handleChartMouseLeave = useCallback(() => {
+    setChartIsDragging(false);
+    setChartCrosshair(null);
+  }, []);
+
+  // Touch: pinch-to-zoom + single-finger pan
+  const handleChartTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY
+      );
+      pinchStartDist.current = dist;
+      pinchStartZoom.current = chartZoom;
+    } else if (e.touches.length === 1 && !drawingMode) {
+      chartDragStartX.current = e.touches[0].clientX;
+      const layout = getChartLayout();
+      chartDragStartOffset.current = layout.realOffset;
+      setChartIsDragging(true);
+    }
+  }, [chartZoom, drawingMode, getChartLayout]);
+
+  const handleChartTouchMove = useCallback((e) => {
+    if (e.touches.length === 2 && pinchStartDist.current > 0) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY
+      );
+      const scale = dist / pinchStartDist.current;
+      setChartZoom(Math.max(0.3, Math.min(6, pinchStartZoom.current * scale)));
+    } else if (e.touches.length === 1 && chartIsDragging) {
+      const dx = e.touches[0].clientX - chartDragStartX.current;
+      const layout = getChartLayout();
+      setChartScrollOffset(Math.max(0, Math.min(chartDragStartOffset.current - dx, layout.maxOffset)));
+    }
+  }, [chartIsDragging, getChartLayout]);
+
+  const handleChartTouchEnd = useCallback(() => {
+    pinchStartDist.current = 0;
+    setChartIsDragging(false);
+  }, []);
 
   const fetchFromYahooFinance = async (symbol) => {
     console.log(`[Yahoo Finance] Fetching data for ${symbol}...`);
@@ -19225,10 +19372,19 @@ INSTRUCTIONS:
                           </div>
                         )}
                         
-                        {/* ENHANCED CHART - Scrollable with Grid + TICKER OVERLAY */}
-                        <div 
-                          className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 overflow-x-auto relative"
+                        {/* ENHANCED CHART - Interactive with Zoom/Pan/Crosshair */}
+                        <div
+                          className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 relative select-none"
                           id="chart-scroll-container"
+                          style={{ overflow: 'hidden', cursor: chartIsDragging ? 'grabbing' : (drawingMode ? 'crosshair' : 'grab') }}
+                          onWheel={handleChartWheel}
+                          onMouseDown={handleChartMouseDown}
+                          onMouseMove={handleChartMouseMove}
+                          onMouseUp={handleChartMouseUp}
+                          onMouseLeave={handleChartMouseLeave}
+                          onTouchStart={handleChartTouchStart}
+                          onTouchMove={handleChartTouchMove}
+                          onTouchEnd={handleChartTouchEnd}
                         >
                           
                           {/* STICKY TICKER OVERLAY - ALWAYS VISIBLE */}
@@ -19256,200 +19412,129 @@ INSTRUCTIONS:
                             </div>
                           )}
                           
-                          <div 
-                            className="h-96 relative" 
-                            style={{ 
-                              width: `${Math.max(tickerData.timeSeries.length * 8, 800)}px`,
+                          <div
+                            ref={chartAreaRef}
+                            className="h-96 relative"
+                            style={{
+                              width: '100%',
                               backgroundImage: 'linear-gradient(to right, rgb(51 65 85 / 0.3) 1px, transparent 1px), linear-gradient(to bottom, rgb(51 65 85 / 0.3) 1px, transparent 1px)',
                               backgroundSize: '40px 32px'
                             }}
                           >
-                            {/* Price labels on Y-axis */}
-                            <div className="absolute left-0 top-0 bottom-0 w-16 flex flex-col justify-between text-xs text-slate-400 pointer-events-none z-10">
+                            {/* Price labels on Y-axis — computed from visible data */}
+                            <div className="absolute left-0 top-0 bottom-8 w-16 flex flex-col justify-between text-xs text-slate-400 pointer-events-none z-10">
                               {(() => {
-                                const validBars = tickerData.timeSeries.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
+                                const layout = getChartLayout();
+                                const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                                const validBars = visData.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
                                 if (validBars.length === 0) return null;
-                                const minPrice = Math.min(...validBars.map(b => b.low));
-                                const maxPrice = Math.max(...validBars.map(b => b.high));
+                                const minP = Math.min(...validBars.map(b => b.low));
+                                const maxP = Math.max(...validBars.map(b => b.high));
                                 const steps = 5;
-                                const priceStep = (maxPrice - minPrice) / (steps - 1);
+                                const priceStep = (maxP - minP) / (steps - 1);
                                 return Array.from({ length: steps }, (_, i) => (
-                                  <div key={i} className="text-right pr-2 bg-slate-900/80">${((maxPrice - i * priceStep) || 0).toFixed(2)}</div>
+                                  <div key={i} className="text-right pr-2 bg-slate-900/80">${((maxP - i * priceStep) || 0).toFixed(2)}</div>
                                 ));
                               })()}
                             </div>
                             
-                            {/* Candles container */}
-                            <div className="absolute inset-0 flex items-end gap-0.5 pl-16 pr-2 pb-8">
+                            {/* Candles container — renders only visible range */}
+                            <div className="absolute inset-0 pl-16 pr-2 pb-8" style={{ overflow: 'hidden' }}>
                               {(() => {
-                                // PRE-CALCULATE price range ONCE outside the loop for performance
-                                const validBars = tickerData.timeSeries.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
+                                const layout = getChartLayout();
+                                const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                                const validBars = visData.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
                                 if (validBars.length === 0) return null;
-                                
+
                                 const minPrice = Math.min(...validBars.map(b => b.low));
                                 const maxPrice = Math.max(...validBars.map(b => b.high));
                                 const priceRange = maxPrice - minPrice || 1;
-                                
-                                return tickerData.timeSeries.map((bar, i) => {
-                                  // Skip if data is invalid
-                                  if (!bar || bar.close === null || bar.close === undefined || isNaN(bar.close)) {
-                                    return null;
-                                  }
-                                
-                                  // Calculate heights using pre-computed values
-                                  const highHeight = ((bar.high - minPrice) / priceRange) * 95 + 5;
-                                  const lowHeight = ((bar.low - minPrice) / priceRange) * 95 + 5;
-                                  const closeHeight = ((bar.close - minPrice) / priceRange) * 95 + 5;
-                                  const openHeight = bar.open ? ((bar.open - minPrice) / priceRange) * 95 + 5 : closeHeight;
-                                  
-                                  // Determine color
-                                  const isGreen = bar.close >= (bar.open || bar.close);
-                                  
-                                  // Calculate body position
-                                  const bodyTop = Math.max(closeHeight, openHeight);
-                                  const bodyBottom = Math.min(closeHeight, openHeight);
-                                  const bodyHeight = Math.max(bodyTop - bodyBottom, 1);
-                                  
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="relative group"
-                                      style={{ 
-                                        height: '100%',
-                                        width: '6px',
-                                      minWidth: '6px'
-                                    }}
-                                  >
-                                    {/* Wick (high-low line) */}
-                                    <div
-                                      className={`absolute left-1/2 transform -translate-x-1/2 w-0.5 ${
-                                        isGreen ? 'bg-emerald-400' : 'bg-red-400'
-                                      }`}
-                                      style={{
-                                        bottom: `${lowHeight}%`,
-                                        height: `${highHeight - lowHeight}%`
-                                      }}
-                                    />
-                                    
-                                    {/* Candlestick body */}
-                                    <div
-                                      className={`absolute left-0 right-0 ${
-                                        isGreen ? 'bg-emerald-500 border-emerald-400' : 'bg-red-500 border-red-400'
-                                      } border hover:opacity-100 transition-all cursor-pointer hover:scale-x-150 hover:z-10`}
-                                      style={{
-                                        bottom: `${bodyBottom}%`,
-                                        height: `${bodyHeight}%`,
-                                        minHeight: '2px'
-                                      }}
-                                    >
-                                    </div>
-                                    
-                                    {/* TOOLTIP - Smart positioning: above by default, below when near top */}
-                                    {(() => {
-                                      // Show tooltip below if candle is in top 30% of chart
-                                      const showBelow = highHeight > 70;
+                                const subOffset = (layout.realOffset % layout.stride);
+
+                                return (
+                                  <div className="flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px` }}>
+                                    {visData.map((bar, vi) => {
+                                      if (!bar || bar.close === null || bar.close === undefined || isNaN(bar.close)) return null;
+
+                                      const highHeight = ((bar.high - minPrice) / priceRange) * 95 + 5;
+                                      const lowHeight = ((bar.low - minPrice) / priceRange) * 95 + 5;
+                                      const closeHeight = ((bar.close - minPrice) / priceRange) * 95 + 5;
+                                      const openHeight = bar.open ? ((bar.open - minPrice) / priceRange) * 95 + 5 : closeHeight;
+                                      const isGreen = bar.close >= (bar.open || bar.close);
+                                      const bodyTop = Math.max(closeHeight, openHeight);
+                                      const bodyBottom = Math.min(closeHeight, openHeight);
+                                      const bodyHeight = Math.max(bodyTop - bodyBottom, 1);
+
                                       return (
-                                        <div 
-                                          className="absolute left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200"
-                                          style={{
-                                            ...(showBelow ? {
-                                              top: `${100 - lowHeight}%`,
-                                              marginTop: '8px',
-                                            } : {
-                                              bottom: `${highHeight}%`,
-                                              marginBottom: '8px',
-                                            }),
-                                            zIndex: 1000
-                                          }}
-                                        >
-                                          <div className="bg-slate-800 border-2 border-violet-500 rounded-lg px-3 py-2.5 text-xs whitespace-nowrap shadow-2xl">
-                                            <div className="text-violet-300 font-bold border-b border-slate-700 pb-1.5 mb-1">
-                                              {bar.time ? new Date(bar.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : `Bar ${i + 1}`}
-                                            </div>
-                                            <div className="flex justify-between gap-4">
-                                              <span className="text-slate-400">Open:</span>
-                                              <span className="font-semibold text-white">${(bar.open || bar.close).toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between gap-4">
-                                              <span className="text-slate-400">High:</span>
-                                              <span className="font-semibold text-emerald-400">${(bar.high || bar.close).toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between gap-4">
-                                              <span className="text-slate-400">Low:</span>
-                                              <span className="font-semibold text-red-400">${(bar.low || bar.close).toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between gap-4">
-                                              <span className="text-slate-400">Close:</span>
-                                              <span className={`font-semibold ${isGreen ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                ${(bar.close || 0).toFixed(2)}
-                                              </span>
-                                            </div>
-                                            {bar.volume > 0 && (
-                                              <div className="flex justify-between gap-4 border-t border-slate-700 pt-1.5 mt-1">
-                                                <span className="text-slate-400">Volume:</span>
-                                                <span className="font-semibold text-blue-400">{(bar.volume || 0).toLocaleString()}</span>
+                                        <div key={layout.visStart + vi} className="relative group flex-shrink-0"
+                                          style={{ height: '100%', width: `${layout.candleW}px`, minWidth: `${layout.candleW}px` }}>
+                                          {/* Wick */}
+                                          <div className={`absolute left-1/2 -translate-x-1/2 ${isGreen ? 'bg-emerald-400' : 'bg-red-400'}`}
+                                            style={{ bottom: `${lowHeight}%`, height: `${highHeight - lowHeight}%`, width: `${Math.max(1, Math.round(chartZoom))}px` }} />
+                                          {/* Body */}
+                                          <div className={`absolute left-0 right-0 ${isGreen ? 'bg-emerald-500 border-emerald-400' : 'bg-red-500 border-red-400'} border hover:opacity-100 transition-colors hover:z-10`}
+                                            style={{ bottom: `${bodyBottom}%`, height: `${bodyHeight}%`, minHeight: '2px' }} />
+                                          {/* Tooltip */}
+                                          {(() => {
+                                            const showBelow = highHeight > 70;
+                                            return (
+                                              <div className="absolute left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200"
+                                                style={{ ...(showBelow ? { top: `${100 - lowHeight}%`, marginTop: '8px' } : { bottom: `${highHeight}%`, marginBottom: '8px' }), zIndex: 1000 }}>
+                                                <div className="bg-slate-800 border-2 border-violet-500 rounded-lg px-3 py-2.5 text-xs whitespace-nowrap shadow-2xl">
+                                                  <div className="text-violet-300 font-bold border-b border-slate-700 pb-1.5 mb-1">
+                                                    {bar.time ? new Date(bar.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : `Bar ${layout.visStart + vi + 1}`}
+                                                  </div>
+                                                  <div className="flex justify-between gap-4"><span className="text-slate-400">Open:</span><span className="font-semibold text-white">${(bar.open || bar.close).toFixed(2)}</span></div>
+                                                  <div className="flex justify-between gap-4"><span className="text-slate-400">High:</span><span className="font-semibold text-emerald-400">${(bar.high || bar.close).toFixed(2)}</span></div>
+                                                  <div className="flex justify-between gap-4"><span className="text-slate-400">Low:</span><span className="font-semibold text-red-400">${(bar.low || bar.close).toFixed(2)}</span></div>
+                                                  <div className="flex justify-between gap-4"><span className="text-slate-400">Close:</span><span className={`font-semibold ${isGreen ? 'text-emerald-400' : 'text-red-400'}`}>${(bar.close || 0).toFixed(2)}</span></div>
+                                                  {bar.volume > 0 && (<div className="flex justify-between gap-4 border-t border-slate-700 pt-1.5 mt-1"><span className="text-slate-400">Volume:</span><span className="font-semibold text-blue-400">{(bar.volume || 0).toLocaleString()}</span></div>)}
+                                                  <div className="flex justify-between gap-4 border-t border-slate-700 pt-1.5 mt-1"><span className="text-slate-400">Change:</span><span className={`font-semibold ${isGreen ? 'text-emerald-400' : 'text-red-400'}`}>{isGreen ? '+' : ''}{((bar.close - (bar.open || bar.close)) / (bar.open || bar.close) * 100).toFixed(2)}%</span></div>
+                                                </div>
                                               </div>
-                                            )}
-                                            <div className="flex justify-between gap-4 border-t border-slate-700 pt-1.5 mt-1">
-                                              <span className="text-slate-400">Change:</span>
-                                              <span className={`font-semibold ${isGreen ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                {isGreen ? '+' : ''}{((bar.close - (bar.open || bar.close)) / (bar.open || bar.close) * 100).toFixed(2)}%
-                                              </span>
-                                            </div>
-                                          </div>
+                                            );
+                                          })()}
                                         </div>
                                       );
-                                    })()}
+                                    })}
                                   </div>
                                 );
-                              });
                               })()}
                             </div>
                             
                             {/* OVERLAY INDICATORS (SMA, EMA, Bollinger, VWAP) */}
                             {(() => {
-                              const validBars = tickerData.timeSeries.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
+                              const layout = getChartLayout();
+                              const fullSeries = tickerData.timeSeries;
+                              const visData = fullSeries.slice(layout.visStart, layout.visEnd);
+                              const validBars = visData.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
                               if (validBars.length === 0) return null;
-                              
-                              const closes = tickerData.timeSeries.map(b => b.close);
-                              const highs = tickerData.timeSeries.map(b => b.high);
-                              const lows = tickerData.timeSeries.map(b => b.low);
-                              const volumes = tickerData.timeSeries.map(b => b.volume || 0);
+
+                              const closes = fullSeries.map(b => b.close);
                               const minPrice = Math.min(...validBars.map(b => b.low));
                               const maxPrice = Math.max(...validBars.map(b => b.high));
                               const priceRange = maxPrice - minPrice || 1;
-                              
-                              // Helper to convert price to Y position (percentage from bottom)
+
                               const priceToY = (price) => 100 - (((price - minPrice) / priceRange) * 95 + 5);
-                              
-                              // Calculate SMA
-                              const calcSMA = (data, period) => {
-                                return data.map((_, i) => {
-                                  if (i < period - 1) return null;
-                                  const slice = data.slice(i - period + 1, i + 1);
-                                  return slice.reduce((a, b) => a + b, 0) / period;
-                                });
-                              };
-                              
-                              // Calculate EMA
+
+                              const calcSMA = (data, period) => data.map((_, i) => {
+                                if (i < period - 1) return null;
+                                const slice = data.slice(i - period + 1, i + 1);
+                                return slice.reduce((a, b) => a + b, 0) / period;
+                              });
+
                               const calcEMA = (data, period) => {
                                 const k = 2 / (period + 1);
-                                const emaArray = [];
+                                const arr = [];
                                 let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
                                 for (let i = 0; i < data.length; i++) {
-                                  if (i < period - 1) {
-                                    emaArray.push(null);
-                                  } else if (i === period - 1) {
-                                    emaArray.push(ema);
-                                  } else {
-                                    ema = data[i] * k + ema * (1 - k);
-                                    emaArray.push(ema);
-                                  }
+                                  if (i < period - 1) arr.push(null);
+                                  else if (i === period - 1) arr.push(ema);
+                                  else { ema = data[i] * k + ema * (1 - k); arr.push(ema); }
                                 }
-                                return emaArray;
+                                return arr;
                               };
-                              
-                              // Calculate Bollinger Bands
+
                               const calcBollinger = (data, period, stdDev) => {
                                 const sma = calcSMA(data, period);
                                 return data.map((_, i) => {
@@ -19458,137 +19543,70 @@ INSTRUCTIONS:
                                   const mean = sma[i];
                                   const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / slice.length;
                                   const std = Math.sqrt(variance);
-                                  return {
-                                    upper: mean + stdDev * std,
-                                    middle: mean,
-                                    lower: mean - stdDev * std
-                                  };
+                                  return { upper: mean + stdDev * std, middle: mean, lower: mean - stdDev * std };
                                 });
                               };
-                              
-                              // Calculate VWAP
+
                               const calcVWAP = () => {
-                                let cumTypicalPriceVolume = 0;
-                                let cumVolume = 0;
-                                return tickerData.timeSeries.map((bar, i) => {
-                                  const typicalPrice = (bar.high + bar.low + bar.close) / 3;
-                                  cumTypicalPriceVolume += typicalPrice * (bar.volume || 1);
-                                  cumVolume += (bar.volume || 1);
-                                  return cumVolume > 0 ? cumTypicalPriceVolume / cumVolume : null;
+                                let cumTPV = 0, cumVol = 0;
+                                return fullSeries.map(bar => {
+                                  const tp = (bar.high + bar.low + bar.close) / 3;
+                                  cumTPV += tp * (bar.volume || 1);
+                                  cumVol += (bar.volume || 1);
+                                  return cumVol > 0 ? cumTPV / cumVol : null;
                                 });
                               };
-                              
-                              const smaValues = showSMA ? calcSMA(closes, smaPeriod) : [];
-                              const emaValues = showEMA ? calcEMA(closes, emaPeriod) : [];
-                              const bollingerValues = showBollinger ? calcBollinger(closes, bollingerPeriod, bollingerStdDev) : [];
-                              const vwapValues = showVWAP ? calcVWAP() : [];
-                              
-                              const chartWidth = Math.max(tickerData.timeSeries.length * 8, 800);
-                              
+
+                              // Compute on full data, then slice to visible range
+                              const fullSMA = showSMA ? calcSMA(closes, smaPeriod) : [];
+                              const fullEMA = showEMA ? calcEMA(closes, emaPeriod) : [];
+                              const fullBollinger = showBollinger ? calcBollinger(closes, bollingerPeriod, bollingerStdDev) : [];
+                              const fullVWAP = showVWAP ? calcVWAP() : [];
+
+                              const visSMA = fullSMA.slice(layout.visStart, layout.visEnd);
+                              const visEMA = fullEMA.slice(layout.visStart, layout.visEnd);
+                              const visBollinger = fullBollinger.slice(layout.visStart, layout.visEnd);
+                              const visVWAP = fullVWAP.slice(layout.visStart, layout.visEnd);
+
                               return (
-                                <svg 
-                                  className="absolute inset-0 pointer-events-none" 
-                                  style={{ left: '64px', right: '8px', top: 0, bottom: '32px', width: `calc(100% - 72px)`, height: 'calc(100% - 32px)' }}
+                                <svg
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{ left: '64px', right: '8px', top: 0, bottom: '32px', width: 'calc(100% - 72px)', height: 'calc(100% - 32px)' }}
                                   preserveAspectRatio="none"
-                                  viewBox={`0 0 ${tickerData.timeSeries.length} 100`}
+                                  viewBox={`0 0 ${visData.length} 100`}
                                 >
-                                  {/* Bollinger Bands - Draw first so it's behind everything */}
-                                  {showBollinger && bollingerValues.length > 0 && (
+                                  {showBollinger && visBollinger.length > 0 && (
                                     <>
-                                      {/* Upper band */}
-                                      <polyline
-                                        points={bollingerValues.map((b, i) => b.upper !== null ? `${i},${priceToY(b.upper)}` : '').filter(p => p).join(' ')}
-                                        fill="none"
-                                        stroke="#22d3ee"
-                                        strokeWidth="0.3"
-                                        strokeDasharray="2,2"
-                                        opacity="0.7"
-                                      />
-                                      {/* Middle band (SMA) */}
-                                      <polyline
-                                        points={bollingerValues.map((b, i) => b.middle !== null ? `${i},${priceToY(b.middle)}` : '').filter(p => p).join(' ')}
-                                        fill="none"
-                                        stroke="#22d3ee"
-                                        strokeWidth="0.4"
-                                        opacity="0.8"
-                                      />
-                                      {/* Lower band */}
-                                      <polyline
-                                        points={bollingerValues.map((b, i) => b.lower !== null ? `${i},${priceToY(b.lower)}` : '').filter(p => p).join(' ')}
-                                        fill="none"
-                                        stroke="#22d3ee"
-                                        strokeWidth="0.3"
-                                        strokeDasharray="2,2"
-                                        opacity="0.7"
-                                      />
+                                      <polyline points={visBollinger.map((b, i) => b.upper !== null ? `${i},${priceToY(b.upper)}` : '').filter(p => p).join(' ')} fill="none" stroke="#22d3ee" strokeWidth="0.3" strokeDasharray="2,2" opacity="0.7" />
+                                      <polyline points={visBollinger.map((b, i) => b.middle !== null ? `${i},${priceToY(b.middle)}` : '').filter(p => p).join(' ')} fill="none" stroke="#22d3ee" strokeWidth="0.4" opacity="0.8" />
+                                      <polyline points={visBollinger.map((b, i) => b.lower !== null ? `${i},${priceToY(b.lower)}` : '').filter(p => p).join(' ')} fill="none" stroke="#22d3ee" strokeWidth="0.3" strokeDasharray="2,2" opacity="0.7" />
                                     </>
                                   )}
-                                  
-                                  {/* SMA Line */}
-                                  {showSMA && smaValues.length > 0 && (
-                                    <polyline
-                                      points={smaValues.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')}
-                                      fill="none"
-                                      stroke="#3b82f6"
-                                      strokeWidth="0.5"
-                                    />
+                                  {showSMA && visSMA.length > 0 && (
+                                    <polyline points={visSMA.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')} fill="none" stroke="#3b82f6" strokeWidth="0.5" />
                                   )}
-                                  
-                                  {/* EMA Line */}
-                                  {showEMA && emaValues.length > 0 && (
-                                    <polyline
-                                      points={emaValues.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')}
-                                      fill="none"
-                                      stroke="#f97316"
-                                      strokeWidth="0.5"
-                                    />
+                                  {showEMA && visEMA.length > 0 && (
+                                    <polyline points={visEMA.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')} fill="none" stroke="#f97316" strokeWidth="0.5" />
                                   )}
-                                  
-                                  {/* VWAP Line */}
-                                  {showVWAP && vwapValues.length > 0 && (
-                                    <polyline
-                                      points={vwapValues.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')}
-                                      fill="none"
-                                      stroke="#ec4899"
-                                      strokeWidth="0.5"
-                                    />
+                                  {showVWAP && visVWAP.length > 0 && (
+                                    <polyline points={visVWAP.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')} fill="none" stroke="#ec4899" strokeWidth="0.5" />
                                   )}
-
-                                  {/* COMPARISON OVERLAY LINE */}
                                   {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
-                                    // Normalize comparison data to overlay on the main chart's price scale
-                                    const mainCloses = tickerData.timeSeries.map(b => b.close);
+                                    const mainCloses = visData.map(b => b.close);
                                     const compCloses = comparisonData.timeSeries.map(b => b.close);
-
-                                    // Use percentage change from start to normalize both to same scale
                                     const mainStart = mainCloses[0] || 1;
                                     const compStart = compCloses[0] || 1;
-
-                                    // Map comparison closes to the main chart's price range
-                                    const normalizedComp = compCloses.map(c => {
-                                      const compPctChange = (c - compStart) / compStart;
-                                      return mainStart * (1 + compPctChange);
-                                    });
-
-                                    // Sample comparison data to match main chart length
+                                    const normalizedComp = compCloses.map(c => mainStart * (1 + (c - compStart) / compStart));
                                     const mainLen = mainCloses.length;
                                     const compLen = normalizedComp.length;
-                                    const sampledComp = [];
+                                    const sampled = [];
                                     for (let ci = 0; ci < mainLen; ci++) {
-                                      const compIdx = Math.round((ci / mainLen) * compLen);
-                                      const val = normalizedComp[Math.min(compIdx, compLen - 1)];
-                                      if (val != null) sampledComp.push({ x: ci, y: priceToY(val) });
+                                      const idx = Math.round((ci / mainLen) * compLen);
+                                      const val = normalizedComp[Math.min(idx, compLen - 1)];
+                                      if (val != null) sampled.push({ x: ci, y: priceToY(val) });
                                     }
-
-                                    return sampledComp.length > 1 ? (
-                                      <polyline
-                                        points={sampledComp.map(p => `${p.x},${p.y}`).join(' ')}
-                                        fill="none"
-                                        stroke="#fbbf24"
-                                        strokeWidth="0.7"
-                                        strokeDasharray="3,1"
-                                        opacity="0.85"
-                                      />
+                                    return sampled.length > 1 ? (
+                                      <polyline points={sampled.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#fbbf24" strokeWidth="0.7" strokeDasharray="3,1" opacity="0.85" />
                                     ) : null;
                                   })()}
                                 </svg>
@@ -19606,25 +19624,87 @@ INSTRUCTIONS:
                               </div>
                             )}
 
+                            {/* CROSSHAIR OVERLAY */}
+                            {chartCrosshair && !chartIsDragging && !drawingMode && (() => {
+                              const layout = getChartLayout();
+                              const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                              const validBars = visData.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
+                              if (validBars.length === 0) return null;
+                              const minP = Math.min(...validBars.map(b => b.low));
+                              const maxP = Math.max(...validBars.map(b => b.high));
+                              const pRange = maxP - minP || 1;
+
+                              // Convert cursor pixel position to chart coordinates
+                              const chartLeft = 64; // Y-axis width
+                              const chartRight = 8;
+                              const chartBottom = 32; // X-axis height
+                              const chartW = chartCrosshair.w - chartLeft - chartRight;
+                              const chartH = chartCrosshair.h - chartBottom;
+                              const relX = chartCrosshair.x - chartLeft;
+                              const relY = chartCrosshair.y;
+
+                              if (relX < 0 || relX > chartW || relY < 0 || relY > chartH) return null;
+
+                              // Price at cursor
+                              const yFrac = 1 - relY / chartH;
+                              const price = minP + (yFrac * pRange / 0.95 - pRange * 0.05 / 0.95);
+                              // Bar index at cursor
+                              const barIdx = Math.floor((relX / chartW) * visData.length);
+                              const bar = visData[Math.min(barIdx, visData.length - 1)];
+
+                              return (
+                                <div className="absolute inset-0 pointer-events-none z-25" style={{ left: '64px', right: '8px', top: 0, bottom: '32px' }}>
+                                  {/* Vertical line */}
+                                  <div className="absolute top-0 bottom-0" style={{ left: `${relX}px`, width: '1px', background: 'rgba(148,163,184,0.4)', borderLeft: '1px dashed rgba(148,163,184,0.4)' }} />
+                                  {/* Horizontal line */}
+                                  <div className="absolute left-0 right-0" style={{ top: `${relY}px`, height: '1px', background: 'rgba(148,163,184,0.4)', borderTop: '1px dashed rgba(148,163,184,0.4)' }} />
+                                  {/* Price label on Y-axis */}
+                                  <div className="absolute" style={{ left: '-64px', top: `${relY}px`, transform: 'translateY(-50%)' }}>
+                                    <span className="bg-violet-600 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-lg">
+                                      ${price > 0 ? price.toFixed(2) : '—'}
+                                    </span>
+                                  </div>
+                                  {/* Time label on X-axis */}
+                                  {bar && bar.time && (
+                                    <div className="absolute" style={{ left: `${relX}px`, bottom: '-24px', transform: 'translateX(-50%)' }}>
+                                      <span className="bg-violet-600 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-lg whitespace-nowrap">
+                                        {new Date(bar.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
                             {/* ═══════════════════════════════════════════════ */}
                             {/* CHART DRAWING OVERLAY */}
                             {/* ═══════════════════════════════════════════════ */}
                             {showDrawingTools && (() => {
-                              const dValidBars = tickerData.timeSeries.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
+                              const layout = getChartLayout();
+                              const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                              const dValidBars = visData.filter(b => b && b.low && b.high && !isNaN(b.low) && !isNaN(b.high));
                               if (dValidBars.length === 0) return null;
                               const dMinP = Math.min(...dValidBars.map(b => b.low));
                               const dMaxP = Math.max(...dValidBars.map(b => b.high));
                               const dRange = dMaxP - dMinP || 1;
                               const dPriceToY = (price) => 100 - (((price - dMinP) / dRange) * 95 + 5);
                               const dYToPrice = (y) => dMinP + ((95 - y) / 95) * dRange;
-                              const numBars = tickerData.timeSeries.length;
-                              const tickerDraws = drawings[tickerSymbol] || [];
+                              const numBars = visData.length;
+                              const tickerDraws = (drawings[tickerSymbol] || []).map(d => ({
+                                ...d,
+                                ...(d.x1 !== undefined ? { x1: d.x1 - layout.visStart, x2: d.x2 - layout.visStart } : {}),
+                                ...(d.x !== undefined ? { x: d.x - layout.visStart } : {}),
+                              })).filter(d => {
+                                if (d.x1 !== undefined) return d.x2 >= 0 && d.x1 <= numBars;
+                                if (d.x !== undefined) return d.x >= 0 && d.x <= numBars;
+                                return true;
+                              });
 
                               const getChartCoords = (e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                const x = ((e.clientX - rect.left) / rect.width) * numBars;
+                                const x = ((e.clientX - rect.left) / rect.width) * numBars + layout.visStart;
                                 const y = ((e.clientY - rect.top) / rect.height) * 100;
-                                return { x: Math.max(0, Math.min(numBars, x)), y: Math.max(0, Math.min(100, y)), price: dYToPrice(y) };
+                                return { x: Math.max(0, Math.min(tickerData.timeSeries.length, x)), y: Math.max(0, Math.min(100, y)), price: dYToPrice(y) };
                               };
 
                               return (
@@ -19640,7 +19720,7 @@ INSTRUCTIONS:
                                       pointerEvents: drawingMode ? 'all' : 'none'
                                     }}
                                     preserveAspectRatio="none"
-                                    viewBox={`0 0 ${numBars} 100`}
+                                    viewBox={`0 0 ${visData.length} 100`}
                                     onMouseDown={(e) => {
                                       if (!drawingMode) return;
                                       e.preventDefault();
@@ -19818,41 +19898,26 @@ INSTRUCTIONS:
                             {/* Date labels on X-axis */}
                             <div className="absolute bottom-0 left-16 right-0 h-8 flex justify-between items-center text-xs text-slate-400 border-t border-slate-700 px-2 bg-slate-900/80">
                               {(() => {
-                                const labelCount = Math.min(10, tickerData.timeSeries.length);
-                                const step = Math.floor(tickerData.timeSeries.length / labelCount);
+                                const layout = getChartLayout();
+                                const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                                const labelCount = Math.min(8, visData.length);
+                                if (labelCount === 0) return null;
+                                const step = Math.max(1, Math.floor(visData.length / labelCount));
                                 return Array.from({ length: labelCount }, (_, i) => {
-                                  const index = i * step;
-                                  const bar = tickerData.timeSeries[index];
+                                  const bar = visData[i * step];
                                   if (!bar || !bar.time) return null;
-                                  
                                   const barDate = new Date(bar.time);
-                                  const numCandles = tickerData.timeSeries.length;
-                                  
-                                  // Smart date/time display logic
-                                  // If we have data over multiple days (>50 candles or time span > 1 day), show dates
-                                  // Otherwise show times (for intraday charts)
-                                  const firstBar = tickerData.timeSeries[0];
-                                  const lastBar = tickerData.timeSeries[tickerData.timeSeries.length - 1];
-                                  if (firstBar && lastBar && firstBar.time && lastBar.time) {
-                                    const timeSpanDays = (new Date(lastBar.time) - new Date(firstBar.time)) / (1000 * 60 * 60 * 24);
-                                    
-                                    // Show times for intraday (< 1 day) or very small datasets
-                                    // Show dates for multi-day charts
-                                    const showTimes = timeSpanDays < 1 && numCandles < 100;
-                                    
-                                    return (
-                                      <div key={i} className="text-center text-xs">
-                                        {showTimes 
-                                          ? barDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                                          : barDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                        }
-                                      </div>
-                                    );
-                                  }
-                                  
+                                  const firstBar = visData[0];
+                                  const lastBar = visData[visData.length - 1];
+                                  const timeSpanDays = firstBar && lastBar && firstBar.time && lastBar.time
+                                    ? (new Date(lastBar.time) - new Date(firstBar.time)) / (1000 * 60 * 60 * 24) : 1;
+                                  const showTimes = timeSpanDays < 1;
                                   return (
                                     <div key={i} className="text-center text-xs">
-                                      {barDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                      {showTimes
+                                        ? barDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                                        : barDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                      }
                                     </div>
                                   );
                                 });
@@ -19861,40 +19926,39 @@ INSTRUCTIONS:
                           </div>
                           
                           <div className="text-xs text-slate-500 mt-2 text-center">
-                            💡 Hover over candles for details • Scroll horizontally to see all {tickerData.timeSeries.length} candles
+                            💡 Scroll to zoom • Drag to pan • Hover for details • {tickerData.timeSeries.length} candles
                           </div>
                           
                           {/* VOLUME BARS - Inside same scroll container */}
                           {showVolume && (
                             <div className="mt-4 border-t border-slate-700 pt-4">
                               <div className="text-xs text-slate-400 mb-2 font-semibold">Volume</div>
-                              <div className="h-24 flex items-end gap-0.5 pl-16" style={{ width: `${Math.max(tickerData.timeSeries.length * 8, 800)}px` }}>
+                              <div className="h-24 flex items-end pl-16 pr-2" style={{ overflow: 'hidden' }}>
                                 {(() => {
-                                  // PRE-CALCULATE maxVol ONCE for performance
-                                  const maxVol = Math.max(...tickerData.timeSeries.map(b => b.volume || 0).filter(v => v > 0));
+                                  const layout = getChartLayout();
+                                  const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                                  const maxVol = Math.max(...visData.map(b => b.volume || 0).filter(v => v > 0));
                                   if (maxVol === 0) return null;
-                                  
-                                  return tickerData.timeSeries.map((bar, i) => {
-                                    const height = ((bar.volume || 0) / maxVol) * 100;
-                                    const isGreen = bar.close >= (bar.open || bar.close);
-                                    
-                                    return (
-                                      <div
-                                        key={i}
-                                        className={`relative group ${isGreen ? 'bg-emerald-500/60' : 'bg-red-500/60'} hover:opacity-100 transition-opacity duration-150`}
-                                        style={{ 
-                                          height: `${height}%`,
-                                          width: '6px',
-                                          minWidth: '6px'
-                                        }}
-                                        title={`Volume: ${(bar.volume || 0).toLocaleString()}`}
-                                      >
-                                        <div className="opacity-0 group-hover:opacity-100 absolute left-1/2 -translate-x-1/2 bottom-full mb-1 bg-slate-800 border border-violet-500 rounded px-2 py-1 text-xs whitespace-nowrap pointer-events-none z-50 transition-opacity duration-150">
-                                          Vol: {(bar.volume || 0).toLocaleString()}
-                                        </div>
-                                      </div>
-                                    );
-                                  });
+                                  const subOffset = (layout.realOffset % layout.stride);
+
+                                  return (
+                                    <div className="flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px` }}>
+                                      {visData.map((bar, vi) => {
+                                        const height = ((bar.volume || 0) / maxVol) * 100;
+                                        const isGreen = bar.close >= (bar.open || bar.close);
+                                        return (
+                                          <div key={layout.visStart + vi}
+                                            className={`relative group flex-shrink-0 ${isGreen ? 'bg-emerald-500/60' : 'bg-red-500/60'} hover:opacity-100 transition-opacity duration-150`}
+                                            style={{ height: `${height}%`, width: `${layout.candleW}px`, minWidth: `${layout.candleW}px` }}
+                                            title={`Volume: ${(bar.volume || 0).toLocaleString()}`}>
+                                            <div className="opacity-0 group-hover:opacity-100 absolute left-1/2 -translate-x-1/2 bottom-full mb-1 bg-slate-800 border border-violet-500 rounded px-2 py-1 text-xs whitespace-nowrap pointer-events-none z-50 transition-opacity duration-150">
+                                              Vol: {(bar.volume || 0).toLocaleString()}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
                                 })()}
                               </div>
                             </div>
