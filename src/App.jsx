@@ -2645,6 +2645,43 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     localStorage.setItem('modus_user_xp', JSON.stringify(userXP));
   }, [userXP]);
 
+  // Trading glossary for hover tooltips on bolded terms in AI responses
+  const tradingGlossary = {
+    'rsi': 'Relative Strength Index — measures speed of price changes on a 0-100 scale. Below 30 = oversold, above 70 = overbought.',
+    'macd': 'Moving Average Convergence Divergence — shows momentum by comparing two moving averages. Positive = bullish, negative = bearish.',
+    'macd histogram': 'The difference between the MACD line and signal line. Growing bars = strengthening momentum.',
+    'sma': 'Simple Moving Average — the average closing price over a set number of periods (e.g., SMA 20 = 20-day average).',
+    'ema': 'Exponential Moving Average — like SMA but gives more weight to recent prices, making it faster to react.',
+    'bollinger bands': 'Volatility bands placed above/below a moving average. Price near upper band = potentially overbought.',
+    'volume confirmation': 'When trading volume supports a price move. Rising prices on high volume is more reliable than on low volume.',
+    'support': 'A price level where buying pressure tends to prevent further decline — a price "floor."',
+    'resistance': 'A price level where selling pressure tends to prevent further advance — a price "ceiling."',
+    'oversold': 'A condition where price has dropped too fast/far and may bounce back. RSI below 30 is classic oversold.',
+    'overbought': 'A condition where price has risen too fast/far and may pull back. RSI above 70 is classic overbought.',
+    'trend': 'The general direction price is moving — uptrend (higher highs), downtrend (lower lows), or sideways.',
+    'momentum': 'The rate of price change. Strong momentum means price is moving quickly in one direction.',
+    'divergence': 'When price moves one direction but an indicator moves the opposite — often signals a reversal.',
+    'breakout': 'When price moves above resistance or below support, often leading to a strong move in that direction.',
+    'consolidation': 'A period where price trades in a narrow range, often before a big move (breakout or breakdown).',
+    'stop loss': 'A preset price level where you exit a trade to limit losses. Protects your capital.',
+    'risk:reward': 'The ratio of potential loss (risk) to potential profit (reward). 1:2 means you risk $1 to make $2.',
+    'scalp trade': 'A very short-term trade lasting minutes to an hour, targeting small price movements.',
+    'swing trade': 'A trade held for days to weeks, capturing medium-term price swings.',
+    'entry': 'The price level where you open a trade (buy for longs, sell for shorts).',
+    'target': 'The price level where you plan to take profits and close the trade.',
+    'bullish': 'Expecting prices to rise. Indicators, patterns, or sentiment favoring upward movement.',
+    'bearish': 'Expecting prices to fall. Indicators, patterns, or sentiment favoring downward movement.',
+    'confirmation': 'Additional evidence supporting a trading signal. Multiple confirmations increase reliability.',
+    'real-time data': 'Live market data fetched from exchanges, more accurate than visual chart readings.',
+    'lookback periods': 'The number of past data points used in indicator calculations (e.g., RSI uses 14 periods by default).',
+    'smoothing parameters': 'Mathematical settings that control how sensitive indicators are to price changes.',
+    'bounce opportunity': 'A potential price reversal from a support level or oversold condition.',
+    'trend shift': 'A change in the overall direction of price movement, often confirmed by multiple indicators.',
+    'weak conviction': 'Low volume or weak indicator signals, suggesting market participants are not strongly committed.',
+    'multiple confirmation sources': 'Using several different indicators or data points to validate a trading decision.',
+    'volume': 'The number of shares traded in a given period. Higher volume = more market interest.',
+  };
+
   // XP gain function with level progression and toast notification
   const XP_PER_LEVEL = 1000;
   const addXP = (amount, reason = '') => {
@@ -3081,12 +3118,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   });
 
   useEffect(() => {
-    localStorage.setItem('modus_price_targets', JSON.stringify(priceTargets));
+    try { localStorage.setItem('modus_price_targets', JSON.stringify(priceTargets)); } catch (e) { console.warn('[PriceTargets] Storage write failed:', e.message); }
   }, [priceTargets]);
 
   const addPriceTarget = useCallback((ticker, currentPrice, targetPrice, stopPrice, verdict, confidence) => {
     const cleanNum = (v) => { if (!v || v === 'N/A' || v === 'undefined') return null; return parseFloat(String(v).replace(/[$,]/g, '')) || null; };
-    setPriceTargets(prev => [{
+    const newTarget = {
       id: Date.now(),
       ticker,
       entryPrice: cleanNum(currentPrice) || currentPrice,
@@ -3095,9 +3132,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       verdict,
       confidence,
       createdAt: new Date().toISOString(),
-      status: 'active', // active, hit, stopped, expired
+      status: 'active',
       hitDate: null
-    }, ...prev].slice(0, 100));
+    };
+    setPriceTargets(prev => {
+      // Remove any existing ACTIVE target for the same ticker (update instead of duplicate)
+      const filtered = prev.filter(t => !(t.ticker === ticker && t.status === 'active'));
+      return [newTarget, ...filtered].slice(0, 100);
+    });
   }, []);
 
   // ═══════════════════════════════════════════════
@@ -5309,11 +5351,35 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   };
   
   // Helper function for Yahoo Finance with proxy fallbacks - RELIABLE VERSION
-  // Uses parallel + sequential fallback strategy for maximum reliability
+  // Uses server-side proxy first, then parallel + sequential CORS fallback strategy
   const fetchYahooWithProxies = async (yahooUrl, timeout = 8000) => {
     const yahooUrl2 = yahooUrl.replace('query1', 'query2');
 
-    // Extended list of CORS proxies - ordered by reliability
+    // Extract symbol, interval, range from Yahoo URL for server-side proxy
+    const urlMatch = yahooUrl.match(/chart\/([A-Z]+)\?interval=([^&]+)&range=([^&]+)/i);
+
+    // PRIORITY: Try our own Vercel server-side proxy first (no CORS issues)
+    if (urlMatch) {
+      try {
+        const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+        const proxyUrl = `${apiBase}/api/stock?symbol=${urlMatch[1]}&interval=${urlMatch[2]}&range=${urlMatch[3]}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        const response = await fetch(proxyUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.chart?.result?.[0]) {
+            console.log(`[fetchYahoo] ✅ Server-side proxy succeeded for ${urlMatch[1]}`);
+            return data;
+          }
+        }
+      } catch (e) {
+        console.log(`[fetchYahoo] Server-side proxy failed: ${e.message}, falling back to CORS proxies`);
+      }
+    }
+
+    // FALLBACK: Extended list of CORS proxies - ordered by reliability
     const proxyConfigs = [
       // Primary proxies (most reliable)
       { url: `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`, name: 'corsproxy1' },
@@ -7425,18 +7491,22 @@ BOLLINGER BANDS (if visible):
 □ Width classification: [SQUEEZING if <5%, NORMAL if 5-10%, EXPANDING if >10%]
 
 NUMERICAL SCORING (0-100 scale):
-Calculate bullish score:
-- RSI 30-50: +10 | 50-70: +20 | 70+: -10
-- MACD above signal: +15
-- Price above MAs: +5 per MA (max +20)
-- Volume increasing: +10
-- Price above upper BB: -10 | At middle: +10
-Total bullish score: [sum]
+CRITICAL: If ANY indicator value is null, NOT_VISIBLE, or cannot be read from the chart,
+assign ZERO points for that indicator — do NOT guess or penalize. Only score what you can see.
 
-Calculate bearish score (opposite logic):
-Total bearish score: [sum]
+Calculate bullish score (only from VISIBLE indicators):
+- RSI visible AND 30-50: +10 | 50-70: +20 | 70+: -10 | NOT VISIBLE: +0
+- MACD visible AND above signal: +15 | NOT VISIBLE: +0
+- Price above MAs: +5 per visible MA (max +20) | NOT VISIBLE: +0
+- Volume visible AND increasing: +10 | NOT VISIBLE: +0
+- Bollinger visible AND at middle: +10 | above upper: -10 | NOT VISIBLE: +0
+Total bullish score: [sum of only visible indicators]
+
+Calculate bearish score (opposite logic, same null rules — NOT VISIBLE = +0):
+Total bearish score: [sum of only visible indicators]
 
 Net score: bullish - bearish = [number from -100 to +100]
+If most indicators are NOT_VISIBLE, set net score to 0 (NEUTRAL) — do NOT default to bearish.
 
 OUTPUT (strict JSON):
 {
@@ -7484,6 +7554,25 @@ OUTPUT (strict JSON):
       }], 2500);
 
       const indicators = parseJSON(indicatorsData.content[0].text);
+
+      // POST-PARSE VALIDATION: If AI scored despite null/NOT_VISIBLE data, neutralize the scores
+      if (indicators.indicatorScores) {
+        const rsiNull = !indicators.rsi?.value || indicators.rsi?.value === 'null' || indicators.rsi?.zone === 'NOT_VISIBLE';
+        const macdNull = !indicators.macd || indicators.macd?.position === 'NOT_VISIBLE' || indicators.macd?.signal === 'NEUTRAL';
+        const volNull = !indicators.volume || indicators.volume?.trend === 'NOT_VISIBLE';
+
+        const nullCount = [rsiNull, macdNull, volNull].filter(Boolean).length;
+
+        if (nullCount >= 2) {
+          // Most indicators not readable — force neutral scores instead of letting bad data through
+          console.log(`[Chart Analysis] ⚠️ ${nullCount}/3 key indicators are null/NOT_VISIBLE — neutralizing AI scores`);
+          indicators.indicatorScores.netScore = 0;
+          indicators.indicatorScores.interpretation = 'NEUTRAL';
+          indicators.indicatorScores.bullishScore = Math.min(indicators.indicatorScores.bullishScore || 0, 10);
+          indicators.indicatorScores.bearishScore = Math.min(indicators.indicatorScores.bearishScore || 0, 10);
+          indicators._indicatorsNeutralized = true;
+        }
+      }
 
       // PASS 4: Trade Setup Calculation - Pure mathematics
       setAnalysisStage("Calculating trade setups...");
@@ -7980,6 +8069,34 @@ OUTPUT JSON:
 
         // Adjust summary to reflect real data
         reconciledFinal.summary = `${realIndicators.trend} trend | RSI: ${realIndicators.rsi} | MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'} | Score: Bull ${realIndicators.bullishScore} / Bear ${realIndicators.bearishScore}`;
+
+        // BUILD "Which Signal to Trust" guidance
+        const indicatorsNeutralized = indicators?._indicatorsNeutralized;
+        const aiHadNullData = indicatorsNeutralized || (indicators?.rsi?.value == null && indicators?.macd?.position === 'NOT_VISIBLE');
+
+        reconciledFinal.signalTrust = {
+          trustSource: 'real-time',
+          reason: aiHadNullData
+            ? 'The AI could not read some indicators from the chart image (showing null/NOT_VISIBLE). Real-time calculated data from Yahoo Finance is complete and should be trusted.'
+            : hasDirectionalConflict
+              ? `The AI visual analysis and real-time data disagree. Real-time technical indicators (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}) are calculated from live market data and are more reliable than visual chart interpretation.`
+              : `Both AI visual analysis and real-time data agree on direction. The calculated indicators provide precise numeric values for confirmation.`,
+          aiAnalysis: {
+            recommendation: aiRec,
+            rsi: indicators?.rsi?.value ?? 'Not readable',
+            macd: indicators?.macd?.signal ?? 'Not readable',
+            hadNullData: aiHadNullData,
+          },
+          realTimeData: {
+            recommendation: calcRec,
+            rsi: realIndicators.rsi,
+            macdHistogram: realIndicators.macdHistogram,
+            trend: realIndicators.trend,
+            bullScore: realIndicators.bullishScore,
+            bearScore: realIndicators.bearishScore,
+            source: realIndicators.dataSource || 'Yahoo Finance (Live)',
+          },
+        };
 
         // FALLBACK: Calculate stop/target levels from real data when Claude didn't provide numbers
         const ieEntry = parseFloat(tradeSetup?.immediateEntry?.entry);
@@ -20713,6 +20830,44 @@ INSTRUCTIONS:
                   </div>
                 )}
 
+                {/* Which Signal to Trust — shows when there's a discrepancy */}
+                {analysis.final?.signalTrust && (
+                  <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-xl p-5">
+                    <h4 className="font-semibold mb-3 text-cyan-300 flex items-center gap-2">
+                      <Shield className="w-5 h-5" />
+                      Which Signal to Trust?
+                    </h4>
+                    <p className="text-sm text-slate-300 mb-4">{analysis.final.signalTrust.reason}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* AI Visual */}
+                      <div className={`rounded-lg p-3 ${analysis.final.signalTrust.aiAnalysis.hadNullData ? 'bg-red-500/10 border border-red-500/20' : 'bg-slate-800/50 border border-slate-700/30'}`}>
+                        <div className="text-xs text-slate-500 mb-1 flex items-center gap-1">
+                          <Eye className="w-3 h-3" />
+                          AI Visual Analysis
+                          {analysis.final.signalTrust.aiAnalysis.hadNullData && <span className="text-red-400 ml-1">(Incomplete Data)</span>}
+                        </div>
+                        <div className={`font-bold text-sm ${analysis.final.signalTrust.aiAnalysis.recommendation?.includes('BUY') ? 'text-emerald-400' : analysis.final.signalTrust.aiAnalysis.recommendation?.includes('SELL') ? 'text-red-400' : 'text-slate-400'}`}>
+                          {analysis.final.signalTrust.aiAnalysis.recommendation || 'N/A'}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">RSI: {analysis.final.signalTrust.aiAnalysis.rsi} | MACD: {analysis.final.signalTrust.aiAnalysis.macd}</div>
+                      </div>
+                      {/* Real-Time Calculated */}
+                      <div className="rounded-lg p-3 bg-emerald-500/10 border border-emerald-500/30 ring-1 ring-emerald-400/20">
+                        <div className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
+                          <Activity className="w-3 h-3" />
+                          Real-Time Data
+                          <span className="text-emerald-300 ml-1 font-semibold">(Trusted)</span>
+                        </div>
+                        <div className={`font-bold text-sm ${analysis.final.signalTrust.realTimeData.recommendation?.includes('BUY') ? 'text-emerald-400' : analysis.final.signalTrust.realTimeData.recommendation?.includes('SELL') ? 'text-red-400' : 'text-slate-400'}`}>
+                          {analysis.final.signalTrust.realTimeData.recommendation || 'N/A'}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">RSI: {analysis.final.signalTrust.realTimeData.rsi} | MACD: {parseFloat(analysis.final.signalTrust.realTimeData.macdHistogram) > 0 ? 'Bullish' : 'Bearish'} | {analysis.final.signalTrust.realTimeData.trend}</div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-3">Source: {analysis.final.signalTrust.realTimeData.source}</p>
+                  </div>
+                )}
+
                 {/* Technical Indicators Panel - Always Shows */}
                 {(() => {
                   // Get data from realIndicators (live) or fallback to AI analysis
@@ -23545,7 +23700,12 @@ INSTRUCTIONS:
                               {chartAnswer.split('\n\n').map((block, blockIdx) => {
                                 const formatInline = (text) => text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
                                   if (part.startsWith('**') && part.endsWith('**')) {
-                                    return <strong key={i} className="text-white font-semibold">{part.replace(/\*\*/g, '')}</strong>;
+                                    const term = part.replace(/\*\*/g, '');
+                                    const tooltip = tradingGlossary[term.toLowerCase()] || tradingGlossary[Object.keys(tradingGlossary).find(k => term.toLowerCase().includes(k))] || null;
+                                    if (tooltip) {
+                                      return <span key={i} className="relative group/tip inline"><strong className="text-white font-semibold border-b border-dotted border-violet-400/50 cursor-help">{term}</strong><span className="invisible group-hover/tip:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 border border-violet-500/30 rounded-lg text-xs text-slate-300 w-56 text-center shadow-xl pointer-events-none">{tooltip}</span></span>;
+                                    }
+                                    return <strong key={i} className="text-white font-semibold">{term}</strong>;
                                   }
                                   return part;
                                 });
@@ -25684,14 +25844,21 @@ INSTRUCTIONS:
                                 const headerText = line.replace(/\*\*/g, '').replace(/^#{1,3}\s+/, '').trim();
                                 return <h4 key={li} className="text-violet-400 font-bold text-base mt-5 mb-2 border-b border-slate-700/30 pb-1">{headerText}</h4>;
                               }
+                              // Helper: replace **bold** with tooltip-enabled strong tags
+                              const addBoldTooltips = (text) => text.replace(/\*\*(.*?)\*\*/g, (_, term) => {
+                                const key = Object.keys(tradingGlossary).find(k => term.toLowerCase().includes(k));
+                                const tip = key ? tradingGlossary[key] : null;
+                                if (tip) return `<span class="relative group/tip inline"><strong class="text-white font-semibold border-b border-dotted border-violet-400/50 cursor-help">${term}</strong><span class="invisible group-hover/tip:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 border border-violet-500/30 rounded-lg text-xs text-slate-300 w-56 text-center shadow-xl pointer-events-none">${tip}</span></span>`;
+                                return `<strong class="text-white font-semibold">${term}</strong>`;
+                              });
                               // Bullet points
                               if (line.trim().match(/^[•\-\*]\s/) || line.trim().match(/^\d+\.\s/)) {
                                 const bulletText = line.trim().replace(/^[•\-\*]\s*/, '').replace(/^\d+\.\s*/, '');
-                                const formatted = bulletText.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+                                const formatted = addBoldTooltips(bulletText);
                                 return <div key={li} className="flex items-start gap-2 ml-2 text-slate-300" dangerouslySetInnerHTML={{ __html: `<span class="text-violet-400 mt-0.5 flex-shrink-0">▸</span> <span>${formatted}</span>` }} />;
                               }
                               // Regular paragraph — strip inline bold markdown
-                              const formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+                              const formatted = addBoldTooltips(line);
                               return <p key={li} className="text-slate-300" dangerouslySetInnerHTML={{ __html: formatted }} />;
                             })}
                           </div>
