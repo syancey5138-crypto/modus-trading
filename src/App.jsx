@@ -10,7 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2 } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -1792,7 +1792,7 @@ function App() {
   const tickerChartRef = useRef(null);
   const tickerLoadingRef = useRef(false); // Ref to track loading state for auto-refresh
 
-  // ── Interactive Chart: Zoom, Pan, Crosshair ──
+  // ── Interactive Chart: Zoom, Pan, Crosshair, Fullscreen ──
   const [chartZoom, setChartZoom] = useState(1); // 1 = normal, 0.3–6 range
   const [chartScrollOffset, setChartScrollOffset] = useState(-1); // -1 = auto-scroll to latest; px offset otherwise
   const [chartIsDragging, setChartIsDragging] = useState(false);
@@ -1802,6 +1802,7 @@ function App() {
   const chartAreaRef = useRef(null); // inner chart area (excludes Y-axis)
   const pinchStartDist = useRef(0);
   const pinchStartZoom = useRef(1);
+  const [chartFullscreen, setChartFullscreen] = useState(false);
 
   // NEW: Price Alerts State
   const [alerts, setAlerts] = useState([]);
@@ -6633,6 +6634,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   }, [tickerData?.timeSeries?.length, chartZoom, chartScrollOffset]);
 
   const handleChartWheel = useCallback((e) => {
+    // Only intercept scroll for zoom in fullscreen mode
+    // In normal mode, let the page scroll naturally
+    if (!chartFullscreen) return;
     e.preventDefault();
     e.stopPropagation();
     const factor = e.deltaY < 0 ? 1.12 : 0.89;
@@ -6659,7 +6663,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
       return newZoom;
     });
-  }, [tickerData?.timeSeries?.length]);
+  }, [tickerData?.timeSeries?.length, chartFullscreen]);
 
   const handleChartMouseDown = useCallback((e) => {
     if (drawingMode) return;
@@ -6735,6 +6739,16 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     pinchStartDist.current = 0;
     setChartIsDragging(false);
   }, []);
+
+  // Escape key to exit fullscreen
+  useEffect(() => {
+    if (!chartFullscreen) return;
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape') setChartFullscreen(false);
+    };
+    window.addEventListener('keydown', handleEscKey);
+    return () => window.removeEventListener('keydown', handleEscKey);
+  }, [chartFullscreen]);
 
   const fetchFromYahooFinance = async (symbol) => {
     console.log(`[Yahoo Finance] Fetching data for ${symbol}...`);
@@ -19372,11 +19386,37 @@ INSTRUCTIONS:
                           </div>
                         )}
                         
+                        {/* FULLSCREEN WRAPPER — wraps chart + volume + sub-indicators when fullscreen */}
+                        <div className={chartFullscreen ? 'fixed inset-0 z-[9999] bg-slate-950 flex flex-col overflow-hidden' : ''}>
+
+                        {/* Fullscreen header bar */}
+                        {chartFullscreen && (
+                          <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg font-bold text-violet-400">{tickerData.symbol}</span>
+                              <span className="text-xl font-bold text-white">${(tickerData.timeSeries[tickerData.timeSeries.length - 1]?.close || 0).toFixed(2)}</span>
+                              {(() => {
+                                const latest = tickerData.timeSeries[tickerData.timeSeries.length - 1];
+                                const ch = latest?.close - (latest?.open || latest?.close);
+                                const chPct = (ch / (latest?.open || latest?.close)) * 100;
+                                return <span className={`text-sm font-semibold ${ch >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{ch >= 0 ? '+' : ''}{(chPct || 0).toFixed(2)}%</span>;
+                              })()}
+                              <span className="text-xs text-slate-500">{tickerData.timeSeries.length} candles • {tickerTimeframe}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500">Scroll to zoom • Drag to pan</span>
+                              <button onClick={() => setChartFullscreen(false)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5">
+                                <Minimize2 className="w-4 h-4" /> Exit
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* ENHANCED CHART - Interactive with Zoom/Pan/Crosshair */}
                         <div
-                          className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 relative select-none"
+                          className={`bg-slate-900 ${chartFullscreen ? 'flex-1 min-h-0 flex flex-col' : 'rounded-lg border-2 border-slate-700'} p-4 relative select-none`}
                           id="chart-scroll-container"
-                          style={{ overflow: 'hidden', cursor: chartIsDragging ? 'grabbing' : (drawingMode ? 'crosshair' : 'grab') }}
+                          style={{ overflow: 'hidden', cursor: chartIsDragging ? 'grabbing' : (drawingMode ? 'crosshair' : (chartFullscreen ? 'crosshair' : 'default')) }}
                           onWheel={handleChartWheel}
                           onMouseDown={handleChartMouseDown}
                           onMouseMove={handleChartMouseMove}
@@ -19387,8 +19427,8 @@ INSTRUCTIONS:
                           onTouchEnd={handleChartTouchEnd}
                         >
                           
-                          {/* STICKY TICKER OVERLAY - ALWAYS VISIBLE */}
-                          {showTickerOverlay && (
+                          {/* STICKY TICKER OVERLAY - hidden in fullscreen (header bar shows this info) */}
+                          {showTickerOverlay && !chartFullscreen && (
                             <div className="sticky left-4 top-4 z-50 inline-block mb-2">
                               <div className="bg-slate-900/95 backdrop-blur-sm border-2 border-violet-500 rounded-lg px-4 py-2 shadow-2xl">
                                 <div className="flex items-center gap-3">
@@ -19414,11 +19454,12 @@ INSTRUCTIONS:
                           
                           <div
                             ref={chartAreaRef}
-                            className="h-96 relative"
+                            className={`${chartFullscreen ? '' : 'h-96'} relative`}
                             style={{
                               width: '100%',
                               backgroundImage: 'linear-gradient(to right, rgb(51 65 85 / 0.3) 1px, transparent 1px), linear-gradient(to bottom, rgb(51 65 85 / 0.3) 1px, transparent 1px)',
-                              backgroundSize: '40px 32px'
+                              backgroundSize: '40px 32px',
+                              ...(chartFullscreen ? { flex: '1 1 0', minHeight: 0 } : {})
                             }}
                           >
                             {/* Price labels on Y-axis — computed from visible data */}
@@ -19895,6 +19936,31 @@ INSTRUCTIONS:
                               );
                             })()}
 
+                            {/* FULLSCREEN VOLUME OVERLAY - renders at bottom of chart area like TradingView */}
+                            {chartFullscreen && showVolume && (() => {
+                              const layout = getChartLayout();
+                              const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                              const maxVol = Math.max(...visData.map(b => b.volume || 0).filter(v => v > 0));
+                              if (maxVol === 0) return null;
+                              const subOffset = (layout.realOffset % layout.stride);
+                              return (
+                                <div className="absolute bottom-8 left-16 right-0 h-[25%] pointer-events-none z-[5] opacity-40">
+                                  <div className="flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px`, overflow: 'hidden' }}>
+                                    {visData.map((bar, vi) => {
+                                      const height = ((bar.volume || 0) / maxVol) * 100;
+                                      const isGreen = bar.close >= (bar.open || bar.close);
+                                      return (
+                                        <div key={layout.visStart + vi}
+                                          className={`flex-shrink-0 ${isGreen ? 'bg-emerald-500' : 'bg-red-500'}`}
+                                          style={{ height: `${height}%`, width: `${layout.candleW}px`, minWidth: `${layout.candleW}px` }}
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
                             {/* Date labels on X-axis */}
                             <div className="absolute bottom-0 left-16 right-0 h-8 flex justify-between items-center text-xs text-slate-400 border-t border-slate-700 px-2 bg-slate-900/80">
                               {(() => {
@@ -19925,12 +19991,24 @@ INSTRUCTIONS:
                             </div>
                           </div>
                           
-                          <div className="text-xs text-slate-500 mt-2 text-center">
-                            💡 Scroll to zoom • Drag to pan • Hover for details • {tickerData.timeSeries.length} candles
-                          </div>
+                          {!chartFullscreen && (
+                            <div className="flex items-center justify-between mt-2 px-1">
+                              <div className="text-xs text-slate-500">
+                                💡 Hover for details • {tickerData.timeSeries.length} candles
+                              </div>
+                              <button
+                                onClick={() => setChartFullscreen(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-violet-600 border border-slate-600 hover:border-violet-500 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition-all duration-200"
+                                title="Enter fullscreen chart"
+                              >
+                                <Maximize2 className="w-3.5 h-3.5" />
+                                Fullscreen
+                              </button>
+                            </div>
+                          )}
                           
-                          {/* VOLUME BARS - Inside same scroll container */}
-                          {showVolume && (
+                          {/* VOLUME BARS - Separate section (hidden in fullscreen) */}
+                          {showVolume && !chartFullscreen && (
                             <div className="mt-4 border-t border-slate-700 pt-4">
                               <div className="text-xs text-slate-400 mb-2 font-semibold">Volume</div>
                               <div className="h-24 flex items-end pl-16 pr-2" style={{ overflow: 'hidden' }}>
@@ -19965,6 +20043,9 @@ INSTRUCTIONS:
                           )}
                         </div>
                         
+                        {/* SUB-INDICATORS PANEL - scrollable in fullscreen */}
+                        <div className={chartFullscreen ? 'flex-shrink-0 max-h-[30vh] overflow-y-auto border-t border-slate-700 bg-slate-950 px-4 py-2' : ''}>
+
                         {/* RSI INDICATOR - FIXED */}
                         {showRSI && (() => {
                           const closes = tickerData.timeSeries.map(b => b.close).filter(p => p && !isNaN(p));
@@ -20543,6 +20624,8 @@ INSTRUCTIONS:
                             </div>
                           </div>
                         </div>
+                        </div>{/* close sub-indicators panel */}
+                        </div>{/* close fullscreen wrapper */}
                       </>
                     ) : (
                       <div className="h-80 flex items-center justify-center bg-slate-900 rounded-lg border-2 border-red-500/30">
