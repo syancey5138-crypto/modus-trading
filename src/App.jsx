@@ -2067,25 +2067,24 @@ function App() {
     setQuickAnalysisExpanded(false);
     setQuickAnalysisDetail(null);
     try {
-      // Fetch real-time data for the ticker with robust proxy fallback chain
+      // Fetch real-time data using shared robust proxy chain with parallel batching
       const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`;
-      const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`;
-      const proxies = [
-        yahooUrl,
-        yahooUrl2,
-        `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
-        `https://corsproxy.io/?${encodeURIComponent(yahooUrl2)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
-        `https://corsproxy.org/?${encodeURIComponent(yahooUrl)}`,
-        `https://thingproxy.freeboard.io/fetch/${yahooUrl}`,
-      ];
       let chartData = null;
-      for (const url of proxies) {
-        try {
-          const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
-          if (r.ok) { chartData = await r.json(); break; }
-        } catch {}
+
+      // Try the shared robust fetcher first (parallel batching, 8 proxies)
+      try {
+        chartData = await fetchYahooWithProxies(yahooUrl, 8000);
+      } catch (e) {
+        console.log(`Quick Analysis: fetchYahooWithProxies failed for ${sym}:`, e.message);
+      }
+
+      // If shared fetcher returned null, try stockDataCache as fallback
+      if (!chartData && stockDataCache.current.has(sym)) {
+        const cached = stockDataCache.current.get(sym);
+        if (cached && cached.data && (Date.now() - cached.timestamp < 15 * 60 * 1000)) {
+          chartData = cached.data;
+          console.log(`Quick Analysis: Using cached stock data for ${sym}`);
+        }
       }
 
       const meta = chartData?.chart?.result?.[0]?.meta || {};
@@ -6625,18 +6624,29 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   };
   const captureTickerChart = async () => {
     if (!tickerChartRef.current) return;
-    
+
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(tickerChartRef.current);
       const dataUrl = canvas.toDataURL();
       const base64Data = dataUrl.split(',')[1];
-      
+
+      // Clear old analysis state before setting new image
+      setAnalysis(null);
+      setAnalysisError(null);
+
       setImage(dataUrl);
       setImageData({ data: base64Data, mediaType: 'image/png' });
+
+      // Compute proper hash for the captured screenshot (matching handleImageUpload logic)
+      const len = base64Data.length;
+      const samplePoints = [0, Math.floor(len*0.1), Math.floor(len*0.25), Math.floor(len*0.5), Math.floor(len*0.75), Math.floor(len*0.9), len-50];
+      const captureHash = samplePoints.map(p => base64Data.slice(p, p+50)).join('|') + '|' + len + '|capture|' + Date.now();
+      setImageHash(captureHash);
+
       setActiveTab("analyze");
-      
-      setTimeout(() => analyzeChart(), 500);
+
+      // Don't auto-analyze from stale closure — let the user click Analyze with fresh state
     } catch (err) {
       console.error("Capture error:", err);
       showToast("Screenshot failed. You can manually screenshot and upload instead.", "error");
