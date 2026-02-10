@@ -6922,42 +6922,7 @@ OUTPUT FORMAT (strict JSON, no explanations):
         setAnalysisStage(`Fetching real data for ${detectedTicker}...`);
         setAnalysisProgress(15);
 
-        // CHECK: If this ticker matches the current Daily Pick, use its data directly
-        // This guarantees alignment and avoids rate-limited proxy failures
-        if (dailyPick && dailyPick.symbol?.toUpperCase() === detectedTicker.toUpperCase() && dailyPick.technicalData) {
-          const dp = dailyPick;
-          const td = dp.technicalData;
-          const bullScore = td.bullishScore || 0;
-          const bearScore = td.bearishScore || 0;
-          const dir = dp.direction || (bullScore > bearScore ? 'LONG' : 'SHORT');
-          const ns = Math.abs(bullScore - bearScore);
-
-          // Reconstruct realIndicators from Daily Pick data (same algorithm produced it)
-          realIndicators = {
-            ticker: detectedTicker,
-            currentPrice: dp.currentPrice || dp.entry,
-            changePercent: '0.00',
-            rsi: td.rsi || 'N/A',
-            macd: 'N/A',
-            macdSignal: 'N/A',
-            macdHistogram: td.macdHistogram || '0',
-            trend: td.trend || 'SIDEWAYS',
-            aboveSMA20: td.aboveSMA20,
-            aboveSMA50: td.aboveSMA50,
-            bullishScore: bullScore,
-            bearishScore: bearScore,
-            direction: dir,
-            netScore: ns,
-            confirmations: dp.confidence >= 70 ? 2 : dp.confidence >= 55 ? 1 : 0,
-            calculatedRecommendation: dp.recommendation,
-            calculatedConfidence: dp.confidence || 50,
-            dataSource: 'Daily Pick (Live Data)',
-            barsAnalyzed: 'N/A'
-          };
-          console.log(`[Chart Analysis] ✅ Using Daily Pick data for ${detectedTicker}: Rec=${dp.recommendation}, Confidence=${dp.confidence}%, RSI=${td.rsi}, Trend=${td.trend}`);
-        }
-
-        if (!realIndicators) {
+        // STEP 1: Always try fresh Yahoo Finance data first (most accurate)
         try {
           console.log(`[Chart Analysis] Fetching real data for ${detectedTicker}...`);
 
@@ -7174,7 +7139,39 @@ OUTPUT FORMAT (strict JSON, no explanations):
         } catch (e) {
           console.log(`[Chart Analysis] Could not fetch real data for ${detectedTicker}: ${e.message}`);
         }
-        } // end if (!realIndicators) — skipped if Daily Pick data was used
+
+        // STEP 2: If Yahoo fetch failed, fall back to Daily Pick data for matching ticker
+        if (!realIndicators && dailyPick && dailyPick.symbol?.toUpperCase() === detectedTicker.toUpperCase() && dailyPick.technicalData) {
+          const dp = dailyPick;
+          const td = dp.technicalData;
+          const bullScore = td.bullishScore || 0;
+          const bearScore = td.bearishScore || 0;
+          const dir = dp.direction || (bullScore > bearScore ? 'LONG' : 'SHORT');
+          const ns = Math.abs(bullScore - bearScore);
+
+          realIndicators = {
+            ticker: detectedTicker,
+            currentPrice: dp.currentPrice || dp.entry,
+            changePercent: '0.00',
+            rsi: td.rsi || 'N/A',
+            macd: 'N/A',
+            macdSignal: 'N/A',
+            macdHistogram: td.macdHistogram || '0',
+            trend: td.trend || 'SIDEWAYS',
+            aboveSMA20: td.aboveSMA20,
+            aboveSMA50: td.aboveSMA50,
+            bullishScore: bullScore,
+            bearishScore: bearScore,
+            direction: dir,
+            netScore: ns,
+            confirmations: dp.confidence >= 70 ? 2 : dp.confidence >= 55 ? 1 : 0,
+            calculatedRecommendation: dp.recommendation,
+            calculatedConfidence: dp.confidence || 50,
+            dataSource: 'Daily Pick (Live Data)',
+            barsAnalyzed: 'N/A'
+          };
+          console.log(`[Chart Analysis] ✅ Yahoo fetch failed — using Daily Pick data for ${detectedTicker}: Rec=${dp.recommendation}, Confidence=${dp.confidence}%, RSI=${td.rsi}, Trend=${td.trend}`);
+        }
       }
 
       // PASS 2: Pattern Recognition - Checklist-based
