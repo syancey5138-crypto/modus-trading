@@ -2216,6 +2216,7 @@ CRITICAL RULES:
         };
         setQuickAnalysisResult(result);
         setQuickAnalysisHistory(prev => [result, ...prev.filter(h => h.ticker !== sym)].slice(0, 10));
+        addXP(15, 'Quick analysis completed');
         // Auto-track price target (Feature 5)
         if (safeTarget > 0 && safeStop > 0) {
           addPriceTarget(sym, result.price, safeTarget, safeStop, result.verdict, safeConfidence);
@@ -2632,6 +2633,37 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [userXP, setUserXP] = useState(() => {
     try { return JSON.parse(localStorage.getItem('modus_user_xp')) || { level: 1, xp: 0, totalXP: 0, achievements: [], titles: [] }; } catch { return { level: 1, xp: 0, totalXP: 0, achievements: [], titles: [] }; }
   });
+
+  // Persist XP to localStorage
+  useEffect(() => {
+    localStorage.setItem('modus_user_xp', JSON.stringify(userXP));
+  }, [userXP]);
+
+  // XP gain function with level progression and toast notification
+  const XP_PER_LEVEL = 1000;
+  const addXP = (amount, reason = '') => {
+    setUserXP(prev => {
+      const newTotalXP = prev.totalXP + amount;
+      const newLevel = Math.floor(newTotalXP / XP_PER_LEVEL) + 1;
+      const newXP = newTotalXP % XP_PER_LEVEL;
+      const leveledUp = newLevel > prev.level;
+
+      if (leveledUp) {
+        const levelTitles = ['Novice Trader', 'Growing Analyst', 'Skilled Trader', 'Market Strategist', 'Expert Trader', 'Master Analyst', 'Elite Strategist', 'Trading Virtuoso', 'Market Legend'];
+        const title = levelTitles[Math.min(newLevel - 1, levelTitles.length - 1)];
+        setToast({ type: 'success', message: `🎉 Level Up! You're now Level ${newLevel} — ${title}` });
+      } else if (reason) {
+        setToast({ type: 'info', message: `⭐ +${amount} XP — ${reason}` });
+      }
+
+      return {
+        ...prev,
+        xp: newXP,
+        totalXP: newTotalXP,
+        level: newLevel,
+      };
+    });
+  };
 
   // NEW: Social Sentiment Data (v3.0.0)
   const [socialSentimentData, setSocialSentimentData] = useState([]);
@@ -7977,6 +8009,9 @@ OUTPUT JSON:
       };
       setAnalysis(fullAnalysis);
 
+      // Award XP for completing chart analysis
+      addXP(25, 'Chart analysis completed');
+
       // Track analysis completion
       trackEvent('analysis', 'complete', context?.ticker || detectedTicker || 'unknown');
 
@@ -8593,6 +8628,7 @@ OUTPUT JSON:
 
         setDailyPick(normalizeDailyPick(pick));
         setLastPickTime(new Date());
+        addXP(20, 'Daily Pick generated');
         setToast({ type: 'success', message: `✅ Found top pick: ${pick.asset} (${pick.direction})` });
         setLoadingPick(false);
         return; // Skip legacy slow analysis
@@ -10649,6 +10685,9 @@ INSTRUCTIONS:
     };
     
     setTrades([trade, ...trades]);
+
+    // Award XP for trade journaling
+    addXP(newTrade.isPaperTrade ? 15 : 10, newTrade.isPaperTrade ? 'Paper trade logged' : 'Trade journaled');
 
     // Track journal entry
     trackEvent('journal', 'add_entry', newTrade.symbol);
@@ -15564,6 +15603,15 @@ INSTRUCTIONS:
               >
                 <Settings className="w-4 h-4 text-slate-400" />
               </button>
+
+              {/* XP Badge in Header */}
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 rounded-lg border border-yellow-500/20 cursor-pointer hover:border-yellow-500/40 transition-all" title={`Level ${userXP.level} — ${userXP.xp}/${XP_PER_LEVEL} XP to next level`} onClick={() => setActiveTab('dashboard')}>
+                <span className="text-yellow-400 text-xs font-bold">Lvl {userXP.level}</span>
+                <div className="w-16 h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-yellow-400 to-amber-500 transition-all duration-500" style={{width: `${(userXP.xp / XP_PER_LEVEL) * 100}%`}} />
+                </div>
+                <span className="text-[10px] text-yellow-500/70">{userXP.xp}</span>
+              </div>
 
               {/* Divider */}
               <div className="w-px h-5 bg-slate-700/50 mx-0.5" />
