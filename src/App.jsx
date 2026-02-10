@@ -1930,24 +1930,31 @@ function App() {
   // Track session on mount and save on unload
   useEffect(() => {
     // Increment session count if new session (>30 min since last active)
-    const saved = localStorage.getItem('modus_analytics');
-    if (saved) {
-      const data = JSON.parse(saved);
-      const timeSinceActive = Date.now() - (data.lastActive || 0);
-      if (timeSinceActive > 30 * 60 * 1000) { // 30 minutes
-        setAnalytics(prev => ({
-          ...prev,
-          totalSessions: (prev.totalSessions || 0) + 1,
-          sessionStart: Date.now()
-        }));
+    try {
+      const saved = localStorage.getItem('modus_analytics');
+      if (saved) {
+        const data = JSON.parse(saved);
+        const timeSinceActive = Date.now() - (data.lastActive || 0);
+        if (timeSinceActive > 30 * 60 * 1000) { // 30 minutes
+          setAnalytics(prev => ({
+            ...prev,
+            totalSessions: (prev.totalSessions || 0) + 1,
+            sessionStart: Date.now()
+          }));
+        }
       }
+    } catch (e) {
+      console.warn('[Analytics] Corrupt localStorage data, resetting:', e.message);
+      localStorage.removeItem('modus_analytics');
     }
 
     // Save analytics on page unload
     const handleUnload = () => {
-      const currentAnalytics = JSON.parse(localStorage.getItem('modus_analytics') || '{}');
-      currentAnalytics.lastActive = Date.now();
-      localStorage.setItem('modus_analytics', JSON.stringify(currentAnalytics));
+      try {
+        const currentAnalytics = JSON.parse(localStorage.getItem('modus_analytics') || '{}');
+        currentAnalytics.lastActive = Date.now();
+        localStorage.setItem('modus_analytics', JSON.stringify(currentAnalytics));
+      } catch (e) { /* Ignore storage errors on unload */ }
     };
 
     window.addEventListener('beforeunload', handleUnload);
@@ -2145,7 +2152,7 @@ REAL-TIME DATA for ${sym}:
 - RSI(14): ${rsi.toFixed(1)} ${rsi > 70 ? '(OVERBOUGHT)' : rsi < 30 ? '(OVERSOLD)' : '(NEUTRAL)'}
 - Volume Ratio: ${volRatio}x average ${parseFloat(volRatio) > 1.5 ? '(HIGH)' : parseFloat(volRatio) < 0.5 ? '(LOW)' : '(NORMAL)'}
 - 3-Month Range: $${low52.toFixed(2)} - $${high52.toFixed(2)} (Currently at ${rangePosition}% of range)
-- 3-Month Performance: ${closes.length >= 2 ? ((currentPrice / closes[0] - 1) * 100).toFixed(1) : 0}%`;
+- 3-Month Performance: ${closes.length >= 2 && closes[0] > 0 ? ((currentPrice / closes[0] - 1) * 100).toFixed(1) : '0.0'}%`;
 
       const response = await callAPI([{
         role: 'user',
@@ -5162,18 +5169,23 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   };
 
   const parseJSON = (text) => {
-    // Remove markdown code blocks
-    let cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    
-    // Find the first { and last } to extract just the JSON
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    try {
+      // Remove markdown code blocks
+      let cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+      // Find the first { and last } to extract just the JSON
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+      }
+
+      return JSON.parse(cleaned);
+    } catch (e) {
+      console.error('[parseJSON] Failed to parse:', e.message, 'Input:', text?.slice(0, 200));
+      return {};
     }
-    
-    return JSON.parse(cleaned);
   };
 
   // Image upload handler
@@ -5185,7 +5197,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const reader = new FileReader();
       reader.onload = (ev) => {
         const dataUrl = ev.target.result;
-        const base64Data = dataUrl.split(",")[1];
+        const base64Data = dataUrl?.split(",")[1];
+        if (!base64Data) {
+          setAnalysisError("Could not read the uploaded image. Please try a different file.");
+          return;
+        }
         
         // Create robust hash for caching - sample throughout the image to avoid collisions
         const len = base64Data.length;
@@ -6077,21 +6093,19 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
       
       if (!data) {
-        // All APIs failed - Auto-enable Demo Mode silently
-        console.warn("⚠️ ALL APIS FAILED - Auto-enabling Demo Mode...");
+        // All APIs failed — notify user but DON'T auto-enable demo mode
+        // (auto-enabling traps users with fake data they might trade on)
+        console.warn("⚠️ ALL APIS FAILED for", tickerSymbol);
         setLoadingTicker(false);
 
-        // Auto-fallback to demo mode without intrusive popup
-        if (!useDemoMode) {
-          console.log("🎮 Auto-enabling Demo Mode for seamless experience...");
-          setUseDemoMode(true);
-          // Retry with demo mode
+        if (useDemoMode) {
+          // User already opted into demo mode, retry with it
           setTimeout(() => fetchTickerData(), 100);
           return;
         }
 
-        // Even demo mode failed - show minimal error
-        throw new Error("Unable to load data. Please try again.");
+        // Show clear error — user can manually enable demo mode if they want
+        throw new Error(`Could not fetch live data for ${tickerSymbol}. All data sources unavailable. You can enable Demo Mode in Live Ticker settings to use simulated data.`);
       }
       
       const newPrice = data.currentPrice;
@@ -8636,11 +8650,19 @@ OUTPUT JSON:
 
         // Save to cache
         const cacheKey = `modus_daily_pick_${pickTimeframe}_${pickVolatility}`;
-        localStorage.setItem(cacheKey, JSON.stringify({
-          pick,
-          timestamp: Date.now(),
-          date: new Date().toDateString()
-        }));
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            pick,
+            timestamp: Date.now(),
+            date: new Date().toDateString()
+          }));
+        } catch (e) {
+          console.warn('[Daily Pick] Cache write failed (storage full?):', e.message);
+          // Clear old daily pick caches to free space
+          try {
+            Object.keys(localStorage).filter(k => k.startsWith('modus_daily_pick_')).forEach(k => localStorage.removeItem(k));
+          } catch {}
+        }
 
         setDailyPick(normalizeDailyPick(pick));
         setLastPickTime(new Date());
@@ -9661,18 +9683,23 @@ INSTRUCTIONS:
   // ========================
   
   const saveToHistory = (analysisData, imageUrl) => {
-    const historyEntry = {
-      id: Date.now(),
-      timestamp: new Date().toISOString(),
-      symbol: analysisData.symbol || "Unknown",
-      image: imageUrl,
-      analysis: analysisData,
-      recommendation: analysisData.recommendation || "N/A",
-      score: analysisData.overallScore || 0
-    };
-    
-    setAnalysisHistory([historyEntry, ...analysisHistory]);
-    console.log("✅ Analysis saved to history!");
+    try {
+      if (!analysisData) return;
+      const historyEntry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        symbol: analysisData.symbol || analysisData.final?.ticker || "Unknown",
+        image: imageUrl,
+        analysis: analysisData,
+        recommendation: analysisData.recommendation || analysisData.final?.recommendation || "N/A",
+        score: analysisData.overallScore || 0
+      };
+
+      setAnalysisHistory(prev => [historyEntry, ...prev].slice(0, 50)); // Cap at 50 entries
+      console.log("✅ Analysis saved to history!");
+    } catch (e) {
+      console.error('[saveToHistory] Failed:', e.message);
+    }
   };
   
   const loadFromHistory = (entry) => {
@@ -21015,7 +21042,7 @@ INSTRUCTIONS:
                         </div>
                       </div>
                       <div className="text-4xl font-bold text-violet-400">
-                        {analysis.final.calculatedConfidence || analysis.final.confidenceScore}%
+                        {Math.min(95, Math.max(0, Math.round(Number(analysis.final.calculatedConfidence || analysis.final.confidenceScore) || 50)))}%
                       </div>
                       <div className="text-xs text-slate-500 mt-1">Setup Quality: {analysis.final.setupQuality || '—'}</div>
                       {analysis.final.directionalBias && (
