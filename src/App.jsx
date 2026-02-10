@@ -8053,9 +8053,10 @@ OUTPUT JSON:
           reconciledFinal.reconciled = true;
           reconciledFinal.aiOriginal = aiRec;
           reconciledFinal.directionalBias = realIndicators.direction;
+          const fmtRec = (r) => r ? r.replace(/_/g, ' ') : r;
           reconciledFinal.reconciliationNote = hasDirectionalConflict
-            ? `AI visual analysis suggested ${aiRec}, but calculated technical indicators (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend: ${realIndicators.trend}) indicate ${calcRec}. Using calculated recommendation for accuracy.`
-            : `Calculated from live data: RSI ${realIndicators.rsi}, MACD ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend ${realIndicators.trend}. ${aiRec !== calcRec ? `AI suggested ${aiRec}.` : ''}`;
+            ? `AI visual analysis suggested ${fmtRec(aiRec)}, but calculated technical indicators (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend: ${realIndicators.trend}) indicate ${fmtRec(calcRec)}. Using calculated recommendation for accuracy.`
+            : `Calculated from live data: RSI ${realIndicators.rsi}, MACD ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend ${realIndicators.trend}. ${aiRec !== calcRec ? `AI suggested ${fmtRec(aiRec)}.` : ''}`;
         } else {
           // AGREEMENT: Both AI and calculation align
           reconciledFinal.reconciled = false;
@@ -9604,7 +9605,13 @@ INSTRUCTIONS:
     if (!value || value === "NOT_VISIBLE" || value === "null" || value === null) {
       return "—";
     }
-    return value;
+    return String(value).replace(/_/g, ' ');
+  };
+
+  // Format recommendation/status labels: STRONG_BUY → Strong Buy, LEAN_SELL → Lean Sell
+  const formatLabel = (str) => {
+    if (!str) return '—';
+    return String(str).replace(/_/g, ' ').replace(/\b\w+/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
   };
 
   const formatPrice = (price) => {
@@ -17349,7 +17356,7 @@ INSTRUCTIONS:
                                     <span className="text-[10px] font-semibold text-white">{post.user || 'Trader'}</span>
                                     <span className="text-[9px] text-slate-500 ml-auto">{new Date(post.timestamp).toLocaleDateString()}</span>
                                   </div>
-                                  {post.ticker && <div className={`text-xs font-bold ${post.verdict?.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-red-400'}`}>{post.ticker} — {post.verdict}</div>}
+                                  {post.ticker && <div className={`text-xs font-bold ${post.verdict?.toLowerCase().includes('buy') ? 'text-emerald-400' : 'text-red-400'}`}>{post.ticker} — {post.verdict?.replace(/_/g, ' ')}</div>}
                                   {post.target && <div className="text-[10px] text-slate-400">Target: ${post.target} | Stop: ${post.stop || 'N/A'}</div>}
                                   {post.text && <div className="text-[10px] text-slate-400 line-clamp-2">{post.text}</div>}
                                 </div>
@@ -20847,7 +20854,7 @@ INSTRUCTIONS:
                           {analysis.final.signalTrust.aiAnalysis.hadNullData && <span className="text-red-400 ml-1">(Incomplete Data)</span>}
                         </div>
                         <div className={`font-bold text-sm ${analysis.final.signalTrust.aiAnalysis.recommendation?.includes('BUY') ? 'text-emerald-400' : analysis.final.signalTrust.aiAnalysis.recommendation?.includes('SELL') ? 'text-red-400' : 'text-slate-400'}`}>
-                          {analysis.final.signalTrust.aiAnalysis.recommendation || 'N/A'}
+                          {formatLabel(analysis.final.signalTrust.aiAnalysis.recommendation) || 'N/A'}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">RSI: {analysis.final.signalTrust.aiAnalysis.rsi} | MACD: {analysis.final.signalTrust.aiAnalysis.macd}</div>
                       </div>
@@ -20859,7 +20866,7 @@ INSTRUCTIONS:
                           <span className="text-emerald-300 ml-1 font-semibold">(Trusted)</span>
                         </div>
                         <div className={`font-bold text-sm ${analysis.final.signalTrust.realTimeData.recommendation?.includes('BUY') ? 'text-emerald-400' : analysis.final.signalTrust.realTimeData.recommendation?.includes('SELL') ? 'text-red-400' : 'text-slate-400'}`}>
-                          {analysis.final.signalTrust.realTimeData.recommendation || 'N/A'}
+                          {formatLabel(analysis.final.signalTrust.realTimeData.recommendation) || 'N/A'}
                         </div>
                         <div className="text-xs text-slate-400 mt-1">RSI: {analysis.final.signalTrust.realTimeData.rsi} | MACD: {parseFloat(analysis.final.signalTrust.realTimeData.macdHistogram) > 0 ? 'Bullish' : 'Bearish'} | {analysis.final.signalTrust.realTimeData.trend}</div>
                       </div>
@@ -20885,7 +20892,7 @@ INSTRUCTIONS:
                     bearishScore: live?.bearishScore ?? aiIndicators?.bearishScore ?? '—',
                     netScore: live?.netScore ?? aiIndicators?.netScore ?? 0,
                     calculatedRecommendation: live?.calculatedRecommendation ||
-                      (aiIndicators?.interpretation?.replace('STRONG_', 'STRONG ').replace('_', ' ')) || null,
+                      (aiIndicators?.interpretation?.replace(/_/g, ' ')) || null,
                     direction: live?.direction || (aiIndicators?.netScore > 0 ? 'LONG' : aiIndicators?.netScore < 0 ? 'SHORT' : 'NEUTRAL'),
                     aboveSMA20: live?.aboveSMA20,
                     aboveSMA50: live?.aboveSMA50,
@@ -21145,7 +21152,7 @@ INSTRUCTIONS:
                         <h3 className={`text-3xl font-bold mb-2 ${getRecommendationColor(analysis.final.recommendation)}`}>
                           {analysis.final.recommendation?.replace(/_/g, " ")}
                         </h3>
-                        <p className="text-lg text-slate-300">{analysis.final.summary}</p>
+                        <p className="text-lg text-slate-300">{analysis.final.summary?.replace(/_/g, ' ')}</p>
                         {/* WAIT explanation - helps users understand why it says WAIT */}
                         {analysis.final.recommendation?.includes("WAIT") && (
                           <div className="mt-3 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm">
@@ -23892,7 +23899,7 @@ INSTRUCTIONS:
                           <div className="flex items-center gap-3 mb-2">
                             <span className="font-bold text-lg">{alert.symbol}</span>
                             <span className="px-2 py-0.5 bg-violet-600/20 text-violet-300 rounded text-xs font-semibold">
-                              {alert.condition.replace('_', ' ').toUpperCase()}
+                              {alert.condition.replace(/_/g, ' ').toUpperCase()}
                             </span>
                             <span className="font-mono text-lg">${alert.price}</span>
                             {alertRingCounts[alert.id] > 0 && (
@@ -29741,7 +29748,7 @@ INSTRUCTIONS:
                                 stock.recommendation === 'LEAN_SELL' ? 'bg-red-500/10 text-red-500/70' :
                                 'bg-slate-700/50 text-slate-400'
                               }`}>
-                                {(stock.recommendation || 'HOLD').replace('_', ' ')}
+                                {(stock.recommendation || 'HOLD').replace(/_/g, ' ')}
                               </span>
                             )}
                           </td>
@@ -30524,7 +30531,7 @@ INSTRUCTIONS:
                               stock.recommendation.includes('SELL') ? 'bg-red-500/30 text-red-300' :
                               'bg-slate-600/50 text-slate-300'
                             }`}>
-                              {stock.recommendation.replace('LEAN_', '')}
+                              {stock.recommendation.replace(/_/g, ' ')}
                             </span>
                           )}
                         </div>
@@ -30618,7 +30625,7 @@ INSTRUCTIONS:
                               stock.recommendation.includes('SELL') ? 'bg-red-500/30 text-red-300' :
                               'bg-slate-600/50 text-slate-300'
                             }`}>
-                              {stock.recommendation.replace('LEAN_', '')}
+                              {stock.recommendation.replace(/_/g, ' ')}
                             </span>
                           )}
                         </div>
@@ -30703,7 +30710,7 @@ INSTRUCTIONS:
                               stock.recommendation.includes('SELL') ? 'bg-red-500/30 text-red-300' :
                               'bg-slate-600/50 text-slate-300'
                             }`}>
-                              {stock.recommendation.replace('LEAN_', '')}
+                              {stock.recommendation.replace(/_/g, ' ')}
                             </span>
                           )}
                         </div>
