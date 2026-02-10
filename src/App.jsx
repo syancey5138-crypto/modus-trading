@@ -5184,8 +5184,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         const dataUrl = ev.target.result;
         const base64Data = dataUrl.split(",")[1];
         
-        // Create hash for caching
-        const hash = base64Data.slice(0, 50) + base64Data.slice(-50);
+        // Create robust hash for caching - sample throughout the image to avoid collisions
+        const len = base64Data.length;
+        const samplePoints = [0, Math.floor(len*0.1), Math.floor(len*0.25), Math.floor(len*0.5), Math.floor(len*0.75), Math.floor(len*0.9), len-50];
+        const hash = samplePoints.map(p => base64Data.slice(p, p+50)).join('|') + '|' + len + '|' + file.size + '|' + file.name;
         
         setImage(dataUrl);
         setImageData({ data: base64Data, mediaType: file.type });
