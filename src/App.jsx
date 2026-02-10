@@ -2641,19 +2641,23 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // XP gain function with level progression and toast notification
   const XP_PER_LEVEL = 1000;
   const addXP = (amount, reason = '') => {
+    if (!amount || amount <= 0) return; // Guard against invalid amounts
     setUserXP(prev => {
-      const newTotalXP = prev.totalXP + amount;
+      const newTotalXP = Math.max(0, (prev.totalXP || 0) + amount);
       const newLevel = Math.floor(newTotalXP / XP_PER_LEVEL) + 1;
       const newXP = newTotalXP % XP_PER_LEVEL;
-      const leveledUp = newLevel > prev.level;
+      const leveledUp = newLevel > (prev.level || 1);
 
-      if (leveledUp) {
-        const levelTitles = ['Novice Trader', 'Growing Analyst', 'Skilled Trader', 'Market Strategist', 'Expert Trader', 'Master Analyst', 'Elite Strategist', 'Trading Virtuoso', 'Market Legend'];
-        const title = levelTitles[Math.min(newLevel - 1, levelTitles.length - 1)];
-        setToast({ type: 'success', message: `🎉 Level Up! You're now Level ${newLevel} — ${title}` });
-      } else if (reason) {
-        setToast({ type: 'info', message: `⭐ +${amount} XP — ${reason}` });
-      }
+      // Schedule toast outside setState to avoid stale closure with showToast
+      setTimeout(() => {
+        if (leveledUp) {
+          const levelTitles = ['Novice Trader', 'Growing Analyst', 'Skilled Trader', 'Market Strategist', 'Expert Trader', 'Master Analyst', 'Elite Strategist', 'Trading Virtuoso', 'Market Legend'];
+          const title = levelTitles[Math.min(newLevel - 1, levelTitles.length - 1)];
+          setToast({ type: 'success', message: `🎉 Level Up! You're now Level ${newLevel} — ${title}` });
+        } else if (reason) {
+          setToast({ type: 'info', message: `⭐ +${amount} XP — ${reason}` });
+        }
+      }, 0);
 
       return {
         ...prev,
@@ -7195,15 +7199,15 @@ OUTPUT FORMAT (strict JSON, no explanations):
 
           realIndicators = {
             ticker: detectedTicker,
-            currentPrice: dp.currentPrice || dp.entry,
+            currentPrice: parseFloat(dp.currentPrice || dp.entry) || 0,
             changePercent: '0.00',
-            rsi: td.rsi || 'N/A',
+            rsi: td.rsi != null ? parseFloat(td.rsi) : 'N/A',
             macd: 'N/A',
             macdSignal: 'N/A',
-            macdHistogram: td.macdHistogram || '0',
+            macdHistogram: parseFloat(td.macdHistogram) || 0,
             trend: td.trend || 'SIDEWAYS',
-            aboveSMA20: td.aboveSMA20,
-            aboveSMA50: td.aboveSMA50,
+            aboveSMA20: td.aboveSMA20 ?? false,
+            aboveSMA50: td.aboveSMA50 ?? false,
             bullishScore: bullScore,
             bearishScore: bearScore,
             direction: dir,
@@ -21097,7 +21101,7 @@ INSTRUCTIONS:
                         {analysis.tradeSetup.immediateEntry?.riskRewardRatio || '—'}
                       </div>
                       <div className="text-xs text-slate-400">
-                        {analysis.tradeSetup.immediateEntry?.winProbability ? `${analysis.tradeSetup.immediateEntry.winProbability}% Win Rate` : '—'}
+                        {analysis.tradeSetup.immediateEntry?.winProbability ? `${String(analysis.tradeSetup.immediateEntry.winProbability).replace('%', '')}% Win Rate` : '—'}
                       </div>
                     </div>
                   </div>
