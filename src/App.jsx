@@ -2904,6 +2904,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [drawingColor, setDrawingColor] = useState('#8b5cf6');
   const drawingCanvasRef = useRef(null);
   const [drawingPreview, setDrawingPreview] = useState(null);
+  const [drawingRedoStack, setDrawingRedoStack] = useState({}); // { [ticker]: [drawing, ...] }
 
   // NEW: Pricing Tier System (v3.1.0)
   const [userPlan, setUserPlan] = useState(() => {
@@ -2932,8 +2933,35 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   }, [tickerSymbol, drawingColor]);
 
   const clearDrawings = useCallback((ticker) => {
-    setDrawings(prev => ({ ...prev, [ticker || tickerSymbol || 'default']: [] }));
+    const sym = ticker || tickerSymbol || 'default';
+    setDrawings(prev => {
+      // Save all drawings to redo stack before clearing
+      setDrawingRedoStack(rs => ({ ...rs, [sym]: [...(prev[sym] || [])].reverse() }));
+      return { ...prev, [sym]: [] };
+    });
     addNotification({ type: 'success', title: 'Drawings Cleared', message: 'All drawings removed from this chart', icon: '🗑️' });
+  }, [tickerSymbol]);
+
+  const undoDrawing = useCallback(() => {
+    const sym = tickerSymbol || 'default';
+    setDrawings(prev => {
+      const arr = prev[sym] || [];
+      if (arr.length === 0) return prev;
+      const removed = arr[arr.length - 1];
+      setDrawingRedoStack(rs => ({ ...rs, [sym]: [removed, ...(rs[sym] || [])] }));
+      return { ...prev, [sym]: arr.slice(0, -1) };
+    });
+  }, [tickerSymbol]);
+
+  const redoDrawing = useCallback(() => {
+    const sym = tickerSymbol || 'default';
+    setDrawingRedoStack(rs => {
+      const stack = rs[sym] || [];
+      if (stack.length === 0) return rs;
+      const item = stack[0];
+      setDrawings(prev => ({ ...prev, [sym]: [...(prev[sym] || []), item] }));
+      return { ...rs, [sym]: stack.slice(1) };
+    });
   }, [tickerSymbol]);
 
   // NEW: Community Feed Enhanced State (v2.3.0)
@@ -6823,6 +6851,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     if (!chartFullscreen) return;
     const handleFsKeys = (e) => {
       if (e.key === 'Escape') { if (drawingMode) { setDrawingMode(null); setShowDrawingTools(false); } else { setChartFullscreen(false); } return; }
+      // Ctrl/Cmd+Z = undo, Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z = redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoDrawing(); return; }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redoDrawing(); return; }
       // Don't capture keys if user is typing in an input
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       switch (e.key) {
@@ -6839,14 +6870,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     };
     window.addEventListener('keydown', handleFsKeys);
     return () => window.removeEventListener('keydown', handleFsKeys);
-  }, [chartFullscreen]);
+  }, [chartFullscreen, undoDrawing, redoDrawing]);
 
-  // Chart keyboard shortcuts (non-fullscreen) - B for draw (brush), Escape to exit draw mode
+  // Chart keyboard shortcuts (non-fullscreen) - B for draw (brush), Escape to exit, Ctrl+Z/Y undo/redo
   useEffect(() => {
     if (chartFullscreen) return; // fullscreen has its own handler
     const handleChartKeys = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (activeTab !== 'ticker') return;
+      // Ctrl/Cmd+Z = undo, Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z = redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoDrawing(); return; }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redoDrawing(); return; }
       if (e.key === 'Escape' && drawingMode) { setDrawingMode(null); setShowDrawingTools(false); e.preventDefault(); }
       if ((e.key === 'b' || e.key === 'B') && !e.ctrlKey && !e.metaKey) {
         if (drawingMode) { setDrawingMode(null); setShowDrawingTools(false); }
@@ -6855,7 +6889,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     };
     window.addEventListener('keydown', handleChartKeys);
     return () => window.removeEventListener('keydown', handleChartKeys);
-  }, [chartFullscreen, activeTab, drawingMode]);
+  }, [chartFullscreen, activeTab, drawingMode, undoDrawing, redoDrawing]);
 
   const fetchFromYahooFinance = async (symbol) => {
     console.log(`[Yahoo Finance] Fetching data for ${symbol}...`);
@@ -19347,13 +19381,17 @@ INSTRUCTIONS:
                                     style={{ background: c }} />
                                 ))}
                               </div>
-                              {(drawings[tickerSymbol] || []).length > 0 && (
+                              {((drawings[tickerSymbol] || []).length > 0 || (drawingRedoStack[tickerSymbol] || []).length > 0) && (
                                 <div className="flex items-center gap-1 pl-2 border-l border-slate-700/50">
-                                  <button onClick={() => {
-                                    const ticker = tickerSymbol || 'default';
-                                    setDrawings(prev => ({ ...prev, [ticker]: (prev[ticker] || []).slice(0, -1) }));
-                                  }} className="px-1.5 py-1 text-[10px] text-slate-400 hover:text-white bg-slate-700/30 hover:bg-slate-700/50 rounded transition-all">
+                                  <button onClick={undoDrawing} disabled={!(drawings[tickerSymbol] || []).length}
+                                    className={`px-1.5 py-1 text-[10px] rounded transition-all ${(drawings[tickerSymbol] || []).length ? 'text-slate-400 hover:text-white bg-slate-700/30 hover:bg-slate-700/50' : 'text-slate-600 bg-slate-800/20 cursor-not-allowed'}`}
+                                    title="Undo (Ctrl+Z)">
                                     Undo
+                                  </button>
+                                  <button onClick={redoDrawing} disabled={!(drawingRedoStack[tickerSymbol] || []).length}
+                                    className={`px-1.5 py-1 text-[10px] rounded transition-all ${(drawingRedoStack[tickerSymbol] || []).length ? 'text-slate-400 hover:text-white bg-slate-700/30 hover:bg-slate-700/50' : 'text-slate-600 bg-slate-800/20 cursor-not-allowed'}`}
+                                    title="Redo (Ctrl+Y)">
+                                    Redo
                                   </button>
                                   <button onClick={() => clearDrawings()} className="px-1.5 py-1 text-[10px] text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-all">
                                     Clear
@@ -20965,21 +21003,28 @@ INSTRUCTIONS:
                                             <span className="text-[10px] hidden xl:inline">{tool.tip}</span>
                                           </button>
                                         ))}
-                                        {(drawings[tickerData.symbol] || []).length > 0 && (
+                                        {((drawings[tickerData.symbol] || []).length > 0 || (drawingRedoStack[tickerData.symbol] || []).length > 0) && (
                                           <>
                                             <button
-                                              onClick={() => {
-                                                const sym = tickerData.symbol;
-                                                setDrawings(prev => ({ ...prev, [sym]: (prev[sym] || []).slice(0, -1) }));
-                                              }}
-                                              className="px-2 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1"
-                                              title="Undo last drawing"
+                                              onClick={undoDrawing}
+                                              disabled={!(drawings[tickerData.symbol] || []).length}
+                                              className={`px-2 py-1.5 rounded transition-all flex items-center gap-1 ${(drawings[tickerData.symbol] || []).length ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-600 cursor-not-allowed'}`}
+                                              title="Undo last drawing (Ctrl+Z)"
                                             >
                                               <RotateCcw className="w-3.5 h-3.5" />
                                               <span className="text-[10px] hidden xl:inline">Undo</span>
                                             </button>
                                             <button
-                                              onClick={() => setDrawings(prev => ({ ...prev, [tickerData.symbol]: [] }))}
+                                              onClick={redoDrawing}
+                                              disabled={!(drawingRedoStack[tickerData.symbol] || []).length}
+                                              className={`px-2 py-1.5 rounded transition-all flex items-center gap-1 ${(drawingRedoStack[tickerData.symbol] || []).length ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-600 cursor-not-allowed'}`}
+                                              title="Redo drawing (Ctrl+Y)"
+                                            >
+                                              <RotateCcw className="w-3.5 h-3.5" style={{ transform: 'scaleX(-1)' }} />
+                                              <span className="text-[10px] hidden xl:inline">Redo</span>
+                                            </button>
+                                            <button
+                                              onClick={() => clearDrawings()}
                                               className="px-2 py-1.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all flex items-center gap-1"
                                               title="Clear all drawings"
                                             >
