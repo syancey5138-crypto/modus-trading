@@ -2281,6 +2281,133 @@ function App() {
         vwap = cumVol > 0 ? cumVP / cumVol : null;
       }
 
+      // RSI divergence detection — compares price direction vs RSI direction over recent swings
+      let rsiDivergence = 'NONE';
+      if (closes.length >= 30) {
+        // Look at two recent swing points (10 bars apart)
+        const recentCloses = closes.slice(-30);
+        const calcRsiAt = (slice) => {
+          const ch = slice.map((v, i, a) => i > 0 ? v - a[i - 1] : 0).slice(1);
+          const g = ch.filter(c => c > 0);
+          const l = ch.filter(c => c < 0).map(c => Math.abs(c));
+          const ag = g.length ? g.reduce((a, b) => a + b, 0) / 14 : 0;
+          const al = l.length ? l.reduce((a, b) => a + b, 0) / 14 : 0.001;
+          return 100 - (100 / (1 + ag / al));
+        };
+        const priceOld = recentCloses.slice(0, 15);
+        const priceNew = recentCloses.slice(-15);
+        const rsiOld = calcRsiAt(priceOld);
+        const rsiNew = calcRsiAt(priceNew);
+        const priceLowOld = Math.min(...priceOld);
+        const priceLowNew = Math.min(...priceNew);
+        const priceHighOld = Math.max(...priceOld);
+        const priceHighNew = Math.max(...priceNew);
+        // Bullish divergence: price makes lower low but RSI makes higher low
+        if (priceLowNew < priceLowOld && rsiNew > rsiOld && rsi < 40) rsiDivergence = 'BULLISH';
+        // Bearish divergence: price makes higher high but RSI makes lower high
+        else if (priceHighNew > priceHighOld && rsiNew < rsiOld && rsi > 60) rsiDivergence = 'BEARISH';
+      }
+
+      // MACD divergence detection
+      let macdDivergence = 'NONE';
+      if (closes.length >= 40 && macdHist !== null) {
+        // Compare MACD histogram direction vs price direction over 20 bars
+        const pHalf1 = closes.slice(-40, -20);
+        const pHalf2 = closes.slice(-20);
+        const pLow1 = Math.min(...pHalf1), pLow2 = Math.min(...pHalf2);
+        const pHigh1 = Math.max(...pHalf1), pHigh2 = Math.max(...pHalf2);
+        // Rebuild MACD at midpoint for comparison
+        const midEma12 = calcEMA(closes.slice(0, -20), 12);
+        const midEma26 = calcEMA(closes.slice(0, -20), 26);
+        const midMacd = midEma12 && midEma26 ? midEma12 - midEma26 : null;
+        if (midMacd !== null) {
+          if (pLow2 < pLow1 && macd > midMacd) macdDivergence = 'BULLISH';
+          else if (pHigh2 > pHigh1 && macd < midMacd) macdDivergence = 'BEARISH';
+        }
+      }
+
+      // ADX — Average Directional Index (trend strength)
+      let adx = null, adxTrend = 'N/A';
+      if (highs.length >= 28 && lows.length >= 28 && closes.length >= 28) {
+        const len = Math.min(highs.length, lows.length, closes.length);
+        const dmPlus = [], dmMinus = [], tr = [];
+        for (let i = Math.max(1, len - 27); i < len; i++) {
+          const hDiff = highs[i] - highs[i - 1];
+          const lDiff = lows[i - 1] - lows[i];
+          dmPlus.push(hDiff > lDiff && hDiff > 0 ? hDiff : 0);
+          dmMinus.push(lDiff > hDiff && lDiff > 0 ? lDiff : 0);
+          tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+        }
+        if (tr.length >= 14) {
+          const smooth = (arr) => {
+            let s = arr.slice(0, 14).reduce((a, b) => a + b, 0);
+            for (let i = 14; i < arr.length; i++) s = s - s / 14 + arr[i];
+            return s;
+          };
+          const atr14 = smooth(tr);
+          const sDmP = smooth(dmPlus);
+          const sDmM = smooth(dmMinus);
+          const diPlus = atr14 > 0 ? (sDmP / atr14) * 100 : 0;
+          const diMinus = atr14 > 0 ? (sDmM / atr14) * 100 : 0;
+          const dx = (diPlus + diMinus) > 0 ? Math.abs(diPlus - diMinus) / (diPlus + diMinus) * 100 : 0;
+          adx = dx; // Simplified single-pass ADX
+          adxTrend = adx > 25 ? (diPlus > diMinus ? 'STRONG UPTREND' : 'STRONG DOWNTREND') : 'WEAK/NO TREND';
+        }
+      }
+
+      // Fibonacci Retracement Levels
+      let fibLevels = null;
+      if (closes.length >= 20) {
+        const swingHigh = Math.max(...closes.slice(-50 > -closes.length ? -closes.length : -50));
+        const swingLow = Math.min(...closes.slice(-50 > -closes.length ? -closes.length : -50));
+        const diff = swingHigh - swingLow;
+        if (diff > 0) {
+          fibLevels = {
+            level0: swingLow,              // 0%
+            level236: swingLow + diff * 0.236, // 23.6%
+            level382: swingLow + diff * 0.382, // 38.2%
+            level500: swingLow + diff * 0.5,   // 50%
+            level618: swingLow + diff * 0.618, // 61.8%
+            level786: swingLow + diff * 0.786, // 78.6%
+            level100: swingHigh               // 100%
+          };
+        }
+      }
+
+      // Determine nearest Fibonacci support/resistance
+      let nearestFibSupport = null, nearestFibResistance = null;
+      if (fibLevels) {
+        const fibValues = Object.values(fibLevels).sort((a, b) => a - b);
+        for (const fv of fibValues) {
+          if (fv < currentPrice) nearestFibSupport = fv;
+          if (fv > currentPrice && !nearestFibResistance) nearestFibResistance = fv;
+        }
+      }
+
+      // Stochastic RSI (for additional overbought/oversold confirmation)
+      let stochRsi = null, stochSignal = 'NEUTRAL';
+      if (closes.length >= 20) {
+        // Calculate RSI series for last 14+6 bars
+        const rsiSeries = [];
+        for (let end = closes.length - 20; end <= closes.length; end++) {
+          if (end < 15) continue;
+          const slice = closes.slice(end - 15, end);
+          const ch = slice.map((v, i, a) => i > 0 ? v - a[i - 1] : 0).slice(1);
+          const g = ch.filter(c => c > 0);
+          const l = ch.filter(c => c < 0).map(c => Math.abs(c));
+          const ag = g.length ? g.reduce((a, b) => a + b, 0) / 14 : 0;
+          const al = l.length ? l.reduce((a, b) => a + b, 0) / 14 : 0.001;
+          rsiSeries.push(100 - (100 / (1 + ag / al)));
+        }
+        if (rsiSeries.length >= 14) {
+          const rsiSlice = rsiSeries.slice(-14);
+          const rsiHigh = Math.max(...rsiSlice);
+          const rsiLow = Math.min(...rsiSlice);
+          stochRsi = rsiHigh !== rsiLow ? ((rsiSeries[rsiSeries.length - 1] - rsiLow) / (rsiHigh - rsiLow) * 100) : 50;
+          stochSignal = stochRsi > 80 ? 'OVERBOUGHT' : stochRsi < 20 ? 'OVERSOLD' : 'NEUTRAL';
+        }
+      }
+
       // High/low range
       const high52 = closes.length > 0 ? Math.max(...closes) : currentPrice;
       const low52 = closes.length > 0 ? Math.min(...closes) : currentPrice;
@@ -2296,12 +2423,14 @@ function App() {
 
       let htfTrend = 'N/A', htfRsi = 'N/A', htfMacdSignal = 'N/A';
       let marketTrend = 'N/A', marketDayChange = 'N/A';
+      let newsSentiment = 'N/A', newsHeadlines = [];
 
-      // Fetch higher timeframe + SPY market context in parallel
+      // Fetch higher timeframe + SPY market context + news in parallel
       try {
-        const [htfData, spyData] = await Promise.all([
+        const [htfData, spyData, newsData] = await Promise.all([
           fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${htfInterval}&range=${htfRange}`, 6000).catch(() => null),
-          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1mo`, 6000).catch(() => null)
+          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1mo`, 6000).catch(() => null),
+          fetchRealTimeNews(sym, 5).catch(() => [])
         ]);
 
         // Higher timeframe trend
@@ -2341,6 +2470,18 @@ function App() {
             marketDayChange = ((spyPrice - spyPrev) / spyPrev * 100).toFixed(2) + '%';
           }
         }
+        // News sentiment analysis
+        if (newsData && newsData.length > 0) {
+          newsHeadlines = newsData.slice(0, 5).map(n => n.headline || n.title || '').filter(h => h);
+          // Simple keyword-based sentiment scoring
+          const bullishWords = ['surge', 'soar', 'rally', 'jump', 'gain', 'beat', 'upgrade', 'bullish', 'buy', 'strong', 'record', 'high', 'growth', 'profit', 'positive', 'boom', 'up', 'rises', 'rising'];
+          const bearishWords = ['drop', 'fall', 'crash', 'plunge', 'decline', 'miss', 'downgrade', 'bearish', 'sell', 'weak', 'low', 'loss', 'negative', 'warning', 'cut', 'down', 'falls', 'falling', 'slump'];
+          let sentScore = 0;
+          const allText = newsHeadlines.join(' ').toLowerCase();
+          bullishWords.forEach(w => { if (allText.includes(w)) sentScore++; });
+          bearishWords.forEach(w => { if (allText.includes(w)) sentScore--; });
+          newsSentiment = sentScore > 1 ? 'BULLISH' : sentScore < -1 ? 'BEARISH' : 'NEUTRAL';
+        }
       } catch (e) {
         console.log('Quick Analysis: Multi-timeframe/market context fetch failed:', e.message);
       }
@@ -2364,8 +2505,25 @@ REAL-TIME DATA for ${sym}:
 - ATR(14): ${atr ? '$' + atr.toFixed(2) + ' (' + (atr / currentPrice * 100).toFixed(1) + '% volatility)' : 'N/A'}
 - VWAP(20): ${vwap ? '$' + vwap.toFixed(2) + ' (Price ' + (currentPrice > vwap ? 'ABOVE' : 'BELOW') + ' VWAP)' : 'N/A'}
 - Volume Ratio: ${volRatio}x average ${parseFloat(volRatio) > 1.5 ? '(HIGH — confirms move)' : parseFloat(volRatio) < 0.5 ? '(LOW — weak conviction)' : '(NORMAL)'}
+- ADX: ${adx !== null ? adx.toFixed(1) : 'N/A'} — ${adxTrend} ${adx && adx > 25 ? '(STRONG trend — trade with it)' : adx ? '(WEAK trend — choppy, avoid breakout trades)' : ''}
+- Stochastic RSI: ${stochRsi !== null ? stochRsi.toFixed(1) + '%' : 'N/A'} — ${stochSignal}
 - ${tfLabel} Range: $${low52.toFixed(2)} - $${high52.toFixed(2)} (Currently at ${rangePosition}% of range)
 - ${tfLabel} Performance: ${closes.length >= 2 && closes[0] > 0 ? ((currentPrice / closes[0] - 1) * 100).toFixed(1) : '0.0'}%
+
+DIVERGENCE SIGNALS (HIGH PRIORITY — divergences often precede reversals):
+- RSI Divergence: ${rsiDivergence}${rsiDivergence === 'BULLISH' ? ' — Price making lower lows but RSI making higher lows = LIKELY REVERSAL UP' : rsiDivergence === 'BEARISH' ? ' — Price making higher highs but RSI making lower highs = LIKELY REVERSAL DOWN' : ''}
+- MACD Divergence: ${macdDivergence}${macdDivergence === 'BULLISH' ? ' — Price falling but MACD rising = momentum shifting bullish' : macdDivergence === 'BEARISH' ? ' — Price rising but MACD falling = momentum fading' : ''}
+
+FIBONACCI RETRACEMENT LEVELS:${fibLevels ? `
+- 0% (Swing Low): $${fibLevels.level0.toFixed(2)}
+- 23.6%: $${fibLevels.level236.toFixed(2)}
+- 38.2%: $${fibLevels.level382.toFixed(2)}
+- 50%: $${fibLevels.level500.toFixed(2)}
+- 61.8% (Golden Ratio): $${fibLevels.level618.toFixed(2)}
+- 78.6%: $${fibLevels.level786.toFixed(2)}
+- 100% (Swing High): $${fibLevels.level100.toFixed(2)}
+- Nearest Fib Support: ${nearestFibSupport ? '$' + nearestFibSupport.toFixed(2) : 'N/A'}
+- Nearest Fib Resistance: ${nearestFibResistance ? '$' + nearestFibResistance.toFixed(2) : 'N/A'}` : ' N/A'}
 
 MULTI-TIMEFRAME CONFIRMATION (${htfLabel}):
 - Higher TF Trend: ${htfTrend}
@@ -2377,6 +2535,9 @@ MARKET CONTEXT (SPY):
 - Broad Market Trend: ${marketTrend}
 - SPY Day Change: ${marketDayChange}
 - Trading With Market: ${withMarket ? 'YES — favorable' : 'NO — against market, higher risk'}
+
+NEWS SENTIMENT:
+- Overall Sentiment: ${newsSentiment}${newsHeadlines.length > 0 ? '\n- Recent Headlines: ' + newsHeadlines.slice(0, 3).join(' | ') : ''}
 
 Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
 
@@ -2390,16 +2551,25 @@ SCORING FRAMEWORK — evaluate each factor and tally the score:
 1. TREND (±25pts): Price above SMA20 & SMA50 = +25 bullish. Below both = +25 bearish. Mixed = 0.
 2. MACD (±20pts): Histogram positive & rising = +20 bullish. Negative & falling = +20 bearish.
 3. RSI (±15pts): 30-50 rising = +15 (oversold bounce). 50-70 = +10 (healthy momentum). >70 = -10 (overbought risk). <30 = +15 (deeply oversold). >80 = -15 (extreme overbought).
-4. BOLLINGER BANDS (±10pts): At lower band in uptrend = +10 (buy the dip). At upper band overbought = -10. Mid-band = 0.
-5. VOLUME (±10pts): High volume confirming trend = +10. Low volume move = -5. High volume reversal = -10.
-6. VWAP (±10pts): Price above VWAP = +10 (institutional buying). Below = -10.
-7. MULTI-TIMEFRAME (±15pts): Higher TF confirms = +15. Higher TF conflicts = -15.
-8. MARKET CONTEXT (±10pts): Trading with SPY trend = +10. Against = -10.
+4. DIVERGENCES (±25pts — HIGHEST WEIGHT because divergences precede major reversals):
+   - Bullish RSI or MACD divergence = +25 (override bearish signals). Bearish divergence = -25 (override bullish signals).
+   - If BOTH RSI and MACD show same divergence = ±35 (very high conviction reversal).
+5. ADX TREND STRENGTH (modifier): ADX > 25 = trend is strong, add ±10 in trend direction. ADX < 20 = weak/choppy, reduce all trend scores by 50%.
+6. BOLLINGER BANDS (±10pts): At lower band in uptrend = +10 (buy the dip). At upper band overbought = -10. Mid-band = 0.
+7. VOLUME (±10pts): High volume confirming trend = +10. Low volume move = -5. High volume reversal = -10.
+8. VWAP (±10pts): Price above VWAP = +10 (institutional buying). Below = -10.
+9. FIBONACCI (±10pts): Price bouncing off key Fib support (38.2%, 50%, 61.8%) = +10 bullish. Rejecting at Fib resistance = -10 bearish. Use Fib levels for stop loss and target placement.
+10. STOCHASTIC RSI (±10pts): Below 20 = +10 (oversold, bounce likely). Above 80 = -10 (overbought). Confirms RSI signal.
+11. MULTI-TIMEFRAME (±15pts): Higher TF confirms = +15. Higher TF conflicts = -15.
+12. MARKET CONTEXT (±10pts): Trading with SPY trend = +10. Against = -10.
+13. NEWS SENTIMENT (±10pts): Bullish headlines = +10. Bearish headlines = -10. Neutral = 0.
 
-Total possible: -115 to +115. Map to verdict:
-- 60+: STRONG BUY | 30-59: BUY | -29 to 29: HOLD | -59 to -30: SELL | -60 or below: STRONG SELL
+Total possible: ~-175 to +175. Map to verdict:
+- 80+: STRONG BUY | 40-79: BUY | -39 to 39: HOLD | -79 to -40: SELL | -80 or below: STRONG SELL
 - Confidence = |score| mapped to 50-95 range.
 - If timeframes conflict, cap confidence at 70 max.
+- If divergence detected, ALWAYS mention it prominently — it's the strongest signal.
+- Use Fibonacci levels for setting targetPrice and stopLoss.
 
 Respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):
 {
@@ -2427,7 +2597,11 @@ CRITICAL RULES:
 - For HOLD, set targetPrice slightly above and stopLoss slightly below as watch levels.
 - Follow the scoring framework strictly. Do NOT say BUY when most indicators are bearish.
 - If RSI is overbought AND price is at upper Bollinger AND higher timeframe conflicts, that's a SELL, not a BUY.
-- If timeframes conflict, reduce confidence and lean toward HOLD unless other signals are overwhelming.`
+- If timeframes conflict, reduce confidence and lean toward HOLD unless other signals are overwhelming.
+- DIVERGENCES are the single most important signal. A bullish divergence in a downtrend = likely reversal up. Always highlight divergences.
+- If ADX < 20, the trend is WEAK — avoid trend-following verdicts, lean toward HOLD.
+- Use Fibonacci levels for support/resistance. Place stops below key Fib levels, targets at next Fib level up.
+- Consider news sentiment as a catalyst — positive news + bullish technicals = higher confidence.`
       }], 2000);
 
       const text = response.content?.[0]?.text || '';
@@ -2454,6 +2628,11 @@ CRITICAL RULES:
           macd, macdSignal, macdHist,
           bbUpper, bbLower, bbPosition: bbPosition ? parseInt(bbPosition) : null,
           atr, vwap,
+          rsiDivergence, macdDivergence,
+          adx: adx ? parseFloat(adx.toFixed(1)) : null, adxTrend,
+          fibLevels, nearestFibSupport, nearestFibResistance,
+          stochRsi: stochRsi ? parseFloat(stochRsi.toFixed(1)) : null, stochSignal,
+          newsSentiment, newsHeadlines,
           htfTrend, marketTrend, trendsAligned,
           volRatio: parseFloat(volRatio),
           rangePosition: parseInt(rangePosition),
@@ -7299,6 +7478,75 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         vwap = cumVol > 0 ? cumVP / cumVol : null;
       }
 
+      // RSI divergence detection
+      let setupRsiDivergence = 'NONE';
+      if (closes.length >= 30) {
+        const rc = closes.slice(-30);
+        const calcRsiSlice = (slice) => {
+          const ch = slice.map((v, i, a) => i > 0 ? v - a[i - 1] : 0).slice(1);
+          const g = ch.filter(c => c > 0);
+          const l = ch.filter(c => c < 0).map(c => Math.abs(c));
+          const ag = g.length ? g.reduce((a, b) => a + b, 0) / 14 : 0;
+          const al = l.length ? l.reduce((a, b) => a + b, 0) / 14 : 0.001;
+          return 100 - (100 / (1 + ag / al));
+        };
+        const pOld = rc.slice(0, 15), pNew = rc.slice(-15);
+        const rOld = calcRsiSlice(pOld), rNew = calcRsiSlice(pNew);
+        if (Math.min(...pNew) < Math.min(...pOld) && rNew > rOld && rsi < 40) setupRsiDivergence = 'BULLISH';
+        else if (Math.max(...pNew) > Math.max(...pOld) && rNew < rOld && rsi > 60) setupRsiDivergence = 'BEARISH';
+      }
+
+      // MACD divergence
+      let setupMacdDivergence = 'NONE';
+      if (closes.length >= 40 && macdHist !== null) {
+        const pH1 = closes.slice(-40, -20), pH2 = closes.slice(-20);
+        const midE12 = calcEMASetup(closes.slice(0, -20), 12);
+        const midE26 = calcEMASetup(closes.slice(0, -20), 26);
+        const midM = midE12 && midE26 ? midE12 - midE26 : null;
+        if (midM !== null) {
+          if (Math.min(...pH2) < Math.min(...pH1) && macd > midM) setupMacdDivergence = 'BULLISH';
+          else if (Math.max(...pH2) > Math.max(...pH1) && macd < midM) setupMacdDivergence = 'BEARISH';
+        }
+      }
+
+      // ADX
+      let setupAdx = null, setupAdxTrend = 'N/A';
+      if (highs.length >= 28 && lows.length >= 28 && closes.length >= 28) {
+        const sLen = Math.min(highs.length, lows.length, closes.length);
+        const dP = [], dM = [], tR = [];
+        for (let i = Math.max(1, sLen - 27); i < sLen; i++) {
+          const hd = highs[i] - highs[i - 1];
+          const ld = lows[i - 1] - lows[i];
+          dP.push(hd > ld && hd > 0 ? hd : 0);
+          dM.push(ld > hd && ld > 0 ? ld : 0);
+          tR.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+        }
+        if (tR.length >= 14) {
+          const sm = (arr) => { let s = arr.slice(0, 14).reduce((a, b) => a + b, 0); for (let i = 14; i < arr.length; i++) s = s - s / 14 + arr[i]; return s; };
+          const a14 = sm(tR), sDP = sm(dP), sDM = sm(dM);
+          const diP = a14 > 0 ? (sDP / a14) * 100 : 0;
+          const diM = a14 > 0 ? (sDM / a14) * 100 : 0;
+          setupAdx = (diP + diM) > 0 ? Math.abs(diP - diM) / (diP + diM) * 100 : 0;
+          setupAdxTrend = setupAdx > 25 ? (diP > diM ? 'STRONG UPTREND' : 'STRONG DOWNTREND') : 'WEAK/NO TREND';
+        }
+      }
+
+      // Fibonacci levels
+      let setupFib = null, setupFibSupport = null, setupFibResist = null;
+      {
+        const fibLen = Math.min(closes.length, 50);
+        if (fibLen >= 20) {
+          const swH = Math.max(...closes.slice(-fibLen));
+          const swL = Math.min(...closes.slice(-fibLen));
+          const diff = swH - swL;
+          if (diff > 0) {
+            setupFib = { l382: swL + diff * 0.382, l500: swL + diff * 0.5, l618: swL + diff * 0.618 };
+            const fVals = [swL, swL + diff * 0.236, setupFib.l382, setupFib.l500, setupFib.l618, swL + diff * 0.786, swH].sort((a, b) => a - b);
+            for (const fv of fVals) { if (fv < currentPrice) setupFibSupport = fv; if (fv > currentPrice && !setupFibResist) setupFibResist = fv; }
+          }
+        }
+      }
+
       // Trend
       const trend = sma20 > sma50 ? 'Uptrend' : sma20 < sma50 ? 'Downtrend' : 'Sideways';
 
@@ -7306,7 +7554,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       let bullishScore = 0;
       let bearishScore = 0;
 
-      // RSI scoring (matches analyzeStockFast logic)
+      // RSI scoring
       if (rsi < 25) bullishScore += 20;
       else if (rsi < 35) bullishScore += 12;
       else if (rsi > 75) bearishScore += 20;
@@ -7328,11 +7576,24 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         else bearishScore += 12;
       }
 
+      // Divergence scoring (highest weight — divergences precede reversals)
+      if (setupRsiDivergence === 'BULLISH') bullishScore += 25;
+      else if (setupRsiDivergence === 'BEARISH') bearishScore += 25;
+      if (setupMacdDivergence === 'BULLISH') bullishScore += 20;
+      else if (setupMacdDivergence === 'BEARISH') bearishScore += 20;
+
+      // ADX trend strength modifier
+      if (setupAdx !== null && setupAdx < 20) {
+        // Weak trend — reduce trend-based scores
+        bullishScore = Math.round(bullishScore * 0.7);
+        bearishScore = Math.round(bearishScore * 0.7);
+      }
+
       // Bollinger Band scoring
       if (bbPosition !== null) {
         const bbPos = parseInt(bbPosition);
-        if (bbPos < 10 && trend === 'Uptrend') bullishScore += 8; // oversold in uptrend
-        else if (bbPos > 90 && trend === 'Downtrend') bearishScore += 8; // overbought in downtrend
+        if (bbPos < 10 && trend === 'Uptrend') bullishScore += 8;
+        else if (bbPos > 90 && trend === 'Downtrend') bearishScore += 8;
       }
 
       // VWAP scoring
@@ -7374,16 +7635,20 @@ MACD: ${macd !== null ? macd.toFixed(4) : 'N/A'} | Signal: ${macdSignal !== null
 Bollinger Bands: Upper $${bbUpper ? bbUpper.toFixed(2) : 'N/A'} | Lower $${bbLower ? bbLower.toFixed(2) : 'N/A'} | Position: ${bbPosition || 'N/A'}%
 ATR(14): $${atr.toFixed(2)}
 VWAP(20): ${vwap ? '$' + vwap.toFixed(2) : 'N/A'}
+ADX: ${setupAdx !== null ? setupAdx.toFixed(1) : 'N/A'} — ${setupAdxTrend}
+RSI Divergence: ${setupRsiDivergence} | MACD Divergence: ${setupMacdDivergence}
 Trend: ${trend}
 20-bar High: $${recent20High.toFixed(2)} | 20-bar Low: $${recent20Low.toFixed(2)}
 50-bar High: $${recent50High.toFixed(2)} | 50-bar Low: $${recent50Low.toFixed(2)}
+Fib Support: ${setupFibSupport ? '$' + setupFibSupport.toFixed(2) : 'N/A'} | Fib Resistance: ${setupFibResist ? '$' + setupFibResist.toFixed(2) : 'N/A'}
 Volume: Recent ${(recentVolume/1000).toFixed(0)}K vs Avg ${(avgVolume/1000).toFixed(0)}K (${(recentVolume/avgVolume*100).toFixed(0)}%)
 Technical Bias: ${directionLabel} (Bullish: ${bullishScore} vs Bearish: ${bearishScore})
 
 DIRECTION REQUIREMENT: The technical indicators show a ${directionLabel} bias. You MUST generate a ${calculatedDirection} setup.
-- If ${calculatedDirection} = LONG: entry at or near current price, stopLoss BELOW entry (use 1-2x ATR), targets ABOVE entry (use 2-3x ATR).
-- If ${calculatedDirection} = SHORT: entry at or near current price, stopLoss ABOVE entry (use 1-2x ATR), targets BELOW entry (use 2-3x ATR).
-- Use Bollinger Bands and VWAP as support/resistance references for stop loss and targets.
+- If ${calculatedDirection} = LONG: entry at or near current price, stopLoss BELOW entry (use 1-2x ATR or nearest Fib support), targets ABOVE entry (use 2-3x ATR or next Fib resistance).
+- If ${calculatedDirection} = SHORT: entry at or near current price, stopLoss ABOVE entry (use 1-2x ATR), targets BELOW entry (use 2-3x ATR or next Fib support).
+- Use Fibonacci levels, Bollinger Bands and VWAP as support/resistance references.
+- If divergence detected, mention it in reasoning — it's the strongest signal.${setupAdx !== null && setupAdx < 20 ? '\n- ADX is LOW — trend is weak. Set tighter stops and lower targets.' : ''}
 
 Respond ONLY with valid JSON (no markdown, no code fences):
 {
@@ -27199,6 +27464,35 @@ INSTRUCTIONS:
                       <div className="text-[10px] text-slate-500">Market (SPY)</div>
                       <div className={`text-sm font-bold ${r.marketTrend === 'BULLISH' ? 'text-green-400' : r.marketTrend === 'BEARISH' ? 'text-red-400' : 'text-slate-500'}`}>{r.marketTrend || '—'}</div>
                       <div className="text-[9px] text-slate-600">{r.marketTrend && r.marketTrend !== 'N/A' ? 'Broad Market' : '—'}</div>
+                    </div>
+                  </div>
+
+                  {/* Divergence + ADX + Fib + Stoch + News row */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className={`rounded-lg border p-3 text-center ${r.rsiDivergence === 'BULLISH' ? 'bg-emerald-500/10 border-emerald-500/30' : r.rsiDivergence === 'BEARISH' ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-800/40 border-slate-700/20'}`}>
+                      <div className="text-[10px] text-slate-500">RSI Divergence</div>
+                      <div className={`text-sm font-bold ${r.rsiDivergence === 'BULLISH' ? 'text-green-400' : r.rsiDivergence === 'BEARISH' ? 'text-red-400' : 'text-slate-500'}`}>{r.rsiDivergence || 'NONE'}</div>
+                      <div className="text-[9px] text-slate-600">{r.rsiDivergence === 'BULLISH' ? 'Reversal Up' : r.rsiDivergence === 'BEARISH' ? 'Reversal Down' : 'No Signal'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">ADX</div>
+                      <div className={`text-sm font-bold ${r.adx && r.adx > 25 ? 'text-amber-400' : 'text-slate-500'}`}>{r.adx !== null ? r.adx : '—'}</div>
+                      <div className="text-[9px] text-slate-600">{r.adx > 25 ? 'Strong Trend' : r.adx ? 'Weak Trend' : '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Fib Support</div>
+                      <div className="text-sm font-bold text-cyan-400">{r.nearestFibSupport ? '$' + r.nearestFibSupport.toFixed(2) : '—'}</div>
+                      <div className="text-[9px] text-slate-600">{r.nearestFibResistance ? 'R: $' + r.nearestFibResistance.toFixed(2) : '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Stoch RSI</div>
+                      <div className={`text-sm font-bold ${r.stochRsi && r.stochRsi > 80 ? 'text-red-400' : r.stochRsi && r.stochRsi < 20 ? 'text-green-400' : 'text-white'}`}>{r.stochRsi !== null ? r.stochRsi + '%' : '—'}</div>
+                      <div className="text-[9px] text-slate-600">{r.stochSignal || '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">News</div>
+                      <div className={`text-sm font-bold ${r.newsSentiment === 'BULLISH' ? 'text-green-400' : r.newsSentiment === 'BEARISH' ? 'text-red-400' : 'text-slate-500'}`}>{r.newsSentiment || '—'}</div>
+                      <div className="text-[9px] text-slate-600">Sentiment</div>
                     </div>
                   </div>
 
