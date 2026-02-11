@@ -15636,10 +15636,52 @@ INSTRUCTIONS:
           {/* Logo */}
           <div className="p-4 border-b border-slate-800/20">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 rounded-xl flex-shrink-0 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 hover:scale-105 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 to-white/10 rounded-xl" />
-                <svg className="w-5 h-5 relative" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              <div className="w-10 h-10 flex-shrink-0 rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 hover:scale-105 overflow-hidden">
+                <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                  <defs>
+                    <linearGradient id="sidebarBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" style={{stopColor:'#1e1b4b'}}/>
+                      <stop offset="50%" style={{stopColor:'#0f172a'}}/>
+                      <stop offset="100%" style={{stopColor:'#020617'}}/>
+                    </linearGradient>
+                    <linearGradient id="sidebarAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" style={{stopColor:'#a78bfa'}}/>
+                      <stop offset="100%" style={{stopColor:'#7c3aed'}}/>
+                    </linearGradient>
+                    <linearGradient id="sidebarGreen" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" style={{stopColor:'#34d399'}}/>
+                      <stop offset="100%" style={{stopColor:'#10b981'}}/>
+                    </linearGradient>
+                    <linearGradient id="sidebarRed" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" style={{stopColor:'#f87171'}}/>
+                      <stop offset="100%" style={{stopColor:'#ef4444'}}/>
+                    </linearGradient>
+                  </defs>
+                  <rect width="512" height="512" rx="96" fill="url(#sidebarBg)"/>
+                  <g opacity="0.06" stroke="#a78bfa" strokeWidth="1">
+                    <line x1="80" y1="140" x2="432" y2="140"/>
+                    <line x1="80" y1="210" x2="432" y2="210"/>
+                    <line x1="80" y1="280" x2="432" y2="280"/>
+                    <line x1="80" y1="350" x2="432" y2="350"/>
+                  </g>
+                  <g>
+                    <line x1="120" y1="200" x2="120" y2="340" stroke="url(#sidebarRed)" strokeWidth="3" strokeLinecap="round"/>
+                    <rect x="108" y="230" width="24" height="70" rx="3" fill="url(#sidebarRed)"/>
+                    <line x1="172" y1="220" x2="172" y2="360" stroke="url(#sidebarGreen)" strokeWidth="3" strokeLinecap="round"/>
+                    <rect x="160" y="260" width="24" height="60" rx="3" fill="url(#sidebarGreen)"/>
+                    <line x1="224" y1="240" x2="224" y2="380" stroke="url(#sidebarRed)" strokeWidth="3" strokeLinecap="round"/>
+                    <rect x="212" y="270" width="24" height="70" rx="3" fill="url(#sidebarRed)"/>
+                    <line x1="276" y1="190" x2="276" y2="350" stroke="url(#sidebarGreen)" strokeWidth="3" strokeLinecap="round"/>
+                    <rect x="264" y="220" width="24" height="90" rx="3" fill="url(#sidebarGreen)"/>
+                    <line x1="328" y1="150" x2="328" y2="280" stroke="url(#sidebarGreen)" strokeWidth="3" strokeLinecap="round"/>
+                    <rect x="316" y="170" width="24" height="70" rx="3" fill="url(#sidebarGreen)"/>
+                    <line x1="380" y1="110" x2="380" y2="240" stroke="url(#sidebarGreen)" strokeWidth="3" strokeLinecap="round"/>
+                    <rect x="368" y="130" width="24" height="70" rx="3" fill="url(#sidebarGreen)"/>
+                  </g>
+                  <path d="M 108 280 Q 200 310 276 240 Q 340 190 392 140" stroke="url(#sidebarAccent)" strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.9"/>
+                  <circle cx="392" cy="140" r="8" fill="#a78bfa" opacity="0.6"/>
+                  <circle cx="392" cy="140" r="4" fill="#c4b5fd"/>
+                  <text x="256" y="460" textAnchor="middle" fontFamily="system-ui, -apple-system, Helvetica, Arial, sans-serif" fontWeight="800" fontSize="72" fill="url(#sidebarAccent)" letterSpacing="-2">MODUS</text>
                 </svg>
               </div>
               {!sidebarCollapsed && (
