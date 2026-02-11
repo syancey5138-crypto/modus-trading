@@ -11,7 +11,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move, Share2 } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move, Share2, MousePointer } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -1091,6 +1091,27 @@ function App() {
   const [showShortcutsOverlay, setShowShortcutsOverlay] = useState(false);
   const [showQuickTradeEntry, setShowQuickTradeEntry] = useState(false);
   const changelogEntries = [
+    {
+      version: '3.3.0',
+      date: '2026-02-11',
+      title: 'AI Trade Setups, Smart Toolbar, Navigate/Draw Modes & Bug Fixes',
+      changes: [
+        { type: 'feature', text: 'AI Trade Setup Generator — generates entry, stop loss, and two target prices using technical analysis + Claude AI' },
+        { type: 'feature', text: 'Trade Setups sidebar tab to view, manage, and share all AI-generated setups' },
+        { type: 'feature', text: 'Navigate/Draw mode toggle — seamlessly switch between chart panning and drawing tools (press D)' },
+        { type: 'feature', text: '"Live" button snaps chart back to present when panned into history' },
+        { type: 'feature', text: 'Overlay & Indicator dropdown menus with checkmarks, active counts, and 2-indicator limit' },
+        { type: 'improvement', text: 'Unified chart toolbar: overlays, indicators, drawing tools, and compare all in one clean bar' },
+        { type: 'improvement', text: 'Drawing tools now accessible directly in normal chart view with visible icons and labels' },
+        { type: 'improvement', text: 'Keyboard shortcuts: D toggles draw mode, Escape exits draw mode or fullscreen' },
+        { type: 'improvement', text: 'Analyze button in fullscreen now captures the fullscreen view directly (not the small chart)' },
+        { type: 'improvement', text: 'Standalone indicator panels (RSI, MACD, etc.) increased in height for better readability' },
+        { type: 'fix', text: 'Fixed 12 division-by-zero bugs across price calculations that could show NaN' },
+        { type: 'fix', text: 'Fixed null reference crashes in community avatars, welcome emails, and momentum calculations' },
+        { type: 'fix', text: 'Fixed array bounds error when less than 5 candles available for momentum check' },
+        { type: 'fix', text: 'Fixed fullscreen chart price display denominator safety' },
+      ]
+    },
     {
       version: '3.2.0',
       date: '2026-02-10',
@@ -6801,7 +6822,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   useEffect(() => {
     if (!chartFullscreen) return;
     const handleFsKeys = (e) => {
-      if (e.key === 'Escape') { setChartFullscreen(false); return; }
+      if (e.key === 'Escape') { if (drawingMode) { setDrawingMode(null); setShowDrawingTools(false); } else { setChartFullscreen(false); } return; }
       // Don't capture keys if user is typing in an input
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       switch (e.key) {
@@ -6812,12 +6833,29 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         case 'r': case 'R': setChartZoom(1); setChartScrollOffset(-1); break;
         case 'v': case 'V': setShowVolume(v => !v); break;
         case 'f': case 'F': setChartFullscreen(false); break;
+        case 'd': case 'D': setShowDrawingTools(t => !t); if (!drawingMode) setDrawingMode('line'); else { setDrawingMode(null); } break;
         default: break;
       }
     };
     window.addEventListener('keydown', handleFsKeys);
     return () => window.removeEventListener('keydown', handleFsKeys);
   }, [chartFullscreen]);
+
+  // Chart keyboard shortcuts (non-fullscreen) - D for draw, Escape to exit draw mode
+  useEffect(() => {
+    if (chartFullscreen) return; // fullscreen has its own handler
+    const handleChartKeys = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (activeTab !== 'ticker') return;
+      if (e.key === 'Escape' && drawingMode) { setDrawingMode(null); setShowDrawingTools(false); e.preventDefault(); }
+      if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey) {
+        if (drawingMode) { setDrawingMode(null); setShowDrawingTools(false); }
+        else { setShowDrawingTools(true); setDrawingMode('line'); }
+      }
+    };
+    window.addEventListener('keydown', handleChartKeys);
+    return () => window.removeEventListener('keydown', handleChartKeys);
+  }, [chartFullscreen, activeTab, drawingMode]);
 
   const fetchFromYahooFinance = async (symbol) => {
     console.log(`[Yahoo Finance] Fetching data for ${symbol}...`);
@@ -19274,204 +19312,212 @@ INSTRUCTIONS:
                     
                     {tickerData.timeSeries && tickerData.timeSeries.length > 0 ? (
                       <>
-                        {/* Chart Controls - Overlays */}
-                        <div className="mb-2">
-                          <div className="text-xs text-slate-500 mb-1">Chart Overlays</div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => setShowSMA(!showSMA)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showSMA ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showSMA ? '✅' : '☐'} SMA (20)
-                            </button>
-                            <button
-                              onClick={() => setShowEMA(!showEMA)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showEMA ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showEMA ? '✅' : '☐'} EMA (20)
-                            </button>
-                            <button
-                              onClick={() => setShowBollinger(!showBollinger)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showBollinger ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showBollinger ? '✅' : '☐'} Bollinger
-                            </button>
-                            <button
-                              onClick={() => setShowVWAP(!showVWAP)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showVWAP ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showVWAP ? '✅' : '☐'} VWAP
-                            </button>
+                        {/* ══ Unified Chart Toolbar ══ */}
+                        <div className="mb-3 flex flex-wrap items-center gap-2 bg-slate-800/40 rounded-xl px-3 py-2 border border-slate-700/30">
 
-                            {/* Chart Comparison Overlay */}
-                            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-600">
-                              <button
-                                onClick={() => {
-                                  if (showComparison) {
-                                    setShowComparison(false);
-                                    setComparisonData(null);
-                                    setComparisonSymbol('');
-                                  }
-                                }}
-                                className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                  showComparison ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400'
-                                }`}
-                                title={showComparison ? 'Click to remove comparison' : 'Type a symbol and press Enter to compare'}
-                              >
-                                {showComparison ? `✅ vs ${comparisonData?.symbol || ''}` : '📊 Compare'}
-                              </button>
-                              {!showComparison && (
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={comparisonSymbol}
-                                    onChange={(e) => setComparisonSymbol(e.target.value.toUpperCase())}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' && comparisonSymbol.trim()) {
-                                        fetchComparisonData(comparisonSymbol);
-                                      }
-                                    }}
-                                    placeholder="e.g. SPY"
-                                    className="w-24 bg-slate-800/80 border border-slate-600/50 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                                  />
-                                  {loadingComparison && (
-                                    <RefreshCw className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-amber-400 animate-spin" />
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Chart Drawing Tools Toggle */}
-                            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-600">
-                              <button
-                                onClick={() => { setShowDrawingTools(!showDrawingTools); if (showDrawingTools) { setDrawingMode(null); setDrawingStart(null); setDrawingPreview(null); } }}
-                                className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                  showDrawingTools ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
-                                }`}
-                              >
-                                {showDrawingTools ? '✅' : '✏️'} Draw
-                              </button>
-                            </div>
+                          {/* Mode Toggle: Cursor vs Draw */}
+                          <div className="flex items-center bg-slate-900/60 rounded-lg p-0.5">
+                            <button
+                              onClick={() => { setDrawingMode(null); setShowDrawingTools(false); setDrawingStart(null); setDrawingPreview(null); }}
+                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                                !drawingMode && !showDrawingTools ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                              }`}
+                              title="Navigate mode — drag to pan, scroll to zoom (Esc)"
+                            >
+                              <MousePointer className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Navigate</span>
+                            </button>
+                            <button
+                              onClick={() => { setShowDrawingTools(true); if (!drawingMode) setDrawingMode('line'); }}
+                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                                showDrawingTools || drawingMode ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                              }`}
+                              title="Draw mode — click to draw on chart (D)"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Draw</span>
+                            </button>
                           </div>
-                        </div>
 
-                        {/* Drawing Tools Toolbar */}
-                        {showDrawingTools && (
-                          <div className="mb-2 p-3 bg-gradient-to-r from-violet-500/10 to-slate-800/50 rounded-xl border border-violet-500/20">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-slate-500 mr-1">Tools:</span>
-                                {[
-                                  { mode: 'line', icon: '📈', label: 'Trendline' },
-                                  { mode: 'horizontal', icon: '➖', label: 'Support/Resist' },
-                                  { mode: 'fibonacci', icon: '🔢', label: 'Fibonacci' },
-                                  { mode: 'rectangle', icon: '▢', label: 'Zone' },
-                                  { mode: 'text', icon: '💬', label: 'Note' },
-                                ].map(tool => (
-                                  <button key={tool.mode}
-                                    onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
-                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                                      drawingMode === tool.mode
-                                        ? 'bg-violet-600 text-white border border-violet-400 shadow-lg shadow-violet-500/20'
-                                        : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60 border border-slate-700/30'
-                                    }`}
-                                  >
-                                    <span>{tool.icon}</span> {tool.label}
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="flex items-center gap-2 pl-3 border-l border-slate-600/50">
-                                <span className="text-xs text-slate-500">Color:</span>
-                                {['#8b5cf6', '#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#ec4899', '#ffffff'].map(c => (
+                          {/* Drawing Tools (visible when in draw mode) */}
+                          {(showDrawingTools || drawingMode) && (
+                            <div className="flex items-center gap-1 pl-2 border-l border-slate-700/50">
+                              {[
+                                { mode: 'line', icon: <TrendingUp className="w-3.5 h-3.5" />, tip: 'Trendline' },
+                                { mode: 'horizontal', icon: <Minus className="w-3.5 h-3.5" />, tip: 'Support/Resist' },
+                                { mode: 'fibonacci', icon: <Activity className="w-3.5 h-3.5" />, tip: 'Fibonacci' },
+                                { mode: 'rectangle', icon: <LayoutGrid className="w-3.5 h-3.5" />, tip: 'Zone' },
+                                { mode: 'text', icon: <Hash className="w-3.5 h-3.5" />, tip: 'Note' },
+                              ].map(tool => (
+                                <button key={tool.mode}
+                                  onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
+                                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    drawingMode === tool.mode
+                                      ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+                                      : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                                  }`}
+                                  title={tool.tip}
+                                >
+                                  {tool.icon}
+                                  <span className="hidden lg:inline">{tool.tip}</span>
+                                </button>
+                              ))}
+                              {/* Color picker dots */}
+                              <div className="flex items-center gap-1 pl-2 border-l border-slate-700/50">
+                                {['#8b5cf6', '#10b981', '#ef4444', '#f59e0b', '#3b82f6'].map(c => (
                                   <button key={c} onClick={() => setDrawingColor(c)}
-                                    className={`w-5 h-5 rounded-full transition-all ${drawingColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'}`}
+                                    className={`w-4 h-4 rounded-full transition-all ${drawingColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900 scale-125' : 'hover:scale-110 opacity-60 hover:opacity-100'}`}
                                     style={{ background: c }} />
                                 ))}
                               </div>
-                              <div className="flex items-center gap-2 pl-3 border-l border-slate-600/50 ml-auto">
-                                {(drawings[tickerSymbol] || []).length > 0 && (
-                                  <>
-                                    <button onClick={() => {
-                                      const ticker = tickerSymbol || 'default';
-                                      setDrawings(prev => ({ ...prev, [ticker]: (prev[ticker] || []).slice(0, -1) }));
-                                    }} className="px-2 py-1 text-xs text-slate-400 hover:text-white bg-slate-700/30 hover:bg-slate-700/50 rounded transition-all">
-                                      Undo
-                                    </button>
-                                    <button onClick={() => clearDrawings()} className="px-2 py-1 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-all">
-                                      Clear All
-                                    </button>
-                                    <span className="text-[10px] text-slate-500">{(drawings[tickerSymbol] || []).length} drawn</span>
-                                  </>
-                                )}
-                              </div>
+                              {(drawings[tickerSymbol] || []).length > 0 && (
+                                <div className="flex items-center gap-1 pl-2 border-l border-slate-700/50">
+                                  <button onClick={() => {
+                                    const ticker = tickerSymbol || 'default';
+                                    setDrawings(prev => ({ ...prev, [ticker]: (prev[ticker] || []).slice(0, -1) }));
+                                  }} className="px-1.5 py-1 text-[10px] text-slate-400 hover:text-white bg-slate-700/30 hover:bg-slate-700/50 rounded transition-all">
+                                    Undo
+                                  </button>
+                                  <button onClick={() => clearDrawings()} className="px-1.5 py-1 text-[10px] text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-all">
+                                    Clear
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            {drawingMode && (
-                              <div className="mt-2 text-xs text-violet-300 flex items-center gap-2">
-                                <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                                {drawingMode === 'line' && 'Click and drag on the chart to draw a trendline'}
-                                {drawingMode === 'horizontal' && 'Click anywhere on the chart to place a support/resistance level'}
-                                {drawingMode === 'fibonacci' && 'Click and drag from high to low to draw Fibonacci retracement'}
-                                {drawingMode === 'rectangle' && 'Click and drag to highlight a price zone'}
-                                {drawingMode === 'text' && 'Click anywhere on the chart to add a text annotation'}
+                          )}
+
+                          {/* Separator */}
+                          <div className="w-px h-6 bg-slate-700/50 mx-1" />
+
+                          {/* Overlays Dropdown */}
+                          <div className="group relative">
+                            <button className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              (showSMA || showEMA || showBollinger || showVWAP) ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
+                            }`}>
+                              <Layers className="w-3.5 h-3.5" />
+                              Overlays
+                              {(showSMA || showEMA || showBollinger || showVWAP) && (
+                                <span className="ml-1 w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] flex items-center justify-center">
+                                  {[showSMA, showEMA, showBollinger, showVWAP].filter(Boolean).length}
+                                </span>
+                              )}
+                              <ChevronDown className="w-3 h-3 ml-0.5" />
+                            </button>
+                            <div className="absolute top-full left-0 mt-1 w-44 bg-slate-800 border border-slate-700/50 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 py-1">
+                              {[
+                                { label: 'SMA (20)', active: showSMA, toggle: () => setShowSMA(!showSMA), color: 'text-blue-400' },
+                                { label: 'EMA (20)', active: showEMA, toggle: () => setShowEMA(!showEMA), color: 'text-orange-400' },
+                                { label: 'Bollinger Bands', active: showBollinger, toggle: () => setShowBollinger(!showBollinger), color: 'text-cyan-400' },
+                                { label: 'VWAP', active: showVWAP, toggle: () => setShowVWAP(!showVWAP), color: 'text-pink-400' },
+                              ].map(item => (
+                                <button key={item.label} onClick={item.toggle}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-700/50 transition-colors">
+                                  <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${
+                                    item.active ? 'bg-violet-600 border-violet-500' : 'border-slate-600'
+                                  }`}>
+                                    {item.active && <Check className="w-2.5 h-2.5 text-white" />}
+                                  </div>
+                                  <span className={item.active ? item.color + ' font-medium' : 'text-slate-400'}>{item.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Indicators Dropdown */}
+                          <div className="group relative">
+                            <button className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              (showVolume || showRSI || showMACD || showStochastic || showATR) ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
+                            }`}>
+                              <BarChart3 className="w-3.5 h-3.5" />
+                              Indicators
+                              {(showVolume || showRSI || showMACD || showStochastic || showATR) && (
+                                <span className="ml-1 w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] flex items-center justify-center">
+                                  {[showVolume, showRSI, showMACD, showStochastic, showATR].filter(Boolean).length}
+                                </span>
+                              )}
+                              <ChevronDown className="w-3 h-3 ml-0.5" />
+                            </button>
+                            <div className="absolute top-full left-0 mt-1 w-44 bg-slate-800 border border-slate-700/50 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 py-1">
+                              {[
+                                { label: 'Volume', active: showVolume, toggle: () => setShowVolume(!showVolume), isOverlay: true },
+                                { label: 'RSI', active: showRSI, toggle: () => setShowRSI(!showRSI), isOverlay: false },
+                                { label: 'MACD', active: showMACD, toggle: () => setShowMACD(!showMACD), isOverlay: false },
+                                { label: 'Stochastic', active: showStochastic, toggle: () => setShowStochastic(!showStochastic), isOverlay: false },
+                                { label: 'ATR', active: showATR, toggle: () => setShowATR(!showATR), isOverlay: false },
+                              ].map(item => {
+                                const standaloneCount = [showRSI, showMACD, showStochastic, showATR].filter(Boolean).length;
+                                const disabled = !item.active && !item.isOverlay && standaloneCount >= 2;
+                                return (
+                                  <button key={item.label} onClick={disabled ? undefined : item.toggle}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                                      disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-700/50'
+                                    }`}
+                                    title={disabled ? 'Max 2 panel indicators' : ''}>
+                                    <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${
+                                      item.active ? 'bg-emerald-600 border-emerald-500' : 'border-slate-600'
+                                    }`}>
+                                      {item.active && <Check className="w-2.5 h-2.5 text-white" />}
+                                    </div>
+                                    <span className={item.active ? 'text-emerald-300 font-medium' : 'text-slate-400'}>{item.label}</span>
+                                    {disabled && <span className="ml-auto text-[9px] text-slate-600">max 2</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Compare */}
+                          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700/50">
+                            <button
+                              onClick={() => {
+                                if (showComparison) {
+                                  setShowComparison(false);
+                                  setComparisonData(null);
+                                  setComparisonSymbol('');
+                                }
+                              }}
+                              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                showComparison ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
+                              }`}
+                              title={showComparison ? 'Click to remove comparison' : 'Compare with another symbol'}
+                            >
+                              <ArrowUpDown className="w-3.5 h-3.5" />
+                              {showComparison ? `vs ${comparisonData?.symbol || ''}` : 'Compare'}
+                            </button>
+                            {!showComparison && (
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={comparisonSymbol}
+                                  onChange={(e) => setComparisonSymbol(e.target.value.toUpperCase())}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && comparisonSymbol.trim()) {
+                                      fetchComparisonData(comparisonSymbol);
+                                    }
+                                  }}
+                                  placeholder="SPY"
+                                  className="w-16 bg-slate-900/60 border border-slate-700/50 rounded-lg px-2 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                />
+                                {loadingComparison && (
+                                  <RefreshCw className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-amber-400 animate-spin" />
+                                )}
                               </div>
                             )}
                           </div>
-                        )}
-
-                        {/* Chart Controls - Separate Panels */}
-                        <div className="mb-4">
-                          <div className="text-xs text-slate-500 mb-1">Indicator Panels</div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => setShowVolume(!showVolume)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showVolume ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showVolume ? '✅' : '☐'} Volume
-                            </button>
-                            <button
-                              onClick={() => setShowRSI(!showRSI)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showRSI ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showRSI ? '✅' : '☐'} RSI
-                            </button>
-                            <button
-                              onClick={() => setShowMACD(!showMACD)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showMACD ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showMACD ? '✅' : '☐'} MACD
-                            </button>
-                            <button
-                              onClick={() => setShowStochastic(!showStochastic)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showStochastic ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showStochastic ? '✅' : '☐'} Stochastic
-                            </button>
-                            <button
-                              onClick={() => setShowATR(!showATR)}
-                              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                                showATR ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {showATR ? '✅' : '☐'} ATR
-                            </button>
-                          </div>
                         </div>
+
+                        {/* Drawing mode hint */}
+                        {drawingMode && (
+                          <div className="mb-2 px-3 py-1.5 bg-violet-500/10 border border-violet-500/20 rounded-lg text-xs text-violet-300 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                            {drawingMode === 'line' && 'Click and drag to draw a trendline'}
+                            {drawingMode === 'horizontal' && 'Click to place a support/resistance level'}
+                            {drawingMode === 'fibonacci' && 'Click and drag from high to low for Fibonacci'}
+                            {drawingMode === 'rectangle' && 'Click and drag to highlight a price zone'}
+                            {drawingMode === 'text' && 'Click to add a text annotation'}
+                            <span className="ml-auto text-slate-500">Press Esc to exit</span>
+                          </div>
+                        )}
                         
                         {/* INDICATOR GUIDE TOOLBAR */}
                         {(showRSI || showMACD || showStochastic || showATR || showVolume) && (
