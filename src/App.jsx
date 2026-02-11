@@ -10,7 +10,8 @@
  */
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -6740,14 +6741,26 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     setChartIsDragging(false);
   }, []);
 
-  // Escape key to exit fullscreen
+  // Fullscreen keyboard shortcuts
   useEffect(() => {
     if (!chartFullscreen) return;
-    const handleEscKey = (e) => {
-      if (e.key === 'Escape') setChartFullscreen(false);
+    const handleFsKeys = (e) => {
+      if (e.key === 'Escape') { setChartFullscreen(false); return; }
+      // Don't capture keys if user is typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      switch (e.key) {
+        case '+': case '=': e.preventDefault(); setChartZoom(z => Math.min(6, z * 1.15)); break;
+        case '-': case '_': e.preventDefault(); setChartZoom(z => Math.max(0.3, z * 0.87)); break;
+        case 'ArrowLeft': e.preventDefault(); setChartScrollOffset(prev => Math.max(0, (prev < 0 ? 99999 : prev) - 40)); break;
+        case 'ArrowRight': e.preventDefault(); setChartScrollOffset(prev => prev < 0 ? prev : prev + 40); break;
+        case 'r': case 'R': setChartZoom(1); setChartScrollOffset(-1); break;
+        case 'v': case 'V': setShowVolume(v => !v); break;
+        case 'f': case 'F': setChartFullscreen(false); break;
+        default: break;
+      }
     };
-    window.addEventListener('keydown', handleEscKey);
-    return () => window.removeEventListener('keydown', handleEscKey);
+    window.addEventListener('keydown', handleFsKeys);
+    return () => window.removeEventListener('keydown', handleFsKeys);
   }, [chartFullscreen]);
 
   const fetchFromYahooFinance = async (symbol) => {
@@ -19386,31 +19399,10 @@ INSTRUCTIONS:
                           </div>
                         )}
                         
-                        {/* FULLSCREEN WRAPPER — wraps chart + volume + sub-indicators when fullscreen */}
-                        <div className={chartFullscreen ? 'fixed inset-0 z-[9999] bg-slate-950 flex flex-col overflow-hidden' : ''}>
-
-                        {/* Fullscreen header bar */}
-                        {chartFullscreen && (
-                          <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-700 flex-shrink-0">
-                            <div className="flex items-center gap-3">
-                              <span className="text-lg font-bold text-violet-400">{tickerData.symbol}</span>
-                              <span className="text-xl font-bold text-white">${(tickerData.timeSeries[tickerData.timeSeries.length - 1]?.close || 0).toFixed(2)}</span>
-                              {(() => {
-                                const latest = tickerData.timeSeries[tickerData.timeSeries.length - 1];
-                                const ch = latest?.close - (latest?.open || latest?.close);
-                                const chPct = (ch / (latest?.open || latest?.close)) * 100;
-                                return <span className={`text-sm font-semibold ${ch >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{ch >= 0 ? '+' : ''}{(chPct || 0).toFixed(2)}%</span>;
-                              })()}
-                              <span className="text-xs text-slate-500">{tickerData.timeSeries.length} candles • {tickerTimeframe}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-slate-500">Scroll to zoom • Drag to pan</span>
-                              <button onClick={() => setChartFullscreen(false)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5">
-                                <Minimize2 className="w-4 h-4" /> Exit
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        {/* FULLSCREEN CHART — uses createPortal for true full-viewport coverage */}
+                        {(() => {
+                          const chartAndIndicators = (
+                            <>
 
                         {/* ENHANCED CHART - Interactive with Zoom/Pan/Crosshair */}
                         <div
@@ -19425,6 +19417,7 @@ INSTRUCTIONS:
                           onTouchStart={handleChartTouchStart}
                           onTouchMove={handleChartTouchMove}
                           onTouchEnd={handleChartTouchEnd}
+                          onDoubleClick={() => { if (chartFullscreen) { setChartZoom(1); setChartScrollOffset(-1); } }}
                         >
                           
                           {/* STICKY TICKER OVERLAY - hidden in fullscreen (header bar shows this info) */}
@@ -20625,7 +20618,168 @@ INSTRUCTIONS:
                           </div>
                         </div>
                         </div>{/* close sub-indicators panel */}
-                        </div>{/* close fullscreen wrapper */}
+                            </>
+                          );
+
+                          if (chartFullscreen) {
+                            return createPortal(
+                              <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col overflow-hidden">
+                                {/* PRO FULLSCREEN TOOLBAR */}
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/95 border-b border-slate-700/50 flex-shrink-0 backdrop-blur-sm">
+                                  {/* Left: Symbol + Price */}
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2 border-r border-slate-700 pr-3">
+                                      <span className="text-base font-bold text-violet-400">{tickerData.symbol}</span>
+                                      <span className="text-lg font-bold text-white">${(tickerData.timeSeries[tickerData.timeSeries.length - 1]?.close || 0).toFixed(2)}</span>
+                                      {(() => {
+                                        const latest = tickerData.timeSeries[tickerData.timeSeries.length - 1];
+                                        const prev = tickerData.timeSeries[tickerData.timeSeries.length - 2];
+                                        const ch = latest?.close - (prev?.close || latest?.open || latest?.close);
+                                        const chPct = (ch / (prev?.close || latest?.open || latest?.close)) * 100;
+                                        return (
+                                          <span className={`text-sm font-semibold ${ch >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                            {ch >= 0 ? '+' : ''}{ch.toFixed(2)} ({ch >= 0 ? '+' : ''}{(chPct || 0).toFixed(2)}%)
+                                          </span>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    {/* Timeframe buttons */}
+                                    <div className="flex items-center gap-1 border-r border-slate-700 pr-3">
+                                      {['1m', '5m', '15m', '1h', '1D', '1W', '1M'].map(tf => (
+                                        <button
+                                          key={tf}
+                                          onClick={() => setTickerTimeframe(tf)}
+                                          className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                                            tickerTimeframe === tf
+                                              ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
+                                              : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                          }`}
+                                        >
+                                          {tf}
+                                        </button>
+                                      ))}
+                                    </div>
+
+                                    {/* Drawing tools */}
+                                    <div className="flex items-center gap-1 border-r border-slate-700 pr-3">
+                                      {[
+                                        { mode: 'line', icon: <TrendingUp className="w-3.5 h-3.5" />, tip: 'Trend Line' },
+                                        { mode: 'horizontal', icon: <Minus className="w-3.5 h-3.5" />, tip: 'H-Line' },
+                                        { mode: 'fibonacci', icon: <Activity className="w-3.5 h-3.5" />, tip: 'Fibonacci' },
+                                        { mode: 'rectangle', icon: <LayoutGrid className="w-3.5 h-3.5" />, tip: 'Rectangle' },
+                                        { mode: 'text', icon: <Hash className="w-3.5 h-3.5" />, tip: 'Text' },
+                                      ].map(tool => (
+                                        <button
+                                          key={tool.mode}
+                                          onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
+                                          className={`p-1.5 rounded transition-all ${
+                                            drawingMode === tool.mode
+                                              ? 'bg-violet-600 text-white'
+                                              : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                          }`}
+                                          title={tool.tip}
+                                        >
+                                          {tool.icon}
+                                        </button>
+                                      ))}
+                                      {tickerDrawings[tickerData.symbol]?.length > 0 && (
+                                        <button
+                                          onClick={() => setTickerDrawings(prev => ({ ...prev, [tickerData.symbol]: [] }))}
+                                          className="p-1.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all"
+                                          title="Clear drawings"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Indicator toggles */}
+                                    <div className="flex items-center gap-1">
+                                      {[
+                                        { key: 'vol', label: 'Vol', state: showVolume, setter: () => setShowVolume(v => !v) },
+                                        { key: 'rsi', label: 'RSI', state: showRSI, setter: () => setShowRSI(v => !v) },
+                                        { key: 'macd', label: 'MACD', state: showMACD, setter: () => setShowMACD(v => !v) },
+                                        { key: 'stoch', label: 'Stoch', state: showStochastic, setter: () => setShowStochastic(v => !v) },
+                                        { key: 'atr', label: 'ATR', state: showATR, setter: () => setShowATR(v => !v) },
+                                        { key: 'sma', label: 'SMA', state: showSMA, setter: () => setShowSMA(v => !v) },
+                                        { key: 'ema', label: 'EMA', state: showEMA, setter: () => setShowEMA(v => !v) },
+                                        { key: 'bb', label: 'BB', state: showBollinger, setter: () => setShowBollinger(v => !v) },
+                                      ].map(ind => (
+                                        <button
+                                          key={ind.key}
+                                          onClick={ind.setter}
+                                          className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
+                                            ind.state
+                                              ? 'bg-cyan-600/80 text-white'
+                                              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+                                          }`}
+                                        >
+                                          {ind.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Right: Actions */}
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => { setChartZoom(1); setChartScrollOffset(-1); }}
+                                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                                      title="Reset zoom (R)"
+                                    >
+                                      <RotateCcw className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setChartZoom(z => Math.min(6, z * 1.3))}
+                                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                                      title="Zoom in (+)"
+                                    >
+                                      <ZoomIn className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setChartZoom(z => Math.max(0.3, z * 0.7))}
+                                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                                      title="Zoom out (-)"
+                                    >
+                                      <ZoomOut className="w-4 h-4" />
+                                    </button>
+                                    <div className="w-px h-6 bg-slate-700 mx-1" />
+                                    <span className="text-[10px] text-slate-600 hidden lg:block">ESC to exit</span>
+                                    <button
+                                      onClick={() => setChartFullscreen(false)}
+                                      className="px-3 py-1.5 bg-slate-700 hover:bg-red-600 text-white rounded-lg text-xs font-medium transition-all flex items-center gap-1.5"
+                                    >
+                                      <Minimize2 className="w-3.5 h-3.5" /> Exit
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* OHLC bar under toolbar */}
+                                {chartCrosshair && (() => {
+                                  const layout = getChartLayout();
+                                  const idx = layout.visStart + Math.floor((chartCrosshair.x - 64) / layout.stride);
+                                  const bar = tickerData.timeSeries[idx];
+                                  if (!bar) return null;
+                                  return (
+                                    <div className="flex items-center gap-4 px-3 py-1 bg-slate-900/80 border-b border-slate-800 text-xs flex-shrink-0">
+                                      <span className="text-slate-500">{new Date(bar.time).toLocaleString()}</span>
+                                      <span className="text-slate-400">O: <span className="text-white font-medium">{bar.open?.toFixed(2)}</span></span>
+                                      <span className="text-slate-400">H: <span className="text-emerald-400 font-medium">{bar.high?.toFixed(2)}</span></span>
+                                      <span className="text-slate-400">L: <span className="text-red-400 font-medium">{bar.low?.toFixed(2)}</span></span>
+                                      <span className="text-slate-400">C: <span className="text-white font-medium">{bar.close?.toFixed(2)}</span></span>
+                                      <span className="text-slate-400">V: <span className="text-violet-400 font-medium">{(bar.volume || 0).toLocaleString()}</span></span>
+                                    </div>
+                                  );
+                                })()}
+
+                                {chartAndIndicators}
+                              </div>,
+                              document.body
+                            );
+                          }
+                          return chartAndIndicators;
+                        })()}
                       </>
                     ) : (
                       <div className="h-80 flex items-center justify-center bg-slate-900 rounded-lg border-2 border-red-500/30">
