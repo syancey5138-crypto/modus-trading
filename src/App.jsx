@@ -20090,7 +20090,7 @@ INSTRUCTIONS:
                         </div>
                         
                         {/* SUB-INDICATORS PANEL - scrollable in fullscreen */}
-                        <div className={chartFullscreen ? 'flex-shrink-0 max-h-[30vh] overflow-y-auto border-t border-slate-700 bg-slate-950 px-4 py-2' : ''}>
+                        <div className={chartFullscreen ? 'flex-shrink-0 max-h-[40vh] overflow-y-auto border-t border-slate-700 bg-slate-950 px-4 py-2' : ''}>
 
                         {/* RSI INDICATOR - FIXED */}
                         {showRSI && (() => {
@@ -20192,13 +20192,13 @@ INSTRUCTIONS:
                                   </div>
                                 </div>
                               </div>
-                              
-                              <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
+
+                              <div className={`${chartFullscreen ? 'h-32' : 'h-24'} relative bg-slate-800/50 rounded border border-slate-700`}>
                                 {/* Overbought zone (70-100) */}
                                 <div className="absolute w-full bg-red-500/10" style={{ top: 0, height: '30%' }} />
                                 {/* Oversold zone (0-30) */}
                                 <div className="absolute w-full bg-emerald-500/10" style={{ bottom: 0, height: '30%' }} />
-                                
+
                                 {/* 70 line */}
                                 <div className="absolute w-full border-t border-red-500/50" style={{ top: '30%' }}>
                                   <span className="absolute right-1 -top-2.5 text-[10px] text-red-400">70</span>
@@ -20211,7 +20211,7 @@ INSTRUCTIONS:
                                 <div className="absolute w-full border-t border-emerald-500/50" style={{ top: '70%' }}>
                                   <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400">30</span>
                                 </div>
-                                
+
                                 {/* RSI Line */}
                                 <svg
                                   className="absolute inset-0 w-full h-full"
@@ -20497,20 +20497,20 @@ INSTRUCTIONS:
                                   </div>
                                 </div>
                               </div>
-                              
-                              <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
+
+                              <div className={`${chartFullscreen ? 'h-32' : 'h-24'} relative bg-slate-800/50 rounded border border-slate-700`}>
                                 {/* Overbought zone */}
                                 <div className="absolute w-full bg-red-500/10" style={{ top: 0, height: '20%' }} />
                                 {/* Oversold zone */}
                                 <div className="absolute w-full bg-emerald-500/10" style={{ bottom: 0, height: '20%' }} />
-                                
+
                                 <div className="absolute w-full border-t border-red-500/50" style={{ top: '20%' }}>
                                   <span className="absolute right-1 -top-2.5 text-[10px] text-red-400">80</span>
                                 </div>
                                 <div className="absolute w-full border-t border-emerald-500/50" style={{ top: '80%' }}>
                                   <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400">20</span>
                                 </div>
-                                
+
                                 <svg
                                   className="absolute inset-0 w-full h-full"
                                   viewBox={`0 0 ${Math.max(validK.length, 1)} 100`}
@@ -20626,8 +20626,8 @@ INSTRUCTIONS:
                                   </div>
                                 </div>
                               </div>
-                              
-                              <div className="h-20 relative bg-slate-800/50 rounded border border-slate-700">
+
+                              <div className={`${chartFullscreen ? 'h-32' : 'h-20'} relative bg-slate-800/50 rounded border border-slate-700`}>
                                 <svg
                                   className="absolute inset-0 w-full h-full"
                                   viewBox={`0 0 ${Math.max(validATR.length, 1)} ${Math.max(maxATR - minATR, 1)}`}
@@ -20647,7 +20647,7 @@ INSTRUCTIONS:
                                     vectorEffect="non-scaling-stroke"
                                   />
                                 </svg>
-                                
+
                                 {/* Y-axis labels */}
                                 <div className="absolute right-1 top-1 text-[10px] text-slate-500">${maxATR.toFixed(2)}</div>
                                 <div className="absolute right-1 bottom-1 text-[10px] text-slate-500">${minATR.toFixed(2)}</div>
@@ -20685,7 +20685,7 @@ INSTRUCTIONS:
 
                           if (chartFullscreen) {
                             return createPortal(
-                              <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col overflow-hidden">
+                              <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col overflow-hidden" data-fullscreen-chart>
                                 {/* PRO FULLSCREEN TOOLBAR */}
                                 <div className="flex items-center px-3 py-1.5 bg-slate-900/95 border-b border-slate-700/50 flex-shrink-0 backdrop-blur-sm gap-2">
                                   {/* Left: scrollable toolbar content */}
@@ -20758,38 +20758,98 @@ INSTRUCTIONS:
                                       )}
                                     </div>
 
-                                    {/* Indicator toggles */}
+                                    {/* Indicator dropdowns */}
                                     <div className="flex items-center gap-1">
-                                      {[
-                                        { key: 'vol', label: 'Vol', state: showVolume, setter: () => setShowVolume(v => !v) },
-                                        { key: 'rsi', label: 'RSI', state: showRSI, setter: () => setShowRSI(v => !v) },
-                                        { key: 'macd', label: 'MACD', state: showMACD, setter: () => setShowMACD(v => !v) },
-                                        { key: 'stoch', label: 'Stoch', state: showStochastic, setter: () => setShowStochastic(v => !v) },
-                                        { key: 'atr', label: 'ATR', state: showATR, setter: () => setShowATR(v => !v) },
-                                        { key: 'sma', label: 'SMA', state: showSMA, setter: () => setShowSMA(v => !v) },
-                                        { key: 'ema', label: 'EMA', state: showEMA, setter: () => setShowEMA(v => !v) },
-                                        { key: 'bb', label: 'BB', state: showBollinger, setter: () => setShowBollinger(v => !v) },
-                                      ].map(ind => (
-                                        <button
-                                          key={ind.key}
-                                          onClick={ind.setter}
-                                          className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
-                                            ind.state
-                                              ? 'bg-cyan-600/80 text-white'
-                                              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
-                                          }`}
-                                          title={`Toggle ${ind.label}`}
-                                        >
-                                          {ind.label}
+                                      {/* Overlays dropdown */}
+                                      <div className="relative group">
+                                        <button className="px-2 py-1 rounded text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1">
+                                          Overlays <ChevronDown className="w-3 h-3" />
                                         </button>
-                                      ))}
+                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                          {[
+                                            { label: 'SMA (20)', state: showSMA, setter: () => setShowSMA(v => !v) },
+                                            { label: 'EMA (20)', state: showEMA, setter: () => setShowEMA(v => !v) },
+                                            { label: 'Bollinger', state: showBollinger, setter: () => setShowBollinger(v => !v) },
+                                            { label: 'VWAP', state: showVWAP, setter: () => setShowVWAP(v => !v) },
+                                          ].map(item => (
+                                            <button key={item.label} onClick={item.setter}
+                                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 transition-colors flex items-center justify-between">
+                                              <span className={item.state ? 'text-cyan-400' : 'text-slate-400'}>{item.label}</span>
+                                              {item.state && <Check className="w-3 h-3 text-cyan-400" />}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      {/* Indicators dropdown */}
+                                      <div className="relative group">
+                                        <button className="px-2 py-1 rounded text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1">
+                                          Indicators <ChevronDown className="w-3 h-3" />
+                                        </button>
+                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                          {[
+                                            { label: 'Volume', state: showVolume, setter: () => setShowVolume(v => !v), standalone: false },
+                                            { label: 'RSI (14)', state: showRSI, setter: () => setShowRSI(v => !v), standalone: true },
+                                            { label: 'MACD', state: showMACD, setter: () => setShowMACD(v => !v), standalone: true },
+                                            { label: 'Stochastic', state: showStochastic, setter: () => setShowStochastic(v => !v), standalone: true },
+                                            { label: 'ATR (14)', state: showATR, setter: () => setShowATR(v => !v), standalone: true },
+                                          ].map(item => {
+                                            const activeStandalone = [showRSI, showMACD, showStochastic, showATR].filter(Boolean).length;
+                                            const wouldExceedLimit = item.standalone && !item.state && activeStandalone >= 2;
+                                            return (
+                                              <button key={item.label} onClick={wouldExceedLimit ? undefined : item.setter}
+                                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 transition-colors flex items-center justify-between ${wouldExceedLimit ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                                title={wouldExceedLimit ? 'Max 2 indicators — disable one first' : ''}>
+                                                <span className={item.state ? 'text-cyan-400' : 'text-slate-400'}>{item.label}</span>
+                                                {item.state && <Check className="w-3 h-3 text-cyan-400" />}
+                                              </button>
+                                            );
+                                          })}
+                                          <div className="border-t border-slate-700 mt-1 pt-1 px-3 py-1">
+                                            <span className="text-[10px] text-slate-500">Max 2 panel indicators</span>
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>{/* close scrollable toolbar content */}
 
                                   {/* Right: Actions — always visible, never scrolled */}
                                   <div className="flex items-center gap-1.5 flex-shrink-0 pl-2 border-l border-slate-700">
+                                    {chartScrollOffset !== -1 && (
+                                      <button
+                                        onClick={() => setChartScrollOffset(-1)}
+                                        className="flex items-center gap-1 px-2 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-medium transition-all animate-pulse"
+                                        title="Jump to latest candles"
+                                      >
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                        <span className="hidden xl:inline">Live</span>
+                                      </button>
+                                    )}
                                     <button
-                                      onClick={() => { setChartFullscreen(false); setTimeout(() => captureTickerChart(), 300); }}
+                                      onClick={async () => {
+                                        try {
+                                          const html2canvas = (await import('html2canvas')).default;
+                                          const fsEl = document.querySelector('[data-fullscreen-chart]');
+                                          if (fsEl) {
+                                            const canvas = await html2canvas(fsEl, { backgroundColor: '#020617', scale: 1 });
+                                            const dataUrl = canvas.toDataURL();
+                                            const base64Data = dataUrl.split(',')[1];
+                                            setAnalysis(null);
+                                            setAnalysisError(null);
+                                            setImage(dataUrl);
+                                            setImageData({ data: base64Data, mediaType: 'image/png' });
+                                            const len = base64Data.length;
+                                            const samplePoints = [0, Math.floor(len*0.1), Math.floor(len*0.25), Math.floor(len*0.5), Math.floor(len*0.75), Math.floor(len*0.9), len-50];
+                                            const captureHash = samplePoints.map(p => base64Data.slice(p, p+50)).join('|') + '|' + len + '|capture|' + Date.now();
+                                            setImageHash(captureHash);
+                                            setChartFullscreen(false);
+                                            setActiveTab("analyze");
+                                            showToast("Chart captured! Ready for analysis.", "success");
+                                          }
+                                        } catch (err) {
+                                          console.error("Fullscreen capture error:", err);
+                                          showToast("Capture failed. Try again.", "error");
+                                        }
+                                      }}
                                       className="flex items-center gap-1 px-2 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg text-xs font-medium transition-all"
                                       title="Capture chart and run AI analysis"
                                     >
