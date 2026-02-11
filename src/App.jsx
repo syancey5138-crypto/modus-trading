@@ -9015,24 +9015,7 @@ OUTPUT JSON:
       const today = currentTime.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
       const timeNow = currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
-      // CHECK CACHE FIRST - avoid regenerating same pick (30 min cache)
-      const cacheKey = `modus_daily_pick_${pickTimeframe}_${pickVolatility}`;
-      const cached = localStorage.getItem(cacheKey);
-      if (cached && !forceRefresh) {
-        try {
-          const { pick, timestamp, date } = JSON.parse(cached);
-          const cacheAge = Date.now() - timestamp;
-          const sameDay = date === new Date().toDateString();
-          // Cache valid for 15 minutes on same day
-          if (sameDay && cacheAge < 15 * 60 * 1000) {
-            console.log('[Daily Pick] ⚡ Using cached pick (age: ' + Math.round(cacheAge/60000) + 'min)');
-            setDailyPick(normalizeDailyPick(pick));
-            setDailyPickProgress({ phase: 'complete', current: pick.scannedCount || 200, total: pick.scannedCount || 200, scanTime: 0 });
-            setLoadingPick(false);
-            return;
-          }
-        } catch (e) { /* Invalid cache, regenerate */ }
-      }
+      // No cache - always fetch fresh live data for maximum accuracy
 
       // TIMEFRAME CONFIG - adjusts stops/targets based on holding period
       // Now includes recommended Live Ticker timeframe for viewing the stock
@@ -9216,21 +9199,7 @@ OUTPUT JSON:
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`[Daily Pick] ✅ FAST: ${pick.direction} ${pick.asset} @ $${entry.toFixed(2)} in ${elapsed}s`);
 
-        // Save to cache
-        const cacheKey = `modus_daily_pick_${pickTimeframe}_${pickVolatility}`;
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            pick,
-            timestamp: Date.now(),
-            date: new Date().toDateString()
-          }));
-        } catch (e) {
-          console.warn('[Daily Pick] Cache write failed (storage full?):', e.message);
-          // Clear old daily pick caches to free space
-          try {
-            Object.keys(localStorage).filter(k => k.startsWith('modus_daily_pick_')).forEach(k => localStorage.removeItem(k));
-          } catch {}
-        }
+        // No caching - every Daily Pick uses fresh live data for maximum accuracy
 
         setDailyPick(normalizeDailyPick(pick));
         setLastPickTime(new Date());
@@ -26648,7 +26617,7 @@ INSTRUCTIONS:
                   <h4 className="font-semibold text-red-400 mb-2">Pick Display Error</h4>
                   <p className="text-sm text-slate-400 mb-4">Something went wrong rendering the daily pick.</p>
                   <p className="text-xs text-red-300/60 mb-4 font-mono break-all">{renderErr?.message || 'Unknown error'}</p>
-                  <button onClick={() => { setDailyPick(null); localStorage.removeItem(`modus_daily_pick_${pickTimeframe}_${pickVolatility}`); fetchDailyPick(true); }} className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium text-sm transition-colors">Clear Cache & Retry</button>
+                  <button onClick={() => { setDailyPick(null); fetchDailyPick(true); }} className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium text-sm transition-colors">Retry with Fresh Data</button>
                 </div>
               ); } })()}
 
