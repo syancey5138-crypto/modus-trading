@@ -2032,7 +2032,7 @@ function App() {
       } else if (authMode === 'signup') {
         await signup(authEmail, authPassword, authName, { subscribe: authSubscribe });
         // Send welcome email in background via EmailJS (client-side, don't block signup)
-        const welcomeName = authName || authEmail.split('@')[0];
+        const welcomeName = authName || (authEmail?.split('@')[0] || 'Trader');
         fetch('https://api.emailjs.com/api/v1.0/email/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3133,7 +3133,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const post = {
       id: Date.now(),
       user: communityAnonymous ? 'Anonymous Trader' : (currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Trader'),
-      avatar: communityAnonymous ? '?' : (currentUser?.displayName?.[0]?.toUpperCase() || 'T'),
+      avatar: communityAnonymous ? '?' : (currentUser?.displayName?.[0]?.toUpperCase() || currentUser?.email?.[0]?.toUpperCase() || 'T'),
       timestamp: new Date().toISOString(),
       communityMode,
       communityCode: communityMode === 'private' ? communityCode : undefined,
@@ -5400,7 +5400,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           return {
             price,
             change: price - previousClose,
-            changePercent: ((price - previousClose) / previousClose) * 100,
+            changePercent: previousClose > 0 ? ((price - previousClose) / previousClose) * 100 : 0,
             marketState: meta.marketState || "REGULAR",
             time: meta.regularMarketTime,
             symbol
@@ -5905,7 +5905,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const closes = bars.map(b => b.close);
     const currentPrice = meta.regularMarketPrice || closes[closes.length - 1];
     const prevClose = meta.chartPreviousClose || closes[0];
-    const changePercent = ((currentPrice - prevClose) / prevClose) * 100;
+    const changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
 
     // Fast RSI calculation
     const calculateRSI = (data, period = 14) => {
@@ -5955,7 +5955,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       trueRanges.push(tr);
     }
     const atr = trueRanges.length > 0 ? trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length : 0;
-    const atrPercent = currentPrice > 0 ? (atr / currentPrice) * 100 : 0;
+    const atrPercent = (atr && currentPrice > 0) ? (atr / currentPrice) * 100 : 0;
     // 5-level volatility categorization
     const volatilityCategory =
       atrPercent >= 4.0 ? 'High' :
@@ -6065,7 +6065,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
 
     // === MOMENTUM CHECK (recent price action) ===
-    const recentChange = ((closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]) * 100;
+    const recentChange = closes.length >= 5 && closes[closes.length - 5] > 0 ? ((closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]) * 100 : 0;
     if (recentChange > 1.5) {
       bullish += 8;
       signals.push(`Recent momentum bullish (+${recentChange.toFixed(1)}%)`);
@@ -7375,7 +7375,7 @@ OUTPUT FORMAT (strict JSON, no explanations):
               
               const currentPrice = meta.regularMarketPrice || closes[closes.length - 1];
               const prevClose = meta.chartPreviousClose || closes[0];
-              const changePercent = ((currentPrice - prevClose) / prevClose) * 100;
+              const changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
               
               // Calculate indicators
               const rsi = calculateRSI(closes, 14);
@@ -7472,7 +7472,7 @@ OUTPUT FORMAT (strict JSON, no explanations):
 
               // === MOMENTUM CHECK (same as Daily Pick) ===
               if (closes.length >= 5) {
-                const recentChange = ((closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]) * 100;
+                const recentChange = closes.length >= 5 && closes[closes.length - 5] > 0 ? ((closes[closes.length - 1] - closes[closes.length - 5]) / closes[closes.length - 5]) * 100 : 0;
                 if (recentChange > 1.5) bullishScore += 8;
                 else if (recentChange < -1.5) bearishScore += 8;
               }
@@ -9166,7 +9166,7 @@ OUTPUT JSON:
           const closes = bars.map(b => b.close);
           const currentPrice = meta.regularMarketPrice || closes[closes.length - 1];
           const prevClose = meta.chartPreviousClose || meta.previousClose || closes[0];
-          const changePercent = ((currentPrice - prevClose) / prevClose) * 100;
+          const changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
           
           // Calculate REAL indicators
           const rsi = calculateRSI(closes, 14);
@@ -11748,7 +11748,7 @@ INSTRUCTIONS:
           const closes = bars.map(b => b.close);
           const currentPrice = meta.regularMarketPrice || closes[closes.length - 1];
           const prevClose = meta.chartPreviousClose || closes[0];
-          const changePercent = ((currentPrice - prevClose) / prevClose) * 100;
+          const changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
           
           // Calculate indicators
           const rsi = calculateRSI(closes, 14);
@@ -12511,7 +12511,7 @@ INSTRUCTIONS:
 
         const currentPrice = meta.regularMarketPrice || closes[closes.length - 1];
         const prevClose = meta.chartPreviousClose || closes[0];
-        const changePercent = ((currentPrice - prevClose) / prevClose) * 100;
+        const changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
 
         // Fast RSI calculation
         const calculateRSI = (data, period = 14) => {
@@ -20696,8 +20696,9 @@ INSTRUCTIONS:
                                       {(() => {
                                         const latest = tickerData.timeSeries[tickerData.timeSeries.length - 1];
                                         const prev = tickerData.timeSeries[tickerData.timeSeries.length - 2];
-                                        const ch = latest?.close - (prev?.close || latest?.open || latest?.close);
-                                        const chPct = (ch / (prev?.close || latest?.open || latest?.close)) * 100;
+                                        const ch = (latest?.close && (prev?.close || latest?.open)) ? latest.close - (prev?.close || latest?.open) : 0;
+                                        const denom = prev?.close || latest?.open || latest?.close || 1;
+                                        const chPct = denom !== 0 ? (ch / denom) * 100 : 0;
                                         return (
                                           <span className={`text-sm font-semibold ${ch >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                             {ch >= 0 ? '+' : ''}{ch.toFixed(2)} ({ch >= 0 ? '+' : ''}{(chPct || 0).toFixed(2)}%)
