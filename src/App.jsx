@@ -6682,7 +6682,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const sym = symbol.trim().toUpperCase();
     setLoadingComparison(true);
     try {
-      const result = await tryYahooFetch(sym, tickerTimeframeRef.current || tickerTimeframe || '1d', '1y');
+      // Map timeframe to appropriate Yahoo Finance range (intraday has limited history)
+      const tf = tickerTimeframeRef.current || tickerTimeframe || '1d';
+      const rangeMap = { '1m': '5d', '5m': '60d', '15m': '60d', '1h': '2y', '1d': '1y', '1D': '1y', '1W': '5y', '1wk': '5y', '1M': '10y', '1mo': '10y' };
+      const range = rangeMap[tf] || '1y';
+      const result = await tryYahooFetch(sym, tf, range);
       if (result && result.timeSeries && result.timeSeries.length > 0) {
         setComparisonData({
           symbol: sym,
@@ -19498,14 +19502,21 @@ INSTRUCTIONS:
                                   setShowComparison(false);
                                   setComparisonData(null);
                                   setComparisonSymbol('');
+                                } else if (comparisonSymbol.trim()) {
+                                  fetchComparisonData(comparisonSymbol);
                                 }
                               }}
                               className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                showComparison ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
+                                showComparison ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30' : loadingComparison ? 'bg-amber-600/30 text-amber-300' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
                               }`}
-                              title={showComparison ? 'Click to remove comparison' : 'Compare with another symbol'}
+                              title={showComparison ? 'Click to remove comparison' : comparisonSymbol.trim() ? `Compare with ${comparisonSymbol.trim().toUpperCase()}` : 'Type a symbol then click to compare'}
+                              disabled={loadingComparison}
                             >
-                              <ArrowUpDown className="w-3.5 h-3.5" />
+                              {loadingComparison ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <ArrowUpDown className="w-3.5 h-3.5" />
+                              )}
                               {showComparison ? `vs ${comparisonData?.symbol || ''}` : 'Compare'}
                             </button>
                             {!showComparison && (
@@ -19522,9 +19533,6 @@ INSTRUCTIONS:
                                   placeholder="SPY"
                                   className="w-16 bg-slate-900/60 border border-slate-700/50 rounded-lg px-2 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                                 />
-                                {loadingComparison && (
-                                  <RefreshCw className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-amber-400 animate-spin" />
-                                )}
                               </div>
                             )}
                           </div>
