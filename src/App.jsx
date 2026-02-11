@@ -1490,6 +1490,7 @@ function App() {
   const [quickAnalysisHistory, setQuickAnalysisHistory] = useState([]);
   const [quickAnalysisDetail, setQuickAnalysisDetail] = useState(null);
   const [quickAnalysisDetailLoading, setQuickAnalysisDetailLoading] = useState(false);
+  const [quickAnalysisTimeframe, setQuickAnalysisTimeframe] = useState('3mo');
 
   // Daily Pick
   const [dailyPick, setDailyPick] = useState(null);
@@ -2137,16 +2138,22 @@ function App() {
   };
 
   // Quick Analysis function — uses real market data + AI for instant verdict
-  const runQuickAnalysis = async (ticker) => {
+  const runQuickAnalysis = async (ticker, timeframeOverride) => {
     if (!ticker || quickAnalysisLoading) return;
     const sym = ticker.trim().toUpperCase();
+    const tf = timeframeOverride || quickAnalysisTimeframe;
+    // Map timeframe to appropriate Yahoo interval
+    const intervalMap = { '1d': '5m', '5d': '15m', '1mo': '1d', '3mo': '1d', '6mo': '1d', '1y': '1wk', '2y': '1wk' };
+    const tfInterval = intervalMap[tf] || '1d';
+    const tfLabelMap = { '1d': '1-Day', '5d': '5-Day', '1mo': '1-Month', '3mo': '3-Month', '6mo': '6-Month', '1y': '1-Year', '2y': '2-Year' };
+    const tfLabel = tfLabelMap[tf] || tf;
     setQuickAnalysisLoading(true);
     setQuickAnalysisResult(null);
     setQuickAnalysisExpanded(false);
     setQuickAnalysisDetail(null);
     try {
       // Fetch real-time data using shared robust proxy chain with parallel batching
-      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`;
+      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${tfInterval}&range=${tf}`;
       let chartData = null;
 
       // Try the shared robust fetcher first (parallel batching, 8 proxies)
@@ -2215,8 +2222,9 @@ REAL-TIME DATA for ${sym}:
 - Price vs SMA20: ${sma20 ? (currentPrice > sma20 ? 'ABOVE' : 'BELOW') : 'N/A'} | vs SMA50: ${sma50 ? (currentPrice > sma50 ? 'ABOVE' : 'BELOW') : 'N/A'}
 - RSI(14): ${rsi.toFixed(1)} ${rsi > 70 ? '(OVERBOUGHT)' : rsi < 30 ? '(OVERSOLD)' : '(NEUTRAL)'}
 - Volume Ratio: ${volRatio}x average ${parseFloat(volRatio) > 1.5 ? '(HIGH)' : parseFloat(volRatio) < 0.5 ? '(LOW)' : '(NORMAL)'}
-- 3-Month Range: $${low52.toFixed(2)} - $${high52.toFixed(2)} (Currently at ${rangePosition}% of range)
-- 3-Month Performance: ${closes.length >= 2 && closes[0] > 0 ? ((currentPrice / closes[0] - 1) * 100).toFixed(1) : '0.0'}%`;
+- ${tfLabel} Range: $${low52.toFixed(2)} - $${high52.toFixed(2)} (Currently at ${rangePosition}% of range)
+- ${tfLabel} Performance: ${closes.length >= 2 && closes[0] > 0 ? ((currentPrice / closes[0] - 1) * 100).toFixed(1) : '0.0'}%
+- Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
 
       const response = await callAPI([{
         role: 'user',
@@ -2282,6 +2290,7 @@ CRITICAL RULES:
           confidence: safeConfidence,
           support: safeSupport,
           resistance: safeResistance,
+          analysisTimeframe: tfLabel,
           timestamp: new Date(),
         };
         setQuickAnalysisResult(result);
@@ -2314,7 +2323,7 @@ CRITICAL RULES:
 Result: ${r.verdict} with ${r.confidence}% confidence.
 Target: $${r.targetPrice?.toFixed(2) || 'N/A'} | Stop Loss: $${r.stopLoss?.toFixed(2) || 'N/A'} | Timeframe: ${r.timeframe}
 RSI: ${r.rsi} | SMA20: ${r.sma20 ? '$' + r.sma20.toFixed(2) : 'N/A'} | SMA50: ${r.sma50 ? '$' + r.sma50.toFixed(2) : 'N/A'}
-3M Range: $${r.low52?.toFixed(2) || '?'} - $${r.high52?.toFixed(2) || '?'} (at ${r.rangePosition}%)
+${r.analysisTimeframe || '3-Month'} Range: $${r.low52?.toFixed(2) || '?'} - $${r.high52?.toFixed(2) || '?'} (at ${r.rangePosition}%)
 Volume: ${r.volRatio}x average
 Bullish: ${r.bullish?.join(', ')}
 Bearish: ${r.bearish?.join(', ')}
@@ -26734,6 +26743,20 @@ INSTRUCTIONS:
                   className="flex-1 bg-slate-800/60 border border-slate-700/30 rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/30 placeholder:text-slate-600 uppercase"
                   disabled={quickAnalysisLoading}
                 />
+                <select
+                  value={quickAnalysisTimeframe}
+                  onChange={(e) => setQuickAnalysisTimeframe(e.target.value)}
+                  disabled={quickAnalysisLoading}
+                  className="px-3 py-3 bg-slate-800/60 border border-slate-700/30 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/30 text-slate-300 cursor-pointer"
+                >
+                  <option value="1d">1 Day</option>
+                  <option value="5d">5 Days</option>
+                  <option value="1mo">1 Month</option>
+                  <option value="3mo">3 Months</option>
+                  <option value="6mo">6 Months</option>
+                  <option value="1y">1 Year</option>
+                  <option value="2y">2 Years</option>
+                </select>
                 <button
                   onClick={() => runQuickAnalysis(quickAnalysisTicker)}
                   disabled={quickAnalysisLoading || !quickAnalysisTicker.trim()}
@@ -26882,7 +26905,7 @@ INSTRUCTIONS:
                       <div className="text-[9px] text-slate-600">{r.volRatio > 1.5 ? 'High' : r.volRatio < 0.5 ? 'Low' : 'Normal'}</div>
                     </div>
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
-                      <div className="text-[10px] text-slate-500">3M Range</div>
+                      <div className="text-[10px] text-slate-500">{r.analysisTimeframe || '3M'} Range</div>
                       <div className="text-sm font-bold">{r.rangePosition}%</div>
                       <div className="text-[9px] text-slate-600">{r.rangePosition > 75 ? 'Near High' : r.rangePosition < 25 ? 'Near Low' : 'Mid Range'}</div>
                     </div>
