@@ -7053,7 +7053,50 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Trend
       const trend = sma20 > sma50 ? 'Uptrend' : sma20 < sma50 ? 'Downtrend' : 'Sideways';
 
-      const prompt = `You are a professional technical analyst. Generate a precise trade setup for ${tickerData.symbol} based on this data:
+      // Pre-calculate directional bias using same scoring as analyzeStockFast/dailyPick
+      // This ensures trade setups align with chart analysis, quick analysis, and daily pick
+      let bullishScore = 0;
+      let bearishScore = 0;
+
+      // RSI scoring (matches analyzeStockFast logic)
+      if (rsi < 25) bullishScore += 20;
+      else if (rsi < 35) bullishScore += 12;
+      else if (rsi > 75) bearishScore += 20;
+      else if (rsi > 65) bearishScore += 12;
+
+      // Moving average scoring
+      if (currentPrice > sma20) bullishScore += 10;
+      else bearishScore += 10;
+      if (currentPrice > sma50) bullishScore += 12;
+      else bearishScore += 12;
+
+      // Trend scoring
+      if (trend === 'Uptrend') bullishScore += 15;
+      else if (trend === 'Downtrend') bearishScore += 15;
+
+      // Volume confirmation
+      const volRatio = avgVolume > 0 ? recentVolume / avgVolume : 1;
+      const priceChange = closes.length >= 2 ? closes[closes.length - 1] - closes[closes.length - 2] : 0;
+      if (volRatio > 1.3 && priceChange > 0) bullishScore += 12;
+      else if (volRatio > 1.3 && priceChange < 0) bearishScore += 12;
+
+      // Recent momentum (5-bar)
+      if (closes.length >= 6) {
+        const momentum = (closes[closes.length - 1] - closes[closes.length - 6]) / closes[closes.length - 6] * 100;
+        if (momentum > 1.5) bullishScore += 8;
+        else if (momentum < -1.5) bearishScore += 8;
+      }
+
+      // Price position in range
+      const rangePos = (recent20High - recent20Low) > 0 ? (currentPrice - recent20Low) / (recent20High - recent20Low) : 0.5;
+      if (rangePos > 0.7) bullishScore += 5; // near highs, uptrend confirmation
+      else if (rangePos < 0.3) bearishScore += 5; // near lows, downtrend confirmation
+
+      const calculatedDirection = bullishScore > bearishScore ? 'LONG' : 'SHORT';
+      const directionConfidence = Math.abs(bullishScore - bearishScore);
+      const directionLabel = calculatedDirection === 'LONG' ? 'BULLISH' : 'BEARISH';
+
+      const prompt = `You are a professional technical analyst. Generate a precise ${calculatedDirection} trade setup for ${tickerData.symbol} based on this data:
 
 Current Price: $${currentPrice.toFixed(2)}
 Timeframe: ${tickerTimeframe}
@@ -7064,16 +7107,21 @@ Trend: ${trend}
 20-bar High: $${recent20High.toFixed(2)} | 20-bar Low: $${recent20Low.toFixed(2)}
 50-bar High: $${recent50High.toFixed(2)} | 50-bar Low: $${recent50Low.toFixed(2)}
 Volume: Recent ${(recentVolume/1000).toFixed(0)}K vs Avg ${(avgVolume/1000).toFixed(0)}K (${(recentVolume/avgVolume*100).toFixed(0)}%)
+Technical Bias: ${directionLabel} (Bullish: ${bullishScore} vs Bearish: ${bearishScore})
+
+DIRECTION REQUIREMENT: The technical indicators show a ${directionLabel} bias. You MUST generate a ${calculatedDirection} setup.
+- If ${calculatedDirection} = LONG: entry at or near current price, stopLoss BELOW entry, targets ABOVE entry.
+- If ${calculatedDirection} = SHORT: entry at or near current price, stopLoss ABOVE entry, targets BELOW entry.
 
 Respond ONLY with valid JSON (no markdown, no code fences):
 {
-  "direction": "LONG" or "SHORT",
+  "direction": "${calculatedDirection}",
   "entry": exact entry price number,
   "stopLoss": exact stop loss price number,
   "target1": first target price (1:1 risk-reward),
   "target2": second target price (2:1 risk-reward),
   "confidence": number 60-95,
-  "reasoning": "2-3 sentence explanation of why this setup exists",
+  "reasoning": "2-3 sentence explanation of why this ${calculatedDirection} setup exists based on the ${directionLabel} technical signals",
   "pattern": "Name of pattern detected (e.g. Bull Flag, Support Bounce, Breakdown)",
   "timeframe": "Expected hold time (e.g. 4h, 1-2 days, 1 week)",
   "riskReward": "1:X ratio as string"
