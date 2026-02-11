@@ -2198,6 +2198,52 @@ function App() {
       const latestVol = volumes[volumes.length - 1] || 0;
       const volRatio = avgVol ? (latestVol / avgVol).toFixed(2) : '1.00';
 
+      // EMA helper
+      const calcEMA = (data, period) => {
+        if (data.length < period) return null;
+        const k = 2 / (period + 1);
+        let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        for (let i = period; i < data.length; i++) ema = data[i] * k + ema * (1 - k);
+        return ema;
+      };
+
+      // EMA 12 / 26
+      const ema12 = calcEMA(closes, 12);
+      const ema26 = calcEMA(closes, 26);
+
+      // MACD
+      let macd = null, macdSignal = null, macdHist = null;
+      if (ema12 !== null && ema26 !== null && closes.length >= 35) {
+        // Build full MACD line for signal calculation
+        const k12 = 2 / 13, k26 = 2 / 27;
+        let e12 = closes.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
+        let e26 = closes.slice(0, 26).reduce((a, b) => a + b, 0) / 26;
+        const macdLine = [];
+        for (let i = 26; i < closes.length; i++) {
+          if (i >= 12) e12 = closes[i] * k12 + e12 * (1 - k12);
+          e26 = closes[i] * k26 + e26 * (1 - k26);
+          macdLine.push(e12 - e26);
+        }
+        macd = macdLine[macdLine.length - 1];
+        if (macdLine.length >= 9) {
+          const k9 = 2 / 10;
+          let sig = macdLine.slice(0, 9).reduce((a, b) => a + b, 0) / 9;
+          for (let i = 9; i < macdLine.length; i++) sig = macdLine[i] * k9 + sig * (1 - k9);
+          macdSignal = sig;
+          macdHist = macd - macdSignal;
+        }
+      }
+
+      // Bollinger Bands (20-period, 2 std dev)
+      let bbUpper = null, bbLower = null, bbPosition = null;
+      if (sma20 && closes.length >= 20) {
+        const slice20 = closes.slice(-20);
+        const stdDev = Math.sqrt(slice20.reduce((sum, v) => sum + Math.pow(v - sma20, 2), 0) / 20);
+        bbUpper = sma20 + 2 * stdDev;
+        bbLower = sma20 - 2 * stdDev;
+        bbPosition = bbUpper !== bbLower ? ((currentPrice - bbLower) / (bbUpper - bbLower) * 100).toFixed(0) : '50';
+      }
+
       // RSI calculation
       let rsi = 50;
       if (closes.length >= 15) {
@@ -2209,54 +2255,179 @@ function App() {
         rsi = 100 - (100 / (1 + avgGain / avgLoss));
       }
 
+      // ATR (14-period)
+      let atr = null;
+      const highs = (quotes.high || []).filter(v => v != null);
+      const lows = (quotes.low || []).filter(v => v != null);
+      if (closes.length >= 15 && highs.length >= 15 && lows.length >= 15) {
+        const trueRanges = [];
+        for (let i = Math.max(1, closes.length - 14); i < closes.length; i++) {
+          const tr = Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1]));
+          trueRanges.push(tr);
+        }
+        atr = trueRanges.length > 0 ? trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length : null;
+      }
+
+      // VWAP approximation (volume-weighted average price from available data)
+      let vwap = null;
+      if (closes.length > 0 && volumes.length > 0) {
+        const len = Math.min(closes.length, volumes.length, 20);
+        let cumVP = 0, cumVol = 0;
+        for (let i = closes.length - len; i < closes.length; i++) {
+          const vi = i < volumes.length ? volumes[i] : 0;
+          cumVP += closes[i] * vi;
+          cumVol += vi;
+        }
+        vwap = cumVol > 0 ? cumVP / cumVol : null;
+      }
+
       // High/low range
       const high52 = closes.length > 0 ? Math.max(...closes) : currentPrice;
       const low52 = closes.length > 0 ? Math.min(...closes) : currentPrice;
       const rangePosition = high52 !== low52 ? ((currentPrice - low52) / (high52 - low52) * 100).toFixed(0) : 50;
 
+      // Multi-timeframe confirmation — fetch a higher timeframe in parallel
+      const htfMap = { '1d': '5d', '5d': '1mo', '1mo': '3mo', '3mo': '1y', '6mo': '1y', '1y': '2y', '2y': '2y' };
+      const htfRange = htfMap[tf] || '1y';
+      const htfIntervalMap = { '5d': '15m', '1mo': '1d', '3mo': '1d', '1y': '1wk', '2y': '1wk' };
+      const htfInterval = htfIntervalMap[htfRange] || '1wk';
+      const htfLabelMap = { '5d': '5-Day', '1mo': '1-Month', '3mo': '3-Month', '1y': '1-Year', '2y': '2-Year' };
+      const htfLabel = htfLabelMap[htfRange] || htfRange;
+
+      let htfTrend = 'N/A', htfRsi = 'N/A', htfMacdSignal = 'N/A';
+      let marketTrend = 'N/A', marketDayChange = 'N/A';
+
+      // Fetch higher timeframe + SPY market context in parallel
+      try {
+        const [htfData, spyData] = await Promise.all([
+          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${htfInterval}&range=${htfRange}`, 6000).catch(() => null),
+          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1mo`, 6000).catch(() => null)
+        ]);
+
+        // Higher timeframe trend
+        if (htfData) {
+          const htfCloses = (htfData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+          if (htfCloses.length >= 20) {
+            const htfSma20 = htfCloses.slice(-20).reduce((a, b) => a + b, 0) / 20;
+            const htfSma50 = htfCloses.length >= 50 ? htfCloses.slice(-50).reduce((a, b) => a + b, 0) / 50 : htfSma20;
+            htfTrend = htfSma20 > htfSma50 ? 'UPTREND' : htfSma20 < htfSma50 ? 'DOWNTREND' : 'SIDEWAYS';
+            // HTF RSI
+            if (htfCloses.length >= 15) {
+              const htfChanges = htfCloses.slice(-15).map((v, i, a) => i > 0 ? v - a[i - 1] : 0).slice(1);
+              const htfGains = htfChanges.filter(c => c > 0);
+              const htfLosses = htfChanges.filter(c => c < 0).map(c => Math.abs(c));
+              const htfAvgGain = htfGains.length ? htfGains.reduce((a, b) => a + b, 0) / 14 : 0;
+              const htfAvgLoss = htfLosses.length ? htfLosses.reduce((a, b) => a + b, 0) / 14 : 0.001;
+              htfRsi = (100 - (100 / (1 + htfAvgGain / htfAvgLoss))).toFixed(1);
+            }
+            // HTF MACD direction
+            const htfEma12 = calcEMA(htfCloses, 12);
+            const htfEma26 = calcEMA(htfCloses, 26);
+            if (htfEma12 !== null && htfEma26 !== null) {
+              htfMacdSignal = htfEma12 > htfEma26 ? 'BULLISH' : 'BEARISH';
+            }
+          }
+        }
+
+        // SPY market context
+        if (spyData) {
+          const spyCloses = (spyData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+          if (spyCloses.length >= 20) {
+            const spySma20 = spyCloses.slice(-20).reduce((a, b) => a + b, 0) / 20;
+            const spySma50 = spyCloses.length >= 50 ? spyCloses.slice(-50).reduce((a, b) => a + b, 0) / 50 : spySma20;
+            marketTrend = spySma20 > spySma50 ? 'BULLISH' : 'BEARISH';
+            const spyPrice = spyCloses[spyCloses.length - 1];
+            const spyPrev = spyCloses[spyCloses.length - 2] || spyPrice;
+            marketDayChange = ((spyPrice - spyPrev) / spyPrev * 100).toFixed(2) + '%';
+          }
+        }
+      } catch (e) {
+        console.log('Quick Analysis: Multi-timeframe/market context fetch failed:', e.message);
+      }
+
+      // Determine trend alignment
+      const primaryTrend = sma20 && sma50 ? (sma20 > sma50 ? 'UPTREND' : 'DOWNTREND') : 'N/A';
+      const trendsAligned = primaryTrend !== 'N/A' && htfTrend !== 'N/A' && primaryTrend === htfTrend;
+      const withMarket = primaryTrend !== 'N/A' && marketTrend !== 'N/A' &&
+        ((primaryTrend === 'UPTREND' && marketTrend === 'BULLISH') || (primaryTrend === 'DOWNTREND' && marketTrend === 'BEARISH'));
+
       // Build comprehensive prompt with real data
       const dataContext = `
 REAL-TIME DATA for ${sym}:
 - Current Price: $${currentPrice.toFixed(2)} (${dayChange > 0 ? '+' : ''}${dayChange}% today)
-- 20-day SMA: ${sma20 ? '$' + sma20.toFixed(2) : 'N/A'} | 50-day SMA: ${sma50 ? '$' + sma50.toFixed(2) : 'N/A'} | 200-day SMA: ${sma200 ? '$' + sma200.toFixed(2) : 'N/A'}
+- 20-period SMA: ${sma20 ? '$' + sma20.toFixed(2) : 'N/A'} | 50-period SMA: ${sma50 ? '$' + sma50.toFixed(2) : 'N/A'} | 200-period SMA: ${sma200 ? '$' + sma200.toFixed(2) : 'N/A'}
+- EMA(12): ${ema12 ? '$' + ema12.toFixed(2) : 'N/A'} | EMA(26): ${ema26 ? '$' + ema26.toFixed(2) : 'N/A'}
 - Price vs SMA20: ${sma20 ? (currentPrice > sma20 ? 'ABOVE' : 'BELOW') : 'N/A'} | vs SMA50: ${sma50 ? (currentPrice > sma50 ? 'ABOVE' : 'BELOW') : 'N/A'}
-- RSI(14): ${rsi.toFixed(1)} ${rsi > 70 ? '(OVERBOUGHT)' : rsi < 30 ? '(OVERSOLD)' : '(NEUTRAL)'}
-- Volume Ratio: ${volRatio}x average ${parseFloat(volRatio) > 1.5 ? '(HIGH)' : parseFloat(volRatio) < 0.5 ? '(LOW)' : '(NORMAL)'}
+- RSI(14): ${rsi.toFixed(1)} ${rsi > 70 ? '(OVERBOUGHT)' : rsi < 30 ? '(OVERSOLD)' : rsi > 60 ? '(BULLISH MOMENTUM)' : rsi < 40 ? '(BEARISH MOMENTUM)' : '(NEUTRAL)'}
+- MACD: ${macd !== null ? macd.toFixed(4) : 'N/A'} | Signal: ${macdSignal !== null ? macdSignal.toFixed(4) : 'N/A'} | Histogram: ${macdHist !== null ? (macdHist > 0 ? '+' : '') + macdHist.toFixed(4) + (macdHist > 0 ? ' (BULLISH)' : ' (BEARISH)') : 'N/A'}
+- Bollinger Bands: Upper $${bbUpper ? bbUpper.toFixed(2) : 'N/A'} | Lower $${bbLower ? bbLower.toFixed(2) : 'N/A'} | Position: ${bbPosition || 'N/A'}% ${bbPosition && parseInt(bbPosition) > 95 ? '(AT UPPER BAND — potential reversal)' : bbPosition && parseInt(bbPosition) < 5 ? '(AT LOWER BAND — potential bounce)' : ''}
+- ATR(14): ${atr ? '$' + atr.toFixed(2) + ' (' + (atr / currentPrice * 100).toFixed(1) + '% volatility)' : 'N/A'}
+- VWAP(20): ${vwap ? '$' + vwap.toFixed(2) + ' (Price ' + (currentPrice > vwap ? 'ABOVE' : 'BELOW') + ' VWAP)' : 'N/A'}
+- Volume Ratio: ${volRatio}x average ${parseFloat(volRatio) > 1.5 ? '(HIGH — confirms move)' : parseFloat(volRatio) < 0.5 ? '(LOW — weak conviction)' : '(NORMAL)'}
 - ${tfLabel} Range: $${low52.toFixed(2)} - $${high52.toFixed(2)} (Currently at ${rangePosition}% of range)
 - ${tfLabel} Performance: ${closes.length >= 2 && closes[0] > 0 ? ((currentPrice / closes[0] - 1) * 100).toFixed(1) : '0.0'}%
-- Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
+
+MULTI-TIMEFRAME CONFIRMATION (${htfLabel}):
+- Higher TF Trend: ${htfTrend}
+- Higher TF RSI: ${htfRsi}
+- Higher TF MACD: ${htfMacdSignal}
+- Timeframes Aligned: ${trendsAligned ? 'YES — HIGH CONFIDENCE' : 'NO — signals conflict, reduce confidence'}
+
+MARKET CONTEXT (SPY):
+- Broad Market Trend: ${marketTrend}
+- SPY Day Change: ${marketDayChange}
+- Trading With Market: ${withMarket ? 'YES — favorable' : 'NO — against market, higher risk'}
+
+Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
 
       const response = await callAPI([{
         role: 'user',
-        content: `You are an expert stock analyst. Analyze ${sym} using the real market data below and give a CLEAR verdict.
+        content: `You are an expert stock analyst using a structured scoring system. Analyze ${sym} using ALL the technical data below.
 
 ${dataContext}
+
+SCORING FRAMEWORK — evaluate each factor and tally the score:
+1. TREND (±25pts): Price above SMA20 & SMA50 = +25 bullish. Below both = +25 bearish. Mixed = 0.
+2. MACD (±20pts): Histogram positive & rising = +20 bullish. Negative & falling = +20 bearish.
+3. RSI (±15pts): 30-50 rising = +15 (oversold bounce). 50-70 = +10 (healthy momentum). >70 = -10 (overbought risk). <30 = +15 (deeply oversold). >80 = -15 (extreme overbought).
+4. BOLLINGER BANDS (±10pts): At lower band in uptrend = +10 (buy the dip). At upper band overbought = -10. Mid-band = 0.
+5. VOLUME (±10pts): High volume confirming trend = +10. Low volume move = -5. High volume reversal = -10.
+6. VWAP (±10pts): Price above VWAP = +10 (institutional buying). Below = -10.
+7. MULTI-TIMEFRAME (±15pts): Higher TF confirms = +15. Higher TF conflicts = -15.
+8. MARKET CONTEXT (±10pts): Trading with SPY trend = +10. Against = -10.
+
+Total possible: -115 to +115. Map to verdict:
+- 60+: STRONG BUY | 30-59: BUY | -29 to 29: HOLD | -59 to -30: SELL | -60 or below: STRONG SELL
+- Confidence = |score| mapped to 50-95 range.
+- If timeframes conflict, cap confidence at 70 max.
 
 Respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):
 {
   "verdict": "STRONG BUY" or "BUY" or "HOLD" or "SELL" or "STRONG SELL",
   "confidence": number 1-100,
-  "targetPrice": number (realistic target based on resistance levels and current price — MUST be a positive dollar amount like 185.50),
-  "stopLoss": number (realistic stop loss based on support levels — MUST be a positive dollar amount like 170.25),
+  "targetPrice": number (realistic target based on resistance levels and ATR — MUST be a positive dollar amount),
+  "stopLoss": number (realistic stop loss based on support levels and ATR — MUST be a positive dollar amount),
   "timeframe": "string like 1-2 weeks or 1-3 months",
   "riskLevel": "LOW" or "MODERATE" or "HIGH",
-  "summary": "2-3 sentence summary of why",
-  "bullish": ["factor1", "factor2", "factor3"],
-  "bearish": ["factor1", "factor2", "factor3"],
+  "summary": "2-3 sentence summary referencing the specific indicator scores that drove the verdict",
+  "bullish": ["factor1 with data", "factor2 with data", "factor3 with data"],
+  "bearish": ["factor1 with data", "factor2 with data", "factor3 with data"],
   "keyLevel": "string describing the most important price level to watch with dollar amount",
-  "entryStrategy": "1-2 sentences on how to enter this trade with specific price levels",
-  "support": number (nearest support level as dollar amount),
-  "resistance": number (nearest resistance level as dollar amount),
+  "entryStrategy": "1-2 sentences on how to enter this trade with specific price levels based on ATR and support/resistance",
+  "support": number (nearest support — use lower Bollinger Band, VWAP, or SMA as reference),
+  "resistance": number (nearest resistance — use upper Bollinger Band or recent highs),
   "riskRewardRatio": "string like 1:2.5"
 }
 
 CRITICAL RULES:
 - targetPrice and stopLoss MUST be realistic dollar amounts based on the current price of $${currentPrice.toFixed(2)}. Never use 0 or null.
+- Use ATR to size stops: stopLoss should be 1-2x ATR from entry. Targets should be 2-3x ATR.
 - For a BUY verdict, targetPrice should be ABOVE current price and stopLoss BELOW current price.
 - For a SELL verdict, targetPrice should be BELOW current price and stopLoss ABOVE current price.
 - For HOLD, set targetPrice slightly above and stopLoss slightly below as watch levels.
-- Base everything on the REAL technical data provided above. Be accurate and data-driven.
-- If RSI is overbought, trend is down, and price is below SMAs, don't say BUY. Be honest.`
+- Follow the scoring framework strictly. Do NOT say BUY when most indicators are bearish.
+- If RSI is overbought AND price is at upper Bollinger AND higher timeframe conflicts, that's a SELL, not a BUY.
+- If timeframes conflict, reduce confidence and lean toward HOLD unless other signals are overwhelming.`
       }], 2000);
 
       const text = response.content?.[0]?.text || '';
@@ -2279,7 +2450,11 @@ CRITICAL RULES:
           price: currentPrice,
           dayChange: parseFloat(dayChange),
           rsi: parseFloat(rsi.toFixed(1)),
-          sma20, sma50, sma200,
+          sma20, sma50, sma200, ema12, ema26,
+          macd, macdSignal, macdHist,
+          bbUpper, bbLower, bbPosition: bbPosition ? parseInt(bbPosition) : null,
+          atr, vwap,
+          htfTrend, marketTrend, trendsAligned,
           volRatio: parseFloat(volRatio),
           rangePosition: parseInt(rangePosition),
           high52: high52,
@@ -2323,6 +2498,10 @@ CRITICAL RULES:
 Result: ${r.verdict} with ${r.confidence}% confidence.
 Target: $${r.targetPrice?.toFixed(2) || 'N/A'} | Stop Loss: $${r.stopLoss?.toFixed(2) || 'N/A'} | Timeframe: ${r.timeframe}
 RSI: ${r.rsi} | SMA20: ${r.sma20 ? '$' + r.sma20.toFixed(2) : 'N/A'} | SMA50: ${r.sma50 ? '$' + r.sma50.toFixed(2) : 'N/A'}
+MACD Histogram: ${r.macdHist !== null ? r.macdHist.toFixed(4) : 'N/A'} | Bollinger Position: ${r.bbPosition || 'N/A'}%
+VWAP: ${r.vwap ? '$' + r.vwap.toFixed(2) : 'N/A'} | ATR: ${r.atr ? '$' + r.atr.toFixed(2) : 'N/A'}
+Higher Timeframe Trend: ${r.htfTrend || 'N/A'} | Timeframes Aligned: ${r.trendsAligned ? 'Yes' : 'No'}
+Market Context (SPY): ${r.marketTrend || 'N/A'}
 ${r.analysisTimeframe || '3-Month'} Range: $${r.low52?.toFixed(2) || '?'} - $${r.high52?.toFixed(2) || '?'} (at ${r.rangePosition}%)
 Volume: ${r.volRatio}x average
 Bullish: ${r.bullish?.join(', ')}
@@ -2336,9 +2515,12 @@ Respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON)
     "summary": "2-3 sentence overview of technical picture",
     "indicators": [
       { "name": "RSI (14)", "value": "${r.rsi}", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences explaining what this means and why it matters" },
-      { "name": "Moving Averages", "value": "Above/Below", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about SMA alignment" },
+      { "name": "MACD", "value": "${r.macdHist !== null ? r.macdHist.toFixed(4) : 'N/A'}", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about MACD histogram and momentum direction" },
+      { "name": "Bollinger Bands", "value": "${r.bbPosition || 'N/A'}%", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about price position within bands and volatility squeeze/expansion" },
+      { "name": "Moving Averages", "value": "Above/Below", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about SMA/EMA alignment" },
+      { "name": "VWAP", "value": "${r.vwap ? '$' + r.vwap.toFixed(2) : 'N/A'}", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about institutional buying/selling pressure" },
       { "name": "Volume", "value": "${r.volRatio}x", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about volume confirmation" },
-      { "name": "Price Range", "value": "${r.rangePosition}%", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about position within range" }
+      { "name": "Multi-Timeframe", "value": "${r.htfTrend || 'N/A'}", "signal": "Bullish/Bearish/Neutral", "explanation": "1-2 sentences about whether higher timeframe confirms or conflicts" }
     ]
   },
   "entryExit": {
@@ -7059,11 +7241,68 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
       const atr = trueRanges.length > 0 ? trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length : 0;
 
+      // EMA helper
+      const calcEMASetup = (data, period) => {
+        if (data.length < period) return null;
+        const k = 2 / (period + 1);
+        let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        for (let i = period; i < data.length; i++) ema = data[i] * k + ema * (1 - k);
+        return ema;
+      };
+
+      // EMA 12/26
+      const ema12 = calcEMASetup(closes, 12);
+      const ema26 = calcEMASetup(closes, 26);
+
+      // MACD
+      let macd = null, macdSignal = null, macdHist = null;
+      if (ema12 !== null && ema26 !== null && closes.length >= 35) {
+        const k12 = 2 / 13, k26 = 2 / 27;
+        let e12 = closes.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
+        let e26 = closes.slice(0, 26).reduce((a, b) => a + b, 0) / 26;
+        const macdLine = [];
+        for (let i = 26; i < closes.length; i++) {
+          if (i >= 12) e12 = closes[i] * k12 + e12 * (1 - k12);
+          e26 = closes[i] * k26 + e26 * (1 - k26);
+          macdLine.push(e12 - e26);
+        }
+        macd = macdLine[macdLine.length - 1];
+        if (macdLine.length >= 9) {
+          const k9 = 2 / 10;
+          let sig = macdLine.slice(0, 9).reduce((a, b) => a + b, 0) / 9;
+          for (let i = 9; i < macdLine.length; i++) sig = macdLine[i] * k9 + sig * (1 - k9);
+          macdSignal = sig;
+          macdHist = macd - macdSignal;
+        }
+      }
+
+      // Bollinger Bands
+      let bbUpper = null, bbLower = null, bbPosition = null;
+      if (closes.length >= 20) {
+        const slice20 = closes.slice(-20);
+        const stdDev = Math.sqrt(slice20.reduce((sum, v) => sum + Math.pow(v - sma20, 2), 0) / 20);
+        bbUpper = sma20 + 2 * stdDev;
+        bbLower = sma20 - 2 * stdDev;
+        bbPosition = bbUpper !== bbLower ? ((currentPrice - bbLower) / (bbUpper - bbLower) * 100).toFixed(0) : '50';
+      }
+
+      // VWAP approximation
+      let vwap = null;
+      if (closes.length > 0 && volumes.length > 0) {
+        const len = Math.min(closes.length, volumes.length, 20);
+        let cumVP = 0, cumVol = 0;
+        for (let i = closes.length - len; i < closes.length; i++) {
+          const vi = i < volumes.length ? volumes[i] : 0;
+          cumVP += closes[i] * vi;
+          cumVol += vi;
+        }
+        vwap = cumVol > 0 ? cumVP / cumVol : null;
+      }
+
       // Trend
       const trend = sma20 > sma50 ? 'Uptrend' : sma20 < sma50 ? 'Downtrend' : 'Sideways';
 
-      // Pre-calculate directional bias using same scoring as analyzeStockFast/dailyPick
-      // This ensures trade setups align with chart analysis, quick analysis, and daily pick
+      // Pre-calculate directional bias using comprehensive scoring
       let bullishScore = 0;
       let bearishScore = 0;
 
@@ -7083,6 +7322,25 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       if (trend === 'Uptrend') bullishScore += 15;
       else if (trend === 'Downtrend') bearishScore += 15;
 
+      // MACD scoring
+      if (macdHist !== null) {
+        if (macdHist > 0) bullishScore += 12;
+        else bearishScore += 12;
+      }
+
+      // Bollinger Band scoring
+      if (bbPosition !== null) {
+        const bbPos = parseInt(bbPosition);
+        if (bbPos < 10 && trend === 'Uptrend') bullishScore += 8; // oversold in uptrend
+        else if (bbPos > 90 && trend === 'Downtrend') bearishScore += 8; // overbought in downtrend
+      }
+
+      // VWAP scoring
+      if (vwap !== null) {
+        if (currentPrice > vwap) bullishScore += 8;
+        else bearishScore += 8;
+      }
+
       // Volume confirmation
       const volRatio = avgVolume > 0 ? recentVolume / avgVolume : 1;
       const priceChange = closes.length >= 2 ? closes[closes.length - 1] - closes[closes.length - 2] : 0;
@@ -7098,8 +7356,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
       // Price position in range
       const rangePos = (recent20High - recent20Low) > 0 ? (currentPrice - recent20Low) / (recent20High - recent20Low) : 0.5;
-      if (rangePos > 0.7) bullishScore += 5; // near highs, uptrend confirmation
-      else if (rangePos < 0.3) bearishScore += 5; // near lows, downtrend confirmation
+      if (rangePos > 0.7) bullishScore += 5;
+      else if (rangePos < 0.3) bearishScore += 5;
 
       const calculatedDirection = bullishScore > bearishScore ? 'LONG' : 'SHORT';
       const directionConfidence = Math.abs(bullishScore - bearishScore);
@@ -7111,7 +7369,11 @@ Current Price: $${currentPrice.toFixed(2)}
 Timeframe: ${tickerTimeframe}
 RSI(14): ${rsi.toFixed(1)}
 SMA(20): $${sma20.toFixed(2)} | SMA(50): $${sma50.toFixed(2)}
+EMA(12): ${ema12 ? '$' + ema12.toFixed(2) : 'N/A'} | EMA(26): ${ema26 ? '$' + ema26.toFixed(2) : 'N/A'}
+MACD: ${macd !== null ? macd.toFixed(4) : 'N/A'} | Signal: ${macdSignal !== null ? macdSignal.toFixed(4) : 'N/A'} | Histogram: ${macdHist !== null ? macdHist.toFixed(4) : 'N/A'}
+Bollinger Bands: Upper $${bbUpper ? bbUpper.toFixed(2) : 'N/A'} | Lower $${bbLower ? bbLower.toFixed(2) : 'N/A'} | Position: ${bbPosition || 'N/A'}%
 ATR(14): $${atr.toFixed(2)}
+VWAP(20): ${vwap ? '$' + vwap.toFixed(2) : 'N/A'}
 Trend: ${trend}
 20-bar High: $${recent20High.toFixed(2)} | 20-bar Low: $${recent20Low.toFixed(2)}
 50-bar High: $${recent50High.toFixed(2)} | 50-bar Low: $${recent50Low.toFixed(2)}
@@ -7119,19 +7381,20 @@ Volume: Recent ${(recentVolume/1000).toFixed(0)}K vs Avg ${(avgVolume/1000).toFi
 Technical Bias: ${directionLabel} (Bullish: ${bullishScore} vs Bearish: ${bearishScore})
 
 DIRECTION REQUIREMENT: The technical indicators show a ${directionLabel} bias. You MUST generate a ${calculatedDirection} setup.
-- If ${calculatedDirection} = LONG: entry at or near current price, stopLoss BELOW entry, targets ABOVE entry.
-- If ${calculatedDirection} = SHORT: entry at or near current price, stopLoss ABOVE entry, targets BELOW entry.
+- If ${calculatedDirection} = LONG: entry at or near current price, stopLoss BELOW entry (use 1-2x ATR), targets ABOVE entry (use 2-3x ATR).
+- If ${calculatedDirection} = SHORT: entry at or near current price, stopLoss ABOVE entry (use 1-2x ATR), targets BELOW entry (use 2-3x ATR).
+- Use Bollinger Bands and VWAP as support/resistance references for stop loss and targets.
 
 Respond ONLY with valid JSON (no markdown, no code fences):
 {
   "direction": "${calculatedDirection}",
   "entry": exact entry price number,
-  "stopLoss": exact stop loss price number,
-  "target1": first target price (1:1 risk-reward),
-  "target2": second target price (2:1 risk-reward),
+  "stopLoss": exact stop loss price number (1-2x ATR from entry),
+  "target1": first target price (2x ATR from entry),
+  "target2": second target price (3x ATR from entry),
   "confidence": number 60-95,
-  "reasoning": "2-3 sentence explanation of why this ${calculatedDirection} setup exists based on the ${directionLabel} technical signals",
-  "pattern": "Name of pattern detected (e.g. Bull Flag, Support Bounce, Breakdown)",
+  "reasoning": "2-3 sentence explanation referencing MACD, RSI, Bollinger Bands and the ${directionLabel} technical signals",
+  "pattern": "Name of pattern detected (e.g. Bull Flag, Support Bounce, Breakdown, MACD Crossover)",
   "timeframe": "Expected hold time (e.g. 4h, 1-2 days, 1 week)",
   "riskReward": "1:X ratio as string"
 }`;
@@ -26890,6 +27153,29 @@ INSTRUCTIONS:
                       <div className="text-[9px] text-slate-600">{r.rsi > 70 ? 'Overbought' : r.rsi < 30 ? 'Oversold' : 'Neutral'}</div>
                     </div>
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">MACD</div>
+                      <div className={`text-sm font-bold ${r.macdHist > 0 ? 'text-green-400' : r.macdHist < 0 ? 'text-red-400' : 'text-slate-500'}`}>{r.macdHist !== null ? (r.macdHist > 0 ? '+' : '') + r.macdHist.toFixed(3) : '—'}</div>
+                      <div className="text-[9px] text-slate-600">{r.macdHist > 0 ? 'Bullish' : r.macdHist < 0 ? 'Bearish' : '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Bollinger</div>
+                      <div className={`text-sm font-bold ${r.bbPosition > 80 ? 'text-red-400' : r.bbPosition < 20 ? 'text-green-400' : 'text-white'}`}>{r.bbPosition !== null ? r.bbPosition + '%' : '—'}</div>
+                      <div className="text-[9px] text-slate-600">{r.bbPosition > 80 ? 'Near Upper' : r.bbPosition < 20 ? 'Near Lower' : r.bbPosition !== null ? 'Mid Band' : '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">VWAP</div>
+                      <div className={`text-sm font-bold ${r.vwap && r.price > r.vwap ? 'text-green-400' : r.vwap ? 'text-red-400' : 'text-slate-500'}`}>{r.vwap ? (r.price > r.vwap ? 'Above' : 'Below') : '—'}</div>
+                      {r.vwap && <div className="text-[9px] text-slate-600">${r.vwap.toFixed(2)}</div>}
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Volume</div>
+                      <div className={`text-sm font-bold ${r.volRatio > 1.5 ? 'text-green-400' : r.volRatio < 0.5 ? 'text-red-400' : 'text-white'}`}>{r.volRatio}x</div>
+                      <div className="text-[9px] text-slate-600">{r.volRatio > 1.5 ? 'High' : r.volRatio < 0.5 ? 'Low' : 'Normal'}</div>
+                    </div>
+                  </div>
+                  {/* SMA + Multi-Timeframe row */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
                       <div className="text-[10px] text-slate-500">vs SMA20</div>
                       <div className={`text-sm font-bold ${r.sma20 && r.price > r.sma20 ? 'text-green-400' : r.sma20 ? 'text-red-400' : 'text-slate-500'}`}>{r.sma20 ? (r.price > r.sma20 ? 'Above' : 'Below') : '—'}</div>
                       {r.sma20 && <div className="text-[9px] text-slate-600">${r.sma20.toFixed(2)}</div>}
@@ -26900,14 +27186,19 @@ INSTRUCTIONS:
                       {r.sma50 && <div className="text-[9px] text-slate-600">${r.sma50.toFixed(2)}</div>}
                     </div>
                     <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
-                      <div className="text-[10px] text-slate-500">Volume</div>
-                      <div className={`text-sm font-bold ${r.volRatio > 1.5 ? 'text-green-400' : r.volRatio < 0.5 ? 'text-red-400' : 'text-white'}`}>{r.volRatio}x</div>
-                      <div className="text-[9px] text-slate-600">{r.volRatio > 1.5 ? 'High' : r.volRatio < 0.5 ? 'Low' : 'Normal'}</div>
-                    </div>
-                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
                       <div className="text-[10px] text-slate-500">{r.analysisTimeframe || '3M'} Range</div>
                       <div className="text-sm font-bold">{r.rangePosition}%</div>
                       <div className="text-[9px] text-slate-600">{r.rangePosition > 75 ? 'Near High' : r.rangePosition < 25 ? 'Near Low' : 'Mid Range'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Higher TF</div>
+                      <div className={`text-sm font-bold ${r.htfTrend === 'UPTREND' ? 'text-green-400' : r.htfTrend === 'DOWNTREND' ? 'text-red-400' : 'text-slate-500'}`}>{r.htfTrend || '—'}</div>
+                      <div className="text-[9px] text-slate-600">{r.trendsAligned ? 'Aligned' : r.htfTrend && r.htfTrend !== 'N/A' ? 'Conflicting' : '—'}</div>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/20 p-3 text-center">
+                      <div className="text-[10px] text-slate-500">Market (SPY)</div>
+                      <div className={`text-sm font-bold ${r.marketTrend === 'BULLISH' ? 'text-green-400' : r.marketTrend === 'BEARISH' ? 'text-red-400' : 'text-slate-500'}`}>{r.marketTrend || '—'}</div>
+                      <div className="text-[9px] text-slate-600">{r.marketTrend && r.marketTrend !== 'N/A' ? 'Broad Market' : '—'}</div>
                     </div>
                   </div>
 
