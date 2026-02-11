@@ -19912,21 +19912,29 @@ INSTRUCTIONS:
                                     <polyline points={visVWAP.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')} fill="none" stroke="#ec4899" strokeWidth="0.5" />
                                   )}
                                   {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
-                                    const mainCloses = visData.map(b => b.close);
-                                    const compCloses = comparisonData.timeSeries.map(b => b.close);
-                                    const mainStart = mainCloses[0] || 1;
-                                    const compStart = compCloses[0] || 1;
-                                    const normalizedComp = compCloses.map(c => mainStart * (1 + (c - compStart) / compStart));
-                                    const mainLen = mainCloses.length;
-                                    const compLen = normalizedComp.length;
-                                    const sampled = [];
-                                    for (let ci = 0; ci < mainLen; ci++) {
-                                      const idx = Math.round((ci / mainLen) * compLen);
-                                      const val = normalizedComp[Math.min(idx, compLen - 1)];
-                                      if (val != null) sampled.push({ x: ci, y: priceToY(val) });
+                                    // Right-align: both datasets end at "now", so align from the right
+                                    const mainTotal = fullSeries.length;
+                                    const compTotal = comparisonData.timeSeries.length;
+                                    // compOffset maps main index to comparison index: compIdx = mainIdx + compOffset
+                                    const compOffset = compTotal - mainTotal;
+                                    // Extract comparison closes for the visible window
+                                    const points = [];
+                                    let compStartPrice = null;
+                                    let mainStartPrice = null;
+                                    for (let j = 0; j < visData.length; j++) {
+                                      const compIdx = layout.visStart + j + compOffset;
+                                      if (compIdx >= 0 && compIdx < compTotal) {
+                                        const compClose = comparisonData.timeSeries[compIdx]?.close;
+                                        if (compClose != null) {
+                                          if (compStartPrice === null) { compStartPrice = compClose; mainStartPrice = visData[j]?.close || visData[0]?.close || 1; }
+                                          // Normalize: comparison returns mapped to main chart's price scale
+                                          const normalizedPrice = mainStartPrice * (1 + (compClose - compStartPrice) / compStartPrice);
+                                          points.push(`${j},${priceToY(normalizedPrice)}`);
+                                        }
+                                      }
                                     }
-                                    return sampled.length > 1 ? (
-                                      <polyline points={sampled.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#fbbf24" strokeWidth="0.7" strokeDasharray="3,1" opacity="0.85" />
+                                    return points.length > 1 ? (
+                                      <polyline points={points.join(' ')} fill="none" stroke="#fbbf24" strokeWidth="0.7" strokeDasharray="3,1" opacity="0.85" />
                                     ) : null;
                                   })()}
                                 </svg>
