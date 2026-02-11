@@ -11,7 +11,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move, Share2, MousePointer } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move, Share2, MousePointer, ExternalLink } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -1833,7 +1833,7 @@ function App() {
     return saved ? parseInt(saved) : 100;
   }); // Configurable candle count with persistence
   const [tickerAutoRefresh, setTickerAutoRefresh] = useState(true); // Auto-refresh ticker chart
-  const [tickerRefreshInterval, setTickerRefreshInterval] = useState(10); // Refresh interval in seconds (5-30)
+  const [tickerRefreshInterval, setTickerRefreshInterval] = useState(5); // Refresh interval in seconds (5-30)
   const [tickerLastRefresh, setTickerLastRefresh] = useState(null); // Last refresh timestamp
   const lastRefreshTimeRef = useRef(Date.now()); // REF for accurate countdown
   const tickerChartRef = useRef(null);
@@ -2156,14 +2156,7 @@ function App() {
         console.log(`Quick Analysis: fetchYahooWithProxies failed for ${sym}:`, e.message);
       }
 
-      // If shared fetcher returned null, try stockDataCache as fallback
-      if (!chartData && stockDataCache.current.has(sym)) {
-        const cached = stockDataCache.current.get(sym);
-        if (cached && cached.data && (Date.now() - cached.timestamp < 15 * 60 * 1000)) {
-          chartData = cached.data;
-          console.log(`Quick Analysis: Using cached stock data for ${sym}`);
-        }
-      }
+      // No cache fallback - always use fresh data only
 
       const meta = chartData?.chart?.result?.[0]?.meta || {};
       const quotes = chartData?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
@@ -5586,19 +5579,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // ============================================
 
   // News cache to avoid repeated fetches (10 min TTL)
-  const newsCache = useRef(new Map());
-  const NEWS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+  const newsCache = useRef(new Map()); // kept for compatibility but not used
 
   const fetchRealTimeNews = async (symbol, limit = 10) => {
-    console.log(`[News] 📰 Fetching real-time news for ${symbol}...`);
+    console.log(`[News] 📰 Fetching fresh real-time news for ${symbol}...`);
 
-    // Check cache first
-    const cacheKey = `news_${symbol}`;
-    const cached = newsCache.current.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < NEWS_CACHE_TTL) {
-      console.log(`[News] ✓ Using cached news for ${symbol}`);
-      return cached.data;
-    }
+    // No cache - always fetch fresh news
 
     const allNews = [];
 
@@ -5707,10 +5693,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
     }
 
-    // Cache the results
-    if (allNews.length > 0) {
-      newsCache.current.set(cacheKey, { data: allNews, timestamp: Date.now() });
-    }
+    // No caching - always fresh news data
 
     return allNews;
   };
@@ -5814,27 +5797,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // Now with SHORT-TERM CACHING for even faster repeated scans
   // ============================================
 
-  // Stock data cache (5 minute TTL to reduce API load)
-  const stockDataCache = useRef(new Map());
-  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes - reduces API calls significantly
-
-  const getCachedStockData = (symbol) => {
-    const cached = stockDataCache.current.get(symbol);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.data;
-    }
-    return null;
-  };
-
-  const setCachedStockData = (symbol, data) => {
-    stockDataCache.current.set(symbol, { data, timestamp: Date.now() });
-    // Clean old cache entries (keep only last 200)
-    if (stockDataCache.current.size > 200) {
-      const entries = [...stockDataCache.current.entries()];
-      entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-      entries.slice(0, 50).forEach(([key]) => stockDataCache.current.delete(key));
-    }
-  };
+  // No stock data cache - always fetch fresh live data for maximum accuracy
+  const stockDataCache = useRef(new Map()); // kept as ref for compatibility but never used for caching
 
   const processStocksInParallel = async (symbols, processFn, options = {}) => {
     const {
@@ -5843,7 +5807,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       minScore = 55,         // Minimum score to count as "good"
       timeout = 7000,        // 7s timeout per stock
       onProgress = null,     // Progress callback
-      useCache = true,       // Use short-term cache
+      useCache = false,      // No caching - always fresh live data
       batchDelay = 300       // Delay between batches to avoid rate limits
     } = options;
 
@@ -5874,24 +5838,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Process entire batch in parallel
       const batchPromises = batch.map(async (symbol) => {
         try {
-          // Check cache first
-          if (useCache) {
-            const cached = getCachedStockData(symbol);
-            if (cached) {
-              return cached;
-            }
-          }
-
+          // Always fetch fresh - no caching
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), timeout);
 
           const result = await processFn(symbol, controller.signal);
           clearTimeout(timeoutId);
-
-          // Cache the result
-          if (useCache && result) {
-            setCachedStockData(symbol, result);
-          }
 
           return result;
         } catch (e) {
@@ -13083,19 +13035,19 @@ INSTRUCTIONS:
     }
   };
 
-  // Auto-refresh portfolio prices every 10 seconds
+  // Auto-refresh portfolio prices every 5 seconds
   useEffect(() => {
     if (!portfolioAutoRefresh || portfolio.length === 0 || activeTab !== "portfolio") return;
 
     // Initial update
     updatePortfolioLivePrices();
 
-    // Set up interval for 10 second updates
+    // Set up interval for 5 second updates
     const interval = setInterval(() => {
       if (portfolioAutoRefresh && activeTab === "portfolio") {
         updatePortfolioLivePrices();
       }
-    }, 10000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [portfolioAutoRefresh, portfolio.length, activeTab]);
@@ -13305,7 +13257,7 @@ INSTRUCTIONS:
       fetchMarketOverview();
     }
 
-    const interval = setInterval(fetchMarketOverview, 15000); // Every 15 seconds
+    const interval = setInterval(fetchMarketOverview, 5000); // Every 5 seconds - fresh live data
 
     return () => clearInterval(interval);
   }, [activeTab, marketAutoRefresh]);
@@ -21280,7 +21232,45 @@ INSTRUCTIONS:
                                           className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 rounded-lg text-xs font-medium transition-all"
                                         >
                                           <Share2 className="w-3 h-3" />
-                                          Share
+                                          Community
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            const shareText = `📊 MODUS Trade Setup\n\n` +
+                                              `${activeSetup.direction === 'LONG' ? '🟢' : '🔴'} ${activeSetup.direction} ${activeSetup.symbol}\n` +
+                                              `Pattern: ${activeSetup.pattern}\n` +
+                                              `Confidence: ${activeSetup.confidence}%\n\n` +
+                                              `Entry: $${parseFloat(activeSetup.entry).toFixed(2)}\n` +
+                                              `Stop Loss: $${parseFloat(activeSetup.stopLoss).toFixed(2)}\n` +
+                                              `Target 1: $${parseFloat(activeSetup.target1).toFixed(2)}\n` +
+                                              `Target 2: $${parseFloat(activeSetup.target2).toFixed(2)}\n` +
+                                              `Risk/Reward: ${activeSetup.riskReward || '1:2'}\n` +
+                                              `Timeframe: ${activeSetup.timeframe || tickerTimeframe}\n\n` +
+                                              `${activeSetup.reasoning}\n\n` +
+                                              `Generated by MODUS — AI-Powered Trading Analysis\n` +
+                                              `${window.location.origin}`;
+                                            if (navigator.share) {
+                                              try {
+                                                await navigator.share({
+                                                  title: `MODUS Trade Setup — ${activeSetup.direction} ${activeSetup.symbol}`,
+                                                  text: shareText
+                                                });
+                                                showToast("Setup shared!", "success");
+                                              } catch (e) {
+                                                if (e.name !== 'AbortError') {
+                                                  await navigator.clipboard.writeText(shareText);
+                                                  showToast("Setup copied to clipboard!", "success");
+                                                }
+                                              }
+                                            } else {
+                                              await navigator.clipboard.writeText(shareText);
+                                              showToast("Setup copied to clipboard — paste in any message!", "success");
+                                            }
+                                          }}
+                                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 rounded-lg text-xs font-medium transition-all"
+                                        >
+                                          <ExternalLink className="w-3 h-3" />
+                                          Share / DM
                                         </button>
                                         <button
                                           onClick={() => setShowSetupPanel(false)}
@@ -24844,7 +24834,45 @@ INSTRUCTIONS:
                         className="flex items-center gap-1 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 rounded-lg text-xs font-medium transition-all"
                       >
                         <Share2 className="w-3 h-3" />
-                        Share to Community
+                        Community
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const shareText = `📊 MODUS Trade Setup\n\n` +
+                            `${setup.direction === 'LONG' ? '🟢' : '🔴'} ${setup.direction} ${setup.symbol}\n` +
+                            `Pattern: ${setup.pattern}\n` +
+                            `Confidence: ${setup.confidence}%\n\n` +
+                            `Entry: $${parseFloat(setup.entry).toFixed(2)}\n` +
+                            `Stop Loss: $${parseFloat(setup.stopLoss).toFixed(2)}\n` +
+                            `Target 1: $${parseFloat(setup.target1).toFixed(2)}\n` +
+                            `Target 2: $${parseFloat(setup.target2).toFixed(2)}\n` +
+                            `Risk/Reward: ${setup.riskReward || '1:2'}\n` +
+                            `Timeframe: ${setup.timeframe || tickerTimeframe}\n\n` +
+                            `${setup.reasoning}\n\n` +
+                            `Generated by MODUS — AI-Powered Trading Analysis\n` +
+                            `${window.location.origin}`;
+                          if (navigator.share) {
+                            try {
+                              await navigator.share({
+                                title: `MODUS Trade Setup — ${setup.direction} ${setup.symbol}`,
+                                text: shareText
+                              });
+                              showToast("Setup shared!", "success");
+                            } catch (e) {
+                              if (e.name !== 'AbortError') {
+                                await navigator.clipboard.writeText(shareText);
+                                showToast("Setup copied to clipboard!", "success");
+                              }
+                            }
+                          } else {
+                            await navigator.clipboard.writeText(shareText);
+                            showToast("Setup copied to clipboard — paste in any message!", "success");
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 rounded-lg text-xs font-medium transition-all"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Share / DM
                       </button>
                     </div>
                   </div>
@@ -25881,7 +25909,7 @@ INSTRUCTIONS:
                     />
                   </div>
                   <p className="text-xs text-slate-500 mt-2">
-                    ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with 5-minute cache
+                    ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with fresh live data
                   </p>
                 </div>
               )}
@@ -29980,7 +30008,7 @@ INSTRUCTIONS:
                 <div className="text-sm text-emerald-200">
                   <p className="font-semibold mb-1">📊 Real Technical Analysis (Same as Daily Pick):</p>
                   <p className="text-emerald-300">
-                    Scans <strong>220+ stocks across 15 sectors</strong> using parallel batch processing. Uses <strong>real-time indicators</strong>: RSI (14), MACD histogram, SMA20/SMA50, trend detection, and volume analysis. Results cached for 5 minutes.
+                    Scans <strong>220+ stocks across 15 sectors</strong> using parallel batch processing. Uses <strong>real-time indicators</strong>: RSI (14), MACD histogram, SMA20/SMA50, trend detection, and volume analysis. Always uses fresh live data.
                     Only shows stocks with clear <strong>BUY</strong> or <strong>SELL</strong> signals - HOLD recommendations are filtered out.
                   </p>
                 </div>
@@ -30010,7 +30038,7 @@ INSTRUCTIONS:
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with 5-minute cache
+                  ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with fresh live data
                 </p>
               </div>
             )}
@@ -31510,7 +31538,7 @@ INSTRUCTIONS:
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with 5-minute cache
+                  ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with fresh live data
                 </p>
               </div>
             )}
@@ -31828,7 +31856,7 @@ INSTRUCTIONS:
               </div>
               <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
                 <p className="text-sm text-orange-200">
-                  <strong>⚡ Fast Scanner:</strong> Uses parallel processing to scan <strong>220+ stocks across 15 sectors</strong> (Tech, Financials, Healthcare, Energy, Consumer, etc.). Shows RSI, MACD, trend direction, and buy/sell recommendations for each stock. Data cached for 5 minutes to reduce API load. Click "Refresh Scanner" to get latest market movers.
+                  <strong>⚡ Fast Scanner:</strong> Uses parallel processing to scan <strong>220+ stocks across 15 sectors</strong> (Tech, Financials, Healthcare, Energy, Consumer, etc.). Shows RSI, MACD, trend direction, and buy/sell recommendations for each stock. Always fetches fresh live data. Click "Refresh Scanner" to get latest market movers.
                 </p>
               </div>
             </div>
@@ -33199,7 +33227,7 @@ INSTRUCTIONS:
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
                         <h3 className="font-semibold text-white mb-2 text-lg">Daily AI Pick</h3>
                         <p className="text-sm text-slate-400 leading-relaxed mb-3">Every day, the AI runs a comprehensive scan of over 220 stocks across 15 sectors using parallel batch processing. It evaluates each stock on multiple technical indicators — RSI (14-period), MACD histogram, SMA20/SMA50 crossovers, trend detection, and volume analysis — to identify the single best trade opportunity of the day.</p>
-                        <p className="text-sm text-slate-400 leading-relaxed">The daily pick comes with a complete analysis: confidence score, specific entry price, stop loss level, target prices, risk/reward ratio, and a detailed explanation of why this stock was selected. The scan results are cached for 5 minutes to prevent excessive API calls while keeping data fresh.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">The daily pick comes with a complete analysis: confidence score, specific entry price, stop loss level, target prices, risk/reward ratio, and a detailed explanation of why this stock was selected. Every scan uses fresh real-time market data for maximum accuracy.</p>
                       </div>
 
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
@@ -33227,7 +33255,7 @@ INSTRUCTIONS:
                         <h3 className="font-semibold text-white mb-2 text-lg">Live Stock Ticker & Interactive Chart</h3>
                         <p className="text-sm text-slate-400 leading-relaxed mb-3">Type any US stock symbol and instantly see a full candlestick chart with real-time price data. The chart supports 8 timeframes (1m, 5m, 15m, 30m, 1h, 4h, Daily, Weekly) and automatically falls back to a larger timeframe if the requested one isn't available (e.g., 1-minute charts are only available during market hours). The chart is fully interactive — hover over any candle to see OHLCV data, and the ticker overlay stays pinned so you always see the current price.</p>
                         <p className="text-sm text-slate-400 leading-relaxed mb-3">Chart overlays include: SMA (Simple Moving Average), EMA (Exponential Moving Average), Bollinger Bands, and VWAP (Volume Weighted Average Price). Separate indicator panels show Volume, RSI, MACD, Stochastic, and ATR. Each indicator has a built-in guide tooltip explaining what it measures and how to read it. You can also overlay a second stock for visual comparison — type any symbol in the Compare field to see normalized price lines side by side.</p>
-                        <p className="text-sm text-slate-400 leading-relaxed">Data is sourced from Yahoo Finance with automatic CORS proxy failover using parallel requests (Promise.any for fastest response), plus Finnhub and Alpha Vantage as additional fallbacks. Auto-refresh updates the chart every 10 seconds during market hours without full reloads.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed">Data is sourced from Yahoo Finance with automatic CORS proxy failover using parallel requests (Promise.any for fastest response), plus Finnhub and Alpha Vantage as additional fallbacks. Auto-refresh updates the chart every 5 seconds during market hours without full reloads.</p>
                       </div>
 
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
