@@ -1092,6 +1092,31 @@ function App() {
   const [showQuickTradeEntry, setShowQuickTradeEntry] = useState(false);
   const changelogEntries = [
     {
+      version: '3.2.0',
+      date: '2026-02-10',
+      title: 'Interactive Fullscreen Chart, Cross-Browser Fix & Live Data Routing',
+      changes: [
+        { type: 'feature', text: 'Full-viewport interactive chart with createPortal — covers entire browser, TradingView-style experience' },
+        { type: 'feature', text: 'Pro toolbar in fullscreen: timeframe buttons (1m-1M), drawing tools with labels, indicator toggles, zoom controls' },
+        { type: 'feature', text: 'OHLCV data bar shows Open/High/Low/Close/Volume when hovering over candles in fullscreen' },
+        { type: 'feature', text: 'Keyboard shortcuts in fullscreen: +/- zoom, arrow keys pan, R reset, V toggle volume, ESC exit' },
+        { type: 'feature', text: 'Hundreds of candles available in fullscreen with drag-to-pan scrolling through history' },
+        { type: 'feature', text: 'Volume overlay at bottom of chart area in fullscreen (semi-transparent, TradingView style)' },
+        { type: 'feature', text: 'Capture & Analyze button in fullscreen toolbar for instant AI chart analysis' },
+        { type: 'feature', text: 'Timeframe switching immediately re-fetches chart data with loading indicator' },
+        { type: 'improvement', text: 'All data fetching now routes through server-side proxy for cross-browser support (Safari, Chrome, Firefox)' },
+        { type: 'improvement', text: 'RSI, MACD, Stochastic, and ATR sub-indicators now sync with chart zoom and pan position' },
+        { type: 'improvement', text: 'Mouse wheel only zooms chart in fullscreen mode — normal page scroll preserved otherwise' },
+        { type: 'improvement', text: 'Double-click to reset chart zoom in fullscreen' },
+        { type: 'improvement', text: 'Tooltips on all fullscreen toolbar buttons for discoverability' },
+        { type: 'fix', text: 'Fixed Daily Pick widget showing Target: $0.00 (property name mismatch: target vs target1)' },
+        { type: 'fix', text: 'Fixed Live Ticker not working in Safari/Chrome (CORS-blocked Yahoo Finance direct URLs)' },
+        { type: 'fix', text: 'Fixed Market Overview, Quick Quotes, and News not updating across browsers (same CORS root cause)' },
+        { type: 'fix', text: 'Fixed Community Feed not syncing across devices and not appearing in dashboard by default' },
+        { type: 'fix', text: 'Created server-side /api/stock and /api/news proxies for reliable cross-browser data access' },
+      ]
+    },
+    {
       version: '3.1.0',
       date: '2026-02-08',
       title: 'Voice Commands, Custom Themes, Crypto, Drawing Tools & Data Integrity',
@@ -6629,8 +6654,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Compute visible candle range from zoom + scroll
   const getChartLayout = useCallback(() => {
-    const totalBars = tickerData?.timeSeries?.length || 0;
-    if (totalBars === 0) return { candleW: 6, gap: 2, stride: 8, visStart: 0, visEnd: 0, maxOffset: 0 };
+    const allBars = tickerData?.timeSeries?.length || 0;
+    if (allBars === 0) return { candleW: 6, gap: 2, stride: 8, visStart: 0, visEnd: 0, maxOffset: 0, dataStart: 0 };
+    // In non-fullscreen, limit to last tickerCandleCount candles
+    const dataStart = chartFullscreen ? 0 : Math.max(0, allBars - tickerCandleCount);
+    const totalBars = allBars - dataStart;
 
     const candleW = Math.max(3, Math.round(6 * chartZoom));
     const gap = Math.max(1, Math.round(2 * chartZoom));
@@ -6641,11 +6669,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
     // -1 means scroll to latest
     const realOffset = chartScrollOffset < 0 ? maxOffset : Math.min(chartScrollOffset, maxOffset);
-    const visStart = Math.max(0, Math.floor(realOffset / stride));
-    const visEnd = Math.min(totalBars, visStart + visibleCount);
+    const visStartRel = Math.max(0, Math.floor(realOffset / stride));
+    const visEndRel = Math.min(totalBars, visStartRel + visibleCount);
+    const visStart = dataStart + visStartRel;
+    const visEnd = dataStart + visEndRel;
 
-    return { candleW, gap, stride, visStart, visEnd, maxOffset, realOffset, containerW, totalBars };
-  }, [tickerData?.timeSeries?.length, chartZoom, chartScrollOffset]);
+    return { candleW, gap, stride, visStart, visEnd, maxOffset, realOffset, containerW, totalBars, dataStart };
+  }, [tickerData?.timeSeries?.length, chartZoom, chartScrollOffset, chartFullscreen, tickerCandleCount]);
 
   const handleChartWheel = useCallback((e) => {
     // Only intercept scroll for zoom in fullscreen mode
@@ -6874,7 +6904,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             change: currentPrice - previousClose,
             changePercent: ((currentPrice - previousClose) / previousClose) * 100,
             volume: meta.regularMarketVolume || 0,
-            timeSeries: timeSeries.slice(-tickerCandleCount),
+            timeSeries: timeSeries,
             timeframe: actualInterval,  // Actual timeframe used
             requestedTimeframe: requestedInterval,  // What user asked for
             usedFallback: usedFallback,
@@ -19946,7 +19976,8 @@ INSTRUCTIONS:
                             {chartFullscreen && showVolume && (() => {
                               const layout = getChartLayout();
                               const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
-                              const maxVol = Math.max(...visData.map(b => b.volume || 0).filter(v => v > 0));
+                              const volValues = visData.map(b => b.volume || 0).filter(v => v > 0);
+                              const maxVol = volValues.length > 0 ? Math.max(...volValues) : 1;
                               if (maxVol === 0) return null;
                               const subOffset = (layout.realOffset % layout.stride);
                               return (
@@ -20021,7 +20052,8 @@ INSTRUCTIONS:
                                 {(() => {
                                   const layout = getChartLayout();
                                   const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
-                                  const maxVol = Math.max(...visData.map(b => b.volume || 0).filter(v => v > 0));
+                                  const volValues = visData.map(b => b.volume || 0).filter(v => v > 0);
+                                  const maxVol = volValues.length > 0 ? Math.max(...volValues) : 1;
                                   if (maxVol === 0) return null;
                                   const subOffset = (layout.realOffset % layout.stride);
 
@@ -20054,7 +20086,8 @@ INSTRUCTIONS:
 
                         {/* RSI INDICATOR - FIXED */}
                         {showRSI && (() => {
-                          const closes = tickerData.timeSeries.map(b => b.close).filter(p => p && !isNaN(p));
+                          const layout = getChartLayout();
+                          const closes = tickerData.timeSeries.map(b => b.close || 0);
                           if (closes.length < 15) return (
                             <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
                               <div className="text-xs text-slate-400 font-semibold mb-2">RSI (14)</div>
@@ -20063,25 +20096,25 @@ INSTRUCTIONS:
                               </div>
                             </div>
                           );
-                          
+
                           // Calculate RSI using Wilder's Smoothed Moving Average
                           const period = 14;
                           const rsiValues = [];
-                          
+
                           // Step 1: Calculate price changes
                           const changes = [];
                           for (let i = 1; i < closes.length; i++) {
                             changes.push(closes[i] - closes[i - 1]);
                           }
-                          
+
                           // Step 2: Separate gains and losses
                           const gains = changes.map(c => c > 0 ? c : 0);
                           const losses = changes.map(c => c < 0 ? Math.abs(c) : 0);
-                          
+
                           // Step 3: Calculate RSI for each point
                           let avgGain = 0;
                           let avgLoss = 0;
-                          
+
                           for (let i = 0; i < changes.length; i++) {
                             if (i < period - 1) {
                               // Not enough data yet, use placeholder
@@ -20090,7 +20123,7 @@ INSTRUCTIONS:
                               // First RSI: simple average of first 14 periods
                               avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
                               avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
-                              
+
                               if (avgLoss === 0) {
                                 rsiValues.push(100);
                               } else {
@@ -20101,7 +20134,7 @@ INSTRUCTIONS:
                               // Subsequent RSI: Wilder's smoothing
                               avgGain = ((avgGain * (period - 1)) + gains[i]) / period;
                               avgLoss = ((avgLoss * (period - 1)) + losses[i]) / period;
-                              
+
                               if (avgLoss === 0) {
                                 rsiValues.push(100);
                               } else {
@@ -20110,13 +20143,14 @@ INSTRUCTIONS:
                               }
                             }
                           }
-                          
-                          // Filter out nulls for display
-                          const validRSI = rsiValues.filter(v => v !== null);
+
+                          // Slice to visible range and filter out nulls
+                          const slicedRSI = rsiValues.slice(layout.visStart, layout.visEnd);
+                          const validRSI = slicedRSI.filter(v => v !== null);
                           const currentRSI = validRSI.length > 0 ? validRSI[validRSI.length - 1] : 50;
-                          
-                          // For line chart, we need to align with candle positions
-                          const chartWidth = tickerData.timeSeries.length;
+
+                          // For line chart, we need to align with visible candle positions
+                          const chartWidth = validRSI.length;
                           
                           return (
                             <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
@@ -20173,7 +20207,7 @@ INSTRUCTIONS:
                                 {/* RSI Line */}
                                 <svg
                                   className="absolute inset-0 w-full h-full"
-                                  viewBox={`0 0 ${validRSI.length + 4} 100`}
+                                  viewBox={`0 0 ${Math.max(validRSI.length, 1) + 4} 100`}
                                   preserveAspectRatio="none"
                                 >
                                   <polyline
@@ -20202,7 +20236,8 @@ INSTRUCTIONS:
                         
                         {/* MACD INDICATOR */}
                         {showMACD && (() => {
-                          const prices = tickerData.timeSeries.map(b => b.close).filter(p => p && !isNaN(p));
+                          const layout = getChartLayout();
+                          const prices = tickerData.timeSeries.map(b => b.close || 0);
                           if (prices.length < 35) return (
                             <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
                               <div className="text-xs text-slate-400 font-semibold mb-2">MACD (12, 26, 9)</div>
@@ -20211,13 +20246,13 @@ INSTRUCTIONS:
                               </div>
                             </div>
                           );
-                          
+
                           // Calculate EMA helper function
                           const calculateEMA = (data, period) => {
                             const k = 2 / (period + 1);
                             const emaArray = [];
                             let emaValue = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
-                            
+
                             for (let i = 0; i < data.length; i++) {
                               if (i < period - 1) {
                                 emaArray.push(null);
@@ -20230,26 +20265,26 @@ INSTRUCTIONS:
                             }
                             return emaArray;
                           };
-                          
+
                           // Calculate MACD line, Signal line, and Histogram
                           const fastEMA = calculateEMA(prices, 12);
                           const slowEMA = calculateEMA(prices, 26);
-                          
+
                           // MACD Line = Fast EMA - Slow EMA
                           const macdLine = prices.map((_, i) => {
                             if (fastEMA[i] === null || slowEMA[i] === null) return null;
                             return fastEMA[i] - slowEMA[i];
                           });
-                          
+
                           // Filter out nulls for signal line calculation
                           const validMacdValues = macdLine.filter(v => v !== null);
                           const signalEMA = calculateEMA(validMacdValues, 9);
-                          
+
                           // Build full arrays with proper alignment
                           const macdValues = [];
                           const signalValues = [];
                           const histogramValues = [];
-                          
+
                           let macdIdx = 0;
                           for (let i = 0; i < prices.length; i++) {
                             if (macdLine[i] === null) {
@@ -20264,15 +20299,14 @@ INSTRUCTIONS:
                               macdIdx++;
                             }
                           }
-                          
-                          // Get current values
+
+                          // Get current values (from full arrays)
                           const currentMACD = macdValues.filter(v => v !== null).slice(-1)[0] || 0;
                           const currentSignal = signalValues.filter(v => v !== null).slice(-1)[0] || 0;
                           const currentHistogram = currentMACD - currentSignal;
-                          
-                          // Get last N histogram values for display
-                          const displayCount = Math.min(100, histogramValues.length);
-                          const displayHistogram = histogramValues.slice(-displayCount);
+
+                          // Slice to visible range for display
+                          const displayHistogram = histogramValues.slice(layout.visStart, layout.visEnd);
                           const maxHist = Math.max(...displayHistogram.map(Math.abs), 0.001);
                           
                           return (
@@ -20366,6 +20400,7 @@ INSTRUCTIONS:
                         
                         {/* STOCHASTIC OSCILLATOR */}
                         {showStochastic && (() => {
+                          const layout = getChartLayout();
                           const bars = tickerData.timeSeries;
                           if (bars.length < 14) return (
                             <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
@@ -20375,11 +20410,11 @@ INSTRUCTIONS:
                               </div>
                             </div>
                           );
-                          
+
                           const period = 14;
                           const smoothK = 3;
                           const smoothD = 3;
-                          
+
                           // Calculate %K values
                           const rawK = [];
                           for (let i = 0; i < bars.length; i++) {
@@ -20390,7 +20425,7 @@ INSTRUCTIONS:
                               const highestHigh = Math.max(...slice.map(b => b.high));
                               const lowestLow = Math.min(...slice.map(b => b.low));
                               const currentClose = bars[i].close;
-                              
+
                               if (highestHigh === lowestLow) {
                                 rawK.push(50);
                               } else {
@@ -20398,7 +20433,7 @@ INSTRUCTIONS:
                               }
                             }
                           }
-                          
+
                           // Smooth %K with SMA
                           const kValues = rawK.map((_, i) => {
                             if (i < period - 1 + smoothK - 1) return null;
@@ -20406,7 +20441,7 @@ INSTRUCTIONS:
                             if (slice.length === 0) return null;
                             return slice.reduce((a, b) => a + b, 0) / slice.length;
                           });
-                          
+
                           // Calculate %D (SMA of %K)
                           const dValues = kValues.map((_, i) => {
                             if (i < period - 1 + smoothK - 1 + smoothD - 1) return null;
@@ -20414,9 +20449,12 @@ INSTRUCTIONS:
                             if (slice.length === 0) return null;
                             return slice.reduce((a, b) => a + b, 0) / slice.length;
                           });
-                          
-                          const validK = kValues.filter(v => v !== null);
-                          const validD = dValues.filter(v => v !== null);
+
+                          // Slice to visible range
+                          const visibleK = kValues.slice(layout.visStart, layout.visEnd);
+                          const visibleD = dValues.slice(layout.visStart, layout.visEnd);
+                          const validK = visibleK.filter(v => v !== null);
+                          const validD = visibleD.filter(v => v !== null);
                           const currentK = validK.length > 0 ? validK[validK.length - 1] : 50;
                           const currentD = validD.length > 0 ? validD[validD.length - 1] : 50;
                           
@@ -20465,9 +20503,9 @@ INSTRUCTIONS:
                                   <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400">20</span>
                                 </div>
                                 
-                                <svg 
-                                  className="absolute inset-0 w-full h-full" 
-                                  viewBox={`0 0 ${validK.length} 100`}
+                                <svg
+                                  className="absolute inset-0 w-full h-full"
+                                  viewBox={`0 0 ${Math.max(validK.length, 1)} 100`}
                                   preserveAspectRatio="none"
                                 >
                                   {/* %K line */}
@@ -20481,7 +20519,7 @@ INSTRUCTIONS:
                                   {/* %D line */}
                                   {validD.length > 0 && (
                                     <polyline
-                                      points={validD.map((val, i) => val !== null ? `${i + (validK.length - validD.length)},${100 - val}` : '').filter(p => p).join(' ')}
+                                      points={validD.map((val, i) => val !== null ? `${i},${100 - val}` : '').filter(p => p).join(' ')}
                                       fill="none"
                                       stroke="#f97316"
                                       strokeWidth="2"
@@ -20497,6 +20535,7 @@ INSTRUCTIONS:
                         
                         {/* ATR (Average True Range) */}
                         {showATR && (() => {
+                          const layout = getChartLayout();
                           const bars = tickerData.timeSeries;
                           if (bars.length < 15) return (
                             <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
@@ -20506,9 +20545,9 @@ INSTRUCTIONS:
                               </div>
                             </div>
                           );
-                          
+
                           const period = 14;
-                          
+
                           // Calculate True Range
                           const trueRanges = [];
                           for (let i = 0; i < bars.length; i++) {
@@ -20521,11 +20560,11 @@ INSTRUCTIONS:
                               trueRanges.push(Math.max(highLow, highClose, lowClose));
                             }
                           }
-                          
+
                           // Calculate ATR using Wilder's smoothing
                           const atrValues = [];
                           let atr = 0;
-                          
+
                           for (let i = 0; i < trueRanges.length; i++) {
                             if (i < period - 1) {
                               atrValues.push(null);
@@ -20537,11 +20576,13 @@ INSTRUCTIONS:
                               atrValues.push(atr);
                             }
                           }
-                          
-                          const validATR = atrValues.filter(v => v !== null);
+
+                          // Slice to visible range
+                          const visibleATR = atrValues.slice(layout.visStart, layout.visEnd);
+                          const validATR = visibleATR.filter(v => v !== null);
                           const currentATR = validATR.length > 0 ? validATR[validATR.length - 1] : 0;
-                          const maxATR = Math.max(...validATR);
-                          const minATR = Math.min(...validATR);
+                          const maxATR = validATR.length > 0 ? Math.max(...validATR) : 0;
+                          const minATR = validATR.length > 0 ? Math.min(...validATR) : 0;
                           const currentPrice = bars[bars.length - 1].close;
                           const atrPercent = (currentATR / currentPrice) * 100;
                           
@@ -20579,9 +20620,9 @@ INSTRUCTIONS:
                               </div>
                               
                               <div className="h-20 relative bg-slate-800/50 rounded border border-slate-700">
-                                <svg 
-                                  className="absolute inset-0 w-full h-full" 
-                                  viewBox={`0 0 ${validATR.length} ${maxATR - minATR || 1}`}
+                                <svg
+                                  className="absolute inset-0 w-full h-full"
+                                  viewBox={`0 0 ${Math.max(validATR.length, 1)} ${Math.max(maxATR - minATR, 1)}`}
                                   preserveAspectRatio="none"
                                 >
                                   {/* ATR area fill */}
@@ -20614,7 +20655,7 @@ INSTRUCTIONS:
                               <div className="w-3 h-3 bg-red-500 rounded"></div>
                               <span className="text-slate-400">Low:</span>
                               <span className="font-semibold text-red-400">
-                                ${(Math.min(...tickerData.timeSeries.filter(b => b && b.low).map(b => b.low)) || 0).toFixed(2)}
+                                ${(() => { const lows = tickerData.timeSeries.filter(b => b && b.low).map(b => b.low); return lows.length > 0 ? Math.min(...lows).toFixed(2) : '0.00'; })()}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -20625,7 +20666,7 @@ INSTRUCTIONS:
                               <div className="w-3 h-3 bg-emerald-500 rounded"></div>
                               <span className="text-slate-400">High:</span>
                               <span className="font-semibold text-emerald-400">
-                                ${(Math.max(...tickerData.timeSeries.filter(b => b && b.high).map(b => b.high)) || 0).toFixed(2)}
+                                ${(() => { const highs = tickerData.timeSeries.filter(b => b && b.high).map(b => b.high); return highs.length > 0 ? Math.max(...highs).toFixed(2) : '0.00'; })()}
                               </span>
                             </div>
                           </div>
@@ -20668,6 +20709,7 @@ INSTRUCTIONS:
                                               ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
                                               : 'text-slate-400 hover:text-white hover:bg-slate-700'
                                           }`}
+                                          title={`Switch to ${tf} timeframe`}
                                         >
                                           {tf}
                                         </button>
@@ -20686,7 +20728,7 @@ INSTRUCTIONS:
                                         <button
                                           key={tool.mode}
                                           onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
-                                          className={`p-1.5 rounded transition-all ${
+                                          className={`px-2 py-1.5 rounded transition-all flex items-center gap-1 ${
                                             drawingMode === tool.mode
                                               ? 'bg-violet-600 text-white'
                                               : 'text-slate-400 hover:text-white hover:bg-slate-700'
@@ -20694,6 +20736,7 @@ INSTRUCTIONS:
                                           title={tool.tip}
                                         >
                                           {tool.icon}
+                                          <span className="text-[10px] hidden xl:inline">{tool.tip}</span>
                                         </button>
                                       ))}
                                       {drawings[tickerData.symbol]?.length > 0 && (
@@ -20727,6 +20770,7 @@ INSTRUCTIONS:
                                               ? 'bg-cyan-600/80 text-white'
                                               : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
                                           }`}
+                                          title={`Toggle ${ind.label}`}
                                         >
                                           {ind.label}
                                         </button>
@@ -20736,6 +20780,15 @@ INSTRUCTIONS:
 
                                   {/* Right: Actions */}
                                   <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => { setChartFullscreen(false); setTimeout(() => captureTickerChart(), 300); }}
+                                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg text-xs font-medium transition-all shadow-lg shadow-emerald-500/20"
+                                      title="Capture chart and run AI analysis"
+                                    >
+                                      <Camera className="w-3.5 h-3.5" />
+                                      <span className="hidden lg:inline">Analyze</span>
+                                    </button>
+                                    <div className="w-px h-6 bg-slate-700 mx-1" />
                                     <button
                                       onClick={() => { setChartZoom(1); setChartScrollOffset(-1); }}
                                       className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
@@ -20785,6 +20838,16 @@ INSTRUCTIONS:
                                     </div>
                                   );
                                 })()}
+
+                                {/* Loading overlay when switching timeframes */}
+                                {loadingTicker && (
+                                  <div className="absolute inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center" style={{ top: '80px' }}>
+                                    <div className="flex flex-col items-center gap-3">
+                                      <Loader2 className="w-10 h-10 text-violet-400 animate-spin" />
+                                      <span className="text-sm text-slate-300 font-medium">Loading {tickerTimeframe} data...</span>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {chartAndIndicators}
                               </div>,
