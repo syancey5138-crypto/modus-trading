@@ -1858,6 +1858,10 @@ function App() {
   const [generatingSetup, setGeneratingSetup] = useState(false);
   const [showSetupPanel, setShowSetupPanel] = useState(false);
   const [activeSetup, setActiveSetup] = useState(null);
+  const [fsOverlayOpen, setFsOverlayOpen] = useState(false);
+  const [fsIndicatorOpen, setFsIndicatorOpen] = useState(false);
+  const fsOverlayBtnRef = useRef(null);
+  const fsIndicatorBtnRef = useRef(null);
 
   // NEW: Price Alerts State
   const [alerts, setAlerts] = useState([]);
@@ -6850,7 +6854,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   useEffect(() => {
     if (!chartFullscreen) return;
     const handleFsKeys = (e) => {
-      if (e.key === 'Escape') { if (drawingMode) { setDrawingMode(null); setShowDrawingTools(false); } else { setChartFullscreen(false); } return; }
+      if (e.key === 'Escape') { if (fsOverlayOpen || fsIndicatorOpen) { setFsOverlayOpen(false); setFsIndicatorOpen(false); } else if (drawingMode) { setDrawingMode(null); setShowDrawingTools(false); } else { setChartFullscreen(false); } return; }
       // Ctrl/Cmd+Z = undo, Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z = redo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoDrawing(); return; }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redoDrawing(); return; }
@@ -6870,7 +6874,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     };
     window.addEventListener('keydown', handleFsKeys);
     return () => window.removeEventListener('keydown', handleFsKeys);
-  }, [chartFullscreen, undoDrawing, redoDrawing]);
+  }, [chartFullscreen, undoDrawing, redoDrawing, fsOverlayOpen, fsIndicatorOpen]);
+
+  // Reset fullscreen dropdown state when leaving fullscreen
+  useEffect(() => {
+    if (!chartFullscreen) { setFsOverlayOpen(false); setFsIndicatorOpen(false); }
+  }, [chartFullscreen]);
 
   // Chart keyboard shortcuts (non-fullscreen) - B for draw (brush), Escape to exit, Ctrl+Z/Y undo/redo
   useEffect(() => {
@@ -20005,9 +20014,12 @@ INSTRUCTIONS:
 
                               const getChartCoords = (e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                const x = ((e.clientX - rect.left) / rect.width) * numBars + layout.visStart;
+                                // x is relative to the visible range (matches SVG viewBox 0..visData.length)
+                                const xRel = ((e.clientX - rect.left) / rect.width) * visData.length;
+                                // xAbs is the absolute timeSeries index (for storing drawings)
+                                const xAbs = xRel + layout.visStart;
                                 const y = ((e.clientY - rect.top) / rect.height) * 100;
-                                return { x: Math.max(0, Math.min(tickerData.timeSeries.length, x)), y: Math.max(0, Math.min(100, y)), price: dYToPrice(y) };
+                                return { x: Math.max(layout.visStart, Math.min(layout.visEnd, xAbs)), xRel: Math.max(0, Math.min(visData.length, xRel)), y: Math.max(0, Math.min(100, y)), price: dYToPrice(y) };
                               };
 
                               return (
@@ -20062,8 +20074,8 @@ INSTRUCTIONS:
                                     {/* Crosshair guides */}
                                     {drawingMode && drawingPreview && !drawingStart && (
                                       <>
-                                        <line x1={drawingPreview.x} y1={0} x2={drawingPreview.x} y2={100} stroke="rgba(139,92,246,0.35)" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
-                                        <line x1={0} y1={drawingPreview.y} x2={numBars} y2={drawingPreview.y} stroke="rgba(139,92,246,0.35)" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
+                                        <line x1={drawingPreview.xRel} y1={0} x2={drawingPreview.xRel} y2={100} stroke="rgba(139,92,246,0.35)" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
+                                        <line x1={0} y1={drawingPreview.y} x2={visData.length} y2={drawingPreview.y} stroke="rgba(139,92,246,0.35)" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
                                       </>
                                     )}
 
@@ -20071,14 +20083,14 @@ INSTRUCTIONS:
                                     {drawingStart && drawingPreview && (
                                       <>
                                         {drawingMode === 'line' && (
-                                          <line x1={drawingStart.x} y1={dPriceToY(drawingStart.price)} x2={drawingPreview.x} y2={drawingPreview.y}
+                                          <line x1={drawingStart.xRel} y1={dPriceToY(drawingStart.price)} x2={drawingPreview.xRel} y2={drawingPreview.y}
                                             stroke={drawingColor} strokeWidth="0.4" strokeDasharray="1,0.5" opacity="0.8" />
                                         )}
                                         {drawingMode === 'rectangle' && (() => {
                                           const sy = dPriceToY(drawingStart.price);
-                                          const rx = Math.min(drawingStart.x, drawingPreview.x);
+                                          const rx = Math.min(drawingStart.xRel, drawingPreview.xRel);
                                           const ry = Math.min(sy, drawingPreview.y);
-                                          const rw = Math.abs(drawingPreview.x - drawingStart.x);
+                                          const rw = Math.abs(drawingPreview.xRel - drawingStart.xRel);
                                           const rh = Math.abs(drawingPreview.y - sy);
                                           return <rect x={rx} y={ry} width={rw} height={rh} fill={drawingColor + '10'} stroke={drawingColor} strokeWidth="0.3" strokeDasharray="1,0.5" opacity="0.7" />;
                                         })()}
@@ -20089,7 +20101,7 @@ INSTRUCTIONS:
                                           const fLowY = Math.max(fy1, fy2);
                                           const fRange = fLowY - fHighY;
                                           return [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].map((l, i) => (
-                                            <line key={i} x1={0} y1={fHighY + fRange * l} x2={numBars} y2={fHighY + fRange * l}
+                                            <line key={i} x1={0} y1={fHighY + fRange * l} x2={visData.length} y2={fHighY + fRange * l}
                                               stroke={drawingColor} strokeWidth="0.15" strokeDasharray="1,1" opacity="0.5" />
                                           ));
                                         })()}
@@ -21036,57 +21048,22 @@ INSTRUCTIONS:
                                       </div>
                                     )}
 
-                                    {/* Indicator dropdowns */}
+                                    {/* Indicator dropdown toggle buttons (panels rendered with position:fixed below) */}
                                     <div className="flex items-center gap-1">
-                                      {/* Overlays dropdown */}
-                                      <div className="relative group">
-                                        <button className="px-2 py-1 rounded text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1">
-                                          Overlays <ChevronDown className="w-3 h-3" />
-                                        </button>
-                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200" style={{ zIndex: 99999 }}>
-                                          {[
-                                            { label: 'SMA (20)', state: showSMA, setter: () => setShowSMA(v => !v) },
-                                            { label: 'EMA (20)', state: showEMA, setter: () => setShowEMA(v => !v) },
-                                            { label: 'Bollinger', state: showBollinger, setter: () => setShowBollinger(v => !v) },
-                                            { label: 'VWAP', state: showVWAP, setter: () => setShowVWAP(v => !v) },
-                                          ].map(item => (
-                                            <button key={item.label} onClick={item.setter}
-                                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 transition-colors flex items-center justify-between">
-                                              <span className={item.state ? 'text-cyan-400' : 'text-slate-400'}>{item.label}</span>
-                                              {item.state && <Check className="w-3 h-3 text-cyan-400" />}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      {/* Indicators dropdown */}
-                                      <div className="relative group">
-                                        <button className="px-2 py-1 rounded text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1">
-                                          Indicators <ChevronDown className="w-3 h-3" />
-                                        </button>
-                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200" style={{ zIndex: 99999 }}>
-                                          {[
-                                            { label: 'Volume', state: showVolume, setter: () => setShowVolume(v => !v), standalone: false },
-                                            { label: 'RSI (14)', state: showRSI, setter: () => setShowRSI(v => !v), standalone: true },
-                                            { label: 'MACD', state: showMACD, setter: () => setShowMACD(v => !v), standalone: true },
-                                            { label: 'Stochastic', state: showStochastic, setter: () => setShowStochastic(v => !v), standalone: true },
-                                            { label: 'ATR (14)', state: showATR, setter: () => setShowATR(v => !v), standalone: true },
-                                          ].map(item => {
-                                            const activeStandalone = [showRSI, showMACD, showStochastic, showATR].filter(Boolean).length;
-                                            const wouldExceedLimit = item.standalone && !item.state && activeStandalone >= 2;
-                                            return (
-                                              <button key={item.label} onClick={wouldExceedLimit ? undefined : item.setter}
-                                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 transition-colors flex items-center justify-between ${wouldExceedLimit ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                                title={wouldExceedLimit ? 'Max 2 indicators — disable one first' : ''}>
-                                                <span className={item.state ? 'text-cyan-400' : 'text-slate-400'}>{item.label}</span>
-                                                {item.state && <Check className="w-3 h-3 text-cyan-400" />}
-                                              </button>
-                                            );
-                                          })}
-                                          <div className="border-t border-slate-700 mt-1 pt-1 px-3 py-1">
-                                            <span className="text-[10px] text-slate-500">Max 2 panel indicators</span>
-                                          </div>
-                                        </div>
-                                      </div>
+                                      <button
+                                        ref={fsOverlayBtnRef}
+                                        onClick={() => { setFsOverlayOpen(v => !v); setFsIndicatorOpen(false); }}
+                                        className={`px-2 py-1 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${fsOverlayOpen ? 'text-white bg-slate-700' : 'text-slate-300 hover:text-white hover:bg-slate-700'}`}
+                                      >
+                                        Overlays <ChevronDown className={`w-3 h-3 transition-transform ${fsOverlayOpen ? 'rotate-180' : ''}`} />
+                                      </button>
+                                      <button
+                                        ref={fsIndicatorBtnRef}
+                                        onClick={() => { setFsIndicatorOpen(v => !v); setFsOverlayOpen(false); }}
+                                        className={`px-2 py-1 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${fsIndicatorOpen ? 'text-white bg-slate-700' : 'text-slate-300 hover:text-white hover:bg-slate-700'}`}
+                                      >
+                                        Indicators <ChevronDown className={`w-3 h-3 transition-transform ${fsIndicatorOpen ? 'rotate-180' : ''}`} />
+                                      </button>
                                     </div>
                                   </div>{/* close scrollable toolbar content */}
 
@@ -21314,6 +21291,64 @@ INSTRUCTIONS:
                                 )}
 
                                 {chartAndIndicators}
+
+                                {/* Fixed-position dropdown menus (escape overflow-hidden clipping) */}
+                                {fsOverlayOpen && fsOverlayBtnRef.current && (() => {
+                                  const rect = fsOverlayBtnRef.current.getBoundingClientRect();
+                                  return (
+                                    <>
+                                      <div style={{ position: 'fixed', inset: 0, zIndex: 99998 }} onClick={() => setFsOverlayOpen(false)} />
+                                      <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 99999 }}
+                                        className="bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px]">
+                                        {[
+                                          { label: 'SMA (20)', state: showSMA, setter: () => setShowSMA(v => !v) },
+                                          { label: 'EMA (20)', state: showEMA, setter: () => setShowEMA(v => !v) },
+                                          { label: 'Bollinger', state: showBollinger, setter: () => setShowBollinger(v => !v) },
+                                          { label: 'VWAP', state: showVWAP, setter: () => setShowVWAP(v => !v) },
+                                        ].map(item => (
+                                          <button key={item.label} onClick={item.setter}
+                                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 transition-colors flex items-center justify-between">
+                                            <span className={item.state ? 'text-cyan-400' : 'text-slate-400'}>{item.label}</span>
+                                            {item.state && <Check className="w-3 h-3 text-cyan-400" />}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </>
+                                  );
+                                })()}
+
+                                {fsIndicatorOpen && fsIndicatorBtnRef.current && (() => {
+                                  const rect = fsIndicatorBtnRef.current.getBoundingClientRect();
+                                  return (
+                                    <>
+                                      <div style={{ position: 'fixed', inset: 0, zIndex: 99998 }} onClick={() => setFsIndicatorOpen(false)} />
+                                      <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 99999 }}
+                                        className="bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px]">
+                                        {[
+                                          { label: 'Volume', state: showVolume, setter: () => setShowVolume(v => !v), standalone: false },
+                                          { label: 'RSI (14)', state: showRSI, setter: () => setShowRSI(v => !v), standalone: true },
+                                          { label: 'MACD', state: showMACD, setter: () => setShowMACD(v => !v), standalone: true },
+                                          { label: 'Stochastic', state: showStochastic, setter: () => setShowStochastic(v => !v), standalone: true },
+                                          { label: 'ATR (14)', state: showATR, setter: () => setShowATR(v => !v), standalone: true },
+                                        ].map(item => {
+                                          const activeStandalone = [showRSI, showMACD, showStochastic, showATR].filter(Boolean).length;
+                                          const wouldExceedLimit = item.standalone && !item.state && activeStandalone >= 2;
+                                          return (
+                                            <button key={item.label} onClick={wouldExceedLimit ? undefined : item.setter}
+                                              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 transition-colors flex items-center justify-between ${wouldExceedLimit ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                              title={wouldExceedLimit ? 'Max 2 indicators — disable one first' : ''}>
+                                              <span className={item.state ? 'text-cyan-400' : 'text-slate-400'}>{item.label}</span>
+                                              {item.state && <Check className="w-3 h-3 text-cyan-400" />}
+                                            </button>
+                                          );
+                                        })}
+                                        <div className="border-t border-slate-700 mt-1 pt-1 px-3 py-1">
+                                          <span className="text-[10px] text-slate-500">Max 2 panel indicators</span>
+                                        </div>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </div>,
                               document.body
                             );
