@@ -6268,6 +6268,19 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     tickerLoadingRef.current = loadingTicker;
   }, [loadingTicker]);
 
+  // Re-fetch data when timeframe changes (skip initial mount)
+  const timeframeInitRef = useRef(true);
+  useEffect(() => {
+    if (timeframeInitRef.current) {
+      timeframeInitRef.current = false;
+      return;
+    }
+    if (tickerSymbol && tickerData) {
+      console.log(`[Timeframe Change] Re-fetching ${tickerSymbol} with ${tickerTimeframe} timeframe`);
+      fetchTickerData();
+    }
+  }, [tickerTimeframe]);
+
   // Auto-refresh: fetch full chart but smart-merge — historical candles stay, only tail updates
   useEffect(() => {
     if (!tickerAutoRefresh || !tickerSymbol || activeTab !== "ticker") return;
