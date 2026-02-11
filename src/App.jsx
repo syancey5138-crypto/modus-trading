@@ -6833,7 +6833,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         case 'r': case 'R': setChartZoom(1); setChartScrollOffset(-1); break;
         case 'v': case 'V': setShowVolume(v => !v); break;
         case 'f': case 'F': setChartFullscreen(false); break;
-        case 'd': case 'D': setShowDrawingTools(t => !t); if (!drawingMode) setDrawingMode('line'); else { setDrawingMode(null); } break;
+        case 'b': case 'B': setShowDrawingTools(t => !t); if (!drawingMode) setDrawingMode('line'); else { setDrawingMode(null); } break;
         default: break;
       }
     };
@@ -6841,14 +6841,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     return () => window.removeEventListener('keydown', handleFsKeys);
   }, [chartFullscreen]);
 
-  // Chart keyboard shortcuts (non-fullscreen) - D for draw, Escape to exit draw mode
+  // Chart keyboard shortcuts (non-fullscreen) - B for draw (brush), Escape to exit draw mode
   useEffect(() => {
     if (chartFullscreen) return; // fullscreen has its own handler
     const handleChartKeys = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (activeTab !== 'ticker') return;
       if (e.key === 'Escape' && drawingMode) { setDrawingMode(null); setShowDrawingTools(false); e.preventDefault(); }
-      if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey) {
+      if ((e.key === 'b' || e.key === 'B') && !e.ctrlKey && !e.metaKey) {
         if (drawingMode) { setDrawingMode(null); setShowDrawingTools(false); }
         else { setShowDrawingTools(true); setDrawingMode('line'); }
       }
@@ -7084,30 +7084,7 @@ Respond ONLY with valid JSON (no markdown, no code fences):
   "riskReward": "1:X ratio as string"
 }`;
 
-      const apiKey = localStorage.getItem("modus_anthropic_key") || '';
-      if (!apiKey) {
-        showToast("API key required for AI features. Add it in Settings.", "error");
-        setGeneratingSetup(false);
-        return;
-      }
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": apiKey.trim(),
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 500,
-          messages: [{ role: "user", content: prompt }]
-        })
-      });
-
-      if (!response.ok) throw new Error(`API error ${response.status}`);
-      const result = await response.json();
+      const result = await callAPI([{ role: "user", content: prompt }], 500);
       const text = result.content?.[0]?.text || '';
 
       // Parse JSON from response
@@ -20408,7 +20385,7 @@ INSTRUCTIONS:
                                 </div>
                               </div>
 
-                              <div className={`${chartFullscreen ? 'h-32' : 'h-24'} relative bg-slate-800/50 rounded border border-slate-700`}>
+                              <div className={`${chartFullscreen ? ([showRSI, showMACD, showStochastic, showATR].filter(Boolean).length > 1 ? 'h-24' : 'h-32') : 'h-24'} relative bg-slate-800/50 rounded border border-slate-700`}>
                                 {/* Overbought zone (70-100) */}
                                 <div className="absolute w-full bg-red-500/10" style={{ top: 0, height: '30%' }} />
                                 {/* Oversold zone (0-30) */}
@@ -20559,7 +20536,7 @@ INSTRUCTIONS:
                                 </div>
                               </div>
                               
-                              <div className="h-32 relative bg-slate-800/50 rounded border border-slate-700" style={{ width: `${Math.max(displayHistogram.length * 6, 400)}px`, minWidth: '100%' }}>
+                              <div className={`${chartFullscreen && [showRSI, showMACD, showStochastic, showATR].filter(Boolean).length > 1 ? 'h-24' : 'h-32'} relative bg-slate-800/50 rounded border border-slate-700`} style={{ width: `${Math.max(displayHistogram.length * 6, 400)}px`, minWidth: '100%' }}>
                                 {/* Zero line */}
                                 <div className="absolute w-full border-t border-slate-500" style={{ top: '50%' }}>
                                   <span className="absolute right-2 -top-3 text-xs text-slate-500 bg-slate-900 px-1">0</span>
@@ -20713,7 +20690,7 @@ INSTRUCTIONS:
                                 </div>
                               </div>
 
-                              <div className={`${chartFullscreen ? 'h-32' : 'h-24'} relative bg-slate-800/50 rounded border border-slate-700`}>
+                              <div className={`${chartFullscreen ? ([showRSI, showMACD, showStochastic, showATR].filter(Boolean).length > 1 ? 'h-24' : 'h-32') : 'h-24'} relative bg-slate-800/50 rounded border border-slate-700`}>
                                 {/* Overbought zone */}
                                 <div className="absolute w-full bg-red-500/10" style={{ top: 0, height: '20%' }} />
                                 {/* Oversold zone */}
@@ -20842,7 +20819,7 @@ INSTRUCTIONS:
                                 </div>
                               </div>
 
-                              <div className={`${chartFullscreen ? 'h-32' : 'h-20'} relative bg-slate-800/50 rounded border border-slate-700`}>
+                              <div className={`${chartFullscreen ? ([showRSI, showMACD, showStochastic, showATR].filter(Boolean).length > 1 ? 'h-24' : 'h-32') : 'h-20'} relative bg-slate-800/50 rounded border border-slate-700`}>
                                 <svg
                                   className="absolute inset-0 w-full h-full"
                                   viewBox={`0 0 ${Math.max(validATR.length, 1)} ${Math.max(maxATR - minATR, 1)}`}
@@ -20940,39 +20917,79 @@ INSTRUCTIONS:
                                       ))}
                                     </div>
 
-                                    {/* Drawing tools */}
-                                    <div className="flex items-center gap-1 border-r border-slate-700 pr-3">
-                                      {[
-                                        { mode: 'line', icon: <TrendingUp className="w-3.5 h-3.5" />, tip: 'Trend Line' },
-                                        { mode: 'horizontal', icon: <Minus className="w-3.5 h-3.5" />, tip: 'H-Line' },
-                                        { mode: 'fibonacci', icon: <Activity className="w-3.5 h-3.5" />, tip: 'Fibonacci' },
-                                        { mode: 'rectangle', icon: <LayoutGrid className="w-3.5 h-3.5" />, tip: 'Rectangle' },
-                                        { mode: 'text', icon: <Hash className="w-3.5 h-3.5" />, tip: 'Text' },
-                                      ].map(tool => (
-                                        <button
-                                          key={tool.mode}
-                                          onClick={() => setDrawingMode(drawingMode === tool.mode ? null : tool.mode)}
-                                          className={`px-2 py-1.5 rounded transition-all flex items-center gap-1 ${
-                                            drawingMode === tool.mode
-                                              ? 'bg-violet-600 text-white'
-                                              : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                                          }`}
-                                          title={tool.tip}
-                                        >
-                                          {tool.icon}
-                                          <span className="text-[10px] hidden xl:inline">{tool.tip}</span>
-                                        </button>
-                                      ))}
-                                      {drawings[tickerData.symbol]?.length > 0 && (
-                                        <button
-                                          onClick={() => setDrawings(prev => ({ ...prev, [tickerData.symbol]: [] }))}
-                                          className="p-1.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all"
-                                          title="Clear drawings"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
-                                      )}
+                                    {/* Navigate / Draw mode toggle */}
+                                    <div className="flex items-center bg-slate-800/80 rounded-lg p-0.5 border-r border-slate-700 pr-1 mr-1">
+                                      <button
+                                        onClick={() => { setDrawingMode(null); setShowDrawingTools(false); }}
+                                        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                                          !drawingMode ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
+                                        }`}
+                                        title="Navigate — drag to pan, scroll to zoom"
+                                      >
+                                        <MousePointer className="w-3 h-3" />
+                                        <span className="hidden lg:inline">Navigate</span>
+                                      </button>
+                                      <button
+                                        onClick={() => { setShowDrawingTools(true); if (!drawingMode) setDrawingMode('line'); }}
+                                        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                                          drawingMode ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
+                                        }`}
+                                        title="Draw — click to draw on chart"
+                                      >
+                                        <Pencil className="w-3 h-3" />
+                                        <span className="hidden lg:inline">Draw</span>
+                                      </button>
                                     </div>
+
+                                    {/* Drawing tools (visible when in Draw mode) */}
+                                    {drawingMode && (
+                                      <div className="flex items-center gap-1 border-r border-slate-700 pr-3">
+                                        {[
+                                          { mode: 'line', icon: <TrendingUp className="w-3.5 h-3.5" />, tip: 'Trend Line' },
+                                          { mode: 'horizontal', icon: <Minus className="w-3.5 h-3.5" />, tip: 'H-Line' },
+                                          { mode: 'fibonacci', icon: <Activity className="w-3.5 h-3.5" />, tip: 'Fibonacci' },
+                                          { mode: 'rectangle', icon: <LayoutGrid className="w-3.5 h-3.5" />, tip: 'Rectangle' },
+                                          { mode: 'text', icon: <Hash className="w-3.5 h-3.5" />, tip: 'Text' },
+                                        ].map(tool => (
+                                          <button
+                                            key={tool.mode}
+                                            onClick={() => setDrawingMode(tool.mode)}
+                                            className={`px-2 py-1.5 rounded transition-all flex items-center gap-1 ${
+                                              drawingMode === tool.mode
+                                                ? 'bg-violet-600 text-white'
+                                                : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                            }`}
+                                            title={tool.tip}
+                                          >
+                                            {tool.icon}
+                                            <span className="text-[10px] hidden xl:inline">{tool.tip}</span>
+                                          </button>
+                                        ))}
+                                        {(drawings[tickerData.symbol] || []).length > 0 && (
+                                          <>
+                                            <button
+                                              onClick={() => {
+                                                const sym = tickerData.symbol;
+                                                setDrawings(prev => ({ ...prev, [sym]: (prev[sym] || []).slice(0, -1) }));
+                                              }}
+                                              className="px-2 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1"
+                                              title="Undo last drawing"
+                                            >
+                                              <RotateCcw className="w-3.5 h-3.5" />
+                                              <span className="text-[10px] hidden xl:inline">Undo</span>
+                                            </button>
+                                            <button
+                                              onClick={() => setDrawings(prev => ({ ...prev, [tickerData.symbol]: [] }))}
+                                              className="px-2 py-1.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all flex items-center gap-1"
+                                              title="Clear all drawings"
+                                            >
+                                              <X className="w-3.5 h-3.5" />
+                                              <span className="text-[10px] hidden xl:inline">Clear</span>
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
 
                                     {/* Indicator dropdowns */}
                                     <div className="flex items-center gap-1">
@@ -20981,7 +20998,7 @@ INSTRUCTIONS:
                                         <button className="px-2 py-1 rounded text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1">
                                           Overlays <ChevronDown className="w-3 h-3" />
                                         </button>
-                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200" style={{ zIndex: 99999 }}>
                                           {[
                                             { label: 'SMA (20)', state: showSMA, setter: () => setShowSMA(v => !v) },
                                             { label: 'EMA (20)', state: showEMA, setter: () => setShowEMA(v => !v) },
@@ -21001,7 +21018,7 @@ INSTRUCTIONS:
                                         <button className="px-2 py-1 rounded text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1">
                                           Indicators <ChevronDown className="w-3 h-3" />
                                         </button>
-                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                        <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl py-1.5 min-w-[140px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200" style={{ zIndex: 99999 }}>
                                           {[
                                             { label: 'Volume', state: showVolume, setter: () => setShowVolume(v => !v), standalone: false },
                                             { label: 'RSI (14)', state: showRSI, setter: () => setShowRSI(v => !v), standalone: true },
@@ -21091,22 +21108,23 @@ INSTRUCTIONS:
                                     </button>
                                     <button
                                       onClick={() => { setChartZoom(1); setChartScrollOffset(-1); }}
-                                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-                                      title="Reset zoom (R)"
+                                      className="flex items-center gap-1 px-2 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                                      title="Reset chart zoom and position"
                                     >
                                       <RotateCcw className="w-3.5 h-3.5" />
+                                      <span className="text-[10px] hidden lg:inline">Reset</span>
                                     </button>
                                     <button
                                       onClick={() => setChartZoom(z => Math.min(6, z * 1.3))}
-                                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-                                      title="Zoom in (+)"
+                                      className="flex items-center gap-1 px-1.5 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                                      title="Zoom in"
                                     >
                                       <ZoomIn className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                       onClick={() => setChartZoom(z => Math.max(0.3, z * 0.7))}
-                                      className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-                                      title="Zoom out (-)"
+                                      className="flex items-center gap-1 px-1.5 py-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                                      title="Zoom out"
                                     >
                                       <ZoomOut className="w-3.5 h-3.5" />
                                     </button>
