@@ -20696,9 +20696,9 @@ INSTRUCTIONS:
                                           {tool.icon}
                                         </button>
                                       ))}
-                                      {tickerDrawings[tickerData.symbol]?.length > 0 && (
+                                      {drawings[tickerData.symbol]?.length > 0 && (
                                         <button
-                                          onClick={() => setTickerDrawings(prev => ({ ...prev, [tickerData.symbol]: [] }))}
+                                          onClick={() => setDrawings(prev => ({ ...prev, [tickerData.symbol]: [] }))}
                                           className="p-1.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all"
                                           title="Clear drawings"
                                         >
