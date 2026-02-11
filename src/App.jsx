@@ -11,7 +11,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move, Share2 } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -1829,6 +1829,14 @@ function App() {
   const pinchStartDist = useRef(0);
   const pinchStartZoom = useRef(1);
   const [chartFullscreen, setChartFullscreen] = useState(false);
+
+  // ── AI Trade Setup Generator ──
+  const [tradeSetups, setTradeSetups] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_trade_setups')) || []; } catch { return []; }
+  });
+  const [generatingSetup, setGeneratingSetup] = useState(false);
+  const [showSetupPanel, setShowSetupPanel] = useState(false);
+  const [activeSetup, setActiveSetup] = useState(null);
 
   // NEW: Price Alerts State
   const [alerts, setAlerts] = useState([]);
@@ -6964,6 +6972,142 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       timeSeries: [] // No historical data in free tier
     };
   };
+
+  // ═══════════════════════════════════════════════
+  // AI TRADE SETUP GENERATOR
+  // ═══════════════════════════════════════════════
+  const generateTradeSetup = useCallback(async () => {
+    if (!tickerData?.timeSeries?.length || generatingSetup) return;
+
+    setGeneratingSetup(true);
+    try {
+      const ts = tickerData.timeSeries;
+      const closes = ts.map(b => b.close);
+      const highs = ts.map(b => b.high);
+      const lows = ts.map(b => b.low);
+      const volumes = ts.map(b => b.volume || 0);
+      const currentPrice = closes[closes.length - 1];
+
+      // Calculate key levels
+      const recent20High = Math.max(...highs.slice(-20));
+      const recent20Low = Math.min(...lows.slice(-20));
+      const recent50High = Math.max(...highs.slice(-50));
+      const recent50Low = Math.min(...lows.slice(-50));
+      const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+      const recentVolume = volumes.slice(-5).reduce((a, b) => a + b, 0) / 5;
+
+      // RSI
+      let gains = 0, losses = 0;
+      const period = Math.min(14, closes.length - 1);
+      for (let i = closes.length - period; i < closes.length; i++) {
+        const change = closes[i] - closes[i - 1];
+        if (change > 0) gains += change; else losses -= change;
+      }
+      const rsi = losses === 0 ? 100 : 100 - (100 / (1 + (gains / losses)));
+
+      // SMA
+      const sma20 = closes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+      const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : sma20;
+
+      // ATR
+      const trueRanges = [];
+      for (let i = Math.max(1, ts.length - 14); i < ts.length; i++) {
+        const tr = Math.max(ts[i].high - ts[i].low, Math.abs(ts[i].high - ts[i-1].close), Math.abs(ts[i].low - ts[i-1].close));
+        trueRanges.push(tr);
+      }
+      const atr = trueRanges.length > 0 ? trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length : 0;
+
+      // Trend
+      const trend = sma20 > sma50 ? 'Uptrend' : sma20 < sma50 ? 'Downtrend' : 'Sideways';
+
+      const prompt = `You are a professional technical analyst. Generate a precise trade setup for ${tickerData.symbol} based on this data:
+
+Current Price: $${currentPrice.toFixed(2)}
+Timeframe: ${tickerTimeframe}
+RSI(14): ${rsi.toFixed(1)}
+SMA(20): $${sma20.toFixed(2)} | SMA(50): $${sma50.toFixed(2)}
+ATR(14): $${atr.toFixed(2)}
+Trend: ${trend}
+20-bar High: $${recent20High.toFixed(2)} | 20-bar Low: $${recent20Low.toFixed(2)}
+50-bar High: $${recent50High.toFixed(2)} | 50-bar Low: $${recent50Low.toFixed(2)}
+Volume: Recent ${(recentVolume/1000).toFixed(0)}K vs Avg ${(avgVolume/1000).toFixed(0)}K (${(recentVolume/avgVolume*100).toFixed(0)}%)
+
+Respond ONLY with valid JSON (no markdown, no code fences):
+{
+  "direction": "LONG" or "SHORT",
+  "entry": exact entry price number,
+  "stopLoss": exact stop loss price number,
+  "target1": first target price (1:1 risk-reward),
+  "target2": second target price (2:1 risk-reward),
+  "confidence": number 60-95,
+  "reasoning": "2-3 sentence explanation of why this setup exists",
+  "pattern": "Name of pattern detected (e.g. Bull Flag, Support Bounce, Breakdown)",
+  "timeframe": "Expected hold time (e.g. 4h, 1-2 days, 1 week)",
+  "riskReward": "1:X ratio as string"
+}`;
+
+      const apiKey = localStorage.getItem("modus_anthropic_key") || '';
+      if (!apiKey) {
+        showToast("API key required for AI features. Add it in Settings.", "error");
+        setGeneratingSetup(false);
+        return;
+      }
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey.trim(),
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 500,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+
+      if (!response.ok) throw new Error(`API error ${response.status}`);
+      const result = await response.json();
+      const text = result.content?.[0]?.text || '';
+
+      // Parse JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Invalid AI response format");
+
+      const setup = JSON.parse(jsonMatch[0]);
+      const newSetup = {
+        id: Date.now(),
+        symbol: tickerData.symbol,
+        timeframe: tickerTimeframe,
+        price: currentPrice,
+        ...setup,
+        status: 'pending', // pending | active | hit_target | stopped_out | expired
+        createdAt: new Date().toISOString()
+      };
+
+      setTradeSetups(prev => {
+        const updated = [newSetup, ...prev].slice(0, 20);
+        localStorage.setItem('modus_trade_setups', JSON.stringify(updated));
+        return updated;
+      });
+      setActiveSetup(newSetup);
+      setShowSetupPanel(true);
+
+      showToast(`${setup.direction} setup generated for ${tickerData.symbol}!`, "success");
+
+      // Award XP
+      if (typeof awardXP === 'function') awardXP(15, 'Generated AI trade setup');
+
+    } catch (err) {
+      console.error("[Setup Generator] Error:", err);
+      showToast("Failed to generate setup. Try again.", "error");
+    } finally {
+      setGeneratingSetup(false);
+    }
+  }, [tickerData, tickerTimeframe, generatingSetup]);
+
   const captureTickerChart = async () => {
     if (!tickerChartRef.current) return;
 
@@ -15535,6 +15679,19 @@ INSTRUCTIONS:
             </button>
 
             <button
+              onClick={() => setActiveTab("setups")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
+                activeTab === "setups"
+                  ? "bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-500/25"
+                  : "text-slate-400 hover:bg-slate-800/70 hover:text-white"
+              }`}
+              title={sidebarCollapsed ? "Trade Setups" : ""}
+            >
+              <Target className={`w-5 h-5 flex-shrink-0 ${activeTab === "setups" ? "text-white" : ""}`} />
+              {!sidebarCollapsed && <span className="font-medium text-sm">Trade Setups</span>}
+            </button>
+
+            <button
               onClick={() => setActiveTab("alerts")}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 relative ${
                 activeTab === "alerts"
@@ -20041,14 +20198,26 @@ INSTRUCTIONS:
                               <div className="text-xs text-slate-500">
                                 💡 Hover for details • {tickerData.timeSeries.length} candles
                               </div>
-                              <button
-                                onClick={() => setChartFullscreen(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-violet-600 border border-slate-600 hover:border-violet-500 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition-all duration-200"
-                                title="Enter fullscreen chart"
-                              >
-                                <Maximize2 className="w-3.5 h-3.5" />
-                                Fullscreen
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={generateTradeSetup}
+                                  disabled={generatingSetup}
+                                  className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                                    generatingSetup ? 'bg-amber-600/30 text-amber-300 cursor-wait' : 'bg-amber-600/20 hover:bg-amber-600/40 text-amber-400'
+                                  }`}
+                                  title="Generate AI trade setup"
+                                >
+                                  {generatingSetup ? '⏳' : '🎯'} Setup
+                                </button>
+                                <button
+                                  onClick={() => setChartFullscreen(true)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-violet-600 border border-slate-600 hover:border-violet-500 text-slate-300 hover:text-white rounded-lg text-xs font-medium transition-all duration-200"
+                                  title="Enter fullscreen chart"
+                                >
+                                  <Maximize2 className="w-3.5 h-3.5" />
+                                  Fullscreen
+                                </button>
+                              </div>
                             </div>
                           )}
                           
@@ -20858,6 +21027,23 @@ INSTRUCTIONS:
                                       <span className="hidden xl:inline">Analyze</span>
                                     </button>
                                     <button
+                                      onClick={generateTradeSetup}
+                                      disabled={generatingSetup}
+                                      className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                        generatingSetup
+                                          ? 'bg-amber-600/50 text-amber-200 cursor-wait'
+                                          : 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white'
+                                      }`}
+                                      title="AI generates entry, stop loss, and target prices"
+                                    >
+                                      {generatingSetup ? (
+                                        <div className="w-3.5 h-3.5 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <Target className="w-3.5 h-3.5" />
+                                      )}
+                                      <span className="hidden xl:inline">{generatingSetup ? 'Generating...' : 'Setup'}</span>
+                                    </button>
+                                    <button
                                       onClick={() => { setChartZoom(1); setChartScrollOffset(-1); }}
                                       className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
                                       title="Reset zoom (R)"
@@ -20905,6 +21091,108 @@ INSTRUCTIONS:
                                     </div>
                                   );
                                 })()}
+
+                                {/* AI Trade Setup Panel */}
+                                {showSetupPanel && activeSetup && (
+                                  <div className="absolute top-14 right-3 z-50 w-72 bg-slate-900/98 border border-slate-700/50 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+                                    <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-amber-600/20 to-amber-700/20 border-b border-slate-700/50">
+                                      <div className="flex items-center gap-2">
+                                        <Target className="w-4 h-4 text-amber-400" />
+                                        <span className="text-sm font-bold text-white">AI Trade Setup</span>
+                                      </div>
+                                      <button onClick={() => setShowSetupPanel(false)} className="text-slate-400 hover:text-white">
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                    <div className="p-3 space-y-2.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-base font-bold text-violet-400">{activeSetup.symbol}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                          activeSetup.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                                        }`}>
+                                          {activeSetup.direction}
+                                        </span>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-slate-800/60 rounded-lg p-2">
+                                          <div className="text-[10px] text-slate-500 uppercase">Entry</div>
+                                          <div className="text-sm font-bold text-white">${parseFloat(activeSetup.entry).toFixed(2)}</div>
+                                        </div>
+                                        <div className="bg-red-500/10 rounded-lg p-2">
+                                          <div className="text-[10px] text-red-400 uppercase">Stop Loss</div>
+                                          <div className="text-sm font-bold text-red-400">${parseFloat(activeSetup.stopLoss).toFixed(2)}</div>
+                                        </div>
+                                        <div className="bg-emerald-500/10 rounded-lg p-2">
+                                          <div className="text-[10px] text-emerald-400 uppercase">Target 1</div>
+                                          <div className="text-sm font-bold text-emerald-400">${parseFloat(activeSetup.target1).toFixed(2)}</div>
+                                        </div>
+                                        <div className="bg-emerald-500/10 rounded-lg p-2">
+                                          <div className="text-[10px] text-emerald-400 uppercase">Target 2</div>
+                                          <div className="text-sm font-bold text-emerald-400">${parseFloat(activeSetup.target2).toFixed(2)}</div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Confidence</span>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-20 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full ${
+                                              activeSetup.confidence >= 80 ? 'bg-emerald-500' : activeSetup.confidence >= 65 ? 'bg-amber-500' : 'bg-red-500'
+                                            }`} style={{ width: `${activeSetup.confidence}%` }} />
+                                          </div>
+                                          <span className="text-white font-bold">{activeSetup.confidence}%</span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Risk:Reward</span>
+                                        <span className="text-amber-400 font-bold">{activeSetup.riskReward || '1:2'}</span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Pattern</span>
+                                        <span className="text-cyan-400 font-medium">{activeSetup.pattern || 'Technical'}</span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Hold Time</span>
+                                        <span className="text-slate-300">{activeSetup.timeframe || tickerTimeframe}</span>
+                                      </div>
+
+                                      <div className="text-[11px] text-slate-400 bg-slate-800/40 rounded-lg p-2 leading-relaxed">
+                                        {activeSetup.reasoning}
+                                      </div>
+
+                                      <div className="flex gap-2 pt-1">
+                                        <button
+                                          onClick={() => {
+                                            addToSocialFeed({
+                                              type: 'setup',
+                                              ticker: activeSetup.symbol,
+                                              text: `${activeSetup.direction} ${activeSetup.symbol}: Entry $${parseFloat(activeSetup.entry).toFixed(2)} | SL $${parseFloat(activeSetup.stopLoss).toFixed(2)} | TP $${parseFloat(activeSetup.target1).toFixed(2)}/$${parseFloat(activeSetup.target2).toFixed(2)} — ${activeSetup.pattern} (${activeSetup.confidence}% conf)`,
+                                              verdict: activeSetup.direction === 'LONG' ? 'BUY' : 'SELL',
+                                              target: parseFloat(activeSetup.target1).toFixed(2),
+                                              stop: parseFloat(activeSetup.stopLoss).toFixed(2),
+                                              confidence: activeSetup.confidence
+                                            });
+                                            showToast("Setup shared to community!", "success");
+                                          }}
+                                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 rounded-lg text-xs font-medium transition-all"
+                                        >
+                                          <Share2 className="w-3 h-3" />
+                                          Share
+                                        </button>
+                                        <button
+                                          onClick={() => setShowSetupPanel(false)}
+                                          className="flex-1 px-2 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-all"
+                                        >
+                                          Close
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {/* Loading overlay when switching timeframes */}
                                 {loadingTicker && (
@@ -24276,6 +24564,134 @@ INSTRUCTIONS:
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Trade Setups Tab */}
+        {activeTab === "setups" && (
+          <div className="p-4 md:p-6 max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Target className="w-6 h-6 text-amber-400" />
+                  AI Trade Setups
+                </h2>
+                <p className="text-sm text-slate-400 mt-1">AI-generated trade setups with entry, stop loss, and target prices</p>
+              </div>
+              {tickerData && (
+                <button
+                  onClick={generateTradeSetup}
+                  disabled={generatingSetup}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    generatingSetup
+                      ? 'bg-amber-600/50 text-amber-200 cursor-wait'
+                      : 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white shadow-lg shadow-amber-500/25'
+                  }`}
+                >
+                  {generatingSetup ? (
+                    <div className="w-4 h-4 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Target className="w-4 h-4" />
+                  )}
+                  {generatingSetup ? 'Generating...' : `Generate for ${tickerData.symbol}`}
+                </button>
+              )}
+            </div>
+
+            {tradeSetups.length === 0 ? (
+              <div className="text-center py-16">
+                <Target className="w-12 h-12 text-slate-700 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-slate-400 mb-2">No Setups Yet</h3>
+                <p className="text-sm text-slate-500 mb-4">Load a ticker in Live Ticker, then click "Generate Setup" to create your first AI trade setup</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tradeSetups.map((setup) => (
+                  <div key={setup.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-slate-600/50 transition-all">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg font-bold text-violet-400">{setup.symbol}</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          setup.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        }`}>
+                          {setup.direction}
+                        </span>
+                        <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-xs rounded-full">{setup.pattern || 'Technical'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold ${setup.confidence >= 80 ? 'text-emerald-400' : setup.confidence >= 65 ? 'text-amber-400' : 'text-red-400'}`}>
+                          {setup.confidence}%
+                        </span>
+                        <button
+                          onClick={() => {
+                            setTradeSetups(prev => {
+                              const updated = prev.filter(s => s.id !== setup.id);
+                              localStorage.setItem('modus_trade_setups', JSON.stringify(updated));
+                              return updated;
+                            });
+                          }}
+                          className="text-slate-500 hover:text-red-400 transition-colors"
+                          title="Remove setup"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3 mb-3">
+                      <div className="bg-slate-900/50 rounded-lg p-2.5">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">Entry</div>
+                        <div className="text-sm font-bold text-white">${parseFloat(setup.entry).toFixed(2)}</div>
+                      </div>
+                      <div className="bg-red-500/5 rounded-lg p-2.5">
+                        <div className="text-[10px] text-red-400/70 uppercase tracking-wider">Stop Loss</div>
+                        <div className="text-sm font-bold text-red-400">${parseFloat(setup.stopLoss).toFixed(2)}</div>
+                      </div>
+                      <div className="bg-emerald-500/5 rounded-lg p-2.5">
+                        <div className="text-[10px] text-emerald-400/70 uppercase tracking-wider">Target 1</div>
+                        <div className="text-sm font-bold text-emerald-400">${parseFloat(setup.target1).toFixed(2)}</div>
+                      </div>
+                      <div className="bg-emerald-500/5 rounded-lg p-2.5">
+                        <div className="text-[10px] text-emerald-400/70 uppercase tracking-wider">Target 2</div>
+                        <div className="text-sm font-bold text-emerald-400">${parseFloat(setup.target2).toFixed(2)}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs text-slate-400 mb-2">
+                      <span>R:R {setup.riskReward || '1:2'}</span>
+                      <span>Hold: {setup.timeframe || '—'}</span>
+                      <span>{setup.timeframe ? `${setup.timeframe} chart` : tickerTimeframe}</span>
+                      <span className="ml-auto">{new Date(setup.createdAt).toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="text-xs text-slate-400 bg-slate-900/30 rounded-lg p-2.5 leading-relaxed">
+                      {setup.reasoning}
+                    </div>
+
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => {
+                          addToSocialFeed({
+                            type: 'setup',
+                            ticker: setup.symbol,
+                            text: `${setup.direction} ${setup.symbol}: Entry $${parseFloat(setup.entry).toFixed(2)} | SL $${parseFloat(setup.stopLoss).toFixed(2)} | TP $${parseFloat(setup.target1).toFixed(2)}/$${parseFloat(setup.target2).toFixed(2)} — ${setup.pattern} (${setup.confidence}% conf)`,
+                            verdict: setup.direction === 'LONG' ? 'BUY' : 'SELL',
+                            target: parseFloat(setup.target1).toFixed(2),
+                            stop: parseFloat(setup.stopLoss).toFixed(2),
+                            confidence: setup.confidence
+                          });
+                          showToast("Setup shared to community!", "success");
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 rounded-lg text-xs font-medium transition-all"
+                      >
+                        <Share2 className="w-3 h-3" />
+                        Share to Community
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
