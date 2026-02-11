@@ -6300,8 +6300,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       timeframeInitRef.current = false;
       return;
     }
+    // CRITICAL: Update ref BEFORE fetching so fetchFromYahooFinance reads the new value
+    tickerTimeframeRef.current = tickerTimeframe;
     if (tickerSymbol && tickerData) {
       console.log(`[Timeframe Change] Re-fetching ${tickerSymbol} with ${tickerTimeframe} timeframe`);
+      // Reset zoom/scroll when switching timeframes for clean view
+      setChartZoom(1);
+      setChartScrollOffset(-1);
       fetchTickerData();
     }
   }, [tickerTimeframe]);
@@ -19551,12 +19556,15 @@ INSTRUCTIONS:
                                           {/* Body */}
                                           <div className={`absolute left-0 right-0 ${isGreen ? 'bg-emerald-500 border-emerald-400' : 'bg-red-500 border-red-400'} border hover:opacity-100 transition-colors hover:z-10`}
                                             style={{ bottom: `${bodyBottom}%`, height: `${bodyHeight}%`, minHeight: '2px' }} />
-                                          {/* Tooltip */}
+                                          {/* Tooltip — flips horizontally near edges */}
                                           {(() => {
                                             const showBelow = highHeight > 70;
+                                            const nearRightEdge = vi > visData.length - 6;
+                                            const nearLeftEdge = vi < 5;
+                                            const hAlign = nearRightEdge ? { right: 0 } : nearLeftEdge ? { left: 0 } : { left: '50%', transform: 'translateX(-50%)' };
                                             return (
-                                              <div className="absolute left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200"
-                                                style={{ ...(showBelow ? { top: `${100 - lowHeight}%`, marginTop: '8px' } : { bottom: `${highHeight}%`, marginBottom: '8px' }), zIndex: 1000 }}>
+                                              <div className={`absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200`}
+                                                style={{ ...hAlign, ...(showBelow ? { top: `${100 - lowHeight}%`, marginTop: '8px' } : { bottom: `${highHeight}%`, marginBottom: '8px' }), zIndex: 1000 }}>
                                                 <div className="bg-slate-800 border-2 border-violet-500 rounded-lg px-3 py-2.5 text-xs whitespace-nowrap shadow-2xl">
                                                   <div className="text-violet-300 font-bold border-b border-slate-700 pb-1.5 mb-1">
                                                     {bar.time ? new Date(bar.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : `Bar ${layout.visStart + vi + 1}`}
@@ -20679,9 +20687,9 @@ INSTRUCTIONS:
                             return createPortal(
                               <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col overflow-hidden">
                                 {/* PRO FULLSCREEN TOOLBAR */}
-                                <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/95 border-b border-slate-700/50 flex-shrink-0 backdrop-blur-sm">
-                                  {/* Left: Symbol + Price */}
-                                  <div className="flex items-center gap-3">
+                                <div className="flex items-center px-3 py-1.5 bg-slate-900/95 border-b border-slate-700/50 flex-shrink-0 backdrop-blur-sm gap-2">
+                                  {/* Left: scrollable toolbar content */}
+                                  <div className="flex items-center gap-3 overflow-x-auto flex-1 min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                     <div className="flex items-center gap-2 border-r border-slate-700 pr-3">
                                       <span className="text-base font-bold text-violet-400">{tickerData.symbol}</span>
                                       <span className="text-lg font-bold text-white">${(tickerData.timeSeries[tickerData.timeSeries.length - 1]?.close || 0).toFixed(2)}</span>
@@ -20776,45 +20784,43 @@ INSTRUCTIONS:
                                         </button>
                                       ))}
                                     </div>
-                                  </div>
+                                  </div>{/* close scrollable toolbar content */}
 
-                                  {/* Right: Actions */}
-                                  <div className="flex items-center gap-2">
+                                  {/* Right: Actions — always visible, never scrolled */}
+                                  <div className="flex items-center gap-1.5 flex-shrink-0 pl-2 border-l border-slate-700">
                                     <button
                                       onClick={() => { setChartFullscreen(false); setTimeout(() => captureTickerChart(), 300); }}
-                                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg text-xs font-medium transition-all shadow-lg shadow-emerald-500/20"
+                                      className="flex items-center gap-1 px-2 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg text-xs font-medium transition-all"
                                       title="Capture chart and run AI analysis"
                                     >
                                       <Camera className="w-3.5 h-3.5" />
-                                      <span className="hidden lg:inline">Analyze</span>
+                                      <span className="hidden xl:inline">Analyze</span>
                                     </button>
-                                    <div className="w-px h-6 bg-slate-700 mx-1" />
                                     <button
                                       onClick={() => { setChartZoom(1); setChartScrollOffset(-1); }}
                                       className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
                                       title="Reset zoom (R)"
                                     >
-                                      <RotateCcw className="w-4 h-4" />
+                                      <RotateCcw className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                       onClick={() => setChartZoom(z => Math.min(6, z * 1.3))}
                                       className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
                                       title="Zoom in (+)"
                                     >
-                                      <ZoomIn className="w-4 h-4" />
+                                      <ZoomIn className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                       onClick={() => setChartZoom(z => Math.max(0.3, z * 0.7))}
                                       className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
                                       title="Zoom out (-)"
                                     >
-                                      <ZoomOut className="w-4 h-4" />
+                                      <ZoomOut className="w-3.5 h-3.5" />
                                     </button>
-                                    <div className="w-px h-6 bg-slate-700 mx-1" />
-                                    <span className="text-[10px] text-slate-600 hidden lg:block">ESC to exit</span>
                                     <button
                                       onClick={() => setChartFullscreen(false)}
-                                      className="px-3 py-1.5 bg-slate-700 hover:bg-red-600 text-white rounded-lg text-xs font-medium transition-all flex items-center gap-1.5"
+                                      className="px-2.5 py-1.5 bg-slate-700 hover:bg-red-600 text-white rounded-lg text-xs font-medium transition-all flex items-center gap-1"
+                                      title="Exit fullscreen (ESC)"
                                     >
                                       <Minimize2 className="w-3.5 h-3.5" /> Exit
                                     </button>
