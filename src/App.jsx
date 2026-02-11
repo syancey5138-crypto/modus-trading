@@ -5377,11 +5377,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         setImageData({ data: base64Data, mediaType: file.type });
         setImageHash(hash);
         
-        // Check cache
-        if (cachedAnalyses[hash]) {
-          setAnalysis(cachedAnalyses[hash]);
-          setAnalysisError(null);
-        }
+        // No cache - always fresh analysis
       };
       reader.readAsDataURL(file);
     }
@@ -7373,11 +7369,7 @@ Provide:
   const analyzeChart = async () => {
     if (!imageData) return;
 
-    // Check cache first
-    if (imageHash && cachedAnalyses[imageHash]) {
-      setAnalysis(cachedAnalyses[imageHash]);
-      return;
-    }
+    // Always run fresh AI analysis - no caching, maximum accuracy
 
     setLoadingAnalysis(true);
     setAnalysisError(null);
@@ -8632,13 +8624,7 @@ OUTPUT JSON:
         saveToHistory(fullAnalysis, image);
       }
       
-      // Cache result
-      if (imageHash) {
-        setCachedAnalyses(prev => ({
-          ...prev,
-          [imageHash]: fullAnalysis
-        }));
-      }
+      // No caching - every analysis is fresh and real-time
 
     } catch (err) {
       console.error("Analysis error:", err);
@@ -23241,12 +23227,12 @@ INSTRUCTIONS:
                     );
                   })()}
 
-                  {/* Consistency Badge */}
-                  {imageHash && cachedAnalyses[imageHash] && (
+                  {/* Fresh Analysis Badge */}
+                  {analysis && (
                     <div className="mt-6 pt-6 border-t border-slate-700/50">
                       <div className="flex items-center justify-center gap-2 text-sm text-emerald-400">
                         <Sparkles className="w-4 h-4" />
-                        <span>Analysis retrieved from cache - 100% consistent results</span>
+                        <span>Fresh real-time AI analysis</span>
                       </div>
                     </div>
                   )}
