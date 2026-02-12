@@ -4898,6 +4898,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Pattern Highlights (fullscreen chart)
   const [showPatternHighlights, setShowPatternHighlights] = useState(false);
+  const [patternSensitivity, setPatternSensitivity] = useState('medium'); // low | medium | high
+  const [patternFilters, setPatternFilters] = useState({ largeCandles: true, gaps: true, volumeSpikes: true, runs: true, reversals: true, srZones: true });
+  const [patternPanelOpen, setPatternPanelOpen] = useState(false);
+  const [patternAlerts, setPatternAlerts] = useState([]);
+  const prevPatternCountRef = useRef(0);
 
   const fileInputRef = useRef(null);
 
@@ -7219,9 +7224,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     return { candleW, gap, stride, visStart, visEnd, maxOffset, realOffset, containerW, totalBars, dataStart };
   }, [tickerData?.timeSeries?.length, chartZoom, chartScrollOffset, chartFullscreen, tickerCandleCount]);
 
-  // Pattern detection for chart highlighting
-  const detectChartPatterns = useCallback((visData, visStart) => {
+  // Pattern detection for chart highlighting — supports sensitivity & filters
+  const detectChartPatterns = useCallback((visData, visStart, sensitivity = 'medium', filters = { largeCandles: true, gaps: true, volumeSpikes: true, runs: true, reversals: true }) => {
     if (!visData || visData.length < 5) return null;
+
+    // Sensitivity thresholds
+    const thresholds = {
+      low:    { bodyMult: 3.0, volMult: 3.0, runMin: 5, revBodyMult: 1.5 },
+      medium: { bodyMult: 2.0, volMult: 2.0, runMin: 4, revBodyMult: 1.2 },
+      high:   { bodyMult: 1.3, volMult: 1.5, runMin: 3, revBodyMult: 1.0 }
+    };
+    const t = thresholds[sensitivity] || thresholds.medium;
 
     // Calculate statistics
     const bodies = visData.map(b => b ? Math.abs((b.close || 0) - (b.open || 0)) : 0);
@@ -7237,49 +7250,150 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const volSpikeSet = new Set();
     const reversalSet = new Set();
     const runs = [];
+    const patternList = []; // For click-to-jump panel
 
     // Large candles & volume spikes
     visData.forEach((bar, vi) => {
       if (!bar || bar.close == null) return;
       const body = Math.abs((bar.close || 0) - (bar.open || 0));
-      if (avgBody > 0 && body > avgBody * 2) largeCandleSet.add(vi);
-      if (avgVol > 0 && (bar.volume || 0) > avgVol * 2) volSpikeSet.add(vi);
+      if (filters.largeCandles && avgBody > 0 && body > avgBody * t.bodyMult) {
+        largeCandleSet.add(vi);
+        const isGreen = bar.close >= (bar.open || bar.close);
+        const pctMove = bar.open ? ((bar.close - bar.open) / bar.open * 100).toFixed(2) : '0.00';
+        patternList.push({ type: 'large', vi, time: bar.time, price: bar.close, label: `${isGreen ? '▲' : '▼'} ${Math.abs(pctMove)}% move`, color: isGreen ? 'emerald' : 'red' });
+      }
+      if (filters.volumeSpikes && avgVol > 0 && (bar.volume || 0) > avgVol * t.volMult) {
+        volSpikeSet.add(vi);
+        patternList.push({ type: 'volume', vi, time: bar.time, price: bar.close, label: `${((bar.volume / avgVol)).toFixed(1)}x avg volume`, color: 'blue' });
+      }
     });
 
     // Gaps
-    for (let vi = 1; vi < visData.length; vi++) {
-      const c = visData[vi], p = visData[vi - 1];
-      if (!c || !p || c.open == null || p.high == null || p.low == null) continue;
-      if (c.open > p.high) gapMap[vi] = 'up';
-      else if (c.open < p.low) gapMap[vi] = 'down';
-    }
-
-    // Consecutive runs (4+ same color)
-    let runStart = 0, runGreen = null;
-    for (let vi = 0; vi <= visData.length; vi++) {
-      const bar = vi < visData.length ? visData[vi] : null;
-      const isGreen = bar ? bar.close >= (bar.open || bar.close) : null;
-      if (isGreen !== runGreen || vi === visData.length) {
-        const len = vi - runStart;
-        if (len >= 4 && runGreen !== null) runs.push({ start: runStart, end: vi - 1, isGreen: runGreen });
-        runStart = vi;
-        runGreen = isGreen;
+    if (filters.gaps) {
+      for (let vi = 1; vi < visData.length; vi++) {
+        const c = visData[vi], p = visData[vi - 1];
+        if (!c || !p || c.open == null || p.high == null || p.low == null) continue;
+        if (c.open > p.high) {
+          gapMap[vi] = 'up';
+          const gapPct = ((c.open - p.high) / p.high * 100).toFixed(2);
+          patternList.push({ type: 'gap', vi, time: c.time, price: c.open, label: `Gap up +${gapPct}%`, color: 'emerald' });
+        } else if (c.open < p.low) {
+          gapMap[vi] = 'down';
+          const gapPct = ((p.low - c.open) / p.low * 100).toFixed(2);
+          patternList.push({ type: 'gap', vi, time: c.time, price: c.open, label: `Gap down -${gapPct}%`, color: 'red' });
+        }
       }
     }
 
-    // Sharp reversals (direction change after 3+ same-direction candles, with above-avg body)
-    for (let vi = 3; vi < visData.length; vi++) {
-      const bars = [visData[vi - 3], visData[vi - 2], visData[vi - 1], visData[vi]];
-      if (bars.some(b => !b || b.close == null)) continue;
-      const dirs = bars.map(b => b.close >= (b.open || b.close) ? 'up' : 'down');
-      if (dirs[0] === dirs[1] && dirs[1] === dirs[2] && dirs[2] !== dirs[3]) {
-        const body = Math.abs((bars[3].close || 0) - (bars[3].open || 0));
-        if (avgBody > 0 && body > avgBody * 1.2) reversalSet.add(vi);
+    // Consecutive runs
+    if (filters.runs) {
+      let runStart = 0, runGreen = null;
+      for (let vi = 0; vi <= visData.length; vi++) {
+        const bar = vi < visData.length ? visData[vi] : null;
+        const isGreen = bar ? bar.close >= (bar.open || bar.close) : null;
+        if (isGreen !== runGreen || vi === visData.length) {
+          const len = vi - runStart;
+          if (len >= t.runMin && runGreen !== null) {
+            runs.push({ start: runStart, end: vi - 1, isGreen: runGreen });
+            const startBar = visData[runStart], endBar = visData[vi - 1];
+            const pctMove = startBar?.open ? (((endBar?.close || 0) - startBar.open) / startBar.open * 100).toFixed(2) : '0';
+            patternList.push({ type: 'run', vi: runStart, time: startBar?.time, price: endBar?.close, label: `${len}-bar ${runGreen ? 'bull' : 'bear'} run (${pctMove}%)`, color: runGreen ? 'emerald' : 'red' });
+          }
+          runStart = vi;
+          runGreen = isGreen;
+        }
       }
     }
 
-    return { largeCandleSet, gapMap, volSpikeSet, runs, reversalSet };
+    // Sharp reversals
+    if (filters.reversals) {
+      for (let vi = 3; vi < visData.length; vi++) {
+        const bars = [visData[vi - 3], visData[vi - 2], visData[vi - 1], visData[vi]];
+        if (bars.some(b => !b || b.close == null)) continue;
+        const dirs = bars.map(b => b.close >= (b.open || b.close) ? 'up' : 'down');
+        if (dirs[0] === dirs[1] && dirs[1] === dirs[2] && dirs[2] !== dirs[3]) {
+          const body = Math.abs((bars[3].close || 0) - (bars[3].open || 0));
+          if (avgBody > 0 && body > avgBody * t.revBodyMult) {
+            reversalSet.add(vi);
+            patternList.push({ type: 'reversal', vi, time: bars[3].time, price: bars[3].close, label: `${dirs[3] === 'up' ? 'Bullish' : 'Bearish'} reversal`, color: 'orange' });
+          }
+        }
+      }
+    }
+
+    // Sort by position (left to right)
+    patternList.sort((a, b) => a.vi - b.vi);
+
+    // Auto-detect support/resistance zones from price clusters
+    const srZones = [];
+    if (visData.length >= 10) {
+      // Collect all highs and lows
+      const levels = [];
+      visData.forEach(b => {
+        if (b && b.high) levels.push({ price: b.high, type: 'high' });
+        if (b && b.low) levels.push({ price: b.low, type: 'low' });
+      });
+      // Sort by price
+      levels.sort((a, b) => a.price - b.price);
+      // Cluster nearby price levels (within 0.3% of each other)
+      const priceMax = Math.max(...levels.map(l => l.price));
+      const priceMin = Math.min(...levels.map(l => l.price));
+      const clusterThreshold = (priceMax - priceMin) * 0.008; // 0.8% of range
+      const clusters = [];
+      let currentCluster = [levels[0]];
+      for (let i = 1; i < levels.length; i++) {
+        if (levels[i].price - currentCluster[currentCluster.length - 1].price <= clusterThreshold) {
+          currentCluster.push(levels[i]);
+        } else {
+          if (currentCluster.length >= 3) clusters.push(currentCluster);
+          currentCluster = [levels[i]];
+        }
+      }
+      if (currentCluster.length >= 3) clusters.push(currentCluster);
+      // Convert clusters to zones
+      clusters.forEach(c => {
+        const prices = c.map(l => l.price);
+        const zoneLow = Math.min(...prices);
+        const zoneHigh = Math.max(...prices);
+        const zoneCenter = (zoneLow + zoneHigh) / 2;
+        const lastClose = visData[visData.length - 1]?.close || 0;
+        const isSupport = zoneCenter < lastClose;
+        const touches = c.length;
+        srZones.push({ low: zoneLow, high: zoneHigh, center: zoneCenter, isSupport, touches, strength: Math.min(touches, 8) });
+      });
+      // Keep top 4 strongest zones
+      srZones.sort((a, b) => b.touches - a.touches);
+      srZones.splice(4);
+    }
+
+    const totalCount = largeCandleSet.size + Object.keys(gapMap).length + volSpikeSet.size + runs.length + reversalSet.size;
+
+    return { largeCandleSet, gapMap, volSpikeSet, runs, reversalSet, patternList, totalCount, srZones };
   }, []);
+
+  // Pattern alert detection — fires when new patterns appear on live data refresh
+  useEffect(() => {
+    if (!showPatternHighlights || !chartFullscreen || !tickerData?.timeSeries?.length) return;
+    const series = tickerData.timeSeries;
+    // Only check the last 20 bars for new patterns
+    const recentData = series.slice(-20);
+    if (recentData.length < 5) return;
+    const patterns = detectChartPatterns(recentData, series.length - 20, patternSensitivity, patternFilters);
+    if (!patterns) return;
+    const newCount = patterns.totalCount;
+    if (prevPatternCountRef.current > 0 && newCount > prevPatternCountRef.current) {
+      const diff = newCount - prevPatternCountRef.current;
+      const newest = patterns.patternList.slice(-diff);
+      const alerts = newest.map(p => ({ ...p, id: Date.now() + Math.random(), fadingOut: false }));
+      setPatternAlerts(prev => [...alerts, ...prev].slice(0, 5));
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        setPatternAlerts(prev => prev.map(a => alerts.find(al => al.id === a.id) ? { ...a, fadingOut: true } : a));
+        setTimeout(() => setPatternAlerts(prev => prev.filter(a => !alerts.find(al => al.id === a.id))), 500);
+      }, 5000);
+    }
+    prevPatternCountRef.current = newCount;
+  }, [tickerData?.timeSeries?.length, showPatternHighlights, chartFullscreen, patternSensitivity, patternFilters, detectChartPatterns]);
 
   const handleChartWheel = useCallback((e) => {
     // Only intercept scroll for zoom in fullscreen mode
@@ -20684,10 +20798,31 @@ INSTRUCTIONS:
                                 const maxPrice = Math.max(...validBars.map(b => b.high));
                                 const priceRange = maxPrice - minPrice || 1;
                                 const subOffset = (layout.realOffset % layout.stride);
-                                const patterns = showPatternHighlights ? detectChartPatterns(visData, layout.visStart) : null;
+                                const patterns = showPatternHighlights ? detectChartPatterns(visData, layout.visStart, patternSensitivity, patternFilters) : null;
 
                                 return (
                                   <div className="relative flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px` }}>
+                                    {/* Pattern: Support/Resistance zones */}
+                                    {patterns && patternFilters.srZones && patterns.srZones && patterns.srZones.map((zone, zi) => {
+                                      const zoneBottom = ((zone.low - minPrice) / priceRange) * 95 + 5;
+                                      const zoneTop = ((zone.high - minPrice) / priceRange) * 95 + 5;
+                                      const zoneHeight = Math.max(zoneTop - zoneBottom, 0.5);
+                                      const opacity = Math.min(0.15, 0.06 + zone.strength * 0.012);
+                                      return (
+                                        <div key={`sr-${zi}`} className="absolute left-0 right-0 pointer-events-none"
+                                          style={{ bottom: `${zoneBottom}%`, height: `${zoneHeight}%`, zIndex: 0,
+                                            background: zone.isSupport
+                                              ? `rgba(16,185,129,${opacity})`
+                                              : `rgba(239,68,68,${opacity})`,
+                                            borderTop: `1px dashed ${zone.isSupport ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}`,
+                                            borderBottom: `1px dashed ${zone.isSupport ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}`
+                                          }}>
+                                          <span className="absolute right-1 top-0 text-[8px] font-medium" style={{ color: zone.isSupport ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)' }}>
+                                            {zone.isSupport ? 'S' : 'R'} ${zone.center.toFixed(2)} ({zone.touches}x)
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
                                     {/* Pattern: Run background shading */}
                                     {patterns && patterns.runs.map((run, ri) => {
                                       const leftPos = run.start * layout.stride;
@@ -20756,6 +20891,31 @@ INSTRUCTIONS:
                                                   <div className="flex justify-between gap-4"><span className="text-slate-400">Close:</span><span className={`font-semibold ${isGreen ? 'text-emerald-400' : 'text-red-400'}`}>${(bar.close || 0).toFixed(2)}</span></div>
                                                   {bar.volume > 0 && (<div className="flex justify-between gap-4 border-t border-slate-700 pt-1.5 mt-1"><span className="text-slate-400">Volume:</span><span className="font-semibold text-blue-400">{(bar.volume || 0).toLocaleString()}</span></div>)}
                                                   <div className="flex justify-between gap-4 border-t border-slate-700 pt-1.5 mt-1"><span className="text-slate-400">Change:</span><span className={`font-semibold ${isGreen ? 'text-emerald-400' : 'text-red-400'}`}>{isGreen ? '+' : ''}{((bar.close - (bar.open || bar.close)) / (bar.open || bar.close) * 100).toFixed(2)}%</span></div>
+                                                  {/* Pattern outcome: what happened next */}
+                                                  {patterns && (patterns.largeCandleSet.has(vi) || patterns.reversalSet.has(vi) || patterns.gapMap[vi]) && (() => {
+                                                    const fullSeries = tickerData.timeSeries;
+                                                    const absIdx = layout.visStart + vi;
+                                                    const barsAhead = [5, 10];
+                                                    const outcomes = barsAhead.map(n => {
+                                                      const futureBar = fullSeries[absIdx + n];
+                                                      if (!futureBar || futureBar.close == null) return null;
+                                                      const pct = ((futureBar.close - bar.close) / bar.close * 100).toFixed(2);
+                                                      return { n, pct: parseFloat(pct), price: futureBar.close };
+                                                    }).filter(Boolean);
+                                                    if (outcomes.length === 0) return null;
+                                                    const patternType = patterns.largeCandleSet.has(vi) ? 'Large Move' : patterns.reversalSet.has(vi) ? 'Reversal' : patterns.gapMap[vi] === 'up' ? 'Gap Up' : 'Gap Down';
+                                                    return (
+                                                      <div className="border-t border-violet-500/30 pt-1.5 mt-1">
+                                                        <div className="text-violet-400 font-semibold text-[10px] mb-1">{patternType} — Outcome</div>
+                                                        {outcomes.map(o => (
+                                                          <div key={o.n} className="flex justify-between gap-4">
+                                                            <span className="text-slate-400">+{o.n} bars:</span>
+                                                            <span className={`font-semibold ${o.pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{o.pct >= 0 ? '+' : ''}{o.pct}%</span>
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    );
+                                                  })()}
                                                 </div>
                                               </div>
                                             );
@@ -21180,7 +21340,7 @@ INSTRUCTIONS:
                               const maxVol = volValues.length > 0 ? Math.max(...volValues) : 1;
                               if (maxVol === 0) return null;
                               const subOffset = (layout.realOffset % layout.stride);
-                              const patterns = showPatternHighlights ? detectChartPatterns(visData, layout.visStart) : null;
+                              const patterns = showPatternHighlights ? detectChartPatterns(visData, layout.visStart, patternSensitivity, patternFilters) : null;
                               return (
                                 <div className="absolute bottom-8 left-16 right-0 h-[25%] pointer-events-none z-[5] opacity-40">
                                   <div className="flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px`, overflow: 'hidden' }}>
@@ -21870,31 +22030,133 @@ INSTRUCTIONS:
                           );
                         })()}
 
-                        {/* Pattern Legend */}
-                        {showPatternHighlights && (
-                          <div className="absolute bottom-10 right-3 flex items-center gap-3 bg-slate-900/90 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-slate-700/50 z-20">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-3 h-3 rounded-sm bg-amber-400/80 shadow-[0_0_4px_rgba(251,191,36,0.6)]" />
-                              <span className="text-[9px] text-slate-400">Large Move</span>
+                        {/* Pattern Settings Dropdown */}
+                        {patternPanelOpen && (
+                          <>
+                            <div className="fixed inset-0 z-30" onClick={() => setPatternPanelOpen(false)} />
+                            <div className="absolute top-12 right-3 z-40 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl py-2 w-56">
+                              <div className="px-3 pb-2 mb-1 border-b border-slate-700">
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Sensitivity</div>
+                                <div className="flex gap-1">
+                                  {['low', 'medium', 'high'].map(s => (
+                                    <button key={s} onClick={() => setPatternSensitivity(s)}
+                                      className={`flex-1 px-2 py-1 rounded text-[10px] font-medium transition-all capitalize ${
+                                        patternSensitivity === s ? 'bg-violet-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'
+                                      }`}>{s}</button>
+                                  ))}
+                                </div>
+                                <div className="text-[9px] text-slate-600 mt-1">
+                                  {patternSensitivity === 'low' ? 'Only major moves (3x avg)' : patternSensitivity === 'high' ? 'Catches subtle moves (1.3x avg)' : 'Balanced detection (2x avg)'}
+                                </div>
+                              </div>
+                              <div className="px-3 py-1">
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Pattern Types</div>
+                                {[
+                                  { key: 'largeCandles', label: 'Large Candles', desc: 'Outsized price moves', icon: '🔥' },
+                                  { key: 'gaps', label: 'Gaps', desc: 'Price gaps up/down', icon: '⬆️' },
+                                  { key: 'volumeSpikes', label: 'Volume Spikes', desc: 'Unusual volume', icon: '📊' },
+                                  { key: 'runs', label: 'Trend Runs', desc: 'Consecutive candles', icon: '📈' },
+                                  { key: 'reversals', label: 'Reversals', desc: 'Direction changes', icon: '🔄' },
+                                  { key: 'srZones', label: 'S/R Zones', desc: 'Support & resistance', icon: '📏' },
+                                ].map(item => (
+                                  <button key={item.key}
+                                    onClick={() => setPatternFilters(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                                    className="w-full flex items-center justify-between px-1 py-1.5 rounded hover:bg-slate-700/50 transition-colors group">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs">{item.icon}</span>
+                                      <div>
+                                        <div className={`text-[11px] font-medium ${patternFilters[item.key] ? 'text-cyan-400' : 'text-slate-500'}`}>{item.label}</div>
+                                        <div className="text-[9px] text-slate-600">{item.desc}</div>
+                                      </div>
+                                    </div>
+                                    <div className={`w-7 h-4 rounded-full transition-colors flex items-center ${patternFilters[item.key] ? 'bg-violet-600 justify-end' : 'bg-slate-600 justify-start'}`}>
+                                      <div className={`w-3 h-3 rounded-full mx-0.5 transition-colors ${patternFilters[item.key] ? 'bg-white' : 'bg-slate-400'}`} />
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-3 h-3 rounded-sm bg-orange-400/80 shadow-[0_0_4px_rgba(249,115,22,0.6)]" />
-                              <span className="text-[9px] text-slate-400">Reversal</span>
+                          </>
+                        )}
+
+                        {/* Pattern Legend with count */}
+                        {showPatternHighlights && (() => {
+                          const layout = getChartLayout();
+                          const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                          const p = detectChartPatterns(visData, layout.visStart, patternSensitivity, patternFilters);
+                          const count = p ? p.totalCount : 0;
+                          return (
+                            <div className="absolute bottom-10 right-3 flex items-center gap-3 bg-slate-900/90 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-slate-700/50 z-20">
+                              {count > 0 && <span className="text-[10px] font-bold text-violet-400 border-r border-slate-700 pr-2 mr-1">{count} found</span>}
+                              {patternFilters.largeCandles && <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-sm bg-amber-400/80 shadow-[0_0_3px_rgba(251,191,36,0.6)]" /><span className="text-[9px] text-slate-400">Large</span></div>}
+                              {patternFilters.reversals && <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-sm bg-orange-400/80 shadow-[0_0_3px_rgba(249,115,22,0.6)]" /><span className="text-[9px] text-slate-400">Reversal</span></div>}
+                              {patternFilters.gaps && <div className="flex items-center gap-1"><div style={{ width: 0, height: 0, borderLeft: '3px solid transparent', borderRight: '3px solid transparent', borderBottom: '4px solid #10b981' }} /><span className="text-[9px] text-slate-400">Gap</span></div>}
+                              {patternFilters.runs && <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-400/20 border border-emerald-400/30" /><span className="text-[9px] text-slate-400">Run</span></div>}
+                              {patternFilters.volumeSpikes && <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-sm bg-blue-400/80 shadow-[0_0_3px_rgba(59,130,246,0.6)]" /><span className="text-[9px] text-slate-400">Vol</span></div>}
+                              {patternFilters.srZones && <div className="flex items-center gap-1"><div className="w-4 h-2 rounded-sm border border-dashed border-emerald-400/50 bg-emerald-400/10" /><span className="text-[9px] text-slate-400">S/R</span></div>}
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <div style={{ width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '5px solid #10b981' }} />
-                              <span className="text-[9px] text-slate-400">Gap</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-3 h-3 rounded-sm bg-emerald-400/20 border border-emerald-400/30" />
-                              <span className="text-[9px] text-slate-400">Run</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-3 h-3 rounded-sm bg-blue-400/80 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
-                              <span className="text-[9px] text-slate-400">Vol Spike</span>
-                            </div>
+                          );
+                        })()}
+
+                        {/* Pattern Alert Toasts */}
+                        {patternAlerts.length > 0 && (
+                          <div className="absolute top-14 right-3 z-50 flex flex-col gap-1.5 pointer-events-none">
+                            {patternAlerts.map(alert => {
+                              const colorMap = { emerald: 'border-emerald-500/50 bg-emerald-500/10', red: 'border-red-500/50 bg-red-500/10', blue: 'border-blue-500/50 bg-blue-500/10', orange: 'border-orange-500/50 bg-orange-500/10' };
+                              const textMap = { emerald: 'text-emerald-400', red: 'text-red-400', blue: 'text-blue-400', orange: 'text-orange-400' };
+                              return (
+                                <div key={alert.id}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border backdrop-blur-sm transition-all duration-500 ${colorMap[alert.color] || 'border-slate-600 bg-slate-800/80'} ${alert.fadingOut ? 'opacity-0 translate-x-4' : 'opacity-100'}`}>
+                                  <Zap className={`w-3 h-3 ${textMap[alert.color] || 'text-violet-400'}`} />
+                                  <div>
+                                    <div className={`text-[11px] font-semibold ${textMap[alert.color] || 'text-slate-300'}`}>{alert.label}</div>
+                                    <div className="text-[9px] text-slate-500">${(alert.price || 0).toFixed(2)}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
+
+                        {/* Pattern List Panel (click to jump) */}
+                        {showPatternHighlights && patternPanelOpen && (() => {
+                          const layout = getChartLayout();
+                          const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
+                          const patterns = detectChartPatterns(visData, layout.visStart, patternSensitivity, patternFilters);
+                          if (!patterns || !patterns.patternList || patterns.patternList.length === 0) return null;
+                          return (
+                            <div className="absolute top-12 left-3 bottom-12 z-30 w-52 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden flex flex-col">
+                              <div className="px-3 py-2 border-b border-slate-700/50 flex items-center justify-between">
+                                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Detected Patterns</span>
+                                <span className="text-[10px] text-violet-400 font-bold">{patterns.patternList.length}</span>
+                              </div>
+                              <div className="flex-1 overflow-y-auto">
+                                {patterns.patternList.map((p, pi) => {
+                                  const colorMap = { emerald: 'text-emerald-400', red: 'text-red-400', blue: 'text-blue-400', orange: 'text-orange-400' };
+                                  const bgMap = { emerald: 'bg-emerald-500/10', red: 'bg-red-500/10', blue: 'bg-blue-500/10', orange: 'bg-orange-500/10' };
+                                  return (
+                                    <button key={pi}
+                                      onClick={() => {
+                                        // Jump to the pattern's candle by adjusting scroll offset
+                                        const targetIdx = p.vi + layout.visStart - layout.dataStart;
+                                        const newOffset = Math.max(0, targetIdx * layout.stride - (layout.containerW / 2));
+                                        setChartScrollOffset(newOffset);
+                                      }}
+                                      className={`w-full text-left px-3 py-2 border-b border-slate-800/50 hover:bg-slate-800/70 transition-colors ${bgMap[p.color] || ''}`}>
+                                      <div className="flex items-center justify-between">
+                                        <span className={`text-[11px] font-medium ${colorMap[p.color] || 'text-slate-300'}`}>{p.label}</span>
+                                        <span className="text-[9px] text-slate-600">${(p.price || 0).toFixed(2)}</span>
+                                      </div>
+                                      <div className="text-[9px] text-slate-500 mt-0.5">
+                                        {p.time ? new Date(p.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* Enhanced price scale */}
                         <div className="mt-4 bg-slate-800/50 rounded px-4 py-2">
@@ -22064,17 +22326,28 @@ INSTRUCTIONS:
                                       </button>
                                     </div>
 
-                                    {/* Pattern Highlights Toggle */}
-                                    <button
-                                      onClick={() => setShowPatternHighlights(v => !v)}
-                                      className={`px-2 py-1 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
-                                        showPatternHighlights ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : 'text-slate-300 hover:text-white hover:bg-slate-700'
-                                      }`}
-                                      title="Highlight large price changes, gaps, volume spikes, and trend runs"
-                                    >
-                                      <Zap className="w-3 h-3" />
-                                      <span className="hidden lg:inline">Patterns</span>
-                                    </button>
+                                    {/* Pattern Highlights Toggle + Dropdown */}
+                                    <div className="relative flex items-center gap-0.5">
+                                      <button
+                                        onClick={() => setShowPatternHighlights(v => !v)}
+                                        className={`px-2 py-1 rounded-l text-[11px] font-medium transition-all flex items-center gap-1 ${
+                                          showPatternHighlights ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : 'text-slate-300 hover:text-white hover:bg-slate-700'
+                                        }`}
+                                        title="Toggle pattern highlights"
+                                      >
+                                        <Zap className="w-3 h-3" />
+                                        <span className="hidden lg:inline">Patterns</span>
+                                      </button>
+                                      <button
+                                        onClick={() => setPatternPanelOpen(v => !v)}
+                                        className={`px-1 py-1 rounded-r text-[11px] font-medium transition-all flex items-center ${
+                                          patternPanelOpen ? 'bg-violet-600 text-white' : showPatternHighlights ? 'bg-violet-600/70 text-white/80 hover:bg-violet-500' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                        }`}
+                                        title="Pattern settings"
+                                      >
+                                        <ChevronDown className={`w-3 h-3 transition-transform ${patternPanelOpen ? 'rotate-180' : ''}`} />
+                                      </button>
+                                    </div>
                                   </div>{/* close scrollable toolbar content */}
 
                                   {/* Right: Actions — always visible, never scrolled */}
