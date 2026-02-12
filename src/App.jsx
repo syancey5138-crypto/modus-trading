@@ -2425,12 +2425,30 @@ function App() {
       let marketTrend = 'N/A', marketDayChange = 'N/A';
       let newsSentiment = 'N/A', newsHeadlines = [];
 
-      // Fetch higher timeframe + SPY market context + news in parallel
+      // Sector ETF mapping for relative strength
+      const sectorETFMap = {
+        'AAPL': 'XLK', 'MSFT': 'XLK', 'NVDA': 'XLK', 'GOOGL': 'XLK', 'META': 'XLK', 'AMD': 'XLK', 'INTC': 'XLK', 'CRM': 'XLK', 'ORCL': 'XLK', 'ADBE': 'XLK', 'AVGO': 'XLK', 'CSCO': 'XLK', 'QCOM': 'XLK', 'TXN': 'XLK', 'MU': 'XLK', 'AMAT': 'XLK', 'LRCX': 'XLK', 'KLAC': 'XLK', 'MRVL': 'XLK', 'SNPS': 'XLK', 'CDNS': 'XLK', 'NOW': 'XLK', 'PANW': 'XLK', 'CRWD': 'XLK',
+        'JPM': 'XLF', 'BAC': 'XLF', 'GS': 'XLF', 'MS': 'XLF', 'WFC': 'XLF', 'C': 'XLF', 'BLK': 'XLF', 'SCHW': 'XLF', 'AXP': 'XLF', 'V': 'XLF', 'MA': 'XLF', 'PYPL': 'XLF', 'SQ': 'XLF', 'COF': 'XLF',
+        'XOM': 'XLE', 'CVX': 'XLE', 'COP': 'XLE', 'SLB': 'XLE', 'EOG': 'XLE', 'MPC': 'XLE', 'PSX': 'XLE', 'VLO': 'XLE', 'OXY': 'XLE', 'HAL': 'XLE',
+        'JNJ': 'XLV', 'UNH': 'XLV', 'PFE': 'XLV', 'ABBV': 'XLV', 'MRK': 'XLV', 'LLY': 'XLV', 'TMO': 'XLV', 'ABT': 'XLV', 'BMY': 'XLV', 'AMGN': 'XLV', 'GILD': 'XLV', 'ISRG': 'XLV', 'MDT': 'XLV',
+        'AMZN': 'XLY', 'TSLA': 'XLY', 'HD': 'XLY', 'MCD': 'XLY', 'NKE': 'XLY', 'SBUX': 'XLY', 'LOW': 'XLY', 'TJX': 'XLY', 'BKNG': 'XLY', 'CMG': 'XLY',
+        'PG': 'XLP', 'KO': 'XLP', 'PEP': 'XLP', 'COST': 'XLP', 'WMT': 'XLP', 'PM': 'XLP', 'MO': 'XLP', 'CL': 'XLP', 'MDLZ': 'XLP',
+        'NEE': 'XLU', 'DUK': 'XLU', 'SO': 'XLU', 'D': 'XLU', 'AEP': 'XLU',
+        'AMT': 'XLRE', 'PLD': 'XLRE', 'CCI': 'XLRE', 'EQIX': 'XLRE', 'SPG': 'XLRE',
+        'CAT': 'XLI', 'DE': 'XLI', 'UNP': 'XLI', 'HON': 'XLI', 'BA': 'XLI', 'RTX': 'XLI', 'LMT': 'XLI', 'GE': 'XLI', 'MMM': 'XLI',
+        'DIS': 'XLC', 'NFLX': 'XLC', 'CMCSA': 'XLC', 'T': 'XLC', 'VZ': 'XLC', 'TMUS': 'XLC', 'CHTR': 'XLC',
+        'LIN': 'XLB', 'APD': 'XLB', 'SHW': 'XLB', 'ECL': 'XLB', 'FCX': 'XLB', 'NEM': 'XLB', 'DOW': 'XLB'
+      };
+      const sectorETF = sectorETFMap[sym.toUpperCase()] || null;
+      const sectorNames = { 'XLK': 'Technology', 'XLF': 'Financials', 'XLE': 'Energy', 'XLV': 'Healthcare', 'XLY': 'Consumer Discretionary', 'XLP': 'Consumer Staples', 'XLU': 'Utilities', 'XLRE': 'Real Estate', 'XLI': 'Industrials', 'XLC': 'Communication Services', 'XLB': 'Materials' };
+
+      // Fetch higher timeframe + SPY market context + news + sector ETF in parallel
       try {
-        const [htfData, spyData, newsData] = await Promise.all([
+        const [htfData, spyData, newsData, sectorData] = await Promise.all([
           fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${htfInterval}&range=${htfRange}`, 6000).catch(() => null),
           fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1mo`, 6000).catch(() => null),
-          fetchRealTimeNews(sym, 5).catch(() => [])
+          fetchRealTimeNews(sym, 5).catch(() => []),
+          sectorETF ? fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/${sectorETF}?interval=1d&range=1mo`, 6000).catch(() => null) : Promise.resolve(null)
         ]);
 
         // Higher timeframe trend
@@ -2486,6 +2504,25 @@ function App() {
         console.log('Quick Analysis: Multi-timeframe/market context fetch failed:', e.message);
       }
 
+      // Sector relative strength
+      let sectorRelStrength = 'N/A', sectorPerf = 'N/A', stockVsSector = 'N/A';
+      if (sectorData && sectorETF) {
+        const sectorCloses = (sectorData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+        if (sectorCloses.length >= 5) {
+          const sectorStart = sectorCloses[0];
+          const sectorEnd = sectorCloses[sectorCloses.length - 1];
+          const sectorPerfPct = ((sectorEnd - sectorStart) / sectorStart * 100);
+          sectorPerf = sectorPerfPct.toFixed(2) + '%';
+          // Stock performance over same period (use the closes we already have)
+          const stockStart = closes.length >= sectorCloses.length ? closes[closes.length - sectorCloses.length] : closes[0];
+          const stockEnd = closes[closes.length - 1];
+          const stockPerfPct = ((stockEnd - stockStart) / stockStart * 100);
+          const relStrength = stockPerfPct - sectorPerfPct;
+          stockVsSector = (relStrength > 0 ? '+' : '') + relStrength.toFixed(2) + '%';
+          sectorRelStrength = relStrength > 2 ? 'OUTPERFORMING' : relStrength < -2 ? 'UNDERPERFORMING' : 'IN LINE';
+        }
+      }
+
       // Determine trend alignment
       const primaryTrend = sma20 && sma50 ? (sma20 > sma50 ? 'UPTREND' : 'DOWNTREND') : 'N/A';
       const trendsAligned = primaryTrend !== 'N/A' && htfTrend !== 'N/A' && primaryTrend === htfTrend;
@@ -2538,6 +2575,9 @@ MARKET CONTEXT (SPY):
 
 NEWS SENTIMENT:
 - Overall Sentiment: ${newsSentiment}${newsHeadlines.length > 0 ? '\n- Recent Headlines: ' + newsHeadlines.slice(0, 3).join(' | ') : ''}
+
+SECTOR ANALYSIS:
+${sectorETF ? `- Sector: ${sectorNames[sectorETF]} (${sectorETF}), Sector Performance: ${sectorPerf}, Stock vs Sector: ${stockVsSector}, Relative Strength: ${sectorRelStrength}` : '- Sector data not available'}
 
 Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
 
@@ -2633,6 +2673,7 @@ CRITICAL RULES:
           fibLevels, nearestFibSupport, nearestFibResistance,
           stochRsi: stochRsi ? parseFloat(stochRsi.toFixed(1)) : null, stochSignal,
           newsSentiment, newsHeadlines,
+          sectorETF, sectorName: sectorETF ? sectorNames[sectorETF] : null, sectorPerf, stockVsSector, sectorRelStrength,
           htfTrend, marketTrend, trendsAligned,
           volRatio: parseFloat(volRatio),
           rangePosition: parseInt(rangePosition),
@@ -2650,6 +2691,8 @@ CRITICAL RULES:
         setQuickAnalysisResult(result);
         setQuickAnalysisHistory(prev => [result, ...prev.filter(h => h.ticker !== sym)].slice(0, 10));
         addXP(15, 'Quick analysis completed');
+        // Log for accuracy tracking
+        logAccuracyVerdict(sym, result.verdict, currentPrice, safeTarget, safeStop, safeConfidence, 'quick');
         // Auto-track price target (Feature 5)
         if (safeTarget > 0 && safeStop > 0) {
           addPriceTarget(sym, result.price, safeTarget, safeStop, result.verdict, safeConfidence);
@@ -3590,6 +3633,114 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   useEffect(() => {
     try { localStorage.setItem('modus_price_targets', JSON.stringify(priceTargets)); } catch (e) { console.warn('[PriceTargets] Storage write failed:', e.message); }
   }, [priceTargets]);
+
+  // ═══════════════════════════════════════════════
+  // ACCURACY TRACKING — logs verdicts and checks outcomes
+  // ═══════════════════════════════════════════════
+  const [accuracyLog, setAccuracyLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_accuracy_log')) || []; } catch { return []; }
+  });
+  const [accuracyStats, setAccuracyStats] = useState({ total: 0, correct: 0, wrong: 0, pending: 0, winRate: 0, byVerdict: {} });
+
+  useEffect(() => {
+    try { localStorage.setItem('modus_accuracy_log', JSON.stringify(accuracyLog)); } catch (e) {}
+  }, [accuracyLog]);
+
+  const logAccuracyVerdict = useCallback((ticker, verdict, priceAtVerdict, targetPrice, stopLoss, confidence, source = 'quick') => {
+    const entry = {
+      id: Date.now(),
+      ticker,
+      verdict,
+      priceAtVerdict: parseFloat(priceAtVerdict) || 0,
+      targetPrice: parseFloat(targetPrice) || 0,
+      stopLoss: parseFloat(stopLoss) || 0,
+      confidence,
+      source,
+      timestamp: new Date().toISOString(),
+      outcome: 'pending', // pending | correct | wrong
+      priceAtCheck: null,
+      checkedAt: null,
+      pnlPercent: null
+    };
+    setAccuracyLog(prev => [entry, ...prev].slice(0, 200));
+  }, []);
+
+  // Periodic accuracy check — runs every 60s, checks verdicts older than 1 hour
+  useEffect(() => {
+    const checkAccuracy = async () => {
+      const now = Date.now();
+      const pendingEntries = accuracyLog.filter(e => e.outcome === 'pending' && (now - new Date(e.timestamp).getTime()) > 3600000);
+      if (pendingEntries.length === 0) return;
+
+      // Batch unique tickers
+      const tickers = [...new Set(pendingEntries.map(e => e.ticker))];
+      const priceMap = {};
+
+      for (const sym of tickers.slice(0, 10)) {
+        try {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`;
+          const data = await fetchYahooWithProxies(url, 5000);
+          const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+          if (price) priceMap[sym] = price;
+        } catch (e) {}
+      }
+
+      if (Object.keys(priceMap).length === 0) return;
+
+      setAccuracyLog(prev => prev.map(entry => {
+        if (entry.outcome !== 'pending' || !priceMap[entry.ticker]) return entry;
+        const currentPrice = priceMap[entry.ticker];
+        const pnlPercent = ((currentPrice - entry.priceAtVerdict) / entry.priceAtVerdict * 100);
+        const isBuyVerdict = ['STRONG BUY', 'BUY'].includes(entry.verdict);
+        const isSellVerdict = ['STRONG SELL', 'SELL'].includes(entry.verdict);
+
+        let outcome = 'pending';
+        // Check if target or stop was hit
+        if (isBuyVerdict) {
+          if (currentPrice >= entry.targetPrice) outcome = 'correct';
+          else if (currentPrice <= entry.stopLoss) outcome = 'wrong';
+          else if (pnlPercent > 1) outcome = 'correct'; // price moved in right direction
+          else if (pnlPercent < -2) outcome = 'wrong';
+        } else if (isSellVerdict) {
+          if (currentPrice <= entry.targetPrice) outcome = 'correct';
+          else if (currentPrice >= entry.stopLoss) outcome = 'wrong';
+          else if (pnlPercent < -1) outcome = 'correct';
+          else if (pnlPercent > 2) outcome = 'wrong';
+        } else {
+          // HOLD — correct if price stayed within ±2%
+          if (Math.abs(pnlPercent) <= 2) outcome = 'correct';
+          else outcome = 'wrong';
+        }
+
+        if (outcome === 'pending') return entry;
+        return { ...entry, outcome, priceAtCheck: currentPrice, checkedAt: new Date().toISOString(), pnlPercent: parseFloat(pnlPercent.toFixed(2)) };
+      }));
+    };
+
+    const interval = setInterval(checkAccuracy, 60000);
+    checkAccuracy(); // run once immediately
+    return () => clearInterval(interval);
+  }, [accuracyLog.length]); // only re-run when log size changes
+
+  // Compute accuracy stats
+  useEffect(() => {
+    const resolved = accuracyLog.filter(e => e.outcome !== 'pending');
+    const correct = resolved.filter(e => e.outcome === 'correct').length;
+    const wrong = resolved.filter(e => e.outcome === 'wrong').length;
+    const pending = accuracyLog.filter(e => e.outcome === 'pending').length;
+    const total = resolved.length;
+    const winRate = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+    // By verdict breakdown
+    const byVerdict = {};
+    resolved.forEach(e => {
+      if (!byVerdict[e.verdict]) byVerdict[e.verdict] = { total: 0, correct: 0 };
+      byVerdict[e.verdict].total++;
+      if (e.outcome === 'correct') byVerdict[e.verdict].correct++;
+    });
+
+    setAccuracyStats({ total, correct, wrong, pending, winRate, byVerdict });
+  }, [accuracyLog]);
 
   const addPriceTarget = useCallback((ticker, currentPrice, targetPrice, stopPrice, verdict, confidence) => {
     const cleanNum = (v) => { if (!v || v === 'N/A' || v === 'undefined') return null; return parseFloat(String(v).replace(/[$,]/g, '')) || null; };
@@ -8059,14 +8210,20 @@ OUTPUT FORMAT (strict JSON, no explanations):
             const quote = chartData.indicators?.quote?.[0];
             const meta = chartData.meta;
             
-            // Extract valid closes
+            // Extract valid closes, highs, lows, volumes
             const closes = [];
+            const highs = [];
+            const lows = [];
+            const volumes = [];
             for (let i = 0; i < chartData.timestamp.length; i++) {
               if (quote?.close?.[i] && !isNaN(quote.close[i])) {
                 closes.push(quote.close[i]);
+                if (quote?.high?.[i] && !isNaN(quote.high[i])) highs.push(quote.high[i]);
+                if (quote?.low?.[i] && !isNaN(quote.low[i])) lows.push(quote.low[i]);
+                if (quote?.volume?.[i] && !isNaN(quote.volume[i])) volumes.push(quote.volume[i]);
               }
             }
-            
+
             if (closes.length >= 50) {
               // Calculate RSI with Wilder's smoothing
               const calculateRSI = (data, period = 14) => {
@@ -8212,6 +8369,154 @@ OUTPUT FORMAT (strict JSON, no explanations):
                 else if (recentChange < -1.5) bearishScore += 8;
               }
 
+              // === BOLLINGER BANDS ===
+              let bbUpper = null, bbLower = null, bbMiddle = null;
+              if (closes.length >= 20) {
+                bbMiddle = sma20[sma20.length - 1];
+                const bbSlice = closes.slice(-20);
+                const bbStdDev = Math.sqrt(bbSlice.reduce((sum, v) => sum + Math.pow(v - bbMiddle, 2), 0) / 20);
+                bbUpper = bbMiddle + 2 * bbStdDev;
+                bbLower = bbMiddle - 2 * bbStdDev;
+                // Scoring
+                if (currentPrice <= bbLower) { bullishScore += 10; }
+                else if (currentPrice >= bbUpper) { bearishScore += 10; }
+              }
+
+              // === ATR (Average True Range) ===
+              let atr = null;
+              if (highs && lows && closes.length >= 15) {
+                const trArr = [];
+                for (let i = Math.max(1, closes.length - 14); i < closes.length; i++) {
+                  if (highs[i] != null && lows[i] != null) {
+                    trArr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+                  }
+                }
+                atr = trArr.length > 0 ? trArr.reduce((a, b) => a + b, 0) / trArr.length : null;
+              }
+
+              // === VWAP ===
+              let vwap = null;
+              if (closes.length >= 20 && volumes && volumes.length >= 20) {
+                let cumVP = 0, cumVol = 0;
+                for (let i = closes.length - 20; i < closes.length; i++) {
+                  if (volumes[i] && closes[i]) {
+                    const tp = (highs && lows && highs[i] && lows[i]) ? (highs[i] + lows[i] + closes[i]) / 3 : closes[i];
+                    cumVP += tp * volumes[i];
+                    cumVol += volumes[i];
+                  }
+                }
+                vwap = cumVol > 0 ? cumVP / cumVol : null;
+                // Scoring
+                if (vwap && currentPrice > vwap * 1.005) bullishScore += 10;
+                else if (vwap && currentPrice < vwap * 0.995) bearishScore += 10;
+              }
+
+              // === RSI DIVERGENCE ===
+              let rsiDivergence = 'NONE';
+              if (closes.length >= 30) {
+                const divCloses = closes.slice(-30);
+                const calcRsiDiv = (slice) => {
+                  const ch = slice.map((v, i, a) => i > 0 ? v - a[i - 1] : 0).slice(1);
+                  const g = ch.filter(c => c > 0);
+                  const l = ch.filter(c => c < 0).map(c => Math.abs(c));
+                  const ag = g.length ? g.reduce((a, b) => a + b, 0) / 14 : 0;
+                  const al = l.length ? l.reduce((a, b) => a + b, 0) / 14 : 0.001;
+                  return 100 - (100 / (1 + ag / al));
+                };
+                const divPriceOld = divCloses.slice(0, 15);
+                const divPriceNew = divCloses.slice(-15);
+                const divRsiOld = calcRsiDiv(divPriceOld);
+                const divRsiNew = calcRsiDiv(divPriceNew);
+                if (Math.min(...divPriceNew) < Math.min(...divPriceOld) && divRsiNew > divRsiOld && rsi < 40) rsiDivergence = 'BULLISH';
+                else if (Math.max(...divPriceNew) > Math.max(...divPriceOld) && divRsiNew < divRsiOld && rsi > 60) rsiDivergence = 'BEARISH';
+                // Scoring — divergences are highest weight
+                if (rsiDivergence === 'BULLISH') { bullishScore += 25; confirmations++; }
+                else if (rsiDivergence === 'BEARISH') { bearishScore += 25; confirmations++; }
+              }
+
+              // === MACD DIVERGENCE ===
+              let macdDivergence = 'NONE';
+              if (closes.length >= 40 && macdHistogram !== null) {
+                const mPHalf1 = closes.slice(-40, -20);
+                const mPHalf2 = closes.slice(-20);
+                const mLow1 = Math.min(...mPHalf1), mLow2 = Math.min(...mPHalf2);
+                const mHigh1 = Math.max(...mPHalf1), mHigh2 = Math.max(...mPHalf2);
+                const midEma12a = calculateEMA(closes.slice(0, -20), 12);
+                const midEma26a = calculateEMA(closes.slice(0, -20), 26);
+                const midMacdVal = (midEma12a.length > 0 && midEma26a.length > 0) ? midEma12a[midEma12a.length - 1] - midEma26a[midEma26a.length - 1] : null;
+                if (midMacdVal !== null) {
+                  if (mLow2 < mLow1 && currentMACD > midMacdVal) macdDivergence = 'BULLISH';
+                  else if (mHigh2 > mHigh1 && currentMACD < midMacdVal) macdDivergence = 'BEARISH';
+                }
+                if (macdDivergence === 'BULLISH') { bullishScore += 20; confirmations++; }
+                else if (macdDivergence === 'BEARISH') { bearishScore += 20; confirmations++; }
+              }
+
+              // === ADX (Average Directional Index) ===
+              let adx = null, adxTrend = 'N/A';
+              if (highs && lows && highs.length >= 28 && lows.length >= 28) {
+                const adxLen = Math.min(highs.length, lows.length, closes.length);
+                const dmP = [], dmM = [], trA = [];
+                for (let i = Math.max(1, adxLen - 27); i < adxLen; i++) {
+                  const hDiff = highs[i] - highs[i - 1];
+                  const lDiff = lows[i - 1] - lows[i];
+                  dmP.push(hDiff > lDiff && hDiff > 0 ? hDiff : 0);
+                  dmM.push(lDiff > hDiff && lDiff > 0 ? lDiff : 0);
+                  trA.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+                }
+                if (trA.length >= 14) {
+                  const smoothA = (arr) => { let s = arr.slice(0, 14).reduce((a, b) => a + b, 0); for (let i = 14; i < arr.length; i++) s = s - s / 14 + arr[i]; return s; };
+                  const atr14 = smoothA(trA);
+                  const sDmPl = smoothA(dmP);
+                  const sDmMn = smoothA(dmM);
+                  const diPl = atr14 > 0 ? (sDmPl / atr14) * 100 : 0;
+                  const diMn = atr14 > 0 ? (sDmMn / atr14) * 100 : 0;
+                  adx = (diPl + diMn) > 0 ? Math.abs(diPl - diMn) / (diPl + diMn) * 100 : 0;
+                  adxTrend = adx > 25 ? (diPl > diMn ? 'STRONG UPTREND' : 'STRONG DOWNTREND') : 'WEAK/NO TREND';
+                }
+              }
+
+              // === FIBONACCI RETRACEMENT ===
+              let fibLevels = null, nearestFibSupport = null, nearestFibResistance = null;
+              if (closes.length >= 20) {
+                const fSwingHigh = Math.max(...closes.slice(-50 > -closes.length ? -closes.length : -50));
+                const fSwingLow = Math.min(...closes.slice(-50 > -closes.length ? -closes.length : -50));
+                const fDiff = fSwingHigh - fSwingLow;
+                if (fDiff > 0) {
+                  fibLevels = { level0: fSwingLow, level236: fSwingLow + fDiff * 0.236, level382: fSwingLow + fDiff * 0.382, level500: fSwingLow + fDiff * 0.5, level618: fSwingLow + fDiff * 0.618, level786: fSwingLow + fDiff * 0.786, level100: fSwingHigh };
+                  const fibVals = Object.values(fibLevels).sort((a, b) => a - b);
+                  for (const fv of fibVals) { if (fv < currentPrice) nearestFibSupport = fv; if (fv > currentPrice && !nearestFibResistance) nearestFibResistance = fv; }
+                }
+              }
+
+              // === STOCHASTIC RSI ===
+              let stochRsi = null, stochSignal = 'NEUTRAL';
+              if (closes.length >= 20) {
+                const rsiSeries = [];
+                for (let end = closes.length - 20; end <= closes.length; end++) {
+                  if (end < 15) continue;
+                  const sl = closes.slice(end - 15, end);
+                  const ch2 = sl.map((v, i, a) => i > 0 ? v - a[i - 1] : 0).slice(1);
+                  const g2 = ch2.filter(c => c > 0);
+                  const l2 = ch2.filter(c => c < 0).map(c => Math.abs(c));
+                  const ag2 = g2.length ? g2.reduce((a, b) => a + b, 0) / 14 : 0;
+                  const al2 = l2.length ? l2.reduce((a, b) => a + b, 0) / 14 : 0.001;
+                  rsiSeries.push(100 - (100 / (1 + ag2 / al2)));
+                }
+                if (rsiSeries.length >= 14) {
+                  const rSlice = rsiSeries.slice(-14);
+                  const rHigh = Math.max(...rSlice), rLow = Math.min(...rSlice);
+                  stochRsi = rHigh !== rLow ? ((rsiSeries[rsiSeries.length - 1] - rLow) / (rHigh - rLow) * 100) : 50;
+                  stochSignal = stochRsi > 80 ? 'OVERBOUGHT' : stochRsi < 20 ? 'OVERSOLD' : 'NEUTRAL';
+                }
+              }
+
+              // ADX modifier — weak trend reduces all scores by 30%
+              if (adx !== null && adx < 20) {
+                bullishScore = Math.round(bullishScore * 0.7);
+                bearishScore = Math.round(bearishScore * 0.7);
+              }
+
               const direction = bullishScore > bearishScore ? 'LONG' : 'SHORT';
               const netScore = Math.abs(bullishScore - bearishScore);
 
@@ -8251,7 +8556,20 @@ OUTPUT FORMAT (strict JSON, no explanations):
                 calculatedRecommendation: recommendation,
                 calculatedConfidence,
                 dataSource: 'Yahoo Finance (Live)',
-                barsAnalyzed: closes.length
+                barsAnalyzed: closes.length,
+                // NEW 13-factor aligned fields
+                bbUpper: bbUpper?.toFixed(2),
+                bbLower: bbLower?.toFixed(2),
+                vwap: vwap?.toFixed(2),
+                atr: atr?.toFixed(2),
+                rsiDivergence,
+                macdDivergence,
+                adx: adx?.toFixed(1),
+                adxTrend,
+                fibSupport: nearestFibSupport?.toFixed(2),
+                fibResistance: nearestFibResistance?.toFixed(2),
+                stochRsi: stochRsi?.toFixed(1),
+                stochSignal
               };
               
               console.log(`[Chart Analysis] ✓ Real indicators for ${detectedTicker}: RSI=${rsi?.toFixed(1)}, MACD=${macdHistogram > 0 ? '+' : '-'}, Trend=${trend}, Rec=${recommendation}`);
@@ -9048,8 +9366,8 @@ OUTPUT JSON:
           reconciledFinal.directionalBias = realIndicators.direction;
           const fmtRec = (r) => r ? r.replace(/_/g, ' ') : r;
           reconciledFinal.reconciliationNote = hasDirectionalConflict
-            ? `AI visual analysis suggested ${fmtRec(aiRec)}, but calculated technical indicators (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend: ${realIndicators.trend}) indicate ${fmtRec(calcRec)}. Using calculated recommendation for accuracy.`
-            : `Calculated from live data: RSI ${realIndicators.rsi}, MACD ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, Trend ${realIndicators.trend}. ${aiRec !== calcRec ? `AI suggested ${fmtRec(aiRec)}.` : ''}`;
+            ? `AI visual analysis suggested ${fmtRec(aiRec)}, but 13-factor analysis (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, ADX: ${realIndicators.adx || 'N/A'}, Divergence: ${realIndicators.rsiDivergence || 'None'}, Trend: ${realIndicators.trend}) indicate ${fmtRec(calcRec)}. Using calculated recommendation for accuracy.`
+            : `13-factor analysis: RSI ${realIndicators.rsi}, MACD ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, ADX ${realIndicators.adx || 'N/A'}, Trend ${realIndicators.trend}. ${aiRec !== calcRec ? `AI suggested ${fmtRec(aiRec)}.` : ''}`;
         } else {
           // AGREEMENT: Both AI and calculation align
           reconciledFinal.reconciled = false;
@@ -9062,7 +9380,7 @@ OUTPUT JSON:
         reconciledFinal.confidence = realIndicators.calculatedConfidence;
 
         // Adjust summary to reflect real data
-        reconciledFinal.summary = `${realIndicators.trend} trend | RSI: ${realIndicators.rsi} | MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'} | Score: Bull ${realIndicators.bullishScore} / Bear ${realIndicators.bearishScore}`;
+        reconciledFinal.summary = `${realIndicators.trend} trend | RSI: ${realIndicators.rsi} | MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'} | ADX: ${realIndicators.adx || 'N/A'} | Div: ${realIndicators.rsiDivergence !== 'NONE' ? realIndicators.rsiDivergence : 'None'} | Score: Bull ${realIndicators.bullishScore} / Bear ${realIndicators.bearishScore}`;
 
         // BUILD "Which Signal to Trust" guidance
         const indicatorsNeutralized = indicators?._indicatorsNeutralized;
@@ -9073,8 +9391,8 @@ OUTPUT JSON:
           reason: aiHadNullData
             ? 'The AI could not read some indicators from the chart image (showing null/NOT_VISIBLE). Real-time calculated data from Yahoo Finance is complete and should be trusted.'
             : hasDirectionalConflict
-              ? `The AI visual analysis and real-time data disagree. Real-time technical indicators (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}) are calculated from live market data and are more reliable than visual chart interpretation.`
-              : `Both AI visual analysis and real-time data agree on direction. The calculated indicators provide precise numeric values for confirmation.`,
+              ? `The AI visual analysis and real-time data disagree. 13-factor technical analysis (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, ADX: ${realIndicators.adx || 'N/A'}, Divergence: ${realIndicators.rsiDivergence || 'None'}) is calculated from live market data and is more reliable than visual chart interpretation.`
+              : `Both AI visual analysis and 13-factor analysis agree on direction. Calculated indicators provide precise numeric values for confirmation.`,
           aiAnalysis: {
             recommendation: aiRec,
             rsi: indicators?.rsi?.value ?? 'Not readable',
@@ -27372,6 +27690,49 @@ INSTRUCTIONS:
                     <p className="text-slate-300 leading-relaxed">{r.summary}</p>
                   </div>
 
+                  {/* Accuracy Tracking Stats */}
+                  {accuracyStats.total > 0 && (
+                    <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${accuracyStats.winRate >= 60 ? 'bg-emerald-400' : accuracyStats.winRate >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} />
+                          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Prediction Accuracy</span>
+                        </div>
+                        <span className={`text-lg font-bold ${accuracyStats.winRate >= 60 ? 'text-emerald-400' : accuracyStats.winRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{accuracyStats.winRate}% Win Rate</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 mb-3">
+                        <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                          <div className="text-lg font-bold text-slate-200">{accuracyStats.total}</div>
+                          <div className="text-[10px] text-slate-500">Resolved</div>
+                        </div>
+                        <div className="text-center p-2 bg-emerald-500/10 rounded-lg">
+                          <div className="text-lg font-bold text-emerald-400">{accuracyStats.correct}</div>
+                          <div className="text-[10px] text-emerald-500/70">Correct</div>
+                        </div>
+                        <div className="text-center p-2 bg-red-500/10 rounded-lg">
+                          <div className="text-lg font-bold text-red-400">{accuracyStats.wrong}</div>
+                          <div className="text-[10px] text-red-500/70">Wrong</div>
+                        </div>
+                        <div className="text-center p-2 bg-blue-500/10 rounded-lg">
+                          <div className="text-lg font-bold text-blue-400">{accuracyStats.pending}</div>
+                          <div className="text-[10px] text-blue-500/70">Pending</div>
+                        </div>
+                      </div>
+                      {/* Per-verdict breakdown */}
+                      {Object.keys(accuracyStats.byVerdict).length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(accuracyStats.byVerdict).map(([verdict, stats]) => (
+                            <div key={verdict} className="flex items-center gap-1.5 bg-slate-900/50 rounded-lg px-2.5 py-1.5">
+                              <span className={`text-[10px] font-semibold ${verdict.includes('BUY') ? 'text-emerald-400' : verdict.includes('SELL') ? 'text-red-400' : 'text-amber-400'}`}>{verdict}</span>
+                              <span className="text-[10px] text-slate-500">{stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0}%</span>
+                              <span className="text-[10px] text-slate-600">({stats.correct}/{stats.total})</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Key Metrics Grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-slate-800/40 rounded-xl border border-slate-700/20 p-4">
@@ -27467,8 +27828,8 @@ INSTRUCTIONS:
                     </div>
                   </div>
 
-                  {/* Divergence + ADX + Fib + Stoch + News row */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {/* Divergence + ADX + Fib + Stoch + News + Sector row */}
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                     <div className={`rounded-lg border p-3 text-center ${r.rsiDivergence === 'BULLISH' ? 'bg-emerald-500/10 border-emerald-500/30' : r.rsiDivergence === 'BEARISH' ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-800/40 border-slate-700/20'}`}>
                       <div className="text-[10px] text-slate-500">RSI Divergence</div>
                       <div className={`text-sm font-bold ${r.rsiDivergence === 'BULLISH' ? 'text-green-400' : r.rsiDivergence === 'BEARISH' ? 'text-red-400' : 'text-slate-500'}`}>{r.rsiDivergence || 'NONE'}</div>
@@ -27494,6 +27855,13 @@ INSTRUCTIONS:
                       <div className={`text-sm font-bold ${r.newsSentiment === 'BULLISH' ? 'text-green-400' : r.newsSentiment === 'BEARISH' ? 'text-red-400' : 'text-slate-500'}`}>{r.newsSentiment || '—'}</div>
                       <div className="text-[9px] text-slate-600">Sentiment</div>
                     </div>
+                    {r.sectorETF && (
+                      <div className={`rounded-lg border p-3 text-center ${r.sectorRelStrength === 'OUTPERFORMING' ? 'bg-emerald-500/10 border-emerald-500/30' : r.sectorRelStrength === 'UNDERPERFORMING' ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-800/40 border-slate-700/20'}`}>
+                        <div className="text-[10px] text-slate-500">vs {r.sectorName}</div>
+                        <div className={`text-sm font-bold ${r.sectorRelStrength === 'OUTPERFORMING' ? 'text-emerald-400' : r.sectorRelStrength === 'UNDERPERFORMING' ? 'text-red-400' : 'text-slate-300'}`}>{r.stockVsSector}</div>
+                        <div className={`text-[9px] ${r.sectorRelStrength === 'OUTPERFORMING' ? 'text-emerald-500/60' : r.sectorRelStrength === 'UNDERPERFORMING' ? 'text-red-500/60' : 'text-slate-500'}`}>{r.sectorRelStrength}</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bullish / Bearish Factors */}
@@ -27814,6 +28182,35 @@ INSTRUCTIONS:
                       </div>
                     )}
                   </div>
+
+                  {/* Recent Predictions History */}
+                  {accuracyLog.length > 0 && (
+                    <div className="bg-slate-800/30 rounded-xl border border-slate-700/20 p-4">
+                      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recent Predictions</div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {accuracyLog.slice(0, 10).map(entry => (
+                          <div key={entry.id} className="flex items-center justify-between bg-slate-900/50 rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-1.5 h-1.5 rounded-full ${entry.outcome === 'correct' ? 'bg-emerald-400' : entry.outcome === 'wrong' ? 'bg-red-400' : 'bg-blue-400 animate-pulse'}`} />
+                              <span className="text-xs font-semibold text-slate-300">{entry.ticker}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${entry.verdict?.includes('BUY') ? 'bg-emerald-500/20 text-emerald-400' : entry.verdict?.includes('SELL') ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{entry.verdict}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500">${entry.priceAtVerdict?.toFixed(2)}</span>
+                              {entry.outcome !== 'pending' && (
+                                <span className={`text-[10px] font-semibold ${entry.outcome === 'correct' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {entry.pnlPercent > 0 ? '+' : ''}{entry.pnlPercent}%
+                                </span>
+                              )}
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${entry.outcome === 'correct' ? 'bg-emerald-500/20 text-emerald-400' : entry.outcome === 'wrong' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                {entry.outcome === 'pending' ? '⏳' : entry.outcome === 'correct' ? '✓' : '✗'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Disclaimer */}
                   <div className="text-[10px] text-slate-600 text-center px-4">
