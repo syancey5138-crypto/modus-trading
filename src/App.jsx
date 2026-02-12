@@ -4900,7 +4900,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [showPatternHighlights, setShowPatternHighlights] = useState(false);
   const [patternSensitivity, setPatternSensitivity] = useState('medium'); // low | medium | high
   const [patternFilters, setPatternFilters] = useState({ largeCandles: true, gaps: true, volumeSpikes: true, runs: true, reversals: true, srZones: true });
-  const [patternPanelOpen, setPatternPanelOpen] = useState(false);
+  const [patternPanelOpen, setPatternPanelOpen] = useState(false); // pattern list sidebar
+  const [patternSettingsOpen, setPatternSettingsOpen] = useState(false); // settings dropdown
   const [patternAlerts, setPatternAlerts] = useState([]);
   const prevPatternCountRef = useRef(0);
 
@@ -22031,9 +22032,9 @@ INSTRUCTIONS:
                         })()}
 
                         {/* Pattern Settings Dropdown */}
-                        {patternPanelOpen && (
+                        {patternSettingsOpen && (
                           <>
-                            <div className="fixed inset-0 z-30" onClick={() => setPatternPanelOpen(false)} />
+                            <div className="fixed inset-0 z-30" onClick={() => setPatternSettingsOpen(false)} />
                             <div className="absolute top-12 right-3 z-40 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl py-2 w-56">
                               <div className="px-3 pb-2 mb-1 border-b border-slate-700">
                                 <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Sensitivity</div>
@@ -22118,42 +22119,57 @@ INSTRUCTIONS:
                           </div>
                         )}
 
-                        {/* Pattern List Panel (click to jump) */}
-                        {showPatternHighlights && patternPanelOpen && (() => {
+                        {/* Pattern List Panel (click to jump) — always visible when patterns on */}
+                        {showPatternHighlights && (() => {
                           const layout = getChartLayout();
                           const visData = tickerData.timeSeries.slice(layout.visStart, layout.visEnd);
                           const patterns = detectChartPatterns(visData, layout.visStart, patternSensitivity, patternFilters);
                           if (!patterns || !patterns.patternList || patterns.patternList.length === 0) return null;
                           return (
-                            <div className="absolute top-12 left-3 bottom-12 z-30 w-52 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden flex flex-col">
-                              <div className="px-3 py-2 border-b border-slate-700/50 flex items-center justify-between">
-                                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Detected Patterns</span>
-                                <span className="text-[10px] text-violet-400 font-bold">{patterns.patternList.length}</span>
-                              </div>
-                              <div className="flex-1 overflow-y-auto">
-                                {patterns.patternList.map((p, pi) => {
-                                  const colorMap = { emerald: 'text-emerald-400', red: 'text-red-400', blue: 'text-blue-400', orange: 'text-orange-400' };
-                                  const bgMap = { emerald: 'bg-emerald-500/10', red: 'bg-red-500/10', blue: 'bg-blue-500/10', orange: 'bg-orange-500/10' };
-                                  return (
-                                    <button key={pi}
-                                      onClick={() => {
-                                        // Jump to the pattern's candle by adjusting scroll offset
-                                        const targetIdx = p.vi + layout.visStart - layout.dataStart;
-                                        const newOffset = Math.max(0, targetIdx * layout.stride - (layout.containerW / 2));
-                                        setChartScrollOffset(newOffset);
-                                      }}
-                                      className={`w-full text-left px-3 py-2 border-b border-slate-800/50 hover:bg-slate-800/70 transition-colors ${bgMap[p.color] || ''}`}>
-                                      <div className="flex items-center justify-between">
-                                        <span className={`text-[11px] font-medium ${colorMap[p.color] || 'text-slate-300'}`}>{p.label}</span>
-                                        <span className="text-[9px] text-slate-600">${(p.price || 0).toFixed(2)}</span>
-                                      </div>
-                                      <div className="text-[9px] text-slate-500 mt-0.5">
-                                        {p.time ? new Date(p.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                            <div className="absolute top-12 left-3 bottom-12 z-30 flex flex-col" style={{ width: patternPanelOpen ? '13rem' : 'auto' }}>
+                              {!patternPanelOpen ? (
+                                <button onClick={() => setPatternPanelOpen(true)}
+                                  className="bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg px-2.5 py-2 flex items-center gap-2 hover:bg-slate-800/90 transition-colors">
+                                  <Zap className="w-3 h-3 text-violet-400" />
+                                  <span className="text-[10px] text-slate-400 font-semibold">{patterns.patternList.length}</span>
+                                  <ChevronRight className="w-3 h-3 text-slate-500" />
+                                </button>
+                              ) : (
+                                <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden flex flex-col h-full">
+                                  <div className="px-3 py-2 border-b border-slate-700/50 flex items-center justify-between">
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Detected Patterns</span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-violet-400 font-bold">{patterns.patternList.length}</span>
+                                      <button onClick={() => setPatternPanelOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                                        <ChevronLeft className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 overflow-y-auto">
+                                    {patterns.patternList.map((p, pi) => {
+                                      const colorMap = { emerald: 'text-emerald-400', red: 'text-red-400', blue: 'text-blue-400', orange: 'text-orange-400' };
+                                      const bgMap = { emerald: 'bg-emerald-500/10', red: 'bg-red-500/10', blue: 'bg-blue-500/10', orange: 'bg-orange-500/10' };
+                                      return (
+                                        <button key={pi}
+                                          onClick={() => {
+                                            const targetIdx = p.vi + layout.visStart - layout.dataStart;
+                                            const newOffset = Math.max(0, targetIdx * layout.stride - (layout.containerW / 2));
+                                            setChartScrollOffset(newOffset);
+                                          }}
+                                          className={`w-full text-left px-3 py-2 border-b border-slate-800/50 hover:bg-slate-800/70 transition-colors ${bgMap[p.color] || ''}`}>
+                                          <div className="flex items-center justify-between">
+                                            <span className={`text-[11px] font-medium ${colorMap[p.color] || 'text-slate-300'}`}>{p.label}</span>
+                                            <span className="text-[9px] text-slate-600">${(p.price || 0).toFixed(2)}</span>
+                                          </div>
+                                          <div className="text-[9px] text-slate-500 mt-0.5">
+                                            {p.time ? new Date(p.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
@@ -22339,13 +22355,13 @@ INSTRUCTIONS:
                                         <span className="hidden lg:inline">Patterns</span>
                                       </button>
                                       <button
-                                        onClick={() => setPatternPanelOpen(v => !v)}
+                                        onClick={() => setPatternSettingsOpen(v => !v)}
                                         className={`px-1 py-1 rounded-r text-[11px] font-medium transition-all flex items-center ${
-                                          patternPanelOpen ? 'bg-violet-600 text-white' : showPatternHighlights ? 'bg-violet-600/70 text-white/80 hover:bg-violet-500' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                          patternSettingsOpen ? 'bg-violet-600 text-white' : showPatternHighlights ? 'bg-violet-600/70 text-white/80 hover:bg-violet-500' : 'text-slate-400 hover:text-white hover:bg-slate-700'
                                         }`}
                                         title="Pattern settings"
                                       >
-                                        <ChevronDown className={`w-3 h-3 transition-transform ${patternPanelOpen ? 'rotate-180' : ''}`} />
+                                        <ChevronDown className={`w-3 h-3 transition-transform ${patternSettingsOpen ? 'rotate-180' : ''}`} />
                                       </button>
                                     </div>
                                   </div>{/* close scrollable toolbar content */}
