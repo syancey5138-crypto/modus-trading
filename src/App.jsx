@@ -4896,6 +4896,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [loadingComparison, setLoadingComparison] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
 
+  // Pattern Highlights (fullscreen chart)
+  const [showPatternHighlights, setShowPatternHighlights] = useState(false);
+
   const fileInputRef = useRef(null);
 
   // =================================================================
@@ -7215,6 +7218,68 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
     return { candleW, gap, stride, visStart, visEnd, maxOffset, realOffset, containerW, totalBars, dataStart };
   }, [tickerData?.timeSeries?.length, chartZoom, chartScrollOffset, chartFullscreen, tickerCandleCount]);
+
+  // Pattern detection for chart highlighting
+  const detectChartPatterns = useCallback((visData, visStart) => {
+    if (!visData || visData.length < 5) return null;
+
+    // Calculate statistics
+    const bodies = visData.map(b => b ? Math.abs((b.close || 0) - (b.open || 0)) : 0);
+    const validBodies = bodies.filter(b => b > 0);
+    const avgBody = validBodies.length > 0 ? validBodies.reduce((a, b) => a + b, 0) / validBodies.length : 0;
+    const vols = visData.map(b => b?.volume || 0);
+    const avgVol = vols.length >= 20
+      ? vols.slice(-20).reduce((a, b) => a + b, 0) / 20
+      : vols.length > 0 ? vols.reduce((a, b) => a + b, 0) / vols.length : 0;
+
+    const largeCandleSet = new Set();
+    const gapMap = {};
+    const volSpikeSet = new Set();
+    const reversalSet = new Set();
+    const runs = [];
+
+    // Large candles & volume spikes
+    visData.forEach((bar, vi) => {
+      if (!bar || bar.close == null) return;
+      const body = Math.abs((bar.close || 0) - (bar.open || 0));
+      if (avgBody > 0 && body > avgBody * 2) largeCandleSet.add(vi);
+      if (avgVol > 0 && (bar.volume || 0) > avgVol * 2) volSpikeSet.add(vi);
+    });
+
+    // Gaps
+    for (let vi = 1; vi < visData.length; vi++) {
+      const c = visData[vi], p = visData[vi - 1];
+      if (!c || !p || c.open == null || p.high == null || p.low == null) continue;
+      if (c.open > p.high) gapMap[vi] = 'up';
+      else if (c.open < p.low) gapMap[vi] = 'down';
+    }
+
+    // Consecutive runs (4+ same color)
+    let runStart = 0, runGreen = null;
+    for (let vi = 0; vi <= visData.length; vi++) {
+      const bar = vi < visData.length ? visData[vi] : null;
+      const isGreen = bar ? bar.close >= (bar.open || bar.close) : null;
+      if (isGreen !== runGreen || vi === visData.length) {
+        const len = vi - runStart;
+        if (len >= 4 && runGreen !== null) runs.push({ start: runStart, end: vi - 1, isGreen: runGreen });
+        runStart = vi;
+        runGreen = isGreen;
+      }
+    }
+
+    // Sharp reversals (direction change after 3+ same-direction candles, with above-avg body)
+    for (let vi = 3; vi < visData.length; vi++) {
+      const bars = [visData[vi - 3], visData[vi - 2], visData[vi - 1], visData[vi]];
+      if (bars.some(b => !b || b.close == null)) continue;
+      const dirs = bars.map(b => b.close >= (b.open || b.close) ? 'up' : 'down');
+      if (dirs[0] === dirs[1] && dirs[1] === dirs[2] && dirs[2] !== dirs[3]) {
+        const body = Math.abs((bars[3].close || 0) - (bars[3].open || 0));
+        if (avgBody > 0 && body > avgBody * 1.2) reversalSet.add(vi);
+      }
+    }
+
+    return { largeCandleSet, gapMap, volSpikeSet, runs, reversalSet };
+  }, []);
 
   const handleChartWheel = useCallback((e) => {
     // Only intercept scroll for zoom in fullscreen mode
@@ -20619,9 +20684,25 @@ INSTRUCTIONS:
                                 const maxPrice = Math.max(...validBars.map(b => b.high));
                                 const priceRange = maxPrice - minPrice || 1;
                                 const subOffset = (layout.realOffset % layout.stride);
+                                const patterns = showPatternHighlights ? detectChartPatterns(visData, layout.visStart) : null;
 
                                 return (
-                                  <div className="flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px` }}>
+                                  <div className="relative flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px` }}>
+                                    {/* Pattern: Run background shading */}
+                                    {patterns && patterns.runs.map((run, ri) => {
+                                      const leftPos = run.start * layout.stride;
+                                      const width = (run.end - run.start + 1) * layout.stride;
+                                      return (
+                                        <div key={`run-${ri}`} className="absolute top-0 bottom-0 pointer-events-none rounded-sm"
+                                          style={{ left: `${leftPos}px`, width: `${width}px`, zIndex: 0,
+                                            background: run.isGreen
+                                              ? 'linear-gradient(180deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.15) 100%)'
+                                              : 'linear-gradient(180deg, rgba(239,68,68,0.08) 0%, rgba(239,68,68,0.15) 100%)',
+                                            borderLeft: `2px solid ${run.isGreen ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                                            borderRight: `2px solid ${run.isGreen ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`
+                                          }} />
+                                      );
+                                    })}
                                     {visData.map((bar, vi) => {
                                       if (!bar || bar.close === null || bar.close === undefined || isNaN(bar.close)) return null;
 
@@ -20642,7 +20723,20 @@ INSTRUCTIONS:
                                             style={{ bottom: `${lowHeight}%`, height: `${highHeight - lowHeight}%`, width: `${Math.max(1, Math.round(chartZoom))}px` }} />
                                           {/* Body */}
                                           <div className={`absolute left-0 right-0 ${isGreen ? 'bg-emerald-500 border-emerald-400' : 'bg-red-500 border-red-400'} border hover:opacity-100 transition-colors hover:z-10`}
-                                            style={{ bottom: `${bodyBottom}%`, height: `${bodyHeight}%`, minHeight: '2px' }} />
+                                            style={{ bottom: `${bodyBottom}%`, height: `${bodyHeight}%`, minHeight: '2px',
+                                              ...(patterns && patterns.largeCandleSet.has(vi) ? { boxShadow: `0 0 8px 2px rgba(251,191,36,0.7), 0 0 16px 4px rgba(251,191,36,0.3)`, border: '1px solid rgba(251,191,36,0.8)', zIndex: 5 } : {}),
+                                              ...(patterns && patterns.reversalSet.has(vi) ? { boxShadow: `0 0 8px 2px rgba(249,115,22,0.7), 0 0 16px 4px rgba(249,115,22,0.3)`, border: '1px solid rgba(249,115,22,0.8)', zIndex: 5 } : {})
+                                            }} />
+                                          {/* Gap marker */}
+                                          {patterns && patterns.gapMap[vi] && (
+                                            <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 10, ...(patterns.gapMap[vi] === 'up' ? { top: '2px' } : { bottom: '2px' }) }}>
+                                              <div style={{ width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent',
+                                                ...(patterns.gapMap[vi] === 'up'
+                                                  ? { borderBottom: '6px solid #10b981' }
+                                                  : { borderTop: '6px solid #ef4444' })
+                                              }} />
+                                            </div>
+                                          )}
                                           {/* Tooltip — flips horizontally near edges */}
                                           {(() => {
                                             const showBelow = highHeight > 70;
@@ -21086,16 +21180,26 @@ INSTRUCTIONS:
                               const maxVol = volValues.length > 0 ? Math.max(...volValues) : 1;
                               if (maxVol === 0) return null;
                               const subOffset = (layout.realOffset % layout.stride);
+                              const patterns = showPatternHighlights ? detectChartPatterns(visData, layout.visStart) : null;
                               return (
                                 <div className="absolute bottom-8 left-16 right-0 h-[25%] pointer-events-none z-[5] opacity-40">
                                   <div className="flex items-end h-full" style={{ gap: `${layout.gap}px`, marginLeft: `-${subOffset}px`, overflow: 'hidden' }}>
                                     {visData.map((bar, vi) => {
                                       const height = ((bar.volume || 0) / maxVol) * 100;
                                       const isGreen = bar.close >= (bar.open || bar.close);
+                                      const isVolSpike = patterns && patterns.volSpikeSet.has(vi);
                                       return (
                                         <div key={layout.visStart + vi}
                                           className={`flex-shrink-0 ${isGreen ? 'bg-emerald-500' : 'bg-red-500'}`}
-                                          style={{ height: `${height}%`, width: `${layout.candleW}px`, minWidth: `${layout.candleW}px` }}
+                                          style={{
+                                            height: `${height}%`,
+                                            width: `${layout.candleW}px`,
+                                            minWidth: `${layout.candleW}px`,
+                                            ...(isVolSpike && showPatternHighlights ? {
+                                              opacity: 1,
+                                              boxShadow: '0 0 6px 1px rgba(59,130,246,0.6)'
+                                            } : {})
+                                          }}
                                         />
                                       );
                                     })}
@@ -21765,7 +21869,33 @@ INSTRUCTIONS:
                             </div>
                           );
                         })()}
-                        
+
+                        {/* Pattern Legend */}
+                        {showPatternHighlights && (
+                          <div className="absolute bottom-10 right-3 flex items-center gap-3 bg-slate-900/90 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-slate-700/50 z-20">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-sm bg-amber-400/80 shadow-[0_0_4px_rgba(251,191,36,0.6)]" />
+                              <span className="text-[9px] text-slate-400">Large Move</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-sm bg-orange-400/80 shadow-[0_0_4px_rgba(249,115,22,0.6)]" />
+                              <span className="text-[9px] text-slate-400">Reversal</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div style={{ width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '5px solid #10b981' }} />
+                              <span className="text-[9px] text-slate-400">Gap</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-sm bg-emerald-400/20 border border-emerald-400/30" />
+                              <span className="text-[9px] text-slate-400">Run</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-sm bg-blue-400/80 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
+                              <span className="text-[9px] text-slate-400">Vol Spike</span>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Enhanced price scale */}
                         <div className="mt-4 bg-slate-800/50 rounded px-4 py-2">
                           <div className="flex justify-between text-sm">
@@ -21933,6 +22063,18 @@ INSTRUCTIONS:
                                         Indicators <ChevronDown className={`w-3 h-3 transition-transform ${fsIndicatorOpen ? 'rotate-180' : ''}`} />
                                       </button>
                                     </div>
+
+                                    {/* Pattern Highlights Toggle */}
+                                    <button
+                                      onClick={() => setShowPatternHighlights(v => !v)}
+                                      className={`px-2 py-1 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
+                                        showPatternHighlights ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : 'text-slate-300 hover:text-white hover:bg-slate-700'
+                                      }`}
+                                      title="Highlight large price changes, gaps, volume spikes, and trend runs"
+                                    >
+                                      <Zap className="w-3 h-3" />
+                                      <span className="hidden lg:inline">Patterns</span>
+                                    </button>
                                   </div>{/* close scrollable toolbar content */}
 
                                   {/* Right: Actions — always visible, never scrolled */}
