@@ -1569,10 +1569,8 @@ function App() {
   const [replayBalance, setReplayBalance] = useState(10000);
   const [replayPosition, setReplayPosition] = useState(null);
 
-  // Onboarding v4.0
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    try { return !localStorage.getItem('modus_onboarding_done'); } catch { return true; }
-  });
+  // Onboarding v4.0 — starts false, triggered AFTER landing page + disclaimer flow
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
   // Volatility thresholds (based on ATR%) - 5 levels + any
@@ -17375,7 +17373,7 @@ INSTRUCTIONS:
                   {/* Skip Tour - Top Right */}
                   <button
                     onClick={() => {
-                      localStorage.setItem('modus_onboarding_complete', 'true');
+                      localStorage.setItem('modus_onboarding_done', 'true');
                       setShowOnboarding(false);
                     }}
                     className="absolute top-4 right-4 text-sm text-slate-500 hover:text-white transition-colors"
@@ -17418,7 +17416,7 @@ INSTRUCTIONS:
                           if (onboardingStep < totalSteps - 1) {
                             setOnboardingStep(onboardingStep + 1);
                           } else {
-                            localStorage.setItem('modus_onboarding_complete', 'true');
+                            localStorage.setItem('modus_onboarding_done', 'true');
                             setShowOnboarding(false);
                             // Check if setup wizard needed
                             const setupDone = localStorage.getItem('modus_setup_complete');
@@ -17579,9 +17577,9 @@ INSTRUCTIONS:
                   setShowDisclaimer(false);
                   localStorage.setItem('modus_disclaimer_accepted', 'true');
                   localStorage.setItem('modus_disclaimer_date', new Date().toISOString());
-                  // Show onboarding tour immediately if not completed
-                  const onboardingComplete = localStorage.getItem('modus_onboarding_complete');
-                  if (onboardingComplete !== 'true') {
+                  // Show onboarding tour after disclaimer if not already completed
+                  const onboardingDone = localStorage.getItem('modus_onboarding_done');
+                  if (onboardingDone !== 'true') {
                     setOnboardingStep(0);
                     setShowOnboarding(true);
                   }
@@ -18537,8 +18535,8 @@ INSTRUCTIONS:
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  // Redirect to sign in or show sign in
-                  navigate('/login');
+                  setShowAuthModal(true);
+                  setAuthMode('login');
                 }}
                 className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-semibold text-sm transition-all"
               >
@@ -39167,8 +39165,8 @@ INSTRUCTIONS:
         </div>
       )}
 
-      {/* FEATURE 7: Onboarding Overlay */}
-      {showOnboarding && (
+      {/* FEATURE 7: Onboarding Overlay — only after landing page + disclaimer */}
+      {showOnboarding && disclaimerAccepted && !showLandingPage && !showDisclaimer && (
         <div className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4">
           <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-violet-500/30 rounded-2xl max-w-lg w-full p-8 shadow-2xl">
             {[
