@@ -6510,14 +6510,22 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // Now with SHORT-TERM CACHING for even faster repeated scans
   // ============================================
 
-  // API Response Cache with TTL — prevents redundant fetches for SPY, sector ETFs, VIX, etc.
+  // API Response Cache with ADAPTIVE TTL — shorter cache for high-volatility preferences
   const apiCache = useRef(new Map());
-  const API_CACHE_TTL = 5 * 60 * 1000; // 5-minute TTL for market data
+  // Adaptive TTL: high-vol users need fresher market context data
+  const getAdaptiveCacheTTL = () => {
+    if (pickVolatility === 'high') return 60 * 1000;       // 1 min — fast movers need fresh context
+    if (pickVolatility === 'medhigh') return 2 * 60 * 1000; // 2 min
+    if (pickVolatility === 'medium') return 3 * 60 * 1000;  // 3 min
+    return 5 * 60 * 1000;                                    // 5 min for low/lowmed/any
+  };
+  const API_CACHE_TTL = getAdaptiveCacheTTL();
 
-  const fetchWithCache = async (url, timeout = 6000) => {
+  const fetchWithCache = async (url, timeout = 6000, customTTL = null) => {
+    const ttl = customTTL || getAdaptiveCacheTTL();
     const now = Date.now();
     const cached = apiCache.current.get(url);
-    if (cached && (now - cached.timestamp) < API_CACHE_TTL) {
+    if (cached && (now - cached.timestamp) < ttl) {
       return cached.data;
     }
     const data = await fetchYahooWithProxies(url, timeout);
@@ -6850,6 +6858,31 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const confidenceFromScore = Math.min(25, netScore * 0.5);
     const confidence = Math.min(95, 40 + confidenceFromConfirmations + confidenceFromScore);
 
+    // === PRICE VELOCITY & MOMENTUM METRICS ===
+    // For high-vol traders: measures HOW FAST price is moving, not just how much
+    const recentBars = bars.slice(-20);
+    // Bar-to-bar average absolute change (speed of movement)
+    let barChanges = [];
+    for (let i = 1; i < recentBars.length; i++) {
+      barChanges.push(Math.abs(recentBars[i].close - recentBars[i - 1].close) / recentBars[i - 1].close * 100);
+    }
+    const priceVelocity = barChanges.length > 0 ? barChanges.reduce((a, b) => a + b, 0) / barChanges.length : 0;
+
+    // Intraday range: average (high-low)/close as % — how much the stock swings each bar
+    const intradayRanges = recentBars.map(b => b.low > 0 ? ((b.high - b.low) / b.close * 100) : 0);
+    const avgIntradayRange = intradayRanges.length > 0 ? intradayRanges.reduce((a, b) => a + b, 0) / intradayRanges.length : 0;
+
+    // Acceleration: is velocity increasing or decreasing? (recent 5 bars vs prior 5 bars)
+    const recentVelocity = barChanges.slice(-5).reduce((a, b) => a + b, 0) / Math.max(1, barChanges.slice(-5).length);
+    const priorVelocity = barChanges.slice(-10, -5).reduce((a, b) => a + b, 0) / Math.max(1, barChanges.slice(-10, -5).length);
+    const acceleration = priorVelocity > 0 ? ((recentVelocity - priorVelocity) / priorVelocity * 100) : 0;
+
+    // Movement score: combines velocity + range + acceleration (0-100)
+    const velocityScore = Math.min(100, priceVelocity * 30);   // 3.3% avg change = 100
+    const rangeScore = Math.min(100, avgIntradayRange * 25);    // 4% avg range = 100
+    const accelBonus = acceleration > 20 ? 15 : acceleration > 0 ? 5 : 0; // Bonus for speeding up
+    const movementScore = Math.min(100, (velocityScore * 0.4 + rangeScore * 0.4 + accelBonus * 0.2));
+
     // Return ALL results - let the caller filter if needed
     return {
       symbol,
@@ -6881,7 +6914,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       catalystBonus,
       // Volatility data
       atrPercent,
-      volatilityCategory
+      volatilityCategory,
+      // Price velocity data (for high-vol stock matching)
+      priceVelocity: parseFloat(priceVelocity.toFixed(3)),
+      avgIntradayRange: parseFloat(avgIntradayRange.toFixed(3)),
+      acceleration: parseFloat(acceleration.toFixed(1)),
+      movementScore: Math.round(movementScore)
     };
   };
 
@@ -10347,14 +10385,41 @@ OUTPUT JSON:
             if (tfCat === 'Long' && atrPct >= 1.0 && atrPct <= 3.0) timeframeFit = 110; // Sweet spot for swings
             if (tfCat === 'Medium' && atrPct >= 1.5 && atrPct <= 4.0) timeframeFit = 110; // Sweet spot for medium
 
-            // Combined score: 40% volatility fit + 30% technical strength + 30% timeframe fit
+            // PRICE VELOCITY SCORING — for high-vol users, prioritize stocks moving FAST right now
+            let velocityFit = 100; // Default: neutral
+            const moveScore = s.movementScore || 0;
+            if (pickVolatility === 'high') {
+              // High-vol users want fast movers: heavily reward high movement score
+              velocityFit = Math.min(130, 50 + moveScore * 0.8); // Score 0-50 = penalty, 50+ = bonus
+              if (moveScore < 20) velocityFit = 40; // Stock barely moving = poor fit for high-vol
+            } else if (pickVolatility === 'medhigh') {
+              velocityFit = Math.min(120, 60 + moveScore * 0.6);
+              if (moveScore < 10) velocityFit = 60;
+            } else if (pickVolatility === 'low' || pickVolatility === 'lowmed') {
+              // Low-vol users want stability: penalize stocks moving too fast
+              if (moveScore > 60) velocityFit = 60; // Too jumpy for conservative traders
+              else velocityFit = Math.min(110, 100 + (50 - moveScore) * 0.2);
+            }
+
+            // Combined score: weights shift based on volatility preference
             const technicalScore = s.normalizedScore || 50;
-            const combinedScore = (volFitScore * 0.4) + (technicalScore * 0.3) + (timeframeFit * 0.3);
+            let combinedScore;
+            if (pickVolatility === 'high' || pickVolatility === 'medhigh') {
+              // High-vol: velocity matters more (25%), vol fit still important (30%)
+              combinedScore = (volFitScore * 0.30) + (technicalScore * 0.20) + (timeframeFit * 0.25) + (velocityFit * 0.25);
+            } else if (pickVolatility === 'low' || pickVolatility === 'lowmed') {
+              // Low-vol: stability matters, velocity is a check (10%)
+              combinedScore = (volFitScore * 0.40) + (technicalScore * 0.30) + (timeframeFit * 0.20) + (velocityFit * 0.10);
+            } else {
+              // Medium/any: balanced
+              combinedScore = (volFitScore * 0.35) + (technicalScore * 0.25) + (timeframeFit * 0.25) + (velocityFit * 0.15);
+            }
 
             return {
               ...s,
               volFitScore: Math.round(volFitScore),
               timeframeFit: Math.round(timeframeFit),
+              velocityFit: Math.round(velocityFit),
               combinedScore: Math.round(combinedScore),
               atrPctCalc: atrPct,
               volMatchLabel: volFitScore >= 85 ? 'Excellent Match' : volFitScore >= 65 ? 'Good Match' : volFitScore >= 40 ? 'Moderate Match' : 'Weak Match',
@@ -10460,7 +10525,12 @@ OUTPUT JSON:
             fitLabel: bestPick.volMatchLabel || 'N/A',
             fitColor: bestPick.volMatchColor || 'slate',
             timeframeFit: bestPick.timeframeFit || 100,
+            velocityFit: bestPick.velocityFit || 100,
             combinedScore: bestPick.combinedScore || 0,
+            movementScore: bestPick.movementScore || 0,
+            priceVelocity: bestPick.priceVelocity || 0,
+            avgIntradayRange: bestPick.avgIntradayRange || 0,
+            acceleration: bestPick.acceleration || 0,
             warning: bestPick.volFitScore < 50 ? `This stock's volatility doesn't perfectly match your ${volConfig.label} preference, but it has the strongest technical setup available.` : null
           },
           catalystData: {
@@ -10483,7 +10553,9 @@ OUTPUT JSON:
             combinedScore: s.combinedScore || 0,
             atrPct: s.atrPctCalc?.toFixed(2) || 'N/A',
             volatilityCategory: s.volatilityCategory || 'N/A',
-            timeframeFit: s.timeframeFit || 100
+            timeframeFit: s.timeframeFit || 100,
+            movementScore: s.movementScore || 0,
+            priceVelocity: s.priceVelocity || 0
           }))
         };
 
@@ -28209,34 +28281,47 @@ INSTRUCTIONS:
                   {dailyPick.otherCandidates && dailyPick.otherCandidates.length > 0 && (
                     <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
                       <h4 className="font-semibold mb-1 text-slate-300 text-sm">Best Fitting Stocks for Your Settings</h4>
-                      <p className="text-xs text-slate-500 mb-3">Ranked by volatility match + technical strength + timeframe fit</p>
+                      <p className="text-xs text-slate-500 mb-3">Ranked by volatility match + technical strength + timeframe fit + price momentum</p>
                       <div className="space-y-2">
                         {dailyPick.otherCandidates.map((candidate, i) => (
-                          <div key={i} className="bg-slate-800/50 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className="text-slate-500 text-xs font-mono w-4">#{i+2}</span>
-                              <span className="font-semibold text-slate-200">{candidate.symbol}</span>
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-xs ${
-                                  candidate.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                                }`}
-                              >
-                                {candidate.direction}
-                              </span>
+                          <div key={i} className="bg-slate-800/50 rounded-lg px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="text-slate-500 text-xs font-mono w-4">#{i+2}</span>
+                                <span className="font-semibold text-slate-200">{candidate.symbol}</span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-xs ${
+                                    candidate.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                                  }`}
+                                >
+                                  {candidate.direction}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs flex-shrink-0">
+                                <span className={`px-2 py-0.5 rounded bg-${candidate.volMatchColor || 'slate'}-500/20 text-${candidate.volMatchColor || 'slate'}-300`}>
+                                  {candidate.volMatchLabel || 'N/A'}
+                                </span>
+                                <span className="text-slate-500" title="ATR% volatility">Vol: {candidate.atrPct}%</span>
+                                <span className="text-violet-400" title="Technical score">Tech: {candidate.score}</span>
+                                <span className="text-cyan-400 font-medium" title="Combined fit score">Fit: {candidate.combinedScore}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 text-xs flex-shrink-0">
-                              <span className={`px-2 py-0.5 rounded bg-${candidate.volMatchColor || 'slate'}-500/20 text-${candidate.volMatchColor || 'slate'}-300`}>
-                                {candidate.volMatchLabel || 'N/A'}
-                              </span>
-                              <span className="text-slate-500" title="ATR% volatility">Vol: {candidate.atrPct}%</span>
-                              <span className="text-violet-400" title="Technical score">Tech: {candidate.score}</span>
-                              <span className="text-cyan-400 font-medium" title="Combined fit score">Fit: {candidate.combinedScore}</span>
-                            </div>
+                            {candidate.movementScore > 0 && (
+                              <div className="flex items-center gap-2 mt-1.5 ml-8 text-xs">
+                                <span className="text-slate-500">Speed:</span>
+                                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${candidate.movementScore > 60 ? 'bg-orange-400' : candidate.movementScore > 30 ? 'bg-cyan-400' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, candidate.movementScore)}%` }} />
+                                </div>
+                                <span className={`${candidate.movementScore > 60 ? 'text-orange-400' : candidate.movementScore > 30 ? 'text-cyan-400' : 'text-slate-500'}`}>
+                                  {candidate.movementScore > 60 ? 'Fast' : candidate.movementScore > 30 ? 'Moderate' : 'Slow'}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                       <p className="text-xs text-slate-500 mt-3">
-                        Stocks ranked by combined score: how well volatility matches your {dailyPick.volatility?.preference || 'selected'} preference, technical signal strength, and timeframe compatibility.
+                        Stocks ranked by combined score: volatility match, technical signals, timeframe fit{pickVolatility === 'high' || pickVolatility === 'medhigh' ? ', and price momentum speed' : ''}.
                       </p>
                     </div>
                   )}
