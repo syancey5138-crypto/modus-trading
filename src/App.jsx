@@ -2444,11 +2444,14 @@ function App() {
 
       // Fetch higher timeframe + SPY market context + news + sector ETF in parallel
       try {
-        const [htfData, spyData, newsData, sectorData] = await Promise.all([
+        const [htfData, spyData, newsData, sectorData, vixData, dxyData, tltData] = await Promise.all([
           fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${htfInterval}&range=${htfRange}`, 6000).catch(() => null),
-          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1mo`, 6000).catch(() => null),
+          fetchWithCache(`https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1mo`, 6000, API_CACHE_TTL).catch(() => null),
           fetchRealTimeNews(sym, 5).catch(() => []),
-          sectorETF ? fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/${sectorETF}?interval=1d&range=1mo`, 6000).catch(() => null) : Promise.resolve(null)
+          sectorETF ? fetchWithCache(`https://query1.finance.yahoo.com/v8/finance/chart/${sectorETF}?interval=1d&range=1mo`, 6000, API_CACHE_TTL).catch(() => null) : Promise.resolve(null),
+          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=1mo`, 5000).catch(() => null),
+          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=1mo`, 5000).catch(() => null),
+          fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/TLT?interval=1d&range=1mo`, 5000).catch(() => null)
         ]);
 
         // Higher timeframe trend
@@ -2486,6 +2489,65 @@ function App() {
             const spyPrice = spyCloses[spyCloses.length - 1];
             const spyPrev = spyCloses[spyCloses.length - 2] || spyPrice;
             marketDayChange = ((spyPrice - spyPrev) / spyPrev * 100).toFixed(2) + '%';
+          }
+        }
+
+        // Inter-market analysis: VIX, Dollar (DXY), Bonds (TLT)
+        let vixLevel = null, vixTrend = 'N/A', vixRegime = 'NORMAL';
+        let dxyTrend = 'N/A', dxyImpact = 'NEUTRAL';
+        let tltTrend = 'N/A', bondSignal = 'NEUTRAL';
+        let intermarketScore = 0;
+
+        if (vixData) {
+          const vixCloses = (vixData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+          if (vixCloses.length >= 5) {
+            vixLevel = vixCloses[vixCloses.length - 1];
+            const vixSma10 = vixCloses.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, vixCloses.length);
+            vixTrend = vixLevel > vixSma10 ? 'RISING' : 'FALLING';
+            if (vixLevel > 30) { vixRegime = 'FEAR'; intermarketScore -= 15; }
+            else if (vixLevel > 20) { vixRegime = 'ELEVATED'; intermarketScore -= 5; }
+            else if (vixLevel < 15) { vixRegime = 'COMPLACENT'; intermarketScore += 5; }
+            else { vixRegime = 'NORMAL'; }
+            // Rising VIX = bearish for stocks
+            if (vixTrend === 'RISING' && vixLevel > 20) intermarketScore -= 5;
+            if (vixTrend === 'FALLING' && vixLevel < 25) intermarketScore += 5;
+          }
+        }
+
+        if (dxyData) {
+          const dxyCloses = (dxyData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+          if (dxyCloses.length >= 10) {
+            const dxySma10 = dxyCloses.slice(-10).reduce((a, b) => a + b, 0) / 10;
+            const dxyLatest = dxyCloses[dxyCloses.length - 1];
+            dxyTrend = dxyLatest > dxySma10 * 1.005 ? 'STRENGTHENING' : dxyLatest < dxySma10 * 0.995 ? 'WEAKENING' : 'STABLE';
+            // Strong dollar hurts tech/growth, helps financials
+            if (dxyTrend === 'STRENGTHENING') {
+              dxyImpact = 'HEADWIND';
+              const techSectors = ['XLK', 'XLC', 'XLY'];
+              if (techSectors.includes(sectorETF)) intermarketScore -= 5;
+              else if (sectorETF === 'XLF') intermarketScore += 3;
+            } else if (dxyTrend === 'WEAKENING') {
+              dxyImpact = 'TAILWIND';
+              intermarketScore += 3;
+            }
+          }
+        }
+
+        if (tltData) {
+          const tltCloses = (tltData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+          if (tltCloses.length >= 10) {
+            const tltSma10 = tltCloses.slice(-10).reduce((a, b) => a + b, 0) / 10;
+            const tltLatest = tltCloses[tltCloses.length - 1];
+            tltTrend = tltLatest > tltSma10 ? 'RISING' : 'FALLING';
+            // Falling bonds (rising rates) = bearish for growth stocks
+            if (tltTrend === 'FALLING') {
+              bondSignal = 'RATES_RISING';
+              const growthSectors = ['XLK', 'XLC', 'XLY', 'XLRE'];
+              if (growthSectors.includes(sectorETF)) intermarketScore -= 5;
+            } else {
+              bondSignal = 'RATES_FALLING';
+              intermarketScore += 3;
+            }
           }
         }
 
@@ -2639,6 +2701,12 @@ MARKET HOURS: ${marketHourContext}${timeConfidenceAdj !== 0 ? ` (confidence adju
 
 CORRELATION ALIGNMENT: Score ${correlationScore > 0 ? '+' : ''}${correlationScore}. ${correlationNote}
 
+INTER-MARKET ANALYSIS:
+- VIX: ${vixLevel !== null ? vixLevel.toFixed(1) : 'N/A'} (${vixRegime}, ${vixTrend})${vixRegime === 'FEAR' ? ' — EXTREME FEAR: reduce all BUY confidence significantly, favor cash/hedges' : vixRegime === 'ELEVATED' ? ' — Elevated fear: reduce position sizes, widen stops' : vixRegime === 'COMPLACENT' ? ' — Low fear: watch for complacency, possible correction' : ''}
+- US Dollar (DXY): ${dxyTrend} — ${dxyImpact}${dxyImpact === 'HEADWIND' ? ' for tech/growth stocks (strong dollar pressures earnings)' : dxyImpact === 'TAILWIND' ? ' (weak dollar boosts multinational earnings)' : ''}
+- Bonds (TLT): ${tltTrend} — ${bondSignal}${bondSignal === 'RATES_RISING' ? ' — Rising rates pressure growth/tech valuations' : bondSignal === 'RATES_FALLING' ? ' — Falling rates support growth stocks' : ''}
+- Inter-Market Score: ${intermarketScore > 0 ? '+' : ''}${intermarketScore} (macro environment ${intermarketScore > 5 ? 'SUPPORTIVE' : intermarketScore < -5 ? 'HOSTILE' : 'NEUTRAL'})
+
 Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
 
       const response = await callAPI([{
@@ -2646,6 +2714,21 @@ Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
         content: `You are an expert stock analyst using a structured scoring system. Analyze ${sym} using ALL the technical data below.
 
 ${dataContext}
+
+ADAPTIVE WEIGHT ADJUSTMENTS (apply these multipliers to base scores):
+${volatilityRegime === 'HIGH' ? `HIGH VOLATILITY REGIME — Adjust weights:
+- Trend signals: REDUCE weight by 30% (trends break more often in high vol)
+- Divergence signals: KEEP full weight (divergences still reliable)
+- Volume signals: INCREASE weight by 50% (volume confirmation critical in high vol)
+- Mean reversion (Bollinger/RSI extreme): INCREASE weight by 30%
+- VWAP: INCREASE weight (acts as anchor in volatile markets)` :
+volatilityRegime === 'LOW' ? `LOW VOLATILITY REGIME — Adjust weights:
+- Trend signals: INCREASE weight by 20% (trends more persistent in low vol)
+- Breakout signals: INCREASE weight by 50% (breakouts from low vol are powerful)
+- Volume signals: REDUCE weight by 30% (low vol naturally has lower volume)
+- Bollinger Bands: INCREASE weight (tighter bands make touches more significant)` :
+`NORMAL VOLATILITY — Use standard weights for all factors.`}
+${marketHourContext === 'OPENING_30MIN' || marketHourContext === 'AFTER_HOURS' ? 'CAUTION: During opening/after-hours, reduce ALL signal weights by 20% due to unreliable price action.' : ''}
 
 SCORING FRAMEWORK — evaluate each factor and tally the score:
 1. TREND (±25pts): Price above SMA20 & SMA50 = +25 bullish. Below both = +25 bearish. Mixed = 0.
@@ -2666,8 +2749,9 @@ SCORING FRAMEWORK — evaluate each factor and tally the score:
 14. VOLATILITY REGIME (modifier): HIGH vol = reduce confidence by 10, widen stop/target by 1.5x. LOW vol = tighten ranges. ELEVATED = use caution with mean-reversion.
 15. MARKET HOURS (modifier): Opening/closing 30min = reduce confidence by 10. Midday = reduce by 5. Morning/afternoon sessions are most reliable.
 16. CORRELATION (±20pts): All 3 aligned (SPY + sector + HTF) = +20. All 3 conflict = -20. Each aligned = +5.
+17. INTER-MARKET (±15pts): VIX in FEAR mode = -15 for BUY signals. VIX COMPLACENT + Dollar WEAKENING + Bonds RISING = +15 (perfect macro backdrop). Each hostile factor = -5.
 
-Total possible: ~-225 to +225. Map to verdict:
+Total possible: ~-240 to +240. Map to verdict:
 - 80+: STRONG BUY | 40-79: BUY | -39 to 39: HOLD | -79 to -40: SELL | -80 or below: STRONG SELL
 - Confidence = |score| mapped to 50-95 range.
 - If timeframes conflict, cap confidence at 70 max.
@@ -2744,6 +2828,16 @@ CRITICAL RULES:
           volatilityRegime, atrPctOfPrice: atrPctOfPrice ? parseFloat(atrPctOfPrice.toFixed(2)) : null,
           marketHourContext, timeConfidenceAdj,
           correlationScore, correlationNote,
+          intermarket: {
+            vix: vixLevel,
+            vixRegime,
+            vixTrend,
+            dxyTrend,
+            dxyImpact,
+            tltTrend,
+            bondSignal,
+            intermarketScore
+          },
           htfTrend, marketTrend, trendsAligned,
           volRatio: parseFloat(volRatio),
           rangePosition: parseInt(rangePosition),
@@ -4222,14 +4316,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   });
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState(null);
-  const [dashboardClock, setDashboardClock] = useState(new Date());
 
-  // Live clock for dashboard
-  useEffect(() => {
-    if (activeTab !== 'dashboard') return;
-    const clockInterval = setInterval(() => setDashboardClock(new Date()), 1000);
-    return () => clearInterval(clockInterval);
-  }, [activeTab]);
+  // dashboardClock replaced by currentTime to avoid redundant timer
+  const dashboardClock = currentTime;
 
   // Widget reorder helpers
   const moveWidget = (key, direction) => {
@@ -5239,11 +5328,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
   };
 
-  // Live clock
+  // Live clock — also drives dashboard clock to avoid duplicate intervals
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(now);
+      // dashboardClock now uses currentTime directly (removed redundant setDashboardClock)
+    }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [activeTab]);
   
   // Auto-calculate options when parameters change
   useEffect(() => {
@@ -6417,8 +6510,27 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // Now with SHORT-TERM CACHING for even faster repeated scans
   // ============================================
 
-  // No stock data cache - always fetch fresh live data for maximum accuracy
-  const stockDataCache = useRef(new Map()); // kept as ref for compatibility but never used for caching
+  // API Response Cache with TTL — prevents redundant fetches for SPY, sector ETFs, VIX, etc.
+  const apiCache = useRef(new Map());
+  const API_CACHE_TTL = 5 * 60 * 1000; // 5-minute TTL for market data
+
+  const fetchWithCache = async (url, timeout = 6000) => {
+    const now = Date.now();
+    const cached = apiCache.current.get(url);
+    if (cached && (now - cached.timestamp) < API_CACHE_TTL) {
+      return cached.data;
+    }
+    const data = await fetchYahooWithProxies(url, timeout);
+    if (data) {
+      apiCache.current.set(url, { data, timestamp: now });
+      // Evict old entries (keep cache under 50 entries)
+      if (apiCache.current.size > 50) {
+        const oldest = [...apiCache.current.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+        if (oldest) apiCache.current.delete(oldest[0]);
+      }
+    }
+    return data;
+  };
 
   const processStocksInParallel = async (symbols, processFn, options = {}) => {
     const {
@@ -6428,7 +6540,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       timeout = 7000,        // 7s timeout per stock
       onProgress = null,     // Progress callback
       useCache = false,      // No caching - always fresh live data
-      batchDelay = 300       // Delay between batches to avoid rate limits
+      batchDelay = 50        // Minimal delay between batches (reduced from 300ms for faster scans)
     } = options;
 
     const results = [];
@@ -6493,10 +6605,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         break;
       }
 
-      // Small delay between batches for API rate limiting
-      if (i + batchSize < symbols.length) {
-        await new Promise(r => setTimeout(r, 75));
-      }
+      // Rate limiting handled by batchDelay above
     }
 
     // Sort by score and return
@@ -10166,7 +10275,7 @@ OUTPUT JSON:
         PRIORITY_STOCKS,
         analyzeStockFast,
         {
-          batchSize: 15,      // Process 15 at a time for reliability
+          batchSize: 20,      // Process 20 at a time (optimized)
           maxResults: 30,     // Get top 30 candidates
           minScore: 0,        // Don't filter by score
           timeout: 4000,      // 4s timeout per stock
@@ -12936,7 +13045,7 @@ INSTRUCTIONS:
         PRIORITY_STOCKS,
         analyzeStockFast,
         {
-          batchSize: 15,      // Process 15 at a time (more reliable)
+          batchSize: 20,      // Process 20 at a time (optimized)
           maxResults: 20,     // Get top 20 actionable results
           minScore: 0,        // Don't filter by score here
           timeout: 4000,      // 4s timeout per stock
