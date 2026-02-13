@@ -2488,6 +2488,32 @@ function App() {
             marketDayChange = ((spyPrice - spyPrev) / spyPrev * 100).toFixed(2) + '%';
           }
         }
+
+        // Volatility regime detection
+        let volatilityRegime = 'NORMAL';
+        let atrPctOfPrice = 0;
+        if (atr && currentPrice > 0) {
+          atrPctOfPrice = (atr / currentPrice * 100);
+          if (atrPctOfPrice > 3) volatilityRegime = 'HIGH';
+          else if (atrPctOfPrice > 1.5) volatilityRegime = 'ELEVATED';
+          else if (atrPctOfPrice < 0.5) volatilityRegime = 'LOW';
+          else volatilityRegime = 'NORMAL';
+        }
+
+        // Time-of-day awareness
+        let marketHourContext = 'UNKNOWN';
+        let timeConfidenceAdj = 0;
+        const now = new Date();
+        const estHour = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getHours();
+        const estMin = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getMinutes();
+        const estTime = estHour + estMin / 60;
+        if (estTime >= 9.5 && estTime < 10) { marketHourContext = 'OPENING_30MIN'; timeConfidenceAdj = -10; }
+        else if (estTime >= 10 && estTime < 11.5) { marketHourContext = 'MORNING_SESSION'; timeConfidenceAdj = 5; }
+        else if (estTime >= 11.5 && estTime < 14) { marketHourContext = 'MIDDAY_LULL'; timeConfidenceAdj = -5; }
+        else if (estTime >= 14 && estTime < 15.5) { marketHourContext = 'AFTERNOON_SESSION'; timeConfidenceAdj = 5; }
+        else if (estTime >= 15.5 && estTime < 16) { marketHourContext = 'CLOSING_30MIN'; timeConfidenceAdj = -10; }
+        else if (estTime < 9.5 || estTime >= 16) { marketHourContext = 'MARKET_CLOSED'; timeConfidenceAdj = 0; }
+
         // News sentiment analysis
         if (newsData && newsData.length > 0) {
           newsHeadlines = newsData.slice(0, 5).map(n => n.headline || n.title || '').filter(h => h);
@@ -2500,6 +2526,34 @@ function App() {
           bearishWords.forEach(w => { if (allText.includes(w)) sentScore--; });
           newsSentiment = sentScore > 1 ? 'BULLISH' : sentScore < -1 ? 'BEARISH' : 'NEUTRAL';
         }
+
+        // Earnings proximity check
+        let earningsWarning = false;
+        let earningsNote = '';
+        if (newsHeadlines.length > 0) {
+          const earningsKeywords = ['earnings', 'quarterly', 'q1', 'q2', 'q3', 'q4', 'revenue', 'eps', 'beat', 'miss', 'guidance', 'forecast', 'outlook', 'results'];
+          const allHeadlines = newsHeadlines.join(' ').toLowerCase();
+          const earningsHits = earningsKeywords.filter(k => allHeadlines.includes(k)).length;
+          if (earningsHits >= 2) {
+            earningsWarning = true;
+            earningsNote = 'EARNINGS PROXIMITY DETECTED — technicals may be unreliable near earnings. Reduce position size and widen stops.';
+          }
+        }
+
+        // Correlation filtering — alignment boost/penalty
+        let correlationScore = 0;
+        let correlationNote = '';
+        const stockTrend = sma20 > sma50 ? 'UP' : sma20 < sma50 ? 'DOWN' : 'FLAT';
+        const spyAligned = (stockTrend === 'UP' && marketTrend === 'BULLISH') || (stockTrend === 'DOWN' && marketTrend === 'BEARISH');
+        const sectorAligned = sectorRelStrength === 'OUTPERFORMING' && stockTrend === 'UP' || sectorRelStrength === 'UNDERPERFORMING' && stockTrend === 'DOWN';
+        const htfAligned = (stockTrend === 'UP' && htfTrend === 'UPTREND') || (stockTrend === 'DOWN' && htfTrend === 'DOWNTREND');
+        if (spyAligned) correlationScore += 5;
+        if (sectorAligned) correlationScore += 5;
+        if (htfAligned) correlationScore += 5;
+        if (spyAligned && sectorAligned && htfAligned) { correlationScore += 5; correlationNote = 'TRIPLE ALIGNED — stock, sector, and market all agree. High conviction.'; }
+        else if (!spyAligned && !sectorAligned && !htfAligned) { correlationScore -= 10; correlationNote = 'TRIPLE CONFLICT — stock diverges from sector, market, and higher timeframe. Low conviction.'; }
+        else { correlationNote = `Partial alignment: SPY ${spyAligned ? '✓' : '✗'}, Sector ${sectorAligned ? '✓' : '✗'}, HTF ${htfAligned ? '✓' : '✗'}`; }
+
       } catch (e) {
         console.log('Quick Analysis: Multi-timeframe/market context fetch failed:', e.message);
       }
@@ -2574,10 +2628,16 @@ MARKET CONTEXT (SPY):
 - Trading With Market: ${withMarket ? 'YES — favorable' : 'NO — against market, higher risk'}
 
 NEWS SENTIMENT:
-- Overall Sentiment: ${newsSentiment}${newsHeadlines.length > 0 ? '\n- Recent Headlines: ' + newsHeadlines.slice(0, 3).join(' | ') : ''}
+- Overall Sentiment: ${newsSentiment}${newsHeadlines.length > 0 ? '\n- Recent Headlines: ' + newsHeadlines.slice(0, 3).join(' | ') : ''}${earningsWarning ? `\nEARNINGS WARNING: ${earningsNote}` : ''}
 
 SECTOR ANALYSIS:
 ${sectorETF ? `- Sector: ${sectorNames[sectorETF]} (${sectorETF}), Sector Performance: ${sectorPerf}, Stock vs Sector: ${stockVsSector}, Relative Strength: ${sectorRelStrength}` : '- Sector data not available'}
+
+VOLATILITY REGIME: ${volatilityRegime} (ATR is ${atrPctOfPrice.toFixed(2)}% of price)${volatilityRegime === 'HIGH' ? ' — CAUTION: High volatility, widen stops and reduce position size. Mean-reversion signals less reliable.' : volatilityRegime === 'LOW' ? ' — Low volatility, tighter ranges expected. Breakout signals more significant.' : ''}
+
+MARKET HOURS: ${marketHourContext}${timeConfidenceAdj !== 0 ? ` (confidence adjustment: ${timeConfidenceAdj > 0 ? '+' : ''}${timeConfidenceAdj})` : ''}${marketHourContext === 'OPENING_30MIN' ? ' — Opening volatility: signals less reliable, wait for confirmation.' : marketHourContext === 'CLOSING_30MIN' ? ' — End-of-day positioning: signals may reflect closing flows, not conviction.' : ''}
+
+CORRELATION ALIGNMENT: Score ${correlationScore > 0 ? '+' : ''}${correlationScore}. ${correlationNote}
 
 Analysis Timeframe: ${tfLabel} (${tfInterval} candles)`;
 
@@ -2603,8 +2663,11 @@ SCORING FRAMEWORK — evaluate each factor and tally the score:
 11. MULTI-TIMEFRAME (±15pts): Higher TF confirms = +15. Higher TF conflicts = -15.
 12. MARKET CONTEXT (±10pts): Trading with SPY trend = +10. Against = -10.
 13. NEWS SENTIMENT (±10pts): Bullish headlines = +10. Bearish headlines = -10. Neutral = 0.
+14. VOLATILITY REGIME (modifier): HIGH vol = reduce confidence by 10, widen stop/target by 1.5x. LOW vol = tighten ranges. ELEVATED = use caution with mean-reversion.
+15. MARKET HOURS (modifier): Opening/closing 30min = reduce confidence by 10. Midday = reduce by 5. Morning/afternoon sessions are most reliable.
+16. CORRELATION (±20pts): All 3 aligned (SPY + sector + HTF) = +20. All 3 conflict = -20. Each aligned = +5.
 
-Total possible: ~-175 to +175. Map to verdict:
+Total possible: ~-225 to +225. Map to verdict:
 - 80+: STRONG BUY | 40-79: BUY | -39 to 39: HOLD | -79 to -40: SELL | -80 or below: STRONG SELL
 - Confidence = |score| mapped to 50-95 range.
 - If timeframes conflict, cap confidence at 70 max.
@@ -2628,6 +2691,10 @@ Respond in EXACTLY this JSON format (no markdown, no code blocks, just raw JSON)
   "resistance": number (nearest resistance — use upper Bollinger Band or recent highs),
   "riskRewardRatio": "string like 1:2.5"
 }
+
+ACCURACY CALIBRATION:
+${accuracyStats.total >= 5 ? `Based on ${accuracyStats.total} past predictions: Win rate = ${accuracyStats.winRate}%. ${accuracyStats.calibrationOffset > 5 ? 'Your confidence tends to be too LOW — you can be slightly more confident.' : accuracyStats.calibrationOffset < -5 ? 'Your confidence tends to be too HIGH — reduce confidence by ~' + Math.abs(accuracyStats.calibrationOffset) + '%.' : 'Confidence calibration is good.'}` : 'Not enough historical data for calibration yet.'}
+${Object.entries(accuracyStats.byVerdict || {}).filter(([,v]) => v.total >= 3).map(([verdict, v]) => `- ${verdict}: ${Math.round((v.correct / v.total) * 100)}% accuracy (${v.correct}/${v.total})`).join('\n')}
 
 CRITICAL RULES:
 - targetPrice and stopLoss MUST be realistic dollar amounts based on the current price of $${currentPrice.toFixed(2)}. Never use 0 or null.
@@ -2672,8 +2739,11 @@ CRITICAL RULES:
           adx: adx ? parseFloat(adx.toFixed(1)) : null, adxTrend,
           fibLevels, nearestFibSupport, nearestFibResistance,
           stochRsi: stochRsi ? parseFloat(stochRsi.toFixed(1)) : null, stochSignal,
-          newsSentiment, newsHeadlines,
+          newsSentiment, newsHeadlines, earningsWarning, earningsNote,
           sectorETF, sectorName: sectorETF ? sectorNames[sectorETF] : null, sectorPerf, stockVsSector, sectorRelStrength,
+          volatilityRegime, atrPctOfPrice: atrPctOfPrice ? parseFloat(atrPctOfPrice.toFixed(2)) : null,
+          marketHourContext, timeConfidenceAdj,
+          correlationScore, correlationNote,
           htfTrend, marketTrend, trendsAligned,
           volRatio: parseFloat(volRatio),
           rangePosition: parseInt(rangePosition),
@@ -3739,7 +3809,27 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       if (e.outcome === 'correct') byVerdict[e.verdict].correct++;
     });
 
-    setAccuracyStats({ total, correct, wrong, pending, winRate, byVerdict });
+    // Confidence calibration — track actual win rate per confidence bucket
+    const calibration = {};
+    resolved.forEach(e => {
+      const bucket = Math.floor((e.confidence || 50) / 10) * 10; // 50, 60, 70, 80, 90
+      if (!calibration[bucket]) calibration[bucket] = { total: 0, correct: 0 };
+      calibration[bucket].total++;
+      if (e.outcome === 'correct') calibration[bucket].correct++;
+    });
+    // Calculate calibration offset: difference between stated confidence and actual win rate
+    let calibrationOffset = 0;
+    const calibrationEntries = Object.entries(calibration).filter(([, v]) => v.total >= 3);
+    if (calibrationEntries.length > 0) {
+      const totalOffset = calibrationEntries.reduce((sum, [bucket, v]) => {
+        const stated = parseInt(bucket) + 5; // midpoint of bucket
+        const actual = Math.round((v.correct / v.total) * 100);
+        return sum + (actual - stated);
+      }, 0);
+      calibrationOffset = Math.round(totalOffset / calibrationEntries.length);
+    }
+
+    setAccuracyStats({ total, correct, wrong, pending, winRate, byVerdict, calibration, calibrationOffset });
   }, [accuracyLog]);
 
   const addPriceTarget = useCallback((ticker, currentPrice, targetPrice, stopPrice, verdict, confidence) => {
