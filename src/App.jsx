@@ -1573,6 +1573,103 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
+  // Feature guide state — tracks which feature tabs have shown their intro
+  const [featureGuidesDismissed, setFeatureGuidesDismissed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_feature_guides') || '{}'); } catch { return {}; }
+  });
+  const [showFeatureGuide, setShowFeatureGuide] = useState(null); // currently showing guide for which tab
+
+  const dismissFeatureGuide = (tabKey) => {
+    const updated = { ...featureGuidesDismissed, [tabKey]: true };
+    setFeatureGuidesDismissed(updated);
+    setShowFeatureGuide(null);
+    try { localStorage.setItem('modus_feature_guides', JSON.stringify(updated)); } catch {}
+  };
+
+  // Auto-show feature guide on first visit to new feature tabs
+  useEffect(() => {
+    const guideTabs = ['backtestengine', 'heatmap', 'strategybuilder', 'compare', 'riskdashboard', 'replay'];
+    if (guideTabs.includes(activeTab) && !featureGuidesDismissed[activeTab]) {
+      setShowFeatureGuide(activeTab);
+    }
+  }, [activeTab]);
+
+  // Define the guide content for each tab
+  const featureGuides = {
+    backtestengine: {
+      title: 'How to Use the Backtest Engine',
+      color: 'orange',
+      steps: [
+        { icon: '1️⃣', text: 'Enter a stock ticker (e.g., AAPL, TSLA, MSFT) in the Ticker field' },
+        { icon: '2️⃣', text: 'Choose a time period — 1 month, 3 months, 6 months, or 1 year of historical data' },
+        { icon: '3️⃣', text: 'Select a strategy: Momentum (trend following), Mean Reversion (buy dips), or Breakout (range breaks)' },
+        { icon: '4️⃣', text: 'Click "Run Backtest" — the engine replays every bar through our 17-factor AI scoring system' },
+        { icon: '📊', text: 'Review results: equity curve, Sharpe ratio, profit factor, max drawdown, win rate, and individual trade signals' },
+      ],
+      tip: 'Try testing the same ticker with different strategies to see which approach works best for that stock\'s behavior.'
+    },
+    heatmap: {
+      title: 'How to Use the Market Heat Map',
+      color: 'violet',
+      steps: [
+        { icon: '1️⃣', text: 'Click "Load Heat Map" to fetch live data for 110+ stocks across 11 sectors' },
+        { icon: '2️⃣', text: 'Each tile represents a stock — green means gaining, red means losing, size reflects market weight' },
+        { icon: '3️⃣', text: 'Tiles are grouped by sector (Technology, Healthcare, Finance, etc.) for easy comparison' },
+        { icon: '4️⃣', text: 'Hover over any tile to see the exact change percentage and price data' },
+        { icon: '🔄', text: 'Click "Refresh" to update with the latest market data' },
+      ],
+      tip: 'Use this to quickly spot which sectors are hot and where money is flowing before running a detailed analysis.'
+    },
+    strategybuilder: {
+      title: 'How to Use the AI Strategy Builder',
+      color: 'cyan',
+      steps: [
+        { icon: '1️⃣', text: 'Each row is a screening rule. Pick an indicator: RSI, Trend, MACD, Volume Spike, SMA20/50, Change%, or ATR%' },
+        { icon: '2️⃣', text: 'Set the condition (above/below/equals) and target value for each rule' },
+        { icon: '3️⃣', text: 'Toggle rules on/off with the checkbox — only enabled rules are applied during the scan' },
+        { icon: '4️⃣', text: 'Click "+ Add Rule" for more conditions (up to 10). All rules use AND logic — stocks must match every one' },
+        { icon: '🔍', text: 'Click "Scan Stocks" to run the strategy against 200+ stocks and see ranked results' },
+      ],
+      tip: 'Start simple with 1-2 rules (e.g., RSI below 30 + Uptrend), then add more rules to narrow down results.'
+    },
+    compare: {
+      title: 'How to Use Stock Comparison',
+      color: 'emerald',
+      steps: [
+        { icon: '1️⃣', text: 'Enter 2-5 stock tickers in the input fields (e.g., AAPL, MSFT, GOOG)' },
+        { icon: '2️⃣', text: 'Use the + button to add more stocks or × to remove one' },
+        { icon: '3️⃣', text: 'Click "Compare" to fetch technical data and 3-month price history for all tickers' },
+        { icon: '4️⃣', text: 'View the side-by-side metrics table: RSI, trend direction, MACD, ATR%, and volume' },
+        { icon: '📈', text: 'The normalized performance chart shows how each stock performed relative to each other over 3 months' },
+      ],
+      tip: 'Compare stocks within the same sector to find the strongest performer, or compare across sectors for diversification ideas.'
+    },
+    riskdashboard: {
+      title: 'How to Use the Portfolio Risk Dashboard',
+      color: 'red',
+      steps: [
+        { icon: '1️⃣', text: 'Click "Analyze Risk" to calculate risk metrics from your open positions in the Trade Journal' },
+        { icon: '2️⃣', text: 'Review your Portfolio Beta — values above 1.0 mean more volatile than the market (SPY)' },
+        { icon: '3️⃣', text: 'Check your Sharpe Ratio — higher is better, above 1.0 is considered good risk-adjusted returns' },
+        { icon: '4️⃣', text: 'Monitor Max Drawdown — the largest peak-to-trough decline in your portfolio value' },
+        { icon: '📊', text: 'Review sector exposure to ensure you\'re not too concentrated in one area' },
+      ],
+      tip: 'Run this analysis regularly to ensure your portfolio stays balanced. High concentration in one sector increases risk.'
+    },
+    replay: {
+      title: 'How to Use the Trade Replay Simulator',
+      color: 'pink',
+      steps: [
+        { icon: '1️⃣', text: 'Enter a stock ticker and click "Load" to fetch 6 months of daily historical bars' },
+        { icon: '2️⃣', text: 'Bars reveal one at a time — use Step (▶) to advance one bar, or Play for auto-advance' },
+        { icon: '3️⃣', text: 'At any point, click "Buy" to open a virtual position at the current price' },
+        { icon: '4️⃣', text: 'Click "Sell" to close your position and lock in the profit or loss' },
+        { icon: '💰', text: 'Your virtual balance starts at $10,000 — track your P&L as you practice making trading decisions' },
+      ],
+      tip: 'This is like paper trading with a time machine. Practice spotting entries and exits without any real money at risk.'
+    }
+  };
+
   // Volatility thresholds (based on ATR%) - 5 levels + any
   // Redesigned so "high" = actual high-risk stocks (AI, small caps, meme stocks)
   const volatilityThresholds = {
@@ -30882,6 +30979,9 @@ INSTRUCTIONS:
                   <p className="text-sm text-slate-400">Test strategies against real historical market data</p>
                 </div>
                 <span className="ml-auto text-xs bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full font-medium">v4.0</span>
+                <button onClick={() => setShowFeatureGuide('backtestengine')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Backtest Engine">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-orange-400 transition-colors" />
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -31027,6 +31127,9 @@ INSTRUCTIONS:
                     <p className="text-sm text-slate-400">Live sector & stock performance visualization</p>
                   </div>
                   <span className="text-xs bg-violet-500/20 text-violet-300 px-3 py-1 rounded-full font-medium">v4.0</span>
+                  <button onClick={() => setShowFeatureGuide('heatmap')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Market Heat Map">
+                    <Info className="w-4 h-4 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                  </button>
                 </div>
                 <button onClick={fetchHeatmapData} disabled={heatmapLoading} className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors">
                   {heatmapLoading ? 'Loading...' : heatmapData ? 'Refresh' : 'Load Heat Map'}
@@ -31096,6 +31199,9 @@ INSTRUCTIONS:
                   <p className="text-sm text-slate-400">Build custom scanning rules and find matching stocks</p>
                 </div>
                 <span className="ml-auto text-xs bg-cyan-500/20 text-cyan-300 px-3 py-1 rounded-full font-medium">v4.0</span>
+                <button onClick={() => setShowFeatureGuide('strategybuilder')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Strategy Builder">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                </button>
               </div>
 
               <div className="space-y-2 mb-4">
@@ -36828,6 +36934,9 @@ INSTRUCTIONS:
                   <p className="text-sm text-slate-400">Compare stocks side-by-side with technical analysis</p>
                 </div>
                 <span className="ml-auto text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full font-medium">v4.0</span>
+                <button onClick={() => setShowFeatureGuide('compare')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Stock Comparison">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                </button>
               </div>
 
               <div className="flex flex-wrap gap-2 items-end">
@@ -36948,6 +37057,9 @@ INSTRUCTIONS:
                     <p className="text-sm text-slate-400">Beta, Sharpe ratio, drawdown & sector exposure analysis</p>
                   </div>
                   <span className="text-xs bg-red-500/20 text-red-300 px-3 py-1 rounded-full font-medium">v4.0</span>
+                  <button onClick={() => setShowFeatureGuide('riskdashboard')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Portfolio Risk Dashboard">
+                    <Info className="w-4 h-4 text-slate-500 group-hover:text-red-400 transition-colors" />
+                  </button>
                 </div>
                 <button onClick={analyzePortfolioRisk} disabled={riskLoading} className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors">
                   {riskLoading ? 'Analyzing...' : 'Analyze Risk'}
@@ -37037,6 +37149,9 @@ INSTRUCTIONS:
                   <p className="text-sm text-slate-400">Practice trading on historical data bar-by-bar</p>
                 </div>
                 <span className="ml-auto text-xs bg-pink-500/20 text-pink-300 px-3 py-1 rounded-full font-medium">v4.0</span>
+                <button onClick={() => setShowFeatureGuide('replay')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Trade Replay">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-pink-400 transition-colors" />
+                </button>
               </div>
 
               <div className="flex items-end gap-3">
@@ -39164,6 +39279,50 @@ INSTRUCTIONS:
           </div>
         </div>
       )}
+
+      {/* Feature Guide Overlay */}
+      {showFeatureGuide && featureGuides[showFeatureGuide] && (() => {
+        const guide = featureGuides[showFeatureGuide];
+        const colorStyles = {
+          orange: { title: '#fdba74', bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.2)', btn: '#ea580c' },
+          violet: { title: '#c4b5fd', bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.2)', btn: '#7c3aed' },
+          cyan: { title: '#67e8f9', bg: 'rgba(6,182,212,0.1)', border: 'rgba(6,182,212,0.2)', btn: '#0891b2' },
+          emerald: { title: '#6ee7b7', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', btn: '#059669' },
+          red: { title: '#fca5a5', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.2)', btn: '#dc2626' },
+          pink: { title: '#f9a8d4', bg: 'rgba(236,72,153,0.1)', border: 'rgba(236,72,153,0.2)', btn: '#db2777' },
+        };
+        const cs = colorStyles[guide.color] || colorStyles.violet;
+        return (
+          <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => dismissFeatureGuide(showFeatureGuide)}>
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xl font-bold" style={{ color: cs.title }}>{guide.title}</h3>
+                <button onClick={() => dismissFeatureGuide(showFeatureGuide)} className="text-slate-500 hover:text-white transition-colors text-sm">✕</button>
+              </div>
+              <div className="space-y-3 mb-5">
+                {guide.steps.map((step, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3">
+                    <span className="text-lg flex-shrink-0">{step.icon}</span>
+                    <p className="text-sm text-slate-300">{step.text}</p>
+                  </div>
+                ))}
+              </div>
+              {guide.tip && (
+                <div className="rounded-lg p-3 mb-5" style={{ background: cs.bg, border: `1px solid ${cs.border}` }}>
+                  <p className="text-sm text-slate-300"><span className="font-semibold text-white">💡 Tip:</span> {guide.tip}</p>
+                </div>
+              )}
+              <button
+                onClick={() => dismissFeatureGuide(showFeatureGuide)}
+                className="w-full py-3 rounded-xl font-semibold transition-colors hover:opacity-90"
+                style={{ background: cs.btn }}
+              >
+                Got it, let's go!
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* FEATURE 7: Onboarding Overlay — only after landing page + disclaimer */}
       {showOnboarding && disclaimerAccepted && !showLandingPage && !showDisclaimer && (
