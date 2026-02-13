@@ -1112,6 +1112,9 @@ function App() {
         { type: 'improvement', text: 'Batch scan delay reduced from 300ms to 50ms — saves ~3.5s on 200-stock scans' },
         { type: 'improvement', text: 'Timer consolidation — merged redundant setInterval calls for lower CPU usage' },
         { type: 'improvement', text: 'Adaptive scoring weights automatically adjust based on volatility regime (trend, volume, mean-reversion)' },
+        { type: 'feature', text: 'Experience Level Selector — choose Beginner, Intermediate, Advanced, or Expert to get personalized feature recommendations' },
+        { type: 'feature', text: 'Recommended For You tab — curated features based on your skill level, shown on every app open with opt-out checkbox' },
+        { type: 'feature', text: 'First-visit feature guides — step-by-step instructions on each new tab with persistent info button to re-open anytime' },
       ]
     },
     {
@@ -1484,7 +1487,14 @@ function App() {
   
   // Navigation
   const [activeTab, setActiveTab] = useState(() => {
-    try { return localStorage.getItem('modus_active_tab') || 'dashboard'; } catch { return 'dashboard'; }
+    try {
+      const savedTab = localStorage.getItem('modus_active_tab');
+      const hideRec = localStorage.getItem('modus_hide_recommended') === 'true';
+      const hasLevel = localStorage.getItem('modus_experience_level');
+      // Show recommended tab on open if user has set their level and hasn't opted out
+      if (hasLevel && !hideRec) return 'recommended';
+      return savedTab || 'dashboard';
+    } catch { return 'dashboard'; }
   });
   
   // Chart Analysis
@@ -1572,6 +1582,15 @@ function App() {
   // Onboarding v4.0 — starts false, triggered AFTER landing page + disclaimer flow
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+
+  // Experience Level System
+  const [userExperienceLevel, setUserExperienceLevel] = useState(() => {
+    try { return localStorage.getItem('modus_experience_level') || null; } catch { return null; }
+  });
+  const [showExperiencePicker, setShowExperiencePicker] = useState(false);
+  const [hideRecommendedOnOpen, setHideRecommendedOnOpen] = useState(() => {
+    try { return localStorage.getItem('modus_hide_recommended') === 'true'; } catch { return false; }
+  });
 
   // Feature guide state — tracks which feature tabs have shown their intro
   const [featureGuidesDismissed, setFeatureGuidesDismissed] = useState(() => {
@@ -1667,6 +1686,58 @@ function App() {
         { icon: '💰', text: 'Your virtual balance starts at $10,000 — track your P&L as you practice making trading decisions' },
       ],
       tip: 'This is like paper trading with a time machine. Practice spotting entries and exits without any real money at risk.'
+    }
+  };
+
+  // Experience Level Recommendations
+  const experienceLevels = {
+    beginner: {
+      label: 'Beginner', emoji: '🌱', color: '#10b981',
+      description: 'New to trading or just getting started with technical analysis',
+      features: [
+        { tab: 'dashboard', name: 'Dashboard', icon: '🏠', why: 'Your home base — see market overview, watchlist, and quick quotes at a glance' },
+        { tab: 'analysis', name: 'Chart Analysis', icon: '📸', why: 'Upload any chart and get AI-powered analysis with entry/exit points explained simply' },
+        { tab: 'dailypick', name: 'Daily Pick', icon: '⭐', why: 'Let AI find the best stock for you — just set your risk comfort level' },
+        { tab: 'replay', name: 'Trade Replay', icon: '🎮', why: 'Practice trading on historical data risk-free — the best way to learn' },
+        { tab: 'journal', name: 'Trade Journal', icon: '📓', why: 'Track every trade to learn from your wins and losses' },
+      ]
+    },
+    intermediate: {
+      label: 'Intermediate', emoji: '📈', color: '#3b82f6',
+      description: 'Understand basic technical analysis and have some trading experience',
+      features: [
+        { tab: 'analysis', name: 'Chart Analysis', icon: '📸', why: 'Get deeper AI insights with 17-factor scoring and pattern recognition' },
+        { tab: 'dailypick', name: 'Daily Pick', icon: '⭐', why: 'Volatility-matched stock picks with velocity scoring' },
+        { tab: 'backtestengine', name: 'Backtest Engine', icon: '🔬', why: 'Test if your strategy actually works on real historical data before risking money' },
+        { tab: 'compare', name: 'Stock Comparison', icon: '⚖️', why: 'Compare stocks side-by-side to find the strongest candidates' },
+        { tab: 'journal', name: 'Trade Journal', icon: '📓', why: 'Track performance and identify patterns in your trading' },
+        { tab: 'scanner', name: 'Market Scanner', icon: '🔍', why: 'Scan 200+ stocks to find setups matching your criteria' },
+      ]
+    },
+    advanced: {
+      label: 'Advanced', emoji: '🎯', color: '#f59e0b',
+      description: 'Experienced trader comfortable with technical indicators and risk management',
+      features: [
+        { tab: 'backtestengine', name: 'Backtest Engine', icon: '🔬', why: 'Validate strategies with equity curves, Sharpe ratios, and profit factor analysis' },
+        { tab: 'strategybuilder', name: 'AI Strategy Builder', icon: '🧠', why: 'Build custom multi-rule screening strategies with 8 indicator types' },
+        { tab: 'riskdashboard', name: 'Risk Dashboard', icon: '🛡️', why: 'Monitor portfolio beta, drawdown, and sector concentration' },
+        { tab: 'compare', name: 'Stock Comparison', icon: '⚖️', why: 'Run normalized performance analysis across multiple candidates' },
+        { tab: 'heatmap', name: 'Market Heat Map', icon: '🗺️', why: 'Spot sector rotation and money flow across 110+ stocks' },
+        { tab: 'quickanalysis', name: 'Quick Analysis', icon: '⚡', why: '17-factor AI scoring with inter-market context (VIX, DXY, TLT)' },
+      ]
+    },
+    expert: {
+      label: 'Expert', emoji: '🏆', color: '#a855f7',
+      description: 'Professional or full-time trader who wants every tool available',
+      features: [
+        { tab: 'strategybuilder', name: 'AI Strategy Builder', icon: '🧠', why: 'Build and refine complex multi-factor screening strategies' },
+        { tab: 'backtestengine', name: 'Backtest Engine', icon: '🔬', why: 'Rigorous strategy validation with full statistical analysis' },
+        { tab: 'riskdashboard', name: 'Risk Dashboard', icon: '🛡️', why: 'Professional portfolio risk metrics — beta, Sharpe, sector exposure' },
+        { tab: 'heatmap', name: 'Market Heat Map', icon: '🗺️', why: 'Real-time sector and stock performance visualization' },
+        { tab: 'compare', name: 'Stock Comparison', icon: '⚖️', why: 'Multi-stock technical analysis with performance overlay' },
+        { tab: 'replay', name: 'Trade Replay', icon: '🎮', why: 'Replay market scenarios for strategy refinement' },
+        { tab: 'quickanalysis', name: 'Quick Analysis', icon: '⚡', why: 'Full 17-factor analysis with adaptive scoring weights' },
+      ]
     }
   };
 
@@ -17674,11 +17745,18 @@ INSTRUCTIONS:
                   setShowDisclaimer(false);
                   localStorage.setItem('modus_disclaimer_accepted', 'true');
                   localStorage.setItem('modus_disclaimer_date', new Date().toISOString());
-                  // Show onboarding tour after disclaimer if not already completed
-                  const onboardingDone = localStorage.getItem('modus_onboarding_done');
-                  if (onboardingDone !== 'true') {
-                    setOnboardingStep(0);
-                    setShowOnboarding(true);
+                  // After disclaimer: show experience picker if level not set, then onboarding
+                  const savedLevel = localStorage.getItem('modus_experience_level');
+                  if (!savedLevel) {
+                    // First time — show experience picker, onboarding will follow after
+                    setShowExperiencePicker(true);
+                  } else {
+                    // Returning user with level set — show onboarding if not done
+                    const onboardingDone = localStorage.getItem('modus_onboarding_done');
+                    if (onboardingDone !== 'true') {
+                      setOnboardingStep(0);
+                      setShowOnboarding(true);
+                    }
                   }
                 }}
                 className="flex-1 bg-violet-600 hover:bg-violet-500 text-white rounded-lg py-4 font-bold text-lg transition-colors shadow-lg"
@@ -17793,6 +17871,19 @@ INSTRUCTIONS:
             >
               <PieChart className="w-5 h-5 flex-shrink-0" />
               {!sidebarCollapsed && <span className="font-medium">Dashboard</span>}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("recommended")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
+                activeTab === "recommended"
+                  ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/25"
+                  : "text-slate-400 hover:bg-slate-800/70 hover:text-white"
+              }`}
+              title={sidebarCollapsed ? "Recommended" : ""}
+            >
+              <Compass className="w-5 h-5 flex-shrink-0" />
+              {!sidebarCollapsed && <span className="font-medium">For You</span>}
             </button>
 
             {/* TRADING Section */}
@@ -30967,6 +31058,94 @@ INSTRUCTIONS:
           </div>
         )}
 
+        {activeTab === "recommended" && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg">
+                    <Compass className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Recommended For You</h2>
+                    <p className="text-sm text-slate-400">Features tailored to your experience level</p>
+                  </div>
+                </div>
+                {userExperienceLevel && experienceLevels[userExperienceLevel] && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{experienceLevels[userExperienceLevel].emoji}</span>
+                    <div>
+                      <span className="text-sm font-semibold" style={{ color: experienceLevels[userExperienceLevel].color }}>{experienceLevels[userExperienceLevel].label}</span>
+                      <button
+                        onClick={() => setShowExperiencePicker(true)}
+                        className="block text-xs text-slate-500 hover:text-violet-400 transition-colors"
+                      >
+                        Change level
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {userExperienceLevel && experienceLevels[userExperienceLevel] ? (
+              <>
+                <p className="text-slate-400 text-sm">Based on your experience level, here are the features we recommend you focus on:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {experienceLevels[userExperienceLevel].features.map((feat, i) => (
+                    <button
+                      key={feat.tab}
+                      onClick={() => setActiveTab(feat.tab)}
+                      className="bg-slate-800/50 border border-slate-700/50 hover:border-violet-500/30 rounded-xl p-5 text-left transition-all hover:bg-slate-800/80 group"
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-2xl">{feat.icon}</span>
+                        <h3 className="font-semibold text-white group-hover:text-violet-300 transition-colors">{feat.name}</h3>
+                        <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-violet-400 ml-auto transition-colors" />
+                      </div>
+                      <p className="text-sm text-slate-400 leading-relaxed">{feat.why}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hideRecommendedOnOpen}
+                      onChange={e => {
+                        setHideRecommendedOnOpen(e.target.checked);
+                        try { localStorage.setItem('modus_hide_recommended', e.target.checked ? 'true' : 'false'); } catch {}
+                      }}
+                      className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-violet-600 focus:ring-violet-500/50"
+                    />
+                    <span className="text-sm text-slate-500">Don't show this page when I open the app</span>
+                  </label>
+                  <button
+                    onClick={() => setShowExperiencePicker(true)}
+                    className="text-sm text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    Change Experience Level
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-4">📊</div>
+                <h3 className="text-xl font-bold mb-2">Set Your Experience Level</h3>
+                <p className="text-slate-400 mb-6 max-w-md mx-auto">Tell us about your trading experience and we'll recommend the best features for you.</p>
+                <button
+                  onClick={() => setShowExperiencePicker(true)}
+                  className="px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl font-semibold transition-colors"
+                >
+                  Choose My Level
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "backtestengine" && (
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-2xl p-6">
@@ -39323,6 +39502,53 @@ INSTRUCTIONS:
           </div>
         );
       })()}
+
+      {/* EXPERIENCE LEVEL PICKER — shown after disclaimer, before onboarding */}
+      {showExperiencePicker && (
+        <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-8 shadow-2xl">
+            <div className="text-center mb-8">
+              <div className="text-4xl mb-3">📊</div>
+              <h2 className="text-2xl font-bold mb-2">What's your trading experience?</h2>
+              <p className="text-slate-400 text-sm">We'll personalize MODUS to show you the most relevant features for your skill level.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { key: 'beginner', emoji: '🌱', label: 'Beginner', desc: 'New to trading or just getting started with technical analysis', color: '#10b981' },
+                { key: 'intermediate', emoji: '📈', label: 'Intermediate', desc: 'Understand basic technical analysis and have some trading experience', color: '#3b82f6' },
+                { key: 'advanced', emoji: '🎯', label: 'Advanced', desc: 'Experienced trader comfortable with technical indicators and risk management', color: '#f59e0b' },
+                { key: 'expert', emoji: '🏆', label: 'Expert', desc: 'Professional or full-time trader who wants every tool available', color: '#a855f7' },
+              ].map(level => (
+                <button
+                  key={level.key}
+                  onClick={() => {
+                    setUserExperienceLevel(level.key);
+                    try { localStorage.setItem('modus_experience_level', level.key); } catch {}
+                    setShowExperiencePicker(false);
+                    // Now trigger onboarding if not done
+                    const onboardingDone = localStorage.getItem('modus_onboarding_done');
+                    if (onboardingDone !== 'true') {
+                      setOnboardingStep(0);
+                      setShowOnboarding(true);
+                    }
+                  }}
+                  className="p-5 rounded-xl border-2 text-left transition-all duration-200 hover:scale-[1.02]"
+                  style={{ borderColor: level.color + '40', background: level.color + '10' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = level.color; e.currentTarget.style.background = level.color + '20'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = level.color + '40'; e.currentTarget.style.background = level.color + '10'; }}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-3xl">{level.emoji}</span>
+                    <span className="text-lg font-bold">{level.label}</span>
+                  </div>
+                  <p className="text-sm text-slate-400 leading-relaxed">{level.desc}</p>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-600 text-center mt-6">You can change this anytime from the Recommended tab</p>
+          </div>
+        </div>
+      )}
 
       {/* FEATURE 7: Onboarding Overlay — only after landing page + disclaimer */}
       {showOnboarding && disclaimerAccepted && !showLandingPage && !showDisclaimer && (
