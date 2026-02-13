@@ -10203,15 +10203,60 @@ OUTPUT JSON:
         } else {
           const volConfig = volatilityThresholds[pickVolatility] || volatilityThresholds.medium;
 
-          // Apply volatility filter if not "any"
-          let filteredAnalyses = stockAnalyses;
-          if (pickVolatility !== 'any') {
-            filteredAnalyses = stockAnalyses.filter(s => {
-              const atrPct = parseFloat(s.atrPercent) || (Math.abs(s.changePercent || 0) * 0.5);
-              return atrPct >= volConfig.min && atrPct <= volConfig.max;
-            });
-            if (filteredAnalyses.length < 3) filteredAnalyses = stockAnalyses;
-          }
+          // VOLATILITY FIT SCORING - Rank stocks by how well they match user's volatility + timeframe
+          const idealAtrPct = (volConfig.min + volConfig.max) / 2; // Sweet spot for chosen volatility
+
+          const scoredAnalyses = stockAnalyses.map(s => {
+            const atrPct = parseFloat(s.atrPercent) || (Math.abs(s.changePercent || 0) * 0.5);
+            let volFitScore = 0;
+
+            if (pickVolatility === 'any') {
+              // No volatility preference - just use technical score
+              volFitScore = 100;
+            } else {
+              // Calculate how well this stock's volatility matches the preferred range
+              if (atrPct >= volConfig.min && atrPct <= volConfig.max) {
+                // Within range: score based on proximity to ideal center
+                const distFromIdeal = Math.abs(atrPct - idealAtrPct);
+                const rangeHalf = (volConfig.max - volConfig.min) / 2;
+                volFitScore = rangeHalf > 0 ? Math.round(100 - (distFromIdeal / rangeHalf) * 30) : 100;
+              } else {
+                // Outside range: penalize based on distance
+                const distFromRange = atrPct < volConfig.min
+                  ? volConfig.min - atrPct
+                  : atrPct - volConfig.max;
+                volFitScore = Math.max(0, Math.round(50 - distFromRange * 15));
+              }
+            }
+
+            // Timeframe fit: certain volatility levels work better with certain timeframes
+            let timeframeFit = 100;
+            const tfCat = tfConfig.category; // 'Short', 'Medium', 'Long'
+            if (tfCat === 'Short' && atrPct > 4.0) timeframeFit = 70; // Too volatile for short holds
+            if (tfCat === 'Short' && atrPct < 0.5) timeframeFit = 60; // Too stable for quick trades
+            if (tfCat === 'Long' && atrPct > 5.0) timeframeFit = 65; // Too volatile for position trades
+            if (tfCat === 'Long' && atrPct >= 1.0 && atrPct <= 3.0) timeframeFit = 110; // Sweet spot for swings
+            if (tfCat === 'Medium' && atrPct >= 1.5 && atrPct <= 4.0) timeframeFit = 110; // Sweet spot for medium
+
+            // Combined score: 40% volatility fit + 30% technical strength + 30% timeframe fit
+            const technicalScore = s.normalizedScore || 50;
+            const combinedScore = (volFitScore * 0.4) + (technicalScore * 0.3) + (timeframeFit * 0.3);
+
+            return {
+              ...s,
+              volFitScore: Math.round(volFitScore),
+              timeframeFit: Math.round(timeframeFit),
+              combinedScore: Math.round(combinedScore),
+              atrPctCalc: atrPct,
+              volMatchLabel: volFitScore >= 85 ? 'Excellent Match' : volFitScore >= 65 ? 'Good Match' : volFitScore >= 40 ? 'Moderate Match' : 'Weak Match',
+              volMatchColor: volFitScore >= 85 ? 'emerald' : volFitScore >= 65 ? 'cyan' : volFitScore >= 40 ? 'amber' : 'red'
+            };
+          });
+
+          // Sort by combined score (best volatility+technical+timeframe fit first)
+          scoredAnalyses.sort((a, b) => b.combinedScore - a.combinedScore);
+
+          let filteredAnalyses = scoredAnalyses;
 
           // Find best pick
           const bestPick = filteredAnalyses[0];
@@ -10296,13 +10341,18 @@ OUTPUT JSON:
             exampleMaxLoss: '200.00'
           },
           volatility: {
-            atrPercent: bestPick.atrPercent || (Math.abs(bestPick.changePercent || 0) * 0.5).toFixed(2),
-            category: parseFloat(bestPick.atrPercent) < 1.5 ? 'Low' :
+            atrPercent: bestPick.atrPctCalc?.toFixed(2) || bestPick.atrPercent || (Math.abs(bestPick.changePercent || 0) * 0.5).toFixed(2),
+            category: bestPick.volatilityCategory || (parseFloat(bestPick.atrPercent) < 1.5 ? 'Low' :
                       parseFloat(bestPick.atrPercent) < 2.5 ? 'Low-Medium' :
                       parseFloat(bestPick.atrPercent) < 4 ? 'Medium' :
-                      parseFloat(bestPick.atrPercent) < 6 ? 'Medium-High' : 'High',
+                      parseFloat(bestPick.atrPercent) < 6 ? 'Medium-High' : 'High'),
             preference: volConfig.label,
-            warning: null
+            fitScore: bestPick.volFitScore || 0,
+            fitLabel: bestPick.volMatchLabel || 'N/A',
+            fitColor: bestPick.volMatchColor || 'slate',
+            timeframeFit: bestPick.timeframeFit || 100,
+            combinedScore: bestPick.combinedScore || 0,
+            warning: bestPick.volFitScore < 50 ? `This stock's volatility doesn't perfectly match your ${volConfig.label} preference, but it has the strongest technical setup available.` : null
           },
           catalystData: {
             catalysts: catalystData.catalysts || [],
@@ -10317,7 +10367,14 @@ OUTPUT JSON:
             symbol: s.symbol,
             direction: s.direction,
             score: s.normalizedScore?.toFixed(0),
-            rsi: s.rsi?.toFixed(0)
+            rsi: s.rsi?.toFixed(0),
+            volFitScore: s.volFitScore || 0,
+            volMatchLabel: s.volMatchLabel || 'N/A',
+            volMatchColor: s.volMatchColor || 'slate',
+            combinedScore: s.combinedScore || 0,
+            atrPct: s.atrPctCalc?.toFixed(2) || 'N/A',
+            volatilityCategory: s.volatilityCategory || 'N/A',
+            timeframeFit: s.timeframeFit || 100
           }))
         };
 
@@ -27478,21 +27535,32 @@ INSTRUCTIONS:
                             onMouseEnter={() => setActiveTooltip('volatility')}
                             onMouseLeave={() => setActiveTooltip(null)}
                           >
-                            <div
-                              className={`px-3 py-1.5 rounded-lg border cursor-help ${
-                                dailyPick.volatility.category === 'Low' ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' :
-                                dailyPick.volatility.category === 'Low-Medium' ? 'bg-blue-500/20 border-blue-500/30 text-blue-300' :
-                                dailyPick.volatility.category === 'Medium' ? 'bg-violet-500/20 border-violet-500/30 text-violet-300' :
-                                dailyPick.volatility.category === 'Medium-High' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' :
-                                dailyPick.volatility.category === 'High' ? 'bg-red-500/20 border-red-500/30 text-red-300' :
-                                'bg-violet-500/20 border-violet-500/30 text-violet-300'
-                              }`}
-                            >
-                              <div className="text-xs opacity-70">Risk Level</div>
-                              <div className="font-semibold text-sm flex items-center gap-1">
-                                <Activity className="w-3 h-3" />
-                                {dailyPick.volatility.category} ({dailyPick.volatility.atrPercent}%) <span className="text-xs opacity-60">ⓘ</span>
+                            <div className="space-y-2">
+                              <div
+                                className={`px-3 py-1.5 rounded-lg border cursor-help ${
+                                  dailyPick.volatility.category === 'Low' ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-300' :
+                                  dailyPick.volatility.category === 'Low-Medium' ? 'bg-blue-500/20 border-blue-500/30 text-blue-300' :
+                                  dailyPick.volatility.category === 'Medium' ? 'bg-violet-500/20 border-violet-500/30 text-violet-300' :
+                                  dailyPick.volatility.category === 'Medium-High' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' :
+                                  dailyPick.volatility.category === 'High' ? 'bg-red-500/20 border-red-500/30 text-red-300' :
+                                  'bg-violet-500/20 border-violet-500/30 text-violet-300'
+                                }`}
+                              >
+                                <div className="text-xs opacity-70">Risk Level</div>
+                                <div className="font-semibold text-sm flex items-center gap-1">
+                                  <Activity className="w-3 h-3" />
+                                  {dailyPick.volatility.category} ({dailyPick.volatility.atrPercent}%) <span className="text-xs opacity-60">ⓘ</span>
+                                </div>
                               </div>
+                              {dailyPick.volatility?.fitLabel && dailyPick.volatility?.fitLabel !== 'N/A' && (
+                                <div className={`px-3 py-1.5 rounded-lg border cursor-help bg-${dailyPick.volatility?.fitColor || 'slate'}-500/20 border-${dailyPick.volatility?.fitColor || 'slate'}-500/30 text-${dailyPick.volatility?.fitColor || 'slate'}-300`}>
+                                  <div className="text-xs opacity-70">Volatility Fit</div>
+                                  <div className="font-semibold text-sm flex items-center gap-1">
+                                    <TrendingUp className="w-3 h-3" />
+                                    {dailyPick.volatility?.fitLabel} (Score: {dailyPick.volatility?.fitScore})
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             {/* State-based Tooltip */}
                             {activeTooltip === 'volatility' && (
@@ -28028,31 +28096,38 @@ INSTRUCTIONS:
                     </div>
                   )}
 
-                  {/* NEW: Other Candidates - Show what else was considered */}
+                  {/* ENHANCED: Best Fitting Stocks for Your Volatility */}
                   {dailyPick.otherCandidates && dailyPick.otherCandidates.length > 0 && (
                     <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
-                      <h4 className="font-semibold mb-3 text-slate-400 text-sm">Other Candidates Analyzed</h4>
-                      <div className="flex flex-wrap gap-2">
+                      <h4 className="font-semibold mb-1 text-slate-300 text-sm">Best Fitting Stocks for Your Settings</h4>
+                      <p className="text-xs text-slate-500 mb-3">Ranked by volatility match + technical strength + timeframe fit</p>
+                      <div className="space-y-2">
                         {dailyPick.otherCandidates.map((candidate, i) => (
-                          <div key={i} className="bg-slate-800/50 rounded-lg px-3 py-2 text-sm">
-                            <span className="font-medium text-slate-200">{candidate.symbol}</span>
-                            <span
-                              className={`ml-2 px-1.5 py-0.5 rounded text-xs cursor-help ${
-                                candidate.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                              }`}
-                              title={candidate.direction === 'LONG'
-                                ? "LONG = Buy position (profit when price rises)"
-                                : "SHORT = Sell position (profit when price falls)"}
-                            >
-                              {candidate.direction}
-                            </span>
-                            <span className="ml-2 text-slate-500">Score: {candidate.score}</span>
-                            {candidate.rsi && <span className="ml-2 text-violet-400">RSI: {candidate.rsi}</span>}
+                          <div key={i} className="bg-slate-800/50 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-slate-500 text-xs font-mono w-4">#{i+2}</span>
+                              <span className="font-semibold text-slate-200">{candidate.symbol}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-xs ${
+                                  candidate.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                                }`}
+                              >
+                                {candidate.direction}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs flex-shrink-0">
+                              <span className={`px-2 py-0.5 rounded bg-${candidate.volMatchColor || 'slate'}-500/20 text-${candidate.volMatchColor || 'slate'}-300`}>
+                                {candidate.volMatchLabel || 'N/A'}
+                              </span>
+                              <span className="text-slate-500" title="ATR% volatility">Vol: {candidate.atrPct}%</span>
+                              <span className="text-violet-400" title="Technical score">Tech: {candidate.score}</span>
+                              <span className="text-cyan-400 font-medium" title="Combined fit score">Fit: {candidate.combinedScore}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
-                      <p className="text-xs text-slate-500 mt-2">
-                        These stocks were analyzed but scored lower than the top pick based on technical indicators.
+                      <p className="text-xs text-slate-500 mt-3">
+                        Stocks ranked by combined score: how well volatility matches your {dailyPick.volatility?.preference || 'selected'} preference, technical signal strength, and timeframe compatibility.
                       </p>
                     </div>
                   )}
