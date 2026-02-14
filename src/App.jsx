@@ -1607,7 +1607,7 @@ function App() {
 
   // Auto-show feature guide on first visit to new feature tabs
   useEffect(() => {
-    const guideTabs = ['backtestengine', 'heatmap', 'strategybuilder', 'compare', 'riskdashboard', 'replay'];
+    const guideTabs = ['backtestengine', 'heatmap', 'strategybuilder', 'compare', 'riskdashboard', 'replay', 'analyze', 'quickanalysis', 'daily', 'ticker', 'setups', 'alerts', 'journal', 'screener', 'options', 'papertrading', 'portfolio', 'performance'];
     if (guideTabs.includes(activeTab) && !featureGuidesDismissed[activeTab]) {
       setShowFeatureGuide(activeTab);
     }
@@ -1686,6 +1686,150 @@ function App() {
         { icon: '💰', text: 'Your virtual balance starts at $10,000 — track your P&L as you practice making trading decisions' },
       ],
       tip: 'This is like paper trading with a time machine. Practice spotting entries and exits without any real money at risk.'
+    },
+    analyze: {
+      title: 'How to Use Chart Analysis',
+      color: 'violet',
+      steps: [
+        { icon: '1️⃣', text: 'Click "Upload Chart" or drag and drop a screenshot of any stock chart' },
+        { icon: '2️⃣', text: 'The AI analyzes your chart identifying patterns, support/resistance, and trend direction' },
+        { icon: '3️⃣', text: 'Review the analysis: trade setup with entry price, stop loss, and two target prices' },
+        { icon: '4️⃣', text: 'Use the chat to ask follow-up questions about the analysis or get clarification' },
+        { icon: '💡', text: 'Works with any timeframe, any indicator setup — just screenshot and upload' },
+      ],
+      tip: 'For best results, include volume bars and at least one indicator (RSI or MACD) in your screenshot.'
+    },
+    quickanalysis: {
+      title: 'How to Use Quick Analysis',
+      color: 'cyan',
+      steps: [
+        { icon: '1️⃣', text: 'Type any stock ticker in the search box (e.g., AAPL, TSLA)' },
+        { icon: '2️⃣', text: 'Select a timeframe: 5min, 15min, 1hour, or daily candles' },
+        { icon: '3️⃣', text: 'Hit Analyze — the 17-factor AI scoring system evaluates the stock in seconds' },
+        { icon: '4️⃣', text: 'Review the confidence score, direction call, and detailed factor breakdown' },
+        { icon: '📊', text: 'Check inter-market context: VIX regime, dollar strength, and bond signals' },
+      ],
+      tip: 'Compare the same stock across different timeframes to see if the signals align — confluence means higher confidence.'
+    },
+    daily: {
+      title: 'How to Use Daily Pick',
+      color: 'emerald',
+      steps: [
+        { icon: '1️⃣', text: 'Set your volatility preference: Low (stable) to High (aggressive) or Any' },
+        { icon: '2️⃣', text: 'Choose your holding period timeframe: hours, days, or weeks' },
+        { icon: '3️⃣', text: 'Click "Find Today\'s Pick" — MODUS scans 200+ stocks for the best match' },
+        { icon: '4️⃣', text: 'Review the top pick with entry, stop loss, and target prices tailored to your settings' },
+        { icon: '🎯', text: 'Check "Other Candidates" below for alternative picks ranked by fit score' },
+      ],
+      tip: 'Higher volatility means bigger potential gains but also bigger risk. Start with Medium if you\'re unsure.'
+    },
+    ticker: {
+      title: 'How to Use Live Ticker',
+      color: 'violet',
+      steps: [
+        { icon: '1️⃣', text: 'Type a stock symbol in the search box at the top' },
+        { icon: '2️⃣', text: 'View real-time price data, daily change, volume, and key stats' },
+        { icon: '3️⃣', text: 'Scroll down for the interactive chart with candlesticks and indicators' },
+        { icon: '4️⃣', text: 'Click "Fullscreen" for an expanded TradingView-style chart with drawing tools' },
+        { icon: '📈', text: 'Add stocks to your Watchlist with the star icon for quick access later' },
+      ],
+      tip: 'Double-click the fullscreen chart to reset zoom. Use keyboard shortcuts: +/- to zoom, arrows to pan.'
+    },
+    setups: {
+      title: 'How to Use Trade Setups',
+      color: 'orange',
+      steps: [
+        { icon: '1️⃣', text: 'Trade setups are generated automatically when you run Chart Analysis or Quick Analysis' },
+        { icon: '2️⃣', text: 'Each setup shows entry price, stop loss, and two target prices with risk/reward ratio' },
+        { icon: '3️⃣', text: 'Click on any setup to see the full analysis and reasoning behind the trade' },
+        { icon: '4️⃣', text: 'Use the direction badge (Bullish/Bearish) to quickly filter opportunities' },
+        { icon: '📋', text: 'Share setups with the community or export them for your records' },
+      ],
+      tip: 'Always check the risk/reward ratio — look for setups with at least 2:1 reward-to-risk.'
+    },
+    alerts: {
+      title: 'How to Use Alerts',
+      color: 'red',
+      steps: [
+        { icon: '1️⃣', text: 'Click "New Alert" and enter a stock ticker' },
+        { icon: '2️⃣', text: 'Set your price target — above or below the current price' },
+        { icon: '3️⃣', text: 'Choose notification type: browser notification or SMS (if configured)' },
+        { icon: '4️⃣', text: 'The alert triggers automatically when the stock hits your target price' },
+        { icon: '🔔', text: 'Manage all active alerts from this tab — edit, pause, or delete anytime' },
+      ],
+      tip: 'Set alerts at key support/resistance levels from your analysis to catch breakouts and breakdowns.'
+    },
+    journal: {
+      title: 'How to Use Trade Journal',
+      color: 'emerald',
+      steps: [
+        { icon: '1️⃣', text: 'Click "Add Trade" to log a new trade with ticker, entry price, and shares' },
+        { icon: '2️⃣', text: 'Add notes about your reasoning — why you entered and what you expected' },
+        { icon: '3️⃣', text: 'When you close the trade, update with exit price to calculate P&L' },
+        { icon: '4️⃣', text: 'Review your trade history to spot patterns in your wins and losses' },
+        { icon: '📊', text: 'Check the Performance tab for aggregate stats: win rate, avg return, and more' },
+      ],
+      tip: 'The best traders review their journal weekly. Look for common mistakes to improve faster.'
+    },
+    screener: {
+      title: 'How to Use Market Scanner',
+      color: 'cyan',
+      steps: [
+        { icon: '1️⃣', text: 'Choose a scan type: momentum, oversold, breakout, or custom filters' },
+        { icon: '2️⃣', text: 'Set your filter criteria: price range, volume, market cap, sector' },
+        { icon: '3️⃣', text: 'Click "Scan" to search across 200+ stocks matching your criteria' },
+        { icon: '4️⃣', text: 'Results show key metrics: RSI, trend, volume spike, ATR%, and AI score' },
+        { icon: '🔍', text: 'Click any result to jump to its Live Ticker page for deeper analysis' },
+      ],
+      tip: 'Combine the scanner with Quick Analysis — scan for candidates, then analyze your top picks individually.'
+    },
+    options: {
+      title: 'How to Use Options Trading',
+      color: 'pink',
+      steps: [
+        { icon: '1️⃣', text: 'Enter a stock ticker to load the options chain' },
+        { icon: '2️⃣', text: 'Select expiration date and view calls and puts with strike prices' },
+        { icon: '3️⃣', text: 'Review key Greeks: Delta, Gamma, Theta, Vega for each contract' },
+        { icon: '4️⃣', text: 'Use the profit/loss calculator to model different scenarios' },
+        { icon: '⚠️', text: 'Options carry significant risk — make sure you understand the basics before trading' },
+      ],
+      tip: 'Start with buying calls/puts before trying more complex strategies like spreads or straddles.'
+    },
+    papertrading: {
+      title: 'How to Use Paper Trading',
+      color: 'emerald',
+      steps: [
+        { icon: '1️⃣', text: 'You start with $100,000 in virtual cash — no real money at risk' },
+        { icon: '2️⃣', text: 'Search for a stock and click "Buy" to open a virtual position' },
+        { icon: '3️⃣', text: 'Set your position size (number of shares) and confirm the order' },
+        { icon: '4️⃣', text: 'Monitor your open positions and sell when ready to take profit or cut losses' },
+        { icon: '💰', text: 'Track your virtual P&L over time to see how your strategy performs' },
+      ],
+      tip: 'Treat paper trading like real money — practice discipline with stop losses and position sizing.'
+    },
+    portfolio: {
+      title: 'How to Use Portfolio',
+      color: 'violet',
+      steps: [
+        { icon: '1️⃣', text: 'View all your open positions and their current market value' },
+        { icon: '2️⃣', text: 'See total portfolio value, daily P&L, and overall return percentage' },
+        { icon: '3️⃣', text: 'Check allocation breakdown — how your capital is distributed across positions' },
+        { icon: '4️⃣', text: 'Monitor individual position performance with entry price vs current price' },
+        { icon: '📊', text: 'Use the Risk Dashboard tab for deeper risk analysis of your portfolio' },
+      ],
+      tip: 'Keep no single position larger than 10-15% of your total portfolio to manage risk.'
+    },
+    performance: {
+      title: 'How to Use Performance',
+      color: 'orange',
+      steps: [
+        { icon: '1️⃣', text: 'View your trading statistics: total trades, win rate, average return' },
+        { icon: '2️⃣', text: 'Check the equity curve showing your account value over time' },
+        { icon: '3️⃣', text: 'Review best and worst trades to understand your risk profile' },
+        { icon: '4️⃣', text: 'Analyze by time period: daily, weekly, monthly performance breakdown' },
+        { icon: '📈', text: 'Compare your performance against benchmarks like SPY' },
+      ],
+      tip: 'Focus on your win rate AND average win size. A 40% win rate with 3:1 reward-to-risk is very profitable.'
     }
   };
 
@@ -1696,8 +1840,8 @@ function App() {
       description: 'New to trading or just getting started with technical analysis',
       features: [
         { tab: 'dashboard', name: 'Dashboard', icon: '🏠', why: 'Your home base — see market overview, watchlist, and quick quotes at a glance' },
-        { tab: 'analysis', name: 'Chart Analysis', icon: '📸', why: 'Upload any chart and get AI-powered analysis with entry/exit points explained simply' },
-        { tab: 'dailypick', name: 'Daily Pick', icon: '⭐', why: 'Let AI find the best stock for you — just set your risk comfort level' },
+        { tab: 'analyze', name: 'Chart Analysis', icon: '📸', why: 'Upload any chart and get AI-powered analysis with entry/exit points explained simply' },
+        { tab: 'daily', name: 'Daily Pick', icon: '⭐', why: 'Let AI find the best stock for you — just set your risk comfort level' },
         { tab: 'replay', name: 'Trade Replay', icon: '🎮', why: 'Practice trading on historical data risk-free — the best way to learn' },
         { tab: 'journal', name: 'Trade Journal', icon: '📓', why: 'Track every trade to learn from your wins and losses' },
       ]
@@ -1706,12 +1850,12 @@ function App() {
       label: 'Intermediate', emoji: '📈', color: '#3b82f6',
       description: 'Understand basic technical analysis and have some trading experience',
       features: [
-        { tab: 'analysis', name: 'Chart Analysis', icon: '📸', why: 'Get deeper AI insights with 17-factor scoring and pattern recognition' },
-        { tab: 'dailypick', name: 'Daily Pick', icon: '⭐', why: 'Volatility-matched stock picks with velocity scoring' },
+        { tab: 'analyze', name: 'Chart Analysis', icon: '📸', why: 'Get deeper AI insights with 17-factor scoring and pattern recognition' },
+        { tab: 'daily', name: 'Daily Pick', icon: '⭐', why: 'Volatility-matched stock picks with velocity scoring' },
         { tab: 'backtestengine', name: 'Backtest Engine', icon: '🔬', why: 'Test if your strategy actually works on real historical data before risking money' },
         { tab: 'compare', name: 'Stock Comparison', icon: '⚖️', why: 'Compare stocks side-by-side to find the strongest candidates' },
         { tab: 'journal', name: 'Trade Journal', icon: '📓', why: 'Track performance and identify patterns in your trading' },
-        { tab: 'scanner', name: 'Market Scanner', icon: '🔍', why: 'Scan 200+ stocks to find setups matching your criteria' },
+        { tab: 'screener', name: 'Market Scanner', icon: '🔍', why: 'Scan 200+ stocks to find setups matching your criteria' },
       ]
     },
     advanced: {
@@ -21237,6 +21381,9 @@ INSTRUCTIONS:
                   <LineChart className="w-6 h-6 text-violet-400" />
                 </div>
                 <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Live Stock Ticker</span>
+                <button onClick={() => setShowFeatureGuide('ticker')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group ml-auto" title="How to use Live Ticker">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                </button>
               </h2>
               
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
@@ -23997,11 +24144,16 @@ INSTRUCTIONS:
                     <BarChart3 className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Consistent Chart Analysis</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Consistent Chart Analysis</h2>
+                      <button onClick={() => setShowFeatureGuide('analyze')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Chart Analysis">
+                        <Info className="w-4 h-4 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                      </button>
+                    </div>
                     <p className="text-sm text-slate-400">Same image = same analysis every time</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   <select
                     value={selectedTimeframe}
@@ -27322,10 +27474,13 @@ INSTRUCTIONS:
         {activeTab === "setups" && (
           <div className="p-4 md:p-6 max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6">
-              <div>
+              <div className="flex-1">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
                   <Target className="w-6 h-6 text-amber-400" />
                   AI Trade Setups
+                  <button onClick={() => setShowFeatureGuide('setups')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Trade Setups">
+                    <Info className="w-4 h-4 text-slate-500 group-hover:text-orange-400 transition-colors" />
+                  </button>
                 </h2>
                 <p className="text-sm text-slate-400 mt-1">AI-generated trade setups with entry, stop loss, and target prices</p>
               </div>
@@ -27494,6 +27649,9 @@ INSTRUCTIONS:
                 <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
                   <Bell className="w-6 md:w-7 h-6 md:h-7 text-violet-400" />
                   <span>Price Alerts</span>
+                  <button onClick={() => setShowFeatureGuide('alerts')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Alerts">
+                    <Info className="w-4 h-4 text-slate-500 group-hover:text-red-400 transition-colors" />
+                  </button>
                 </h2>
                 <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full sm:w-auto">
                   {/* Notification Permission Status */}
@@ -27806,10 +27964,15 @@ INSTRUCTIONS:
           <div className="space-y-4 md:space-y-6">
             <div className="bg-slate-900/50 rounded-xl md:rounded-2xl border border-slate-800/50 p-4 md:p-6">
               <div className="flex items-center justify-between mb-3 md:mb-6">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1">
                   <TrendingUp className="w-7 h-7 text-violet-400" />
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-bold">Options Trading Platform</h2>
+                  <div className="flex-1">
+                    <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                      Options Trading Platform
+                      <button onClick={() => setShowFeatureGuide('options')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Options Trading">
+                        <Info className="w-4 h-4 text-slate-500 group-hover:text-pink-400 transition-colors" />
+                      </button>
+                    </h2>
                     <p className="text-sm text-slate-500">Calculate strategies, Greeks, and P/L</p>
                   </div>
                 </div>
@@ -28180,7 +28343,12 @@ INSTRUCTIONS:
                     <Star className="w-6 h-6 md:w-7 md:h-7 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Today's Top Trade</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Today's Top Trade</h2>
+                      <button onClick={() => setShowFeatureGuide('daily')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Daily Pick">
+                        <Info className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                      </button>
+                    </div>
                     <p className="text-xs md:text-sm text-slate-400 mt-0.5">AI-selected high-probability setup</p>
                   </div>
                 </div>
@@ -29304,8 +29472,13 @@ INSTRUCTIONS:
                 <div className="p-3 bg-gradient-to-br from-violet-500 to-cyan-600 rounded-xl shadow-lg">
                   <Zap className="w-6 h-6 text-white" />
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold">Quick Analysis</h2>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-bold">Quick Analysis</h2>
+                    <button onClick={() => setShowFeatureGuide('quickanalysis')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Quick Analysis">
+                      <Info className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                    </button>
+                  </div>
                   <p className="text-sm text-slate-400">Enter any ticker for an instant buy/sell verdict powered by real market data + AI</p>
                 </div>
               </div>
@@ -30299,10 +30472,13 @@ INSTRUCTIONS:
         {activeTab === "journal" && (
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-3 sm:gap-0">
-              <div>
+              <div className="flex-1">
                 <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
                   <Target className="w-7 md:w-8 h-7 md:h-8 text-violet-400" />
                   Trading Journal
+                  <button onClick={() => setShowFeatureGuide('journal')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Trade Journal">
+                    <Info className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                  </button>
                 </h2>
                 <p className="text-slate-400 text-xs md:text-sm mt-1">Track and analyze your trading performance</p>
               </div>
@@ -31485,6 +31661,9 @@ INSTRUCTIONS:
               <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
                 <DollarSign className="w-7 md:w-8 h-7 md:h-8 text-violet-400" />
                 Portfolio Tracker
+                <button onClick={() => setShowFeatureGuide('portfolio')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Portfolio">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                </button>
               </h2>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
                 {/* Live Price Update Controls */}
@@ -32040,6 +32219,9 @@ INSTRUCTIONS:
               <h2 className="text-3xl font-bold flex items-center gap-3">
                 <PieChart className="w-8 h-8 text-violet-400" />
                 Performance Dashboard
+                <button onClick={() => setShowFeatureGuide('performance')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Performance">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-orange-400 transition-colors" />
+                </button>
               </h2>
               <div className="flex gap-2">
                 <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm">
@@ -32371,10 +32553,13 @@ INSTRUCTIONS:
         {activeTab === "papertrading" && (
           <div className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1">
                 <h2 className="text-3xl font-bold flex items-center gap-3">
                   <Wallet className="w-8 h-8 text-violet-400" />
                   Paper Trading
+                  <button onClick={() => setShowFeatureGuide('papertrading')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Paper Trading">
+                    <Info className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                  </button>
                 </h2>
                 <p className="text-slate-400 mt-1">Practice trading with virtual money</p>
               </div>
@@ -33606,6 +33791,9 @@ INSTRUCTIONS:
               <h2 className="text-3xl font-bold flex items-center gap-3">
                 <Search className="w-8 h-8 text-violet-400" />
                 Stock Screener
+                <button onClick={() => setShowFeatureGuide('screener')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use Market Scanner">
+                  <Info className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                </button>
               </h2>
             </div>
 
