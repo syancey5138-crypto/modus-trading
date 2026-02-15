@@ -5236,13 +5236,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     // This prevents "live ticker" from being parsed as ticker "LIVE"
     const navCommands = [
       // ── Multi-word phrases FIRST (before single-word matches) ──
-      { match: () => c.includes('live ticker') || c.includes('stock chart') || c.includes('candlestick') || c.includes('candle chart'), msg: 'Opening Live Ticker', fn: () => setActiveTab('liveticker') },
+      { match: () => c.includes('live ticker') || c.includes('stock chart') || c.includes('candlestick') || c.includes('candle chart'), msg: 'Opening Live Ticker', fn: () => setActiveTab('ticker') },
       { match: () => c.includes('quick analysis'), msg: 'Opening Quick Analysis', fn: () => setActiveTab('quickanalysis') },
       { match: () => c.includes('paper trad') || c.includes('paper trade') || c.includes('simulator') || c.includes('practice'), msg: 'Opening Paper Trading', fn: () => setActiveTab('papertrading') },
       { match: () => c.includes('trade log') || c.includes('my trades') || c.includes('trade journal'), msg: 'Navigating to Journal', fn: () => setActiveTab('journal') },
       { match: () => c.includes('market news'), msg: 'Opening News', fn: () => setActiveTab('news') },
-      { match: () => c.includes('market summary') || c.includes('morning briefing') || c.includes('ai briefing') || c.includes('market briefing'), msg: 'Opening AI Briefing', fn: () => setActiveTab('briefing') },
-      { match: () => c.includes('sector rotation'), msg: 'Opening Sectors', fn: () => setActiveTab('sectors') },
+      { match: () => c.includes('market summary') || c.includes('morning briefing') || c.includes('ai briefing') || c.includes('market briefing'), msg: 'Opening Dashboard', fn: () => setActiveTab('dashboard') },
+      { match: () => c.includes('sector rotation'), msg: 'Opening Market Overview', fn: () => setActiveTab('marketoverview') },
       { match: () => c.includes('options chain'), msg: 'Opening Options', fn: () => setActiveTab('options') },
       { match: () => c.includes('position sizer') || c.includes('risk calculator') || c.includes('size calculator'), msg: 'Opening Position Sizer', fn: () => setShowPositionSizer(true) },
       { match: () => c.includes('theme builder') || c.includes('custom theme') || c.includes('build theme') || c.includes('create theme'), msg: 'Opening Theme Builder', fn: () => setShowThemeBuilder(true) },
@@ -5265,12 +5265,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       { match: () => c.includes('screener') || c.includes('scanner') || c.includes('screen stocks') || c.includes('find stocks'), msg: 'Opening Screener', fn: () => setActiveTab('screener') },
       { match: () => c.includes('news') || c.includes('headlines'), msg: 'Opening News', fn: () => setActiveTab('news') },
       { match: () => c.includes('performance') || c.includes('stats') || c.includes('statistics') || c.includes('my results') || c.includes('how am i doing'), msg: 'Opening Performance', fn: () => setActiveTab('performance') },
-      { match: () => c.includes('community') || c.includes('social') || c.includes('other traders') || c.includes('forum'), msg: 'Opening Community', fn: () => setActiveTab('community') },
-      { match: () => c.includes('briefing') || c.includes('morning report') || c.includes('daily report'), msg: 'Opening AI Briefing', fn: () => setActiveTab('briefing') },
+      { match: () => c.includes('community') || c.includes('social') || c.includes('other traders') || c.includes('forum'), msg: 'Opening Dashboard', fn: () => setActiveTab('dashboard') },
+      { match: () => c.includes('briefing') || c.includes('morning report') || c.includes('daily report'), msg: 'Opening Dashboard', fn: () => setActiveTab('dashboard') },
       { match: () => c.includes('pricing') || c.includes('plans') || c.includes('subscription') || c.includes('upgrade') || c.includes('premium') || c.includes('pro'), msg: 'Opening Pricing', fn: () => setActiveTab('pricing') },
       { match: () => c.includes('option') || c.includes('greeks') || c.includes('calls and puts') || c.includes('puts and calls'), msg: 'Opening Options', fn: () => setActiveTab('options') },
-      { match: () => c.includes('crypto') || c.includes('bitcoin') || c.includes('ethereum') || c.includes('cryptocurrency') || c.includes('coin'), msg: 'Opening Crypto', fn: () => setActiveTab('crypto') },
-      { match: () => c.includes('sector'), msg: 'Opening Sectors', fn: () => setActiveTab('sectors') },
+      { match: () => c.includes('crypto') || c.includes('bitcoin') || c.includes('ethereum') || c.includes('cryptocurrency') || c.includes('coin'), msg: 'Opening Dashboard', fn: () => setActiveTab('dashboard') },
+      { match: () => c.includes('sector'), msg: 'Opening Heat Map', fn: () => setActiveTab('heatmap') },
       { match: () => c.includes('watchlist') || c.includes('watch list') || c.includes('my watch') || c.includes('favorites') || c.includes('favourites'), msg: 'Opening Watchlist', fn: () => setActiveTab('watchlist') },
       { match: () => c.includes('install') || c.includes('download app') || c.includes('add to home'), msg: 'Install MODUS', fn: () => handleInstallPWA() },
       { match: () => c.includes('setting') || c.includes('api key') || c.includes('config') || c.includes('preferences'), msg: 'Opening Settings', fn: () => setShowApiKeyModal(true) },
@@ -7522,8 +7522,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   }, [replayPlaying, replayData, replaySpeed]);
 
   const replayBuy = () => {
-    if (!replayData || replayPosition) return;
-    const price = replayData[replayIndex].close;
+    if (!replayData || replayPosition || replayIndex >= replayData.length) return;
+    const price = replayData[replayIndex]?.close;
+    if (!price) return;
     const shares = Math.floor(replayBalance / price);
     if (shares <= 0) return;
     setReplayPosition({ type: 'LONG', entry: price, shares, barIdx: replayIndex });
@@ -7531,8 +7532,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   };
 
   const replaySell = () => {
-    if (!replayData || !replayPosition) return;
-    const price = replayData[replayIndex].close;
+    if (!replayData || !replayPosition || replayIndex >= replayData.length) return;
+    const price = replayData[replayIndex]?.close;
+    if (!price) return;
     const pnl = (price - replayPosition.entry) * replayPosition.shares;
     const pnlPct = ((price - replayPosition.entry) / replayPosition.entry * 100).toFixed(2);
     setReplayBalance(prev => prev + replayPosition.shares * price);
@@ -17640,126 +17642,7 @@ INSTRUCTIONS:
         </div>
       )}
 
-      {/* ONBOARDING TUTORIAL */}
-      {showOnboarding && disclaimerAccepted && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl border border-violet-500/30 p-6 max-w-lg w-full shadow-2xl relative">
-            {(() => {
-              const tourSteps = [
-                {
-                  icon: <Camera className="w-10 h-10 text-violet-400" />,
-                  title: "Upload a Chart",
-                  desc: "Go to Chart Analysis and upload a screenshot of any stock chart. We support all timeframes and indicators."
-                },
-                {
-                  icon: <BarChart3 className="w-10 h-10 text-emerald-400" />,
-                  title: "Get AI Analysis",
-                  desc: "Our AI identifies patterns, support/resistance levels, and generates trade setups with entry, stop, and target prices."
-                },
-                {
-                  icon: <MessageCircle className="w-10 h-10 text-cyan-400" />,
-                  title: "Ask the AI",
-                  desc: "Use the chat feature to ask follow-up questions about any analysis. Get clarification on patterns, strategies, or trade ideas."
-                },
-                {
-                  icon: <Bell className="w-10 h-10 text-orange-400" />,
-                  title: "Set Price Alerts",
-                  desc: "Create custom alerts for price levels, and get SMS notifications when your targets are hit. Never miss an entry!"
-                },
-                {
-                  icon: <Star className="w-10 h-10 text-yellow-400" />,
-                  title: "Daily Picks",
-                  desc: "Check the Daily Pick tab for AI-curated stock recommendations based on technical indicators and market momentum."
-                },
-                {
-                  icon: <Target className="w-10 h-10 text-blue-400" />,
-                  title: "Track Your Trades",
-                  desc: "Use the Journal to log your trades and the Paper Trading feature to practice without risking real money."
-                }
-              ];
-              const currentStep = tourSteps[onboardingStep];
-              const totalSteps = tourSteps.length;
-
-              return currentStep && (
-                <>
-                  {/* Skip Tour - Top Right */}
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('modus_onboarding_done', 'true');
-                      setShowOnboarding(false);
-                    }}
-                    className="absolute top-4 right-4 text-sm text-slate-500 hover:text-white transition-colors"
-                  >
-                    Skip Tour ×
-                  </button>
-
-                  <div className="text-center pt-4">
-                    <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                      {currentStep.icon}
-                    </div>
-                    <h3 className="text-2xl font-bold mb-3">{currentStep.title}</h3>
-                    <p className="text-slate-400 mb-8">{currentStep.desc}</p>
-
-                    {/* Progress dots */}
-                    <div className="flex items-center justify-center gap-2 mb-6">
-                      {tourSteps.map((_, i) => (
-                        <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === onboardingStep ? 'w-6 bg-violet-500' : 'bg-slate-700'}`} />
-                      ))}
-                    </div>
-
-                    {/* Navigation: Left Arrow | Next/Get Started | Right Arrow */}
-                    <div className="flex items-center justify-center gap-4">
-                      {/* Left Arrow */}
-                      <button
-                        onClick={() => setOnboardingStep(Math.max(0, onboardingStep - 1))}
-                        disabled={onboardingStep === 0}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                          onboardingStep === 0
-                            ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
-                            : 'bg-slate-800 hover:bg-slate-700 text-white'
-                        }`}
-                      >
-                        <ChevronLeft className="w-6 h-6" />
-                      </button>
-
-                      {/* Center Button */}
-                      <button
-                        onClick={() => {
-                          if (onboardingStep < totalSteps - 1) {
-                            setOnboardingStep(onboardingStep + 1);
-                          } else {
-                            localStorage.setItem('modus_onboarding_done', 'true');
-                            setShowOnboarding(false);
-                            // Check if setup wizard needed
-                            const setupDone = localStorage.getItem('modus_setup_complete');
-                            if (setupDone !== 'true') setShowSetupWizard(true);
-                          }
-                        }}
-                        className="px-8 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all"
-                      >
-                        {onboardingStep < totalSteps - 1 ? "Next" : "Get Started"}
-                      </button>
-
-                      {/* Right Arrow */}
-                      <button
-                        onClick={() => setOnboardingStep(Math.min(totalSteps - 1, onboardingStep + 1))}
-                        disabled={onboardingStep === totalSteps - 1}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                          onboardingStep === totalSteps - 1
-                            ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
-                            : 'bg-slate-800 hover:bg-slate-700 text-white'
-                        }`}
-                      >
-                        <ChevronRight className="w-6 h-6" />
-                      </button>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+      {/* OLD ONBOARDING TUTORIAL — removed, replaced by v4.0 onboarding overlay */}
 
       {/* DISCLAIMER AGREEMENT MODAL */}
       {showDisclaimer && !disclaimerAccepted && (
@@ -37590,7 +37473,7 @@ INSTRUCTIONS:
                     <span>{new Date(replayData[Math.max(0, replayIndex - 79)]?.time).toLocaleDateString()}</span>
                     <span>{new Date(replayData[replayIndex]?.time).toLocaleDateString()}</span>
                   </div>
-                  <input type="range" min={20} max={replayData.length - 1} value={replayIndex} onChange={e => { setReplayPlaying(false); setReplayIndex(Number(e.target.value)); }} className="w-full mt-2" />
+                  <input type="range" min={0} max={replayData.length - 1} value={replayIndex} onChange={e => { setReplayPlaying(false); setReplayIndex(Number(e.target.value)); }} className="w-full mt-2" />
                 </div>
 
                 {replayTrades.length > 0 && (
