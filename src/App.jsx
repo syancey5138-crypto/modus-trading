@@ -6049,10 +6049,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Sync to cloud if logged in (debounced)
       if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
         const syncTimeout = setTimeout(async () => {
-          setCloudSyncStatus('syncing');
-          const success = await syncData('watchlist', watchlist);
-          setCloudSyncStatus(success ? 'synced' : 'error');
-          if (success) setLastSyncTime(new Date());
+          try {
+            setCloudSyncStatus('syncing');
+            const success = await syncData('watchlist', watchlist);
+            setCloudSyncStatus(success ? 'synced' : 'error');
+            if (success) setLastSyncTime(new Date());
+          } catch (err) {
+            console.error('[CloudSync] Watchlist sync failed:', err);
+            setCloudSyncStatus('error');
+          }
         }, 1000); // Debounce 1 second
         return () => clearTimeout(syncTimeout);
       }
@@ -6078,7 +6083,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         // Cloud sync (debounced)
         if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
           const syncTimeout = setTimeout(async () => {
-            await syncData('analysisHistory', compactHistory);
+            try {
+              await syncData('analysisHistory', compactHistory);
+            } catch (err) {
+              console.error('[CloudSync] History sync failed:', err);
+            }
           }, 2000);
           return () => clearTimeout(syncTimeout);
         }
@@ -6105,7 +6114,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Cloud sync (debounced)
       if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
         const syncTimeout = setTimeout(async () => {
-          await syncData('trades', trades);
+          try {
+            await syncData('trades', trades);
+          } catch (err) {
+            console.error('[CloudSync] Trades sync failed:', err);
+          }
         }, 1500);
         return () => clearTimeout(syncTimeout);
       }
@@ -6119,7 +6132,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Cloud sync (debounced)
       if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
         const syncTimeout = setTimeout(async () => {
-          await syncData('portfolio', portfolio);
+          try {
+            await syncData('portfolio', portfolio);
+          } catch (err) {
+            console.error('[CloudSync] Portfolio sync failed:', err);
+          }
         }, 1500);
         return () => clearTimeout(syncTimeout);
       }
@@ -6133,7 +6150,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Cloud sync (debounced)
       if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
         const syncTimeout = setTimeout(async () => {
-          await syncData('tradePlans', tradePlans);
+          try {
+            await syncData('tradePlans', tradePlans);
+          } catch (err) {
+            console.error('[CloudSync] Trade plans sync failed:', err);
+          }
         }, 1500);
         return () => clearTimeout(syncTimeout);
       }
@@ -6146,7 +6167,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     // Cloud sync (debounced)
     if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
       const syncTimeout = setTimeout(async () => {
-        await syncData('paperTrading', paperTradingAccount);
+        try {
+          await syncData('paperTrading', paperTradingAccount);
+        } catch (err) {
+          console.error('[CloudSync] Paper trading sync failed:', err);
+        }
       }, 1500);
       return () => clearTimeout(syncTimeout);
     }
@@ -6158,7 +6183,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     // Cloud sync (debounced)
     if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
       const syncTimeout = setTimeout(async () => {
-        await syncData('portfolioSettings', portfolioSettings);
+        try {
+          await syncData('portfolioSettings', portfolioSettings);
+        } catch (err) {
+          console.error('[CloudSync] Portfolio settings sync failed:', err);
+        }
       }, 1500);
       return () => clearTimeout(syncTimeout);
     }
@@ -13039,7 +13068,7 @@ INSTRUCTIONS:
         errorMessage += "Unknown error occurred. Check browser console (F12) for details.";
       }
 
-      addNotification(errorMessage, 'error');
+      addNotification({ type: 'error', title: 'PDF Export Error', message: errorMessage, icon: '❌' });
     }
   };
 
@@ -13198,7 +13227,7 @@ INSTRUCTIONS:
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        if (!data.version) { addNotification('Invalid backup file', 'error'); return; }
+        if (!data.version) { addNotification({ type: 'error', title: 'Invalid File', message: 'Invalid backup file format', icon: '❌' }); return; }
         if (data.watchlist) setWatchlist(data.watchlist);
         if (data.trades) setTrades(data.trades);
         if (data.alerts) setAlerts(data.alerts);
@@ -13215,7 +13244,7 @@ INSTRUCTIONS:
         }
         addNotification(`Data restored from ${data.exportDate ? new Date(data.exportDate).toLocaleDateString() : 'backup'}! ${data.trades?.length || 0} trades, ${data.watchlist?.length || 0} watchlist items.`, 'success');
       } catch (err) {
-        addNotification('Error reading backup file: ' + err.message, 'error');
+        addNotification({ type: 'error', title: 'Import Error', message: 'Error reading backup file: ' + err.message, icon: '❌' });
       }
     };
     reader.onerror = () => {
@@ -16057,7 +16086,7 @@ INSTRUCTIONS:
                         onClick={async () => {
                           const webhookUrl = localStorage.getItem('modus_discord_webhook');
                           if (!webhookUrl) {
-                            addNotification('Please enter a Discord webhook URL first', 'warning');
+                            addNotification({ type: 'warning', title: 'Discord', message: 'Please enter a Discord webhook URL first', icon: '⚠️' });
                             return;
                           }
                           try {
@@ -16073,9 +16102,9 @@ INSTRUCTIONS:
                                 }]
                               })
                             });
-                            addNotification('Test message sent! Check your Discord channel.', 'success');
+                            addNotification({ type: 'success', title: 'Discord', message: 'Test message sent! Check your Discord channel.', icon: '✅' });
                           } catch (e) {
-                            addNotification('Failed to send test message: ' + e.message, 'error');
+                            addNotification({ type: 'error', title: 'Discord Error', message: 'Failed to send test message: ' + e.message, icon: '❌' });
                           }
                         }}
                         className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg font-semibold text-sm transition-all"
@@ -27578,7 +27607,7 @@ INSTRUCTIONS:
                         checkAllAlertsAgainstPrices(watchlistPrices);
                         addNotification(`Checked ${enabledAlertCount} enabled alerts against ${Object.keys(watchlistPrices).length} monitored prices`, 'info');
                       } else {
-                        addNotification('No prices available yet. Add stocks to watchlist or create alerts first!', 'warning');
+                        addNotification({ type: 'warning', title: 'No Data', message: 'No prices available yet. Add stocks to watchlist or create alerts first!', icon: '⚠️' });
                       }
                     }}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
@@ -34000,7 +34029,7 @@ INSTRUCTIONS:
                         const results = await scanRealMarket();
                         
                         if (!results || (!results.gainers?.length && !results.losers?.length && !results.volume?.length)) {
-                          addNotification("No stocks found matching criteria. Try during market hours or adjust filters.", 'warning');
+                          addNotification({ type: 'warning', title: 'No Results', message: 'No stocks found matching criteria. Try during market hours or adjust filters.', icon: '⚠️' });
                           setScanResults([]);
                           return;
                         }
@@ -34037,14 +34066,14 @@ INSTRUCTIONS:
                         console.log(`[Custom Scan] Found ${filtered.length} stocks matching criteria`);
                         
                         if (filtered.length === 0) {
-                          addNotification("No stocks match your criteria. Try broadening your filters.", 'warning');
+                          addNotification({ type: 'warning', title: 'No Results', message: 'No stocks match your criteria. Try broadening your filters.', icon: '⚠️' });
                         }
                         
                         setScanResults(filtered.slice(0, 20)); // Limit to 20 results
                         
                       } catch (err) {
                         console.error("[Custom Scan] Error:", err);
-                        addNotification("Custom scan failed: " + err.message, 'error');
+                        addNotification({ type: 'error', title: 'Scan Failed', message: 'Custom scan failed: ' + err.message, icon: '❌' });
                         setScanResults([]);
                       } finally {
                         setLoadingScanner(false);
