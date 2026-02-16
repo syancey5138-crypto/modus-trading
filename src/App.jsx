@@ -5710,7 +5710,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // dashboardClock now uses currentTime directly (removed redundant setDashboardClock)
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeTab]);
+  }, []);
   
   // Auto-calculate options when parameters change
   useEffect(() => {
@@ -11474,7 +11474,7 @@ OUTPUT JSON:
           recommendedLiveTimeframeLabel: tfConfig.liveTimeframeLabel,
           generatedWithLiveData: true,
           livePricesFetched: PRIORITY_STOCKS.length,
-          marketSentiment: bestPick.bullishScore > bestPick.bearishScore + 10 ? 'bullish' : bestPick.bearishScore > bestPick.bullishScore + 10 ? 'bearish' : 'neutral',
+          marketSentiment: (bestPick.bullishScore || 0) > (bestPick.bearishScore || 0) + 10 ? 'bullish' : (bestPick.bearishScore || 0) > (bestPick.bullishScore || 0) + 10 ? 'bearish' : 'neutral',
           liveDataTimestamp: new Date().toLocaleTimeString(),
           technicalData: {
             rsi: bestPick.rsi?.toFixed(1) || 'N/A',
@@ -11760,7 +11760,7 @@ OUTPUT JSON:
               const subRsi = calculateRSI(subCloses, 14);
               if (subRsi !== null) rsiValues.push(subRsi);
             }
-            if (rsiValues.length >= 15) {
+            if (rsiValues.length >= 30) {
               const rsiHigh1 = Math.max(...rsiValues.slice(-15));
               const rsiHigh2 = Math.max(...rsiValues.slice(0, 15));
               if (priceHigh1 > priceHigh2 && rsiHigh1 < rsiHigh2) rsiDivergence = 'bearish';
@@ -13218,6 +13218,9 @@ INSTRUCTIONS:
         addNotification('Error reading backup file: ' + err.message, 'error');
       }
     };
+    reader.onerror = () => {
+      addNotification({ type: 'error', title: 'Import Failed', message: 'Could not read the backup file' });
+    };
     reader.readAsText(file);
   }, []);
 
@@ -14660,7 +14663,7 @@ INSTRUCTIONS:
     
     // Setup description based on top factors
     let setup = "Momentum Breakout";
-    if (momentumFactors.includes(`🔥 Volume Surge ${volumeRatio.toFixed(1)}x`)) {
+    if (momentumFactors.some(f => f.includes("Volume Surge"))) {
       setup = "Volume Breakout - Institutional Interest";
     } else if (momentumFactors.some(f => f.includes("Accelerating"))) {
       setup = "Price Acceleration - Momentum Building";
@@ -22120,7 +22123,7 @@ INSTRUCTIONS:
                                       const zoneBottom = ((zone.low - minPrice) / priceRange) * 95 + 5;
                                       const zoneTop = ((zone.high - minPrice) / priceRange) * 95 + 5;
                                       const zoneHeight = Math.max(zoneTop - zoneBottom, 0.5);
-                                      const opacity = Math.min(0.15, 0.06 + zone.strength * 0.012);
+                                      const opacity = Math.min(0.15, 0.06 + (zone.strength || 0) * 0.012);
                                       return (
                                         <div key={`sr-${zi}`} className="absolute left-0 right-0 pointer-events-none"
                                           style={{ bottom: `${zoneBottom}%`, height: `${zoneHeight}%`, zIndex: 0,
@@ -22695,8 +22698,9 @@ INSTRUCTIONS:
                                   const barDate = new Date(bar.time);
                                   const firstBar = visData[0];
                                   const lastBar = visData[visData.length - 1];
-                                  const timeSpanDays = firstBar && lastBar && firstBar.time && lastBar.time
+                                  const rawTimeSpan = firstBar && lastBar && firstBar.time && lastBar.time
                                     ? (new Date(lastBar.time) - new Date(firstBar.time)) / (1000 * 60 * 60 * 24) : 1;
+                                  const timeSpanDays = isNaN(rawTimeSpan) || rawTimeSpan <= 0 ? 1 : rawTimeSpan;
                                   const showTimes = timeSpanDays < 1;
                                   return (
                                     <div key={i} className="text-center text-xs">
@@ -23279,7 +23283,7 @@ INSTRUCTIONS:
                           const maxATR = validATR.length > 0 ? Math.max(...validATR) : 0;
                           const minATR = validATR.length > 0 ? Math.min(...validATR) : 0;
                           const currentPrice = bars[bars.length - 1].close;
-                          const atrPercent = (currentATR / currentPrice) * 100;
+                          const atrPercent = currentPrice > 0 ? (currentATR / currentPrice) * 100 : 0;
                           
                           return (
                             <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
@@ -30011,7 +30015,7 @@ INSTRUCTIONS:
                               <span className="text-[11px] text-slate-400/80">${entry.priceAtVerdict?.toFixed(2)}</span>
                               {entry.outcome !== 'pending' && (
                                 <span className={`text-[10px] font-semibold ${entry.outcome === 'correct' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {entry.pnlPercent > 0 ? '+' : ''}{entry.pnlPercent}%
+                                  {(entry.pnlPercent ?? 0) > 0 ? '+' : ''}{entry.pnlPercent ?? 0}%
                                 </span>
                               )}
                               <span className={`text-[10px] px-1.5 py-0.5 rounded ${entry.outcome === 'correct' ? 'bg-emerald-500/20 text-emerald-400' : entry.outcome === 'wrong' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
@@ -31009,7 +31013,7 @@ INSTRUCTIONS:
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-slate-500">{new Date(mistake.timestamp || mistake.date).toLocaleString()}</span>
-                              <button onClick={() => setTradeMistakes(prev => prev.filter((_, i) => i !== tradeMistakes.indexOf(mistake)))} className="text-slate-600 hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setTradeMistakes(prev => { const idx = prev.indexOf(mistake); return idx === -1 ? prev : prev.filter((_, i) => i !== idx); })} className="text-slate-600 hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
                             </div>
                           </div>
                         </div>
@@ -31344,7 +31348,7 @@ INSTRUCTIONS:
                   </div>
                   <div className="flex justify-between text-xs text-slate-500 mt-2">
                     <span>Start: $10,000</span>
-                    <span>End: ${backtestResults.equity[backtestResults.equity.length - 1]?.toFixed(0) || '10,000'}</span>
+                    <span>End: ${backtestResults.equity && backtestResults.equity.length > 0 ? backtestResults.equity[backtestResults.equity.length - 1].toFixed(0) : '10,000'}</span>
                   </div>
                 </div>
 
