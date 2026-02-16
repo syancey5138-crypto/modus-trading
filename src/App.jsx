@@ -3659,7 +3659,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Persist XP to localStorage
   useEffect(() => {
-    localStorage.setItem('modus_user_xp', JSON.stringify(userXP));
+    try { localStorage.setItem('modus_user_xp', JSON.stringify(userXP)); } catch(e) {}
   }, [userXP]);
 
   // Trading glossary for hover tooltips on bolded terms in AI responses
@@ -3863,7 +3863,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Persist drawings
   useEffect(() => {
-    localStorage.setItem('modus_drawings', JSON.stringify(drawings));
+    try { localStorage.setItem('modus_drawings', JSON.stringify(drawings)); } catch(e) {}
   }, [drawings]);
 
   // Persist user plan
@@ -3947,7 +3947,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Persist crypto watchlist
   useEffect(() => {
-    localStorage.setItem('modus_crypto_watchlist', JSON.stringify(cryptoWatchlist));
+    try { localStorage.setItem('modus_crypto_watchlist', JSON.stringify(cryptoWatchlist)); } catch(e) {}
   }, [cryptoWatchlist]);
 
   // Crypto ticker mapping
@@ -4333,7 +4333,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [newGroupName, setNewGroupName] = useState('');
 
   useEffect(() => {
-    localStorage.setItem('modus_watchlist_groups', JSON.stringify(watchlistGroups));
+    try { localStorage.setItem('modus_watchlist_groups', JSON.stringify(watchlistGroups)); } catch(e) {}
   }, [watchlistGroups]);
 
   const addToWatchlistGroup = useCallback((ticker, group) => {
@@ -4364,7 +4364,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   });
   const [activeLayoutName, setActiveLayoutName] = useState('default');
 
-  useEffect(() => { localStorage.setItem('modus_watchlist_alerts', JSON.stringify(watchlistAlerts)); }, [watchlistAlerts]);
+  useEffect(() => { try { localStorage.setItem('modus_watchlist_alerts', JSON.stringify(watchlistAlerts)); } catch(e) {} }, [watchlistAlerts]);
 
   // ═══════════════════════════════════════════════
   // FEATURES 27-52: Advanced Trading Analytics
@@ -4640,7 +4640,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Save custom themes to localStorage
   useEffect(() => {
-    localStorage.setItem('modus_custom_themes', JSON.stringify(customThemes));
+    try { localStorage.setItem('modus_custom_themes', JSON.stringify(customThemes)); } catch(e) {}
   }, [customThemes]);
 
   const applyCustomTheme = useCallback((theme) => {
@@ -13449,7 +13449,7 @@ INSTRUCTIONS:
       navigator.clipboard.writeText(text).then(() => {
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
-      });
+      }).catch(() => {});
     }
   }, []);
 
@@ -20094,9 +20094,9 @@ INSTRUCTIONS:
                                     <div className="flex-1">
                                       <div className="flex items-center gap-1 text-[10px]">
                                         <span className="text-slate-500">Entry:</span>
-                                        <span className="text-slate-300">${parseFloat(t.entryPrice).toFixed(2)}</span>
+                                        <span className="text-slate-300">${parseFloat(t.entryPrice || 0).toFixed(2)}</span>
                                         <span className="text-slate-600 mx-0.5">→</span>
-                                        <span className="text-emerald-400">${t.targetPrice?.toFixed(2)}</span>
+                                        <span className="text-emerald-400">${t.targetPrice?.toFixed(2) || 'N/A'}</span>
                                       </div>
                                       <div className="text-[9px] text-slate-500">{new Date(t.createdAt).toLocaleDateString()}</div>
                                     </div>
@@ -20181,7 +20181,7 @@ INSTRUCTIONS:
                                 onChange={e => { setCommunityCode(e.target.value); localStorage.setItem('modus_community_code', e.target.value); }}
                                 onBlur={() => { if (communityCode) addNotification({ type: 'system', title: 'Code Saved', message: `Community code "${communityCode}" saved. Tap refresh to load posts.`, icon: '✓' }); }}
                                 className="flex-1 text-[10px] bg-slate-700/30 border border-violet-500/20 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50" />
-                              <button onClick={() => { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); setCommunityCode(code); localStorage.setItem('modus_community_code', code); navigator.clipboard.writeText(code); addNotification({ type: 'system', title: 'Code Generated & Copied', message: `Code copied! Share this with your trading group: ${code}`, icon: '🔑' }); }}
+                              <button onClick={() => { const code = Math.random().toString(36).substring(2, 8).toUpperCase(); setCommunityCode(code); localStorage.setItem('modus_community_code', code); navigator.clipboard.writeText(code).catch(() => {}); addNotification({ type: 'system', title: 'Code Generated & Copied', message: `Code copied! Share this with your trading group: ${code}`, icon: '🔑' }); }}
                                 className="text-[9px] bg-violet-500/20 text-violet-400 border border-violet-500/30 px-2 py-1 rounded-lg hover:bg-violet-500/30 transition-all whitespace-nowrap">
                                 Generate
                               </button>
@@ -20403,7 +20403,7 @@ INSTRUCTIONS:
                                     <div className="text-[9px] text-slate-500">Ex: {d.exDate}</div>
                                   </div>
                                   <div className="text-right">
-                                    <div className="text-[11px] font-semibold text-rose-400">${d.dividend.toFixed(2)}</div>
+                                    <div className="text-[11px] font-semibold text-rose-400">${(d.dividend || 0).toFixed(2)}</div>
                                     <div className="text-[9px] text-slate-500">{d.yield}% yield • {daysUntil > 0 ? `${daysUntil}D` : 'Past'}</div>
                                   </div>
                                 </div>
@@ -20667,7 +20667,7 @@ INSTRUCTIONS:
                   );
 
                   case 'equitycurve': {
-                    const eqData = trades.length > 0 ? trades.sort((a,b) => new Date(a.date) - new Date(b.date)).reduce((acc, t) => {
+                    const eqData = trades.length > 0 ? [...trades].sort((a,b) => new Date(a.date) - new Date(b.date)).reduce((acc, t) => {
                       const pnl = t.type === 'sell' ? ((t.exitPrice || t.price) - t.price) * (t.shares || 1) : t.pnl || 0;
                       const cumPnl = (acc.length > 0 ? acc[acc.length-1].cumPnl : 0) + pnl;
                       return [...acc, { date: t.date, cumPnl }];
@@ -23942,8 +23942,10 @@ INSTRUCTIONS:
                                                 }
                                               }
                                             } else {
-                                              await navigator.clipboard.writeText(shareText);
-                                              showToast("Setup copied to clipboard — paste in any message!", "success");
+                                              try {
+                                                await navigator.clipboard.writeText(shareText);
+                                                showToast("Setup copied to clipboard — paste in any message!", "success");
+                                              } catch (e) {}
                                             }
                                           }}
                                           className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 rounded-lg text-xs font-medium transition-all"
@@ -24471,7 +24473,7 @@ INSTRUCTIONS:
                         <div className={`font-bold text-sm ${analysis.final.signalTrust.realTimeData.recommendation?.includes('BUY') ? 'text-emerald-400' : analysis.final.signalTrust.realTimeData.recommendation?.includes('SELL') ? 'text-red-400' : 'text-slate-400'}`}>
                           {formatLabel(analysis.final.signalTrust.realTimeData.recommendation) || 'N/A'}
                         </div>
-                        <div className="text-xs text-slate-400 mt-1">RSI: {analysis.final.signalTrust.realTimeData.rsi} | MACD: {parseFloat(analysis.final.signalTrust.realTimeData.macdHistogram) > 0 ? 'Bullish' : 'Bearish'} | {analysis.final.signalTrust.realTimeData.trend}</div>
+                        <div className="text-xs text-slate-400 mt-1">RSI: {analysis.final.signalTrust.realTimeData.rsi} | MACD: {(analysis.final.signalTrust.realTimeData.macdHistogram != null && parseFloat(analysis.final.signalTrust.realTimeData.macdHistogram) > 0) ? 'Bullish' : 'Bearish'} | {analysis.final.signalTrust.realTimeData.trend}</div>
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-3">Source: {analysis.final.signalTrust.realTimeData.source}</p>
@@ -27552,8 +27554,10 @@ INSTRUCTIONS:
                               }
                             }
                           } else {
-                            await navigator.clipboard.writeText(shareText);
-                            showToast("Setup copied to clipboard — paste in any message!", "success");
+                            try {
+                              await navigator.clipboard.writeText(shareText);
+                              showToast("Setup copied to clipboard — paste in any message!", "success");
+                            } catch (e) {}
                           }
                         }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 rounded-lg text-xs font-medium transition-all"
