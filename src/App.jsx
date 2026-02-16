@@ -2649,7 +2649,7 @@ function App() {
       if (closes.length > 0 && volumes.length > 0) {
         const len = Math.min(closes.length, volumes.length, 20);
         let cumVP = 0, cumVol = 0;
-        for (let i = closes.length - len; i < closes.length; i++) {
+        for (let i = Math.max(0, closes.length - len); i < closes.length; i++) {
           const vi = i < volumes.length ? volumes[i] : 0;
           cumVP += closes[i] * vi;
           cumVol += vi;
@@ -7447,7 +7447,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
 
       // Concentration risk
-      const maxPosition = Math.max(...positions.map(p => p.value / Math.max(1, totalValue) * 100));
+      const maxPosition = positions.length > 0 ? Math.max(...positions.map(p => p.value / Math.max(1, totalValue) * 100)) : 0;
       const sectorPcts = Object.entries(sectorExposure).map(([sector, val]) => ({ sector, pct: val / Math.max(1, totalValue) * 100, value: val })).sort((a, b) => b.pct - a.pct);
 
       setRiskAnalysis({
@@ -8559,8 +8559,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Sort by price
       levels.sort((a, b) => a.price - b.price);
       // Cluster nearby price levels (within 0.3% of each other)
-      const priceMax = Math.max(...levels.map(l => l.price));
-      const priceMin = Math.min(...levels.map(l => l.price));
+      const priceMax = levels.length > 0 ? Math.max(...levels.map(l => l.price)) : 0;
+      const priceMin = levels.length > 0 ? Math.min(...levels.map(l => l.price)) : 0;
       const clusterThreshold = (priceMax - priceMin) * 0.008; // 0.8% of range
       const clusters = [];
       let currentCluster = [levels[0]];
@@ -8576,8 +8576,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // Convert clusters to zones
       clusters.forEach(c => {
         const prices = c.map(l => l.price);
-        const zoneLow = Math.min(...prices);
-        const zoneHigh = Math.max(...prices);
+        const zoneLow = prices.length > 0 ? Math.min(...prices) : 0;
+        const zoneHigh = prices.length > 0 ? Math.max(...prices) : 0;
         const zoneCenter = (zoneLow + zoneHigh) / 2;
         const lastClose = visData[visData.length - 1]?.close || 0;
         const isSupport = zoneCenter < lastClose;
@@ -8855,8 +8855,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           }
 
           // Validate high/low against chart data
-          const chartHigh = Math.max(...timeSeries.map(b => b.high));
-          const chartLow = Math.min(...timeSeries.map(b => b.low));
+          const chartHigh = timeSeries.length > 0 ? Math.max(...timeSeries.map(b => b.high)) : 0;
+          const chartLow = timeSeries.length > 0 ? Math.min(...timeSeries.map(b => b.low)) : 0;
           let dayHigh = meta.regularMarketDayHigh || currentPrice;
           let dayLow = meta.regularMarketDayLow || currentPrice;
 
@@ -8945,10 +8945,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const currentPrice = closes[closes.length - 1];
 
       // Calculate key levels
-      const recent20High = Math.max(...highs.slice(-20));
-      const recent20Low = Math.min(...lows.slice(-20));
-      const recent50High = Math.max(...highs.slice(-50));
-      const recent50Low = Math.min(...lows.slice(-50));
+      const recent20High = highs.length > 0 ? Math.max(...highs.slice(-20)) : 0;
+      const recent20Low = lows.length > 0 ? Math.min(...lows.slice(-20)) : 0;
+      const h50slice = highs.slice(-50);
+      const recent50High = h50slice.length > 0 ? Math.max(...h50slice) : recent20High;
+      const l50slice = lows.slice(-50);
+      const recent50Low = l50slice.length > 0 ? Math.min(...l50slice) : recent20Low;
       const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
       const recentVolume = volumes.slice(-5).reduce((a, b) => a + b, 0) / 5;
 
@@ -9023,7 +9025,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       if (closes.length > 0 && volumes.length > 0) {
         const len = Math.min(closes.length, volumes.length, 20);
         let cumVP = 0, cumVol = 0;
-        for (let i = closes.length - len; i < closes.length; i++) {
+        for (let i = Math.max(0, closes.length - len); i < closes.length; i++) {
           const vi = i < volumes.length ? volumes[i] : 0;
           cumVP += closes[i] * vi;
           cumVol += vi;
@@ -9163,7 +9165,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
       // Recent momentum (5-bar)
       if (closes.length >= 6) {
-        const momentum = (closes[closes.length - 1] - closes[closes.length - 6]) / closes[closes.length - 6] * 100;
+        const momentum = closes[closes.length - 6] !== 0 ? (closes[closes.length - 1] - closes[closes.length - 6]) / closes[closes.length - 6] * 100 : 0;
         if (momentum > 1.5) bullishScore += 8;
         else if (momentum < -1.5) bearishScore += 8;
       }
@@ -10766,7 +10768,7 @@ OUTPUT JSON:
           reconciledFinal.reconciled = true;
           reconciledFinal.aiOriginal = aiRec;
           reconciledFinal.directionalBias = realIndicators.direction;
-          const fmtRec = (r) => r ? r.replace(/_/g, ' ') : r;
+          const fmtRec = (r) => r ? r.replace(/_/g, ' ') : 'N/A';
           reconciledFinal.reconciliationNote = hasDirectionalConflict
             ? `AI visual analysis suggested ${fmtRec(aiRec)}, but 13-factor analysis (RSI: ${realIndicators.rsi}, MACD: ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, ADX: ${realIndicators.adx || 'N/A'}, Divergence: ${realIndicators.rsiDivergence || 'None'}, Trend: ${realIndicators.trend}) indicate ${fmtRec(calcRec)}. Using calculated recommendation for accuracy.`
             : `13-factor analysis: RSI ${realIndicators.rsi}, MACD ${realIndicators.macdHistogram > 0 ? 'Bullish' : 'Bearish'}, ADX ${realIndicators.adx || 'N/A'}, Trend ${realIndicators.trend}. ${aiRec !== calcRec ? `AI suggested ${fmtRec(aiRec)}.` : ''}`;
@@ -11967,7 +11969,7 @@ OUTPUT JSON:
       const t2 = entry * (1 + target2Pct / 100);
       
       // Build technical reasoning
-      const technicalSignals = bestPick.signals.slice(0, 5);
+      const technicalSignals = (bestPick.signals || []).slice(0, 5);
       const keyReason = isLong 
         ? `${bestPick.trend === 'UPTREND' ? 'Strong uptrend with ' : ''}${bestPick.rsi < 40 ? 'oversold RSI bouncing' : bestPick.macdHistogram > 0 ? 'bullish MACD momentum' : 'price above key MAs'}`
         : `${bestPick.trend === 'DOWNTREND' ? 'Confirmed downtrend with ' : ''}${bestPick.rsi > 60 ? 'overbought RSI reversing' : bestPick.macdHistogram < 0 ? 'bearish MACD momentum' : 'price below key MAs'}`;
@@ -12525,8 +12527,8 @@ INSTRUCTIONS:
       symbol: symbol,
       currentPrice: currentPrice,
       open: previousClose,
-      high: Math.max(...bars.map(b => b.high)),
-      low: Math.min(...bars.map(b => b.low)),
+      high: bars.length > 0 ? Math.max(...bars.map(b => b.high)) : 0,
+      low: bars.length > 0 ? Math.min(...bars.map(b => b.low)) : 0,
       change: currentPrice - previousClose,
       changePercent: ((currentPrice - previousClose) / previousClose) * 100,
       volume: bars.reduce((sum, b) => sum + b.volume, 0),
@@ -14556,8 +14558,9 @@ INSTRUCTIONS:
     // ============================================
     // FACTOR 4: TECHNICAL BREAKOUT (15 points max)
     // ============================================
-    const high20d = Math.max(...highs.slice(-20));
-    const high50d = Math.max(...highs.slice(-50, -20));
+    const high20d = highs.length > 0 ? Math.max(...highs.slice(-20)) : 0;
+    const h50dSlice = highs.slice(-50, -20);
+    const high50d = h50dSlice.length > 0 ? Math.max(...h50dSlice) : high20d;
     
     if (currentPrice > high20d * 0.98) {
       momentumScore += 15;
@@ -14641,7 +14644,7 @@ INSTRUCTIONS:
     const entry = currentPrice;
     
     // Stop loss: Below recent support
-    const recentLow = Math.min(...lows.slice(-10));
+    const recentLow = lows.length >= 10 ? Math.min(...lows.slice(-10)) : (lows.length > 0 ? Math.min(...lows) : 0);
     const stopLoss = Math.max(recentLow * 0.97, currentPrice * 0.95);
     
     // Target: Based on momentum strength
@@ -14746,8 +14749,8 @@ INSTRUCTIONS:
     const rsi = calculateRSI(closes, 14);
     
     // Recent price action
-    const recentHigh = Math.max(...highs.slice(-10));
-    const recentLow = Math.min(...lows.slice(-10));
+    const recentHigh = highs.length >= 10 ? Math.max(...highs.slice(-10)) : (highs.length > 0 ? Math.max(...highs) : 0);
+    const recentLow = lows.length >= 10 ? Math.min(...lows.slice(-10)) : (lows.length > 0 ? Math.min(...lows) : 0);
     const priceRange = recentHigh - recentLow;
     
     // Volume trend
@@ -17543,18 +17546,23 @@ INSTRUCTIONS:
               <>
                 <div className="flex gap-2 mb-4">
                   {[
-                    { type: 'bug', label: '🐛 Bug', color: 'red' },
-                    { type: 'feature', label: '💡 Feature', color: 'blue' },
-                    { type: 'feedback', label: '💬 General', color: 'violet' }
-                  ].map(({ type, label, color }) => (
+                    { type: 'bug', label: '🐛 Bug', color: 'red', hex: '#ef4444' },
+                    { type: 'feature', label: '💡 Feature', color: 'blue', hex: '#3b82f6' },
+                    { type: 'feedback', label: '💬 General', color: 'violet', hex: '#8b5cf6' }
+                  ].map(({ type, label, hex }) => (
                     <button
                       key={type}
                       onClick={() => setFeedbackType(type)}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
                         feedbackType === type
-                          ? `bg-${color}-500/20 border-${color}-500/50 text-${color}-300 border`
+                          ? 'border'
                           : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700'
                       }`}
+                      style={feedbackType === type ? {
+                        backgroundColor: `${hex}33`,
+                        borderColor: `${hex}80`,
+                        color: `${hex}`
+                      } : undefined}
                     >
                       {label}
                     </button>
@@ -20517,14 +20525,14 @@ INSTRUCTIONS:
                           <div className="text-center py-4"><Flame className="w-8 h-8 text-slate-700 mx-auto mb-2" /><p className="text-xs text-slate-500">Load news to see sentiment</p></div>
                         ) : (
                           <div className="space-y-3">
-                            {[{ label: 'Bullish', count: sentimentData.bullish, color: 'emerald' }, { label: 'Bearish', count: sentimentData.bearish, color: 'red' }, { label: 'Neutral', count: sentimentData.neutral, color: 'slate' }].map(s => (
+                            {[{ label: 'Bullish', count: sentimentData.bullish, color: 'emerald', hex: '#34d399' }, { label: 'Bearish', count: sentimentData.bearish, color: 'red', hex: '#f87171' }, { label: 'Neutral', count: sentimentData.neutral, color: 'slate', hex: '#94a3b8' }].map(s => (
                               <div key={s.label}>
                                 <div className="flex justify-between mb-1 text-[10px]">
                                   <span className="text-slate-400">{s.label}</span>
-                                  <span className={`font-semibold text-${s.color}-400`}>{s.count} ({sentimentData.total > 0 ? (s.count / sentimentData.total * 100).toFixed(0) : 0}%)</span>
+                                  <span className="font-semibold" style={{color: s.hex}}>{s.count} ({sentimentData.total > 0 ? (s.count / sentimentData.total * 100).toFixed(0) : 0}%)</span>
                                 </div>
                                 <div className="h-2 bg-slate-700/30 rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full bg-${s.color}-500/60 transition-all duration-500`} style={{width: `${sentimentData.total > 0 ? s.count / sentimentData.total * 100 : 0}%`}} />
+                                  <div className="h-full rounded-full transition-all duration-500" style={{width: `${sentimentData.total > 0 ? s.count / sentimentData.total * 100 : 0}%`, backgroundColor: `${s.hex}99`}} />
                                 </div>
                               </div>
                             ))}
@@ -20701,7 +20709,7 @@ INSTRUCTIONS:
                         </h3>
                         <div className="grid grid-cols-4 gap-1">
                           {['😤 Fear', '🤑 Greed', '😰 Anxiety', '😎 Confident', '🤔 Uncertain', '😤 Revenge', '🧘 Calm', '🎯 Focused'].map((e, i) => {
-                            const emotionName = e.split(' ')[1];
+                            const emotionName = e.split(' ')[1] || e;
                             const isSelected = selectedEmotion === emotionName;
                             return (
                               <button key={i} onClick={() => {
@@ -28730,15 +28738,20 @@ INSTRUCTIONS:
                                   {dailyPick.volatility.category} ({dailyPick.volatility.atrPercent}%) <span className="text-xs opacity-60">ⓘ</span>
                                 </div>
                               </div>
-                              {dailyPick.volatility?.fitLabel && dailyPick.volatility?.fitLabel !== 'N/A' && (
-                                <div className={`px-3 py-1.5 rounded-lg border cursor-help bg-${dailyPick.volatility?.fitColor || 'slate'}-500/20 border-${dailyPick.volatility?.fitColor || 'slate'}-500/30 text-${dailyPick.volatility?.fitColor || 'slate'}-300`}>
-                                  <div className="text-xs opacity-70">Volatility Fit</div>
-                                  <div className="font-semibold text-sm flex items-center gap-1">
-                                    <TrendingUp className="w-3 h-3" />
-                                    {dailyPick.volatility?.fitLabel} (Score: {dailyPick.volatility?.fitScore})
+                              {dailyPick.volatility?.fitLabel && dailyPick.volatility?.fitLabel !== 'N/A' && (() => {
+                                const colorMap = { emerald: '#34d399', amber: '#fbbf24', red: '#f87171', slate: '#94a3b8' };
+                                const color = dailyPick.volatility?.fitColor || 'slate';
+                                const hex = colorMap[color] || colorMap.slate;
+                                return (
+                                  <div className="px-3 py-1.5 rounded-lg border cursor-help" style={{backgroundColor: `${hex}33`, borderColor: `${hex}4d`, color: hex}}>
+                                    <div className="text-xs opacity-70">Volatility Fit</div>
+                                    <div className="font-semibold text-sm flex items-center gap-1">
+                                      <TrendingUp className="w-3 h-3" />
+                                      {dailyPick.volatility?.fitLabel} (Score: {dailyPick.volatility?.fitScore})
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
                             </div>
                             {/* State-based Tooltip */}
                             {activeTooltip === 'volatility' && (
@@ -29295,9 +29308,16 @@ INSTRUCTIONS:
                                 </span>
                               </div>
                               <div className="flex items-center gap-3 text-xs flex-shrink-0">
-                                <span className={`px-2 py-0.5 rounded bg-${candidate.volMatchColor || 'slate'}-500/20 text-${candidate.volMatchColor || 'slate'}-300`}>
-                                  {candidate.volMatchLabel || 'N/A'}
-                                </span>
+                                {(() => {
+                                  const colorMap = { emerald: '#34d399', amber: '#fbbf24', red: '#f87171', slate: '#94a3b8' };
+                                  const color = candidate.volMatchColor || 'slate';
+                                  const hex = colorMap[color] || colorMap.slate;
+                                  return (
+                                    <span className="px-2 py-0.5 rounded" style={{backgroundColor: `${hex}33`, color: hex}}>
+                                      {candidate.volMatchLabel || 'N/A'}
+                                    </span>
+                                  );
+                                })()}
                                 <span className="text-slate-500" title="ATR% volatility">Vol: {candidate.atrPct}%</span>
                                 <span className="text-violet-400" title="Technical score">Tech: {candidate.score}</span>
                                 <span className="text-cyan-400 font-medium" title="Combined fit score">Fit: {candidate.combinedScore}</span>
@@ -30831,13 +30851,13 @@ INSTRUCTIONS:
                       <div className="bg-slate-900/50 rounded-lg p-4">
                         <div className="text-xs text-slate-400 mb-1">Shortest</div>
                         <div className="text-2xl font-bold text-blue-400">
-                          {Math.min(...trades.filter(t => t.entryDate && t.exitDate).map(t => (new Date(t.exitDate) - new Date(t.entryDate)) / 86400000)).toFixed(2)}d
+                          {(() => { const vals = trades.filter(t => t.entryDate && t.exitDate).map(t => (new Date(t.exitDate) - new Date(t.entryDate)) / 86400000); return vals.length > 0 ? Math.min(...vals).toFixed(2) : '0.00'; })()}d
                         </div>
                       </div>
                       <div className="bg-slate-900/50 rounded-lg p-4">
                         <div className="text-xs text-slate-400 mb-1">Longest</div>
                         <div className="text-2xl font-bold text-orange-400">
-                          {Math.max(...trades.filter(t => t.entryDate && t.exitDate).map(t => (new Date(t.exitDate) - new Date(t.entryDate)) / 86400000)).toFixed(2)}d
+                          {(() => { const vals = trades.filter(t => t.entryDate && t.exitDate).map(t => (new Date(t.exitDate) - new Date(t.entryDate)) / 86400000); return vals.length > 0 ? Math.max(...vals).toFixed(2) : '0.00'; })()}d
                         </div>
                       </div>
                     </div>
@@ -31288,12 +31308,16 @@ INSTRUCTIONS:
                     { label: 'Profit Factor', value: backtestResults.profitFactor, color: parseFloat(backtestResults.profitFactor) >= 1.5 ? 'emerald' : 'amber' },
                     { label: 'Max Drawdown', value: `-${backtestResults.maxDrawdown}%`, color: parseFloat(backtestResults.maxDrawdown) < 10 ? 'emerald' : 'red' },
                     { label: 'Avg Return', value: `${backtestResults.avgReturn}%`, color: parseFloat(backtestResults.avgReturn) >= 0 ? 'emerald' : 'red' }
-                  ].map((stat, i) => (
-                    <div key={i} className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 text-center">
-                      <div className="text-xs text-slate-500 mb-1">{stat.label}</div>
-                      <div className={`text-lg font-bold text-${stat.color}-400`}>{stat.value}</div>
-                    </div>
-                  ))}
+                  ].map((stat, i) => {
+                    const colorMap = { emerald: '#34d399', red: '#f87171', cyan: '#22d3ee', amber: '#fbbf24' };
+                    const hex = colorMap[stat.color] || '#94a3b8';
+                    return (
+                      <div key={i} className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 text-center">
+                        <div className="text-xs text-slate-500 mb-1">{stat.label}</div>
+                        <div className="text-lg font-bold" style={{color: hex}}>{stat.value}</div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
@@ -35787,7 +35811,7 @@ INSTRUCTIONS:
                   <div className="bg-gradient-to-br from-orange-900/30 to-orange-800/10 border border-orange-500/30 rounded-lg p-6">
                     <div className="text-xs text-slate-400 mb-2">Best Return</div>
                     <div className="text-3xl font-bold text-orange-400">
-                      +{Math.max(...alertPerformance.map(a => a.return24h)).toFixed(2)}%
+                      +{alertPerformance.length > 0 ? Math.max(...alertPerformance.map(a => a.return24h)).toFixed(2) : '0.00'}%
                     </div>
                   </div>
                 </div>
@@ -37331,13 +37355,17 @@ INSTRUCTIONS:
                     { label: 'Sharpe Ratio', value: riskAnalysis.portfolioSharpe, sub: parseFloat(riskAnalysis.portfolioSharpe) >= 1 ? 'Good' : 'Below avg', color: parseFloat(riskAnalysis.portfolioSharpe) >= 1 ? 'emerald' : 'amber' },
                     { label: 'Max Drawdown', value: `-${riskAnalysis.maxDrawdown}%`, sub: parseFloat(riskAnalysis.maxDrawdown) < 10 ? 'Contained' : 'Elevated', color: parseFloat(riskAnalysis.maxDrawdown) < 10 ? 'emerald' : 'red' },
                     { label: 'Diversification', value: `${riskAnalysis.diversificationScore}/100`, sub: `${riskAnalysis.positions.length} positions`, color: riskAnalysis.diversificationScore > 60 ? 'emerald' : 'amber' }
-                  ].map((stat, i) => (
-                    <div key={i} className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 text-center">
-                      <div className="text-xs text-slate-500 mb-1">{stat.label}</div>
-                      <div className={`text-2xl font-bold text-${stat.color}-400`}>{stat.value}</div>
-                      <div className="text-xs text-slate-500 mt-1">{stat.sub}</div>
-                    </div>
-                  ))}
+                  ].map((stat, i) => {
+                    const colorMap = { emerald: '#34d399', red: '#f87171', amber: '#fbbf24' };
+                    const hex = colorMap[stat.color] || '#94a3b8';
+                    return (
+                      <div key={i} className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 text-center">
+                        <div className="text-xs text-slate-500 mb-1">{stat.label}</div>
+                        <div className="text-2xl font-bold" style={{color: hex}}>{stat.value}</div>
+                        <div className="text-xs text-slate-500 mt-1">{stat.sub}</div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -37736,15 +37764,18 @@ INSTRUCTIONS:
                       { name: 'Guided Setup Wizard', desc: 'First-time setup wizard that walks you through a 3-step onboarding: welcome overview, building your initial watchlist, and next steps. Available any time from Settings.' }
                     ]
                   }
-                ].map((section, idx) => (
-                  <div key={idx} className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
-                    <div className={`px-6 py-4 border-b border-slate-800/50 bg-${section.color}-500/5`}>
-                      <h2 className="text-xl font-bold flex items-center gap-3">
-                        <span className="text-2xl">{section.icon}</span>
-                        {section.category}
-                        <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{section.features.length} tools</span>
-                      </h2>
-                    </div>
+                ].map((section, idx) => {
+                  const colorMap = { violet: '#8b5cf6', blue: '#3b82f6', emerald: '#34d399', amber: '#fbbf24', red: '#f87171', slate: '#94a3b8' };
+                  const hex = colorMap[section.color] || colorMap.slate;
+                  return (
+                    <div key={idx} className="bg-slate-900/50 rounded-xl border border-slate-800/50 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-800/50" style={{backgroundColor: `${hex}0d`}}>
+                        <h2 className="text-xl font-bold flex items-center gap-3">
+                          <span className="text-2xl">{section.icon}</span>
+                          {section.category}
+                          <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{section.features.length} tools</span>
+                        </h2>
+                      </div>
                     <div className="divide-y divide-slate-800/30">
                       {section.features.map((feature, fIdx) => (
                         <div key={fIdx} className="px-6 py-4 hover:bg-slate-800/20 transition-colors">
@@ -37754,7 +37785,8 @@ INSTRUCTIONS:
                       ))}
                     </div>
                   </div>
-                ))}
+                    );
+                  })}
 
                 <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-6 text-center">
                   <h3 className="text-xl font-bold mb-2">Ready to Start Trading Smarter?</h3>
