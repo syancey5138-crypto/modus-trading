@@ -160,14 +160,27 @@ export default async function handler(req, res) {
         if (response.status === 401) {
           return res.status(500).json({ error: 'API authentication failed. Please check server configuration.' });
         }
+        if (response.status === 400) {
+          // Parse the error for a user-friendly message
+          try {
+            const errData = JSON.parse(errorText);
+            const detail = errData?.error?.message || errorText.slice(0, 200);
+            return res.status(400).json({ error: `Bad request: ${detail}` });
+          } catch {
+            return res.status(400).json({ error: `Bad request (${response.status}): ${errorText.slice(0, 200)}` });
+          }
+        }
+        if (response.status === 529 || response.status === 503) {
+          return res.status(503).json({ error: 'Anthropic API is overloaded. Please try again in a few seconds.' });
+        }
 
-        throw new Error('Analysis service temporarily unavailable. Please try again.');
+        throw new Error(`Anthropic API error (${response.status}). Please try again or switch to Direct API mode in Settings.`);
       }
 
       const data = await response.json();
       return res.status(200).json({
         success: true,
-        content: data.content[0].text,
+        content: data.content?.[0]?.text || '',
         provider: 'anthropic',
       });
 
@@ -214,7 +227,7 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: 'API authentication failed. Please check server configuration.' });
         }
 
-        throw new Error('Analysis service temporarily unavailable. Please try again.');
+        throw new Error(`OpenAI API error (${response.status}). Please try again or switch to Direct API mode in Settings.`);
       }
 
       const data = await response.json();

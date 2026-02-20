@@ -10919,16 +10919,23 @@ OUTPUT JSON:
       let errorMsg = 'Unable to analyze the chart';
 
       // Provide user-friendly error messages
-      if (err.message.includes("500") || err.message.includes("Internal server")) {
-        errorMsg = "API server error. Please check your API key configuration in settings.";
-      } else if (err.message.includes("401") || err.message.includes("unauthorized")) {
-        errorMsg = "API authentication failed. Please verify your API key.";
-      } else if (err.message.includes("quota") || err.message.includes("rate limit")) {
-        errorMsg = "API quota exceeded. Please try again later.";
-      } else if (err.message.includes("timeout")) {
-        errorMsg = "Analysis timed out. Your image may be too large or the server is busy.";
-      } else if (err.message) {
-        errorMsg = `Analysis failed: ${err.message}`;
+      const msg = err.message || '';
+      if (msg.includes("500") || msg.includes("Internal server")) {
+        errorMsg = "API server error. Please check your API key configuration in Settings.";
+      } else if (msg.includes("401") || msg.includes("unauthorized") || msg.includes("authentication")) {
+        errorMsg = "API authentication failed. Please verify your API key in Settings → API Configuration.";
+      } else if (msg.includes("quota") || msg.includes("rate limit") || msg.includes("429")) {
+        errorMsg = "API rate limited. Please wait a moment and try again.";
+      } else if (msg.includes("timeout") || msg.includes("AbortError")) {
+        errorMsg = "Analysis timed out. Try a smaller image or try again.";
+      } else if (msg.includes("overloaded") || msg.includes("529") || msg.includes("503")) {
+        errorMsg = "AI service is overloaded. Please try again in a few seconds.";
+      } else if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("network")) {
+        errorMsg = "Network error. Check your internet connection and try again.";
+      } else if (msg.includes("not configured")) {
+        errorMsg = "API key not configured. Go to Settings → API Configuration to add your key.";
+      } else if (msg) {
+        errorMsg = `Analysis failed: ${msg}`;
       }
 
       // Log full error for debugging
@@ -24407,13 +24414,22 @@ INSTRUCTIONS:
                           <p className="text-sm text-slate-300 whitespace-pre-line">{analysisError}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={analyzeChart}
-                        className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition-colors flex items-center gap-2"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        <span>Retry Analysis</span>
-                      </button>
+                      <div className="flex gap-3 mt-4">
+                        <button
+                          onClick={analyzeChart}
+                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>Retry Analysis</span>
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('settings')}
+                          className="px-4 py-2 bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 rounded-lg font-semibold transition-colors flex items-center gap-2 text-sm"
+                        >
+                          <Settings className="w-4 h-4" />
+                          <span>Check API Settings</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
