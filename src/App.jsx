@@ -1732,8 +1732,12 @@ function App() {
         { icon: '3️⃣', text: 'Click "Fullscreen" for an expanded chart with drawing tools, indicators, and advanced overlays' },
         { icon: '4️⃣', text: 'Enable "Liquidity Flow" in Overlays to see where aggressive orders meet strong limit orders — cyan bubbles show buy absorption (support held), orange bubbles show sell absorption (resistance held)' },
         { icon: '5️⃣', text: 'Enable "Signal Pulse" in Overlays for real-time buy/sell signals using 8-factor confluence: EMA crossovers, RSI, MACD, volume, VWAP, candlestick patterns, trend alignment, and momentum' },
+        { icon: '6️⃣', text: 'Enable "Ichimoku Cloud" to see trend direction, momentum, and dynamic support/resistance — green cloud means bullish, red cloud means bearish, with Tenkan/Kijun crossovers for entries' },
+        { icon: '7️⃣', text: 'Enable "Supertrend" for a clean ATR-based trend line — green line below price = uptrend, red line above = downtrend. Color changes signal trend reversals' },
+        { icon: '8️⃣', text: 'Enable "Order Blocks" to see smart money supply/demand zones — green OB+ zones show institutional buying, red OB− zones show selling. Price often bounces from these levels' },
+        { icon: '9️⃣', text: 'Enable "Fair Value Gaps" to find price imbalance zones — blue FVG+ gaps signal bullish inefficiency, orange FVG− gaps signal bearish. Price tends to fill these gaps' },
       ],
-      tip: 'Combine Liquidity Flow with Signal Pulse for maximum accuracy — when a buy signal appears at a buy absorption zone, it\'s a high-conviction setup.'
+      tip: 'Combine Liquidity Flow with Signal Pulse for maximum accuracy — when a buy signal appears at a buy absorption zone, it\'s a high-conviction setup. Use Ichimoku Cloud for trend context and Order Blocks for precision entries.'
     },
     setups: {
       title: 'How to Use Trade Setups',
@@ -5437,8 +5441,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [showVWAP, setShowVWAP] = useState(false);
   const [showLiquidityFlow, setShowLiquidityFlow] = useState(false);
   const [showSignalPulse, setShowSignalPulse] = useState(false);
+  const [showIchimoku, setShowIchimoku] = useState(false);
+  const [showSupertrend, setShowSupertrend] = useState(false);
+  const [showOrderBlocks, setShowOrderBlocks] = useState(false);
+  const [showFVG, setShowFVG] = useState(false);
   const [liquiditySensitivity, setLiquiditySensitivity] = useState(1.5); // Volume threshold multiplier
   const [signalPulseMinConfidence, setSignalPulseMinConfidence] = useState(3); // Min factors for signal
+  const [supertrendPeriod, setSupertrendPeriod] = useState(10);
+  const [supertrendMultiplier, setSupertrendMultiplier] = useState(3);
 
   // Indicator settings
   const [smaPeriod, setSmaPeriod] = useState(20);
@@ -21842,6 +21852,10 @@ INSTRUCTIONS:
                               {[
                                 { label: 'Liquidity Flow', desc: 'Order absorption zones', active: showLiquidityFlow, toggle: () => setShowLiquidityFlow(!showLiquidityFlow), color: 'text-cyan-300', icon: '◉' },
                                 { label: 'Signal Pulse', desc: 'Buy/sell trend signals', active: showSignalPulse, toggle: () => setShowSignalPulse(!showSignalPulse), color: 'text-emerald-400', icon: '▲' },
+                                { label: 'Ichimoku Cloud', desc: 'Trend, momentum & support zones', active: showIchimoku, toggle: () => setShowIchimoku(!showIchimoku), color: 'text-pink-400', icon: '☁' },
+                                { label: 'Supertrend', desc: 'ATR-based trend direction', active: showSupertrend, toggle: () => setShowSupertrend(!showSupertrend), color: 'text-green-400', icon: '⚡' },
+                                { label: 'Order Blocks', desc: 'Smart money supply/demand', active: showOrderBlocks, toggle: () => setShowOrderBlocks(!showOrderBlocks), color: 'text-yellow-400', icon: '▧' },
+                                { label: 'Fair Value Gaps', desc: 'Price imbalance zones', active: showFVG, toggle: () => setShowFVG(!showFVG), color: 'text-blue-400', icon: '▬' },
                               ].map(item => (
                                 <button key={item.label} onClick={item.toggle}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-700/50 transition-colors">
@@ -22589,12 +22603,150 @@ INSTRUCTIONS:
                               const fullLiquidity = showLiquidityFlow ? calcLiquidityFlow() : [];
                               const fullSignals = showSignalPulse ? calcSignalPulse() : [];
 
+                              // ── Ichimoku Cloud (9, 26, 52) ──
+                              const calcIchimoku = () => {
+                                const result = [];
+                                const highArr = fullSeries.map(b => b.high);
+                                const lowArr = fullSeries.map(b => b.low);
+                                const highLow = (arr, period, idx) => {
+                                  const sl = arr.slice(Math.max(0, idx - period + 1), idx + 1);
+                                  return sl.length >= period ? { high: Math.max(...sl), low: Math.min(...sl) } : null;
+                                };
+                                for (let i = 0; i < fullSeries.length; i++) {
+                                  const tenkan9 = highLow(highArr, 9, i) && highLow(lowArr, 9, i) ? (Math.max(...highArr.slice(Math.max(0, i - 8), i + 1)) + Math.min(...lowArr.slice(Math.max(0, i - 8), i + 1))) / 2 : null;
+                                  const kijun26 = i >= 25 ? (Math.max(...highArr.slice(i - 25, i + 1)) + Math.min(...lowArr.slice(i - 25, i + 1))) / 2 : null;
+                                  const senkouA = tenkan9 !== null && kijun26 !== null ? (tenkan9 + kijun26) / 2 : null;
+                                  const senkouB = i >= 51 ? (Math.max(...highArr.slice(i - 51, i + 1)) + Math.min(...lowArr.slice(i - 51, i + 1))) / 2 : null;
+                                  const chikou = closes[i]; // plotted 26 bars back
+                                  result.push({ tenkan: tenkan9, kijun: kijun26, senkouA, senkouB, chikou });
+                                }
+                                return result;
+                              };
+
+                              // ── Supertrend (period, multiplier) ──
+                              const calcSupertrend = () => {
+                                const period = supertrendPeriod;
+                                const mult = supertrendMultiplier;
+                                const result = [];
+                                let prevUpper = 0, prevLower = 0, prevST = 0, prevTrend = 1;
+                                for (let i = 0; i < fullSeries.length; i++) {
+                                  if (i < period) { result.push(null); continue; }
+                                  // ATR calculation
+                                  let atrSum = 0;
+                                  for (let j = i - period + 1; j <= i; j++) {
+                                    const h = fullSeries[j].high, l = fullSeries[j].low;
+                                    const pc = fullSeries[j - 1]?.close || fullSeries[j].close;
+                                    atrSum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+                                  }
+                                  const atr = atrSum / period;
+                                  const hl2 = (fullSeries[i].high + fullSeries[i].low) / 2;
+                                  let upperBand = hl2 + mult * atr;
+                                  let lowerBand = hl2 - mult * atr;
+                                  // Smoothing
+                                  if (i > period) {
+                                    upperBand = upperBand < prevUpper || fullSeries[i - 1].close > prevUpper ? upperBand : prevUpper;
+                                    lowerBand = lowerBand > prevLower || fullSeries[i - 1].close < prevLower ? lowerBand : prevLower;
+                                  }
+                                  let trend = prevTrend;
+                                  if (prevST === prevUpper) {
+                                    trend = fullSeries[i].close > upperBand ? 1 : -1;
+                                  } else {
+                                    trend = fullSeries[i].close < lowerBand ? -1 : 1;
+                                  }
+                                  const st = trend === 1 ? lowerBand : upperBand;
+                                  prevUpper = upperBand; prevLower = lowerBand; prevST = st; prevTrend = trend;
+                                  result.push({ value: st, trend, upper: upperBand, lower: lowerBand });
+                                }
+                                return result;
+                              };
+
+                              // ── Order Blocks (Smart Money Zones) ──
+                              const calcOrderBlocks = () => {
+                                const blocks = [];
+                                if (fullSeries.length < 5) return blocks;
+                                for (let i = 2; i < fullSeries.length - 2; i++) {
+                                  const bar = fullSeries[i];
+                                  const prev = fullSeries[i - 1];
+                                  const next1 = fullSeries[i + 1];
+                                  const next2 = fullSeries[i + 2];
+                                  const body = Math.abs(bar.close - bar.open);
+                                  const range = bar.high - bar.low;
+                                  if (range <= 0) continue;
+                                  const bodyRatio = body / range;
+                                  // Volume check
+                                  const volSlice = fullSeries.slice(Math.max(0, i - 10), i).map(b => b.volume || 0);
+                                  const avgVol = volSlice.length > 0 ? volSlice.reduce((a, b) => a + b, 0) / volSlice.length : 1;
+                                  const volRatio = (bar.volume || 0) / (avgVol || 1);
+
+                                  // Bullish OB: bearish candle followed by strong bullish move
+                                  if (bar.close < bar.open && bodyRatio > 0.4 && next1.close > bar.high && next2.close > next1.close && volRatio > 0.8) {
+                                    blocks.push({ type: 'bullish', startIdx: i, high: bar.high, low: bar.low, endIdx: Math.min(i + 20, fullSeries.length - 1), strength: Math.min(1, volRatio / 2) });
+                                  }
+                                  // Bearish OB: bullish candle followed by strong bearish move
+                                  if (bar.close > bar.open && bodyRatio > 0.4 && next1.close < bar.low && next2.close < next1.close && volRatio > 0.8) {
+                                    blocks.push({ type: 'bearish', startIdx: i, high: bar.high, low: bar.low, endIdx: Math.min(i + 20, fullSeries.length - 1), strength: Math.min(1, volRatio / 2) });
+                                  }
+                                }
+                                // Keep only unmitigated blocks (price hasn't returned through)
+                                return blocks.filter(ob => {
+                                  for (let j = ob.startIdx + 3; j < fullSeries.length; j++) {
+                                    if (ob.type === 'bullish' && fullSeries[j].close < ob.low) return false;
+                                    if (ob.type === 'bearish' && fullSeries[j].close > ob.high) return false;
+                                  }
+                                  return true;
+                                }).slice(-15); // Keep last 15 blocks max
+                              };
+
+                              // ── Fair Value Gaps (Price Imbalances) ──
+                              const calcFVG = () => {
+                                const gaps = [];
+                                if (fullSeries.length < 3) return gaps;
+                                for (let i = 1; i < fullSeries.length - 1; i++) {
+                                  const prev = fullSeries[i - 1];
+                                  const curr = fullSeries[i];
+                                  const next = fullSeries[i + 1];
+                                  // Bullish FVG: gap between bar[i-1].high and bar[i+1].low
+                                  if (next.low > prev.high) {
+                                    const gapSize = next.low - prev.high;
+                                    const avgRange = (curr.high - curr.low) || 1;
+                                    if (gapSize > avgRange * 0.1) {
+                                      // Check if gap is still unfilled
+                                      let filled = false;
+                                      for (let j = i + 2; j < fullSeries.length; j++) {
+                                        if (fullSeries[j].low <= prev.high) { filled = true; break; }
+                                      }
+                                      gaps.push({ type: 'bullish', idx: i, top: next.low, bottom: prev.high, filled, strength: Math.min(1, gapSize / avgRange) });
+                                    }
+                                  }
+                                  // Bearish FVG: gap between bar[i+1].high and bar[i-1].low
+                                  if (next.high < prev.low) {
+                                    const gapSize = prev.low - next.high;
+                                    const avgRange = (curr.high - curr.low) || 1;
+                                    if (gapSize > avgRange * 0.1) {
+                                      let filled = false;
+                                      for (let j = i + 2; j < fullSeries.length; j++) {
+                                        if (fullSeries[j].high >= prev.low) { filled = true; break; }
+                                      }
+                                      gaps.push({ type: 'bearish', idx: i, top: prev.low, bottom: next.high, filled, strength: Math.min(1, gapSize / avgRange) });
+                                    }
+                                  }
+                                }
+                                return gaps.filter(g => !g.filled).slice(-20); // Keep last 20 unfilled
+                              };
+
+                              const fullIchimoku = showIchimoku ? calcIchimoku() : [];
+                              const fullSupertrend = showSupertrend ? calcSupertrend() : [];
+                              const orderBlocks = showOrderBlocks ? calcOrderBlocks() : [];
+                              const fvgGaps = showFVG ? calcFVG() : [];
+
                               const visSMA = fullSMA.slice(layout.visStart, layout.visEnd);
                               const visEMA = fullEMA.slice(layout.visStart, layout.visEnd);
                               const visBollinger = fullBollinger.slice(layout.visStart, layout.visEnd);
                               const visVWAP = fullVWAP.slice(layout.visStart, layout.visEnd);
                               const visLiquidity = fullLiquidity.slice(layout.visStart, layout.visEnd);
                               const visSignals = fullSignals.slice(layout.visStart, layout.visEnd);
+                              const visIchimoku = fullIchimoku.slice(layout.visStart, layout.visEnd);
+                              const visSupertrend = fullSupertrend.slice(layout.visStart, layout.visEnd);
 
                               return (
                                 <svg
@@ -22685,6 +22837,157 @@ INSTRUCTIONS:
                                     }
                                   })}
 
+                                  {/* ── Ichimoku Cloud ── */}
+                                  {showIchimoku && visIchimoku.length > 0 && (() => {
+                                    // Build cloud fill paths (Senkou A vs B)
+                                    const cloudPoints = [];
+                                    let segments = [];
+                                    let currentSeg = [];
+                                    visIchimoku.forEach((ich, i) => {
+                                      if (ich && ich.senkouA != null && ich.senkouB != null) {
+                                        currentSeg.push({ i, a: ich.senkouA, b: ich.senkouB });
+                                      } else {
+                                        if (currentSeg.length > 1) segments.push(currentSeg);
+                                        currentSeg = [];
+                                      }
+                                    });
+                                    if (currentSeg.length > 1) segments.push(currentSeg);
+
+                                    return (
+                                      <g>
+                                        {/* Cloud fill */}
+                                        {segments.map((seg, si) => {
+                                          const forward = seg.map(p => `${p.i},${priceToY(p.a)}`).join(' ');
+                                          const backward = [...seg].reverse().map(p => `${p.i},${priceToY(p.b)}`).join(' ');
+                                          const isGreen = seg[Math.floor(seg.length / 2)].a >= seg[Math.floor(seg.length / 2)].b;
+                                          return (
+                                            <polygon key={`ichi-cloud-${si}`}
+                                              points={`${forward} ${backward}`}
+                                              fill={isGreen ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'}
+                                              stroke="none" />
+                                          );
+                                        })}
+                                        {/* Senkou Span A line */}
+                                        <polyline
+                                          points={visIchimoku.map((ich, i) => ich?.senkouA != null ? `${i},${priceToY(ich.senkouA)}` : '').filter(Boolean).join(' ')}
+                                          fill="none" stroke="rgba(34,197,94,0.5)" strokeWidth="0.3" />
+                                        {/* Senkou Span B line */}
+                                        <polyline
+                                          points={visIchimoku.map((ich, i) => ich?.senkouB != null ? `${i},${priceToY(ich.senkouB)}` : '').filter(Boolean).join(' ')}
+                                          fill="none" stroke="rgba(239,68,68,0.5)" strokeWidth="0.3" />
+                                        {/* Tenkan-sen (Conversion) */}
+                                        <polyline
+                                          points={visIchimoku.map((ich, i) => ich?.tenkan != null ? `${i},${priceToY(ich.tenkan)}` : '').filter(Boolean).join(' ')}
+                                          fill="none" stroke="#f472b6" strokeWidth="0.4" />
+                                        {/* Kijun-sen (Base) */}
+                                        <polyline
+                                          points={visIchimoku.map((ich, i) => ich?.kijun != null ? `${i},${priceToY(ich.kijun)}` : '').filter(Boolean).join(' ')}
+                                          fill="none" stroke="#60a5fa" strokeWidth="0.4" />
+                                        {/* Chikou Span */}
+                                        <polyline
+                                          points={visIchimoku.map((ich, i) => ich?.chikou != null ? `${i},${priceToY(ich.chikou)}` : '').filter(Boolean).join(' ')}
+                                          fill="none" stroke="#a78bfa" strokeWidth="0.3" strokeDasharray="1,0.5" opacity="0.7" />
+                                      </g>
+                                    );
+                                  })()}
+
+                                  {/* ── Supertrend Line ── */}
+                                  {showSupertrend && visSupertrend.length > 0 && (() => {
+                                    // Split into bullish/bearish segments for color switching
+                                    const segments = [];
+                                    let current = { trend: null, points: [] };
+                                    visSupertrend.forEach((st, i) => {
+                                      if (!st || st.value == null) return;
+                                      const y = priceToY(st.value);
+                                      if (st.trend !== current.trend) {
+                                        if (current.points.length > 0) {
+                                          // Overlap last point for continuity
+                                          current.points.push(`${i},${y}`);
+                                          segments.push({ ...current });
+                                        }
+                                        current = { trend: st.trend, points: [`${i},${y}`] };
+                                      } else {
+                                        current.points.push(`${i},${y}`);
+                                      }
+                                    });
+                                    if (current.points.length > 0) segments.push(current);
+
+                                    return (
+                                      <g>
+                                        {segments.map((seg, si) => (
+                                          <polyline key={`st-${si}`}
+                                            points={seg.points.join(' ')}
+                                            fill="none"
+                                            stroke={seg.trend === 1 ? '#22c55e' : '#ef4444'}
+                                            strokeWidth="0.6"
+                                            opacity="0.85" />
+                                        ))}
+                                      </g>
+                                    );
+                                  })()}
+
+                                  {/* ── Order Blocks (Smart Money Zones) ── */}
+                                  {showOrderBlocks && orderBlocks.length > 0 && orderBlocks.map((ob, oi) => {
+                                    // Convert absolute indices to visible-range positions
+                                    const x1 = ob.startIdx - layout.visStart;
+                                    const x2 = (ob.endIdx || ob.startIdx + 10) - layout.visStart;
+                                    // Check if block is at least partially visible
+                                    if (x2 < 0 || x1 >= visData.length) return null;
+                                    const clampX1 = Math.max(0, x1);
+                                    const clampX2 = Math.min(visData.length, x2);
+                                    const yTop = priceToY(ob.high);
+                                    const yBot = priceToY(ob.low);
+                                    const isBull = ob.type === 'bullish';
+                                    const alpha = 0.06 + (ob.strength || 0.5) * 0.08;
+                                    const strokeAlpha = 0.25 + (ob.strength || 0.5) * 0.25;
+                                    return (
+                                      <g key={`ob-${oi}`}>
+                                        <rect x={clampX1} y={yTop} width={clampX2 - clampX1} height={Math.abs(yBot - yTop)}
+                                          fill={isBull ? `rgba(34,197,94,${alpha})` : `rgba(239,68,68,${alpha})`}
+                                          stroke={isBull ? `rgba(34,197,94,${strokeAlpha})` : `rgba(239,68,68,${strokeAlpha})`}
+                                          strokeWidth="0.15"
+                                          rx="0.1" />
+                                        {/* Zone label */}
+                                        {(clampX2 - clampX1) > 3 && (
+                                          <text x={clampX1 + 0.3} y={yTop + 1.2}
+                                            fill={isBull ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)'}
+                                            fontSize="1.2" fontWeight="bold">
+                                            {isBull ? 'OB+' : 'OB−'}
+                                          </text>
+                                        )}
+                                      </g>
+                                    );
+                                  })}
+
+                                  {/* ── Fair Value Gaps ── */}
+                                  {showFVG && fvgGaps.length > 0 && fvgGaps.map((gap, gi) => {
+                                    // FVG starts at the gap candle and extends right until filled or end of visible
+                                    const x1 = gap.idx - layout.visStart;
+                                    if (x1 >= visData.length || x1 < -5) return null;
+                                    const clampX1 = Math.max(0, x1);
+                                    const clampX2 = Math.min(visData.length, x1 + 15); // Extend gap zone 15 bars
+                                    const yTop = priceToY(gap.top);
+                                    const yBot = priceToY(gap.bottom);
+                                    const isBull = gap.type === 'bullish';
+                                    const alpha = 0.05 + (gap.strength || 0.5) * 0.07;
+                                    return (
+                                      <g key={`fvg-${gi}`}>
+                                        <rect x={clampX1} y={yTop} width={clampX2 - clampX1} height={Math.abs(yBot - yTop)}
+                                          fill={isBull ? `rgba(59,130,246,${alpha})` : `rgba(249,115,22,${alpha})`}
+                                          stroke={isBull ? 'rgba(59,130,246,0.3)' : 'rgba(249,115,22,0.3)'}
+                                          strokeWidth="0.1"
+                                          strokeDasharray="0.5,0.3" />
+                                        {(clampX2 - clampX1) > 3 && (
+                                          <text x={clampX1 + 0.3} y={yTop + 1}
+                                            fill={isBull ? 'rgba(59,130,246,0.5)' : 'rgba(249,115,22,0.5)'}
+                                            fontSize="1" fontWeight="bold">
+                                            {isBull ? 'FVG+' : 'FVG−'}
+                                          </text>
+                                        )}
+                                      </g>
+                                    );
+                                  })}
+
                                   {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
                                     // Right-align: both datasets end at "now", so align from the right
                                     const mainTotal = fullSeries.length;
@@ -22716,7 +23019,7 @@ INSTRUCTIONS:
                             })()}
                             
                             {/* Overlay Legend */}
-                            {(showSMA || showEMA || showBollinger || showVWAP || showComparison || showLiquidityFlow || showSignalPulse) && (
+                            {(showSMA || showEMA || showBollinger || showVWAP || showComparison || showLiquidityFlow || showSignalPulse || showIchimoku || showSupertrend || showOrderBlocks || showFVG) && (
                               <div className="absolute top-2 right-20 bg-slate-900/90 rounded px-2 py-1 text-xs flex gap-3 z-20 flex-wrap">
                                 {showSMA && <span className="text-blue-400">━ SMA({smaPeriod})</span>}
                                 {showEMA && <span className="text-orange-400">━ EMA({emaPeriod})</span>}
@@ -22724,6 +23027,10 @@ INSTRUCTIONS:
                                 {showVWAP && <span className="text-pink-400">━ VWAP</span>}
                                 {showLiquidityFlow && <span className="text-cyan-300">◉ Liquidity Flow</span>}
                                 {showSignalPulse && <span className="text-emerald-400">▲▼ Signal Pulse</span>}
+                                {showIchimoku && <span className="text-pink-400">☁ Ichimoku</span>}
+                                {showSupertrend && <span className="text-green-400">⚡ Supertrend</span>}
+                                {showOrderBlocks && <span className="text-yellow-400">▧ Order Blocks</span>}
+                                {showFVG && <span className="text-blue-400">▬ Fair Value Gaps</span>}
                                 {showComparison && comparisonData && <span className="text-amber-400">┄ {comparisonData.symbol} (normalized)</span>}
                               </div>
                             )}
