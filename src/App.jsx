@@ -1607,7 +1607,7 @@ function App() {
 
   // Auto-show feature guide on first visit to new feature tabs
   useEffect(() => {
-    const guideTabs = ['backtestengine', 'heatmap', 'strategybuilder', 'compare', 'riskdashboard', 'replay', 'analyze', 'quickanalysis', 'daily', 'ticker', 'setups', 'alerts', 'journal', 'screener', 'options', 'papertrading', 'portfolio', 'performance'];
+    const guideTabs = ['backtestengine', 'heatmap', 'strategybuilder', 'compare', 'riskdashboard', 'replay', 'analyze', 'quickanalysis', 'daily', 'ticker', 'setups', 'alerts', 'journal', 'screener', 'options', 'papertrading', 'portfolio', 'performance', 'indicatorguide'];
     if (guideTabs.includes(activeTab) && !featureGuidesDismissed[activeTab]) {
       setShowFeatureGuide(activeTab);
     }
@@ -1738,6 +1738,16 @@ function App() {
         { icon: '9️⃣', text: 'Enable "Fair Value Gaps" to find price imbalance zones — blue FVG+ gaps signal bullish inefficiency, orange FVG− gaps signal bearish. Price tends to fill these gaps' },
       ],
       tip: 'Combine Liquidity Flow with Signal Pulse for maximum accuracy — when a buy signal appears at a buy absorption zone, it\'s a high-conviction setup. Use Ichimoku Cloud for trend context and Order Blocks for precision entries.'
+    },
+    indicatorguide: {
+      title: 'How to Use the Indicator Guide',
+      color: 'blue',
+      steps: [
+        { icon: '1️⃣', text: 'Browse indicators organized by category — Trend & Overlays, Momentum & Oscillators, and Advanced Smart Money indicators' },
+        { icon: '2️⃣', text: 'Each card shows what the indicator does, how to read it, and a mini visual diagram so you know exactly what to look for on your charts' },
+        { icon: '3️⃣', text: 'To enable any indicator, go to the Live Ticker fullscreen chart and click the Overlays or Indicators dropdown' },
+      ],
+      tip: 'Start with SMA and RSI as your foundation, then add advanced indicators like Ichimoku Cloud and Order Blocks as you get more comfortable.'
     },
     setups: {
       title: 'How to Use Trade Setups',
@@ -18479,6 +18489,24 @@ INSTRUCTIONS:
                 <span className="font-medium flex items-center gap-2">
                   Pricing
                   <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold">NEW</span>
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("indicatorguide")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
+                activeTab === "indicatorguide"
+                  ? "bg-violet-500/10 text-white border-l-2 border-violet-500 shadow-sm"
+                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+              }`}
+              title={sidebarCollapsed ? "Indicator Guide" : ""}
+            >
+              <BookOpen className="w-5 h-5 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <span className="font-medium flex items-center gap-2">
+                  Indicator Guide
+                  <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full font-bold">NEW</span>
                 </span>
               )}
             </button>
@@ -36966,6 +36994,582 @@ INSTRUCTIONS:
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============ INDICATOR GUIDE TAB ============ */}
+        {activeTab === "indicatorguide" && (
+          <div className="p-4 md:p-8 animate-fadeIn">
+            <div className="max-w-6xl mx-auto space-y-6">
+              {/* Header */}
+              <div className="bg-gradient-to-br from-blue-500/10 to-violet-500/10 border border-blue-500/15 rounded-2xl p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl shadow-lg">
+                      <BookOpen className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Indicator Guide</h2>
+                      <p className="text-sm text-slate-400">Learn what each chart indicator does and how to read it</p>
+                    </div>
+                    <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full font-medium">15 Indicators</span>
+                    <button onClick={() => setShowFeatureGuide('indicatorguide')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use this guide">
+                      <Info className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── CATEGORY 1: Trend & Overlays ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-6 bg-blue-500 rounded-full" />
+                  <h3 className="text-lg font-bold text-white">Trend & Overlays</h3>
+                  <span className="text-xs text-slate-500 ml-2">Price-based indicators drawn directly on the chart</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                  {/* SMA */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-blue-500/30 transition-colors" style={{ borderLeft: '3px solid #3b82f6' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-blue-400 text-base">━ Simple Moving Average (SMA)</h4>
+                        <p className="text-sm text-slate-400 mt-1">Smooths price data by averaging closing prices over a set number of periods. Shows the overall trend direction by filtering out short-term noise.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Price above SMA = uptrend, price below = downtrend</li>
+                        <li>• SMA 20 crossing above SMA 50 = bullish "golden cross"</li>
+                        <li>• Acts as dynamic support (uptrend) or resistance (downtrend)</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      <line x1="0" y1="70" x2="200" y2="70" stroke="#1e293b" strokeWidth="0.5" />
+                      {/* Price candles */}
+                      {[15,25,35,45,55,65,75,85,95,105,115,125,135,145,155,165,175,185].map((x,i) => {
+                        const prices = [55,50,48,45,42,38,35,32,30,28,32,35,38,42,45,48,52,55];
+                        const h = 8 + Math.random() * 6;
+                        const y = prices[i];
+                        const isGreen = i > 0 ? prices[i] < prices[i-1] : false;
+                        return <g key={`sma-c-${i}`}><rect x={x-2} y={y - h/2} width={4} height={h} fill={isGreen ? '#22c55e' : '#ef4444'} opacity="0.4" rx="0.5" /><line x1={x} y1={y - h/2 - 3} x2={x} y2={y + h/2 + 3} stroke={isGreen ? '#22c55e' : '#ef4444'} strokeWidth="0.5" opacity="0.3" /></g>;
+                      })}
+                      {/* SMA line */}
+                      <polyline points="15,52 25,50 35,48 45,46 55,43 65,40 75,37 85,34 95,32 105,30 115,31 125,33 135,36 145,40 155,43 165,46 175,50 185,52" fill="none" stroke="#3b82f6" strokeWidth="2" />
+                    </svg>
+                  </div>
+
+                  {/* EMA */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-orange-500/30 transition-colors" style={{ borderLeft: '3px solid #f97316' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-orange-400 text-base">━ Exponential Moving Average (EMA)</h4>
+                        <p className="text-sm text-slate-400 mt-1">Like SMA but gives more weight to recent prices, making it react faster to price changes. More responsive to current market conditions.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Faster than SMA — leads trend changes earlier</li>
+                        <li>• EMA 9/21 crossover is a popular short-term signal</li>
+                        <li>• Great for identifying momentum shifts quickly</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {[15,25,35,45,55,65,75,85,95,105,115,125,135,145,155,165,175,185].map((x,i) => {
+                        const prices = [40,38,35,30,28,25,22,20,22,25,30,35,40,45,48,50,52,50];
+                        const h = 7 + Math.random() * 5;
+                        const y = prices[i] + 10;
+                        const isGreen = i > 0 ? prices[i] > prices[i-1] : false;
+                        return <g key={`ema-c-${i}`}><rect x={x-2} y={y - h/2} width={4} height={h} fill={isGreen ? '#22c55e' : '#ef4444'} opacity="0.4" rx="0.5" /></g>;
+                      })}
+                      {/* SMA (slower, blue dashed) */}
+                      <polyline points="15,50 25,48 35,46 45,42 55,40 65,37 75,35 85,33 95,32 105,33 115,36 125,40 135,44 145,48 155,52 165,54 175,56 185,55" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4,2" opacity="0.5" />
+                      {/* EMA (faster, orange solid) */}
+                      <polyline points="15,49 25,46 35,43 45,38 55,36 65,33 75,30 85,28 95,30 105,34 115,39 125,44 135,49 145,54 155,57 165,58 175,60 185,58" fill="none" stroke="#f97316" strokeWidth="2" />
+                    </svg>
+                  </div>
+
+                  {/* Bollinger Bands */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-cyan-500/30 transition-colors" style={{ borderLeft: '3px solid #06b6d4' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-cyan-400 text-base">┄ Bollinger Bands</h4>
+                        <p className="text-sm text-slate-400 mt-1">Three lines: a middle SMA with upper and lower bands at 2 standard deviations. Measures volatility — bands widen in volatile markets and squeeze in quiet ones.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Price touching upper band = potentially overbought</li>
+                        <li>• Price touching lower band = potentially oversold</li>
+                        <li>• "Band squeeze" (narrow bands) signals a big move coming</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Band fill */}
+                      <polygon points="15,20 35,22 55,30 75,35 95,38 115,32 135,25 155,18 175,15 185,16 185,68 175,65 155,62 135,60 115,58 95,55 75,50 55,42 35,35 15,32" fill="rgba(6,182,212,0.08)" />
+                      {/* Upper band */}
+                      <polyline points="15,20 35,22 55,30 75,35 95,38 115,32 135,25 155,18 175,15 185,16" fill="none" stroke="#06b6d4" strokeWidth="1" strokeDasharray="3,2" opacity="0.6" />
+                      {/* Middle SMA */}
+                      <polyline points="15,26 35,28 55,36 75,42 95,46 115,45 135,42 155,40 175,40 185,42" fill="none" stroke="#06b6d4" strokeWidth="1.5" />
+                      {/* Lower band */}
+                      <polyline points="15,32 35,35 55,42 75,50 95,55 115,58 135,60 155,62 175,65 185,68" fill="none" stroke="#06b6d4" strokeWidth="1" strokeDasharray="3,2" opacity="0.6" />
+                      {/* Price line */}
+                      <polyline points="15,28 35,25 55,33 75,44 95,50 115,40 135,35 155,30 175,25 185,30" fill="none" stroke="#94a3b8" strokeWidth="1" opacity="0.5" />
+                    </svg>
+                  </div>
+
+                  {/* VWAP */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-pink-500/30 transition-colors" style={{ borderLeft: '3px solid #ec4899' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-pink-400 text-base">━ VWAP</h4>
+                        <p className="text-sm text-slate-400 mt-1">Volume Weighted Average Price — the average price weighted by volume throughout the day. Shows the "fair value" where most trading occurred.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Price above VWAP = buyers in control (bullish)</li>
+                        <li>• Price below VWAP = sellers in control (bearish)</li>
+                        <li>• Institutions use VWAP as a benchmark for good fills</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Price candles */}
+                      {[15,30,45,60,75,90,105,120,135,150,165,180].map((x,i) => {
+                        const prices = [30,25,35,45,50,38,32,28,40,52,48,42];
+                        const h = 8 + Math.random() * 6;
+                        const y = prices[i];
+                        const isAbove = prices[i] < 40;
+                        return <rect key={`vw-c-${i}`} x={x-3} y={y - h/2} width={6} height={h} fill={isAbove ? '#22c55e' : '#ef4444'} opacity="0.35" rx="0.5" />;
+                      })}
+                      {/* VWAP line */}
+                      <polyline points="15,38 30,37 45,38 60,39 75,40 90,40 105,39 120,38 135,39 150,40 165,40 180,39" fill="none" stroke="#ec4899" strokeWidth="2" />
+                      <text x="182" y="36" fill="#ec4899" fontSize="7" fontWeight="bold">VWAP</text>
+                    </svg>
+                  </div>
+
+                  {/* Ichimoku Cloud */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-pink-400/30 transition-colors" style={{ borderLeft: '3px solid #f472b6' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-pink-400 text-base">☁ Ichimoku Cloud</h4>
+                        <p className="text-sm text-slate-400 mt-1">A comprehensive Japanese indicator showing trend direction, momentum, support/resistance levels all in one view. The "cloud" (Kumo) is formed between Senkou Span A and B.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Green cloud = bullish trend, Red cloud = bearish trend</li>
+                        <li>• Price above cloud = strong uptrend confirmation</li>
+                        <li>• Tenkan (pink) crossing above Kijun (blue) = buy signal</li>
+                        <li>• Thick cloud = strong support/resistance zone</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Bearish cloud (left) */}
+                      <polygon points="10,28 30,30 50,33 70,35 90,36 90,50 70,48 50,46 30,42 10,38" fill="rgba(239,68,68,0.12)" />
+                      {/* Bullish cloud (right) */}
+                      <polygon points="90,36 110,32 130,28 150,24 170,20 190,18 190,35 170,38 150,40 130,42 110,40 90,50" fill="rgba(34,197,94,0.12)" />
+                      {/* Senkou A */}
+                      <polyline points="10,28 30,30 50,33 70,35 90,36 110,32 130,28 150,24 170,20 190,18" fill="none" stroke="rgba(34,197,94,0.5)" strokeWidth="1" />
+                      {/* Senkou B */}
+                      <polyline points="10,38 30,42 50,46 70,48 90,50 110,40 130,42 150,40 170,38 190,35" fill="none" stroke="rgba(239,68,68,0.5)" strokeWidth="1" />
+                      {/* Tenkan */}
+                      <polyline points="10,35 30,38 50,40 70,42 90,38 110,30 130,25 150,20 170,18 190,16" fill="none" stroke="#f472b6" strokeWidth="1.5" />
+                      {/* Kijun */}
+                      <polyline points="10,40 30,42 50,43 70,44 90,42 110,38 130,34 150,30 170,26 190,24" fill="none" stroke="#60a5fa" strokeWidth="1.5" />
+                      <text x="4" y="10" fill="#f472b6" fontSize="6">Tenkan</text>
+                      <text x="40" y="10" fill="#60a5fa" fontSize="6">Kijun</text>
+                      <text x="100" y="70" fill="rgba(34,197,94,0.5)" fontSize="6">Bullish Cloud</text>
+                      <text x="15" y="60" fill="rgba(239,68,68,0.5)" fontSize="6">Bearish Cloud</text>
+                    </svg>
+                  </div>
+
+                  {/* Supertrend */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-green-500/30 transition-colors" style={{ borderLeft: '3px solid #22c55e' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-green-400 text-base">⚡ Supertrend</h4>
+                        <p className="text-sm text-slate-400 mt-1">An ATR-based trend-following indicator. Plots a single line that flips between support (green, below price) and resistance (red, above price) based on volatility.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Green line below price = uptrend (hold long)</li>
+                        <li>• Red line above price = downtrend (hold short or stay out)</li>
+                        <li>• Color flip = trend reversal signal (entry/exit point)</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Price line */}
+                      <polyline points="10,55 25,52 40,48 55,44 70,40 85,35 100,30 115,28 130,32 145,38 160,44 175,48 190,52" fill="none" stroke="#94a3b8" strokeWidth="1" opacity="0.4" />
+                      {/* Supertrend - green (bullish) section */}
+                      <polyline points="10,62 25,60 40,57 55,53 70,48 85,44 100,40 115,38" fill="none" stroke="#22c55e" strokeWidth="2.5" />
+                      {/* Flip point circle */}
+                      <circle cx="115" cy="38" r="3" fill="none" stroke="#fbbf24" strokeWidth="1.5" />
+                      {/* Supertrend - red (bearish) section */}
+                      <polyline points="115,22 130,24 145,28 160,34 175,38 190,42" fill="none" stroke="#ef4444" strokeWidth="2.5" />
+                      <text x="50" y="72" fill="#22c55e" fontSize="6">Uptrend</text>
+                      <text x="145" y="18" fill="#ef4444" fontSize="6">Downtrend</text>
+                      <text x="108" y="50" fill="#fbbf24" fontSize="5">Flip</text>
+                    </svg>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* ── CATEGORY 2: Momentum & Oscillators ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-6 bg-emerald-500 rounded-full" />
+                  <h3 className="text-lg font-bold text-white">Momentum & Oscillators</h3>
+                  <span className="text-xs text-slate-500 ml-2">Indicators shown in separate panels below the chart</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                  {/* RSI */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-purple-500/30 transition-colors" style={{ borderLeft: '3px solid #a855f7' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-purple-400 text-base">RSI (Relative Strength Index)</h4>
+                        <p className="text-sm text-slate-400 mt-1">Measures the speed and magnitude of recent price changes on a 0-100 scale. Identifies overbought and oversold conditions.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Above 70 = overbought (may pull back)</li>
+                        <li>• Below 30 = oversold (may bounce)</li>
+                        <li>• Divergence between RSI and price = reversal warning</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* 70 line (overbought) */}
+                      <line x1="0" y1="18" x2="200" y2="18" stroke="#ef4444" strokeWidth="0.5" strokeDasharray="3,2" opacity="0.5" />
+                      <text x="2" y="16" fill="#ef4444" fontSize="6" opacity="0.7">70</text>
+                      {/* 30 line (oversold) */}
+                      <line x1="0" y1="58" x2="200" y2="58" stroke="#22c55e" strokeWidth="0.5" strokeDasharray="3,2" opacity="0.5" />
+                      <text x="2" y="56" fill="#22c55e" fontSize="6" opacity="0.7">30</text>
+                      {/* 50 center */}
+                      <line x1="0" y1="38" x2="200" y2="38" stroke="#334155" strokeWidth="0.5" />
+                      {/* Overbought zone fill */}
+                      <rect x="0" y="4" width="200" height="14" fill="rgba(239,68,68,0.05)" />
+                      {/* Oversold zone fill */}
+                      <rect x="0" y="58" width="200" height="18" fill="rgba(34,197,94,0.05)" />
+                      {/* RSI line */}
+                      <polyline points="10,40 25,35 40,28 55,18 70,14 85,12 100,16 115,25 130,38 145,50 160,60 175,62 190,55" fill="none" stroke="#a855f7" strokeWidth="2" />
+                      <text x="62" y="10" fill="#ef4444" fontSize="5">Overbought</text>
+                      <text x="155" y="72" fill="#22c55e" fontSize="5">Oversold</text>
+                    </svg>
+                  </div>
+
+                  {/* MACD */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-yellow-500/30 transition-colors" style={{ borderLeft: '3px solid #eab308' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-yellow-400 text-base">MACD (Moving Average Convergence Divergence)</h4>
+                        <p className="text-sm text-slate-400 mt-1">Shows the relationship between two EMAs. The MACD line, signal line, and histogram reveal trend direction and momentum strength.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• MACD crossing above signal = bullish (buy)</li>
+                        <li>• MACD crossing below signal = bearish (sell)</li>
+                        <li>• Histogram bars show momentum strength and direction</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Zero line */}
+                      <line x1="0" y1="40" x2="200" y2="40" stroke="#334155" strokeWidth="0.5" />
+                      {/* Histogram bars */}
+                      {[10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190].map((x,i) => {
+                        const vals = [-8,-12,-16,-14,-10,-5,2,8,14,18,20,16,10,4,-2,-8,-14,-10,-5];
+                        const h = Math.abs(vals[i]);
+                        const y = vals[i] > 0 ? 40 - h : 40;
+                        return <rect key={`macd-h-${i}`} x={x-3} y={y} width={6} height={h} fill={vals[i] > 0 ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'} rx="0.5" />;
+                      })}
+                      {/* MACD line */}
+                      <polyline points="10,50 20,54 30,58 40,56 50,50 60,44 70,38 80,30 90,24 100,20 110,18 120,22 130,28 140,36 150,42 160,50 170,56 180,50 190,44" fill="none" stroke="#eab308" strokeWidth="1.5" />
+                      {/* Signal line */}
+                      <polyline points="10,48 20,50 30,54 40,55 50,52 60,47 70,42 80,36 90,30 100,25 110,22 120,24 130,30 140,36 150,40 160,46 170,50 180,48 190,44" fill="none" stroke="#f97316" strokeWidth="1.5" strokeDasharray="3,1" />
+                      <text x="3" y="10" fill="#eab308" fontSize="5">MACD</text>
+                      <text x="3" y="16" fill="#f97316" fontSize="5">Signal</text>
+                    </svg>
+                  </div>
+
+                  {/* Stochastic */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-teal-500/30 transition-colors" style={{ borderLeft: '3px solid #14b8a6' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-teal-400 text-base">Stochastic Oscillator</h4>
+                        <p className="text-sm text-slate-400 mt-1">Compares a stock's closing price to its price range over a period. Uses %K (fast) and %D (slow) lines on a 0-100 scale to identify momentum shifts.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Above 80 = overbought, below 20 = oversold</li>
+                        <li>• %K crossing above %D from below 20 = buy signal</li>
+                        <li>• %K crossing below %D from above 80 = sell signal</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* 80/20 zones */}
+                      <rect x="0" y="4" width="200" height="12" fill="rgba(239,68,68,0.05)" />
+                      <rect x="0" y="62" width="200" height="14" fill="rgba(34,197,94,0.05)" />
+                      <line x1="0" y1="16" x2="200" y2="16" stroke="#ef4444" strokeWidth="0.5" strokeDasharray="3,2" opacity="0.4" />
+                      <line x1="0" y1="62" x2="200" y2="62" stroke="#22c55e" strokeWidth="0.5" strokeDasharray="3,2" opacity="0.4" />
+                      <text x="2" y="14" fill="#ef4444" fontSize="5" opacity="0.6">80</text>
+                      <text x="2" y="60" fill="#22c55e" fontSize="5" opacity="0.6">20</text>
+                      {/* %K line */}
+                      <polyline points="10,65 25,60 40,50 55,35 70,20 85,12 100,10 115,14 130,28 145,45 160,58 175,66 190,62" fill="none" stroke="#14b8a6" strokeWidth="2" />
+                      {/* %D line (smoothed) */}
+                      <polyline points="10,62 25,58 40,52 55,40 70,28 85,18 100,13 115,16 130,32 145,48 160,56 175,64 190,64" fill="none" stroke="#f472b6" strokeWidth="1.5" strokeDasharray="3,1" />
+                      <text x="155" y="10" fill="#14b8a6" fontSize="5">%K</text>
+                      <text x="170" y="10" fill="#f472b6" fontSize="5">%D</text>
+                    </svg>
+                  </div>
+
+                  {/* ATR */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-amber-500/30 transition-colors" style={{ borderLeft: '3px solid #f59e0b' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-amber-400 text-base">ATR (Average True Range)</h4>
+                        <p className="text-sm text-slate-400 mt-1">Measures market volatility by calculating the average range between high and low prices. Does NOT indicate direction — only how much a stock typically moves.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Rising ATR = increasing volatility (bigger moves)</li>
+                        <li>• Falling ATR = decreasing volatility (consolidation)</li>
+                        <li>• Use ATR × 1.5-2 to set stop loss distances</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      <line x1="0" y1="70" x2="200" y2="70" stroke="#1e293b" strokeWidth="0.5" />
+                      {/* ATR area fill */}
+                      <polygon points="10,65 25,60 40,52 55,40 70,30 85,25 100,20 115,28 130,38 145,50 160,56 175,60 190,58 190,70 10,70" fill="rgba(245,158,11,0.1)" />
+                      {/* ATR line */}
+                      <polyline points="10,65 25,60 40,52 55,40 70,30 85,25 100,20 115,28 130,38 145,50 160,56 175,60 190,58" fill="none" stroke="#f59e0b" strokeWidth="2" />
+                      <text x="85" y="16" fill="#f59e0b" fontSize="6">High Volatility</text>
+                      <text x="140" y="68" fill="#f59e0b" fontSize="5" opacity="0.6">Low Vol</text>
+                    </svg>
+                  </div>
+
+                  {/* Volume */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-slate-500/30 transition-colors" style={{ borderLeft: '3px solid #64748b' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-slate-300 text-base">Volume</h4>
+                        <p className="text-sm text-slate-400 mt-1">The number of shares traded per period. Volume confirms the strength of price moves — breakouts on high volume are more reliable than those on low volume.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Rising price + high volume = strong bullish move</li>
+                        <li>• Rising price + low volume = weak move (may reverse)</li>
+                        <li>• Volume spike at support/resistance = important level</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      <line x1="0" y1="70" x2="200" y2="70" stroke="#1e293b" strokeWidth="0.5" />
+                      {[10,22,34,46,58,70,82,94,106,118,130,142,154,166,178,190].map((x,i) => {
+                        const vols = [25,30,20,35,28,22,50,65,45,30,20,15,55,70,40,28];
+                        const isGreen = [true,true,false,true,false,false,true,true,true,false,false,false,true,true,false,true];
+                        return <rect key={`vol-${i}`} x={x-4} y={70 - vols[i]} width={8} height={vols[i]} fill={isGreen[i] ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'} rx="0.5" />;
+                      })}
+                      <text x="75" y="10" fill="#64748b" fontSize="6">Volume Spike</text>
+                      <line x1="90" y1="12" x2="90" y2="18" stroke="#64748b" strokeWidth="0.5" />
+                      <polygon points="88,18 92,18 90,22" fill="#64748b" />
+                    </svg>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* ── CATEGORY 3: Advanced / Smart Money ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-6 bg-violet-500 rounded-full" />
+                  <h3 className="text-lg font-bold text-white">Advanced / Smart Money</h3>
+                  <span className="text-xs text-slate-500 ml-2">Institutional-grade indicators for professional-level analysis</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                  {/* Liquidity Flow */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-cyan-400/30 transition-colors" style={{ borderLeft: '3px solid #22d3ee' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-cyan-300 text-base">◉ Liquidity Flow</h4>
+                        <p className="text-sm text-slate-400 mt-1">Reveals where aggressive buying/selling hits strong limit orders (absorption). Bubbles appear where large orders are absorbing market pressure at key price levels.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Cyan bubbles = buy absorption (support holding)</li>
+                        <li>• Orange bubbles = sell absorption (resistance holding)</li>
+                        <li>• Larger bubble = stronger absorption zone</li>
+                        <li>• Buy signal at cyan bubble = high-conviction long</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Price line */}
+                      <polyline points="10,50 30,48 50,52 70,45 90,42 110,38 130,35 150,30 170,28 190,32" fill="none" stroke="#94a3b8" strokeWidth="1" opacity="0.3" />
+                      {/* Buy absorption bubbles (cyan) */}
+                      <circle cx="50" cy="54" r="8" fill="rgba(34,211,238,0.08)" />
+                      <circle cx="50" cy="54" r="5.5" fill="rgba(34,211,238,0.15)" stroke="rgba(34,211,238,0.4)" strokeWidth="0.5" />
+                      <circle cx="50" cy="52" r="2" fill="rgba(34,211,238,0.3)" />
+                      <circle cx="130" cy="37" r="10" fill="rgba(34,211,238,0.08)" />
+                      <circle cx="130" cy="37" r="7" fill="rgba(34,211,238,0.15)" stroke="rgba(34,211,238,0.4)" strokeWidth="0.5" />
+                      <circle cx="130" cy="35" r="2.5" fill="rgba(34,211,238,0.3)" />
+                      {/* Sell absorption bubbles (orange) */}
+                      <circle cx="90" cy="40" r="7" fill="rgba(251,146,60,0.08)" />
+                      <circle cx="90" cy="40" r="4.5" fill="rgba(251,146,60,0.15)" stroke="rgba(251,146,60,0.4)" strokeWidth="0.5" />
+                      <circle cx="90" cy="38" r="1.5" fill="rgba(251,146,60,0.3)" />
+                      <text x="42" y="70" fill="#22d3ee" fontSize="5">Buy</text>
+                      <text x="82" y="30" fill="#fb923c" fontSize="5">Sell</text>
+                    </svg>
+                  </div>
+
+                  {/* Signal Pulse */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-emerald-400/30 transition-colors" style={{ borderLeft: '3px solid #34d399' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-emerald-400 text-base">▲▼ Signal Pulse</h4>
+                        <p className="text-sm text-slate-400 mt-1">Real-time buy/sell signals based on 8-factor confluence analysis: EMA crossovers, RSI, MACD, volume, VWAP, candlestick patterns, trend alignment, and momentum.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Green ▲ arrow below candle = buy signal</li>
+                        <li>• Red ▼ arrow above candle = sell signal</li>
+                        <li>• Larger arrow = higher confidence (more factors aligned)</li>
+                        <li>• Dot below arrow = extra-high confidence (&gt;60%)</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Price candles */}
+                      {[20,40,60,80,100,120,140,160,180].map((x,i) => {
+                        const prices = [50,48,44,40,36,38,42,46,44];
+                        const h = 10;
+                        const isGreen = i > 0 ? prices[i] < prices[i-1] : false;
+                        return <rect key={`sp-c-${i}`} x={x-3} y={prices[i] - h/2} width={6} height={h} fill={isGreen ? '#22c55e' : '#ef4444'} opacity="0.35" rx="0.5" />;
+                      })}
+                      {/* Buy signal arrows */}
+                      <polygon points="60,58 56,66 64,66" fill="#10b981" opacity="0.8" />
+                      <circle cx="60" cy="68" r="1.5" fill="#10b981" opacity="0.6" />
+                      <polygon points="120,50 117,56 123,56" fill="#10b981" opacity="0.6" />
+                      {/* Sell signal arrows */}
+                      <polygon points="40,30 36,22 44,22" fill="#ef4444" opacity="0.8" />
+                      <circle cx="40" cy="20" r="1.5" fill="#ef4444" opacity="0.6" />
+                      <polygon points="160,32 157,26 163,26" fill="#ef4444" opacity="0.6" />
+                      <text x="50" y="75" fill="#10b981" fontSize="5">Buy</text>
+                      <text x="30" y="16" fill="#ef4444" fontSize="5">Sell</text>
+                    </svg>
+                  </div>
+
+                  {/* Order Blocks */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-yellow-400/30 transition-colors" style={{ borderLeft: '3px solid #facc15' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-yellow-400 text-base">▧ Order Blocks</h4>
+                        <p className="text-sm text-slate-400 mt-1">Identifies institutional supply and demand zones — areas where smart money placed large orders before a strong price move. Price often returns to test these zones.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Green OB+ zone = bullish demand (institutions bought here)</li>
+                        <li>• Red OB− zone = bearish supply (institutions sold here)</li>
+                        <li>• Price returning to OB zone = potential bounce/rejection</li>
+                        <li>• Combine with other signals for highest accuracy</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Price line */}
+                      <polyline points="10,50 25,52 40,55 55,52 70,45 85,38 100,30 115,25 130,22 145,28 160,35 175,30 190,25" fill="none" stroke="#94a3b8" strokeWidth="1" opacity="0.4" />
+                      {/* Bullish Order Block (green zone) */}
+                      <rect x="30" y="50" width="40" height="10" fill="rgba(34,197,94,0.12)" stroke="rgba(34,197,94,0.35)" strokeWidth="0.5" rx="1" />
+                      <text x="35" y="57" fill="rgba(34,197,94,0.6)" fontSize="5" fontWeight="bold">OB+</text>
+                      {/* Bearish Order Block (red zone) */}
+                      <rect x="110" y="18" width="35" height="10" fill="rgba(239,68,68,0.12)" stroke="rgba(239,68,68,0.35)" strokeWidth="0.5" rx="1" />
+                      <text x="115" y="25" fill="rgba(239,68,68,0.6)" fontSize="5" fontWeight="bold">OB−</text>
+                      {/* Arrows showing price bouncing from zones */}
+                      <polyline points="55,55 58,50 62,52" fill="none" stroke="#22c55e" strokeWidth="1" />
+                      <polyline points="135,22 138,28 142,25" fill="none" stroke="#ef4444" strokeWidth="1" />
+                    </svg>
+                  </div>
+
+                  {/* Fair Value Gaps */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-blue-400/30 transition-colors" style={{ borderLeft: '3px solid #3b82f6' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-blue-400 text-base">▬ Fair Value Gaps</h4>
+                        <p className="text-sm text-slate-400 mt-1">Price imbalance zones where the market moved so fast that a gap formed between candle wicks. The market tends to "fill" these gaps, creating trading opportunities.</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Blue FVG+ = bullish gap (price may dip to fill, then rally)</li>
+                        <li>• Orange FVG− = bearish gap (price may rise to fill, then drop)</li>
+                        <li>• Unfilled gaps act as magnets for price</li>
+                        <li>• Combine with Order Blocks for precision entries</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      {/* Price candles showing a gap */}
+                      <rect x="30" y="45" width="8" height="20" fill="rgba(34,197,94,0.4)" rx="0.5" />
+                      <line x1="34" y1="42" x2="34" y2="68" stroke="rgba(34,197,94,0.3)" strokeWidth="0.5" />
+                      {/* Gap zone (bullish FVG) */}
+                      <rect x="42" y="32" width="45" height="10" fill="rgba(59,130,246,0.12)" stroke="rgba(59,130,246,0.35)" strokeWidth="0.5" strokeDasharray="2,1" rx="1" />
+                      <text x="48" y="39" fill="rgba(59,130,246,0.6)" fontSize="5" fontWeight="bold">FVG+</text>
+                      <rect x="50" y="20" width="8" height="22" fill="rgba(34,197,94,0.4)" rx="0.5" />
+                      <line x1="54" y1="16" x2="54" y2="45" stroke="rgba(34,197,94,0.3)" strokeWidth="0.5" />
+                      {/* Arrow showing price filling the gap */}
+                      <polyline points="90,22 100,28 110,34 115,36" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,1" />
+                      <text x="100" y="45" fill="#3b82f6" fontSize="5">Gap fills</text>
+                      {/* Bearish FVG example */}
+                      <rect x="130" y="40" width="40" height="8" fill="rgba(249,115,22,0.12)" stroke="rgba(249,115,22,0.35)" strokeWidth="0.5" strokeDasharray="2,1" rx="1" />
+                      <text x="136" y="46" fill="rgba(249,115,22,0.6)" fontSize="5" fontWeight="bold">FVG−</text>
+                    </svg>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Pro Tips Footer */}
+              <div className="bg-gradient-to-r from-violet-500/5 to-blue-500/5 border border-violet-500/10 rounded-xl p-5">
+                <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+                  <span className="text-lg">💡</span> Pro Tips: Combining Indicators
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="bg-slate-800/30 rounded-lg p-3">
+                    <p className="font-semibold text-emerald-400 mb-1">Trend Confirmation</p>
+                    <p className="text-xs text-slate-400">Use Supertrend + Ichimoku Cloud together. When both agree on direction, trend confidence is very high.</p>
+                  </div>
+                  <div className="bg-slate-800/30 rounded-lg p-3">
+                    <p className="font-semibold text-cyan-400 mb-1">Smart Money Entries</p>
+                    <p className="text-xs text-slate-400">Enable Order Blocks + Liquidity Flow. When a buy signal appears at a bullish OB with cyan absorption, it's institutional-grade setup.</p>
+                  </div>
+                  <div className="bg-slate-800/30 rounded-lg p-3">
+                    <p className="font-semibold text-violet-400 mb-1">Momentum + Structure</p>
+                    <p className="text-xs text-slate-400">Combine RSI divergence + Fair Value Gaps. RSI divergence at an unfilled FVG often marks major turning points.</p>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
