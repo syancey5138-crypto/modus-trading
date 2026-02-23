@@ -22519,31 +22519,62 @@ INSTRUCTIONS:
                               // Real-time signals using 8-factor confluence scoring
                               const calcSignalPulse = () => {
                                 const result = [];
-                                if (fullSeries.length < 55) return result;
+
+                                // ── Timeframe-adaptive parameters ──
+                                // Detect timeframe and scale indicator periods accordingly
+                                const tf = (tickerTimeframe || '5m').toLowerCase();
+                                const isScalp = ['1m', '2m'].includes(tf);
+                                const isIntraShort = ['5m'].includes(tf);
+                                const isIntraMed = ['15m', '30m'].includes(tf);
+                                const isHourly = ['60m', '1h', '90m'].includes(tf);
+                                // Daily and above use standard periods
+
+                                // Adaptive EMA periods: shorter for faster timeframes
+                                const emaFastP = isScalp ? 5 : isIntraShort ? 7 : isIntraMed ? 8 : 9;
+                                const emaMidP = isScalp ? 13 : isIntraShort ? 16 : isIntraMed ? 18 : 21;
+                                const emaSlowP = isScalp ? 26 : isIntraShort ? 34 : isIntraMed ? 40 : 50;
+
+                                // Adaptive RSI period
+                                const rsiP = isScalp ? 8 : isIntraShort ? 10 : isIntraMed ? 12 : 14;
+
+                                // Adaptive MACD periods
+                                const macdFastP = isScalp ? 6 : isIntraShort ? 8 : isIntraMed ? 10 : 12;
+                                const macdSlowP = isScalp ? 13 : isIntraShort ? 17 : isIntraMed ? 21 : 26;
+                                const macdSigP = isScalp ? 5 : isIntraShort ? 7 : isIntraMed ? 8 : 9;
+
+                                // Adaptive momentum threshold (% move in 3 bars)
+                                const momThreshold = isScalp ? 0.08 : isIntraShort ? 0.15 : isIntraMed ? 0.3 : isHourly ? 0.5 : 1.0;
+
+                                // Volume lookback
+                                const volLookback = isScalp ? 10 : isIntraShort ? 14 : 20;
+
+                                // Minimum candles required
+                                const minCandles = emaSlowP + 5;
+                                if (fullSeries.length < minCandles) return result;
 
                                 // Pre-compute indicators for full series
-                                const ema9 = calcEMA(closes, 9);
-                                const ema21 = calcEMA(closes, 21);
-                                const ema50 = calcEMA(closes, 50);
+                                const emaFast = calcEMA(closes, emaFastP);
+                                const emaMid = calcEMA(closes, emaMidP);
+                                const emaSlow = calcEMA(closes, emaSlowP);
                                 const volumes = fullSeries.map(b => b.volume || 0);
 
-                                // RSI(14)
+                                // RSI (adaptive period)
                                 const rsiArr = closes.map((_, i) => {
-                                  if (i < 15) return 50;
-                                  const changes = closes.slice(i - 14, i + 1).map((v, j, a) => j > 0 ? v - a[j - 1] : 0).slice(1);
+                                  if (i < rsiP + 1) return 50;
+                                  const changes = closes.slice(i - rsiP, i + 1).map((v, j, a) => j > 0 ? v - a[j - 1] : 0).slice(1);
                                   const gains = changes.filter(c => c > 0);
                                   const losses = changes.filter(c => c < 0).map(c => Math.abs(c));
-                                  const avgGain = gains.length ? gains.reduce((a, b) => a + b, 0) / 14 : 0;
-                                  const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / 14 : 0.001;
+                                  const avgGain = gains.length ? gains.reduce((a, b) => a + b, 0) / rsiP : 0;
+                                  const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / rsiP : 0.001;
                                   return 100 - (100 / (1 + avgGain / avgLoss));
                                 });
 
-                                // MACD histogram
-                                const ema12M = calcEMA(closes, 12);
-                                const ema26M = calcEMA(closes, 26);
+                                // MACD histogram (adaptive periods)
+                                const ema12M = calcEMA(closes, macdFastP);
+                                const ema26M = calcEMA(closes, macdSlowP);
                                 const macdLine = closes.map((_, i) => (ema12M[i] != null && ema26M[i] != null) ? ema12M[i] - ema26M[i] : null);
                                 const macdFiltered = macdLine.filter(v => v !== null);
-                                const macdSignalLine = macdFiltered.length >= 9 ? calcEMA(macdFiltered, 9) : [];
+                                const macdSignalLine = macdFiltered.length >= macdSigP ? calcEMA(macdFiltered, macdSigP) : [];
                                 const macdHist = closes.map((_, i) => {
                                   const mIdx = macdLine.slice(0, i + 1).filter(v => v !== null).length - 1;
                                   if (mIdx < 0 || mIdx >= macdSignalLine.length || macdLine[i] === null || macdSignalLine[mIdx] === null) return 0;
@@ -22559,18 +22590,19 @@ INSTRUCTIONS:
                                   return cumV > 0 ? cumTPV / cumV : null;
                                 });
 
-                                for (let i = 50; i < fullSeries.length; i++) {
+                                const loopStart = emaSlowP;
+                                for (let i = loopStart; i < fullSeries.length; i++) {
                                   const bar = fullSeries[i];
                                   const prevBar = fullSeries[i - 1];
                                   let bullFactors = 0;
                                   let bearFactors = 0;
                                   const reasons = [];
 
-                                  // Factor 1: EMA 9/21 crossover
-                                  if (ema9[i] != null && ema21[i] != null && ema9[i - 1] != null && ema21[i - 1] != null) {
-                                    if (ema9[i] > ema21[i] && ema9[i - 1] <= ema21[i - 1]) { bullFactors += 2; reasons.push('EMA cross ↑'); }
-                                    else if (ema9[i] < ema21[i] && ema9[i - 1] >= ema21[i - 1]) { bearFactors += 2; reasons.push('EMA cross ↓'); }
-                                    else if (ema9[i] > ema21[i]) { bullFactors += 0.5; }
+                                  // Factor 1: EMA fast/mid crossover (adaptive)
+                                  if (emaFast[i] != null && emaMid[i] != null && emaFast[i - 1] != null && emaMid[i - 1] != null) {
+                                    if (emaFast[i] > emaMid[i] && emaFast[i - 1] <= emaMid[i - 1]) { bullFactors += 2; reasons.push('EMA cross ↑'); }
+                                    else if (emaFast[i] < emaMid[i] && emaFast[i - 1] >= emaMid[i - 1]) { bearFactors += 2; reasons.push('EMA cross ↓'); }
+                                    else if (emaFast[i] > emaMid[i]) { bullFactors += 0.5; }
                                     else { bearFactors += 0.5; }
                                   }
 
@@ -22588,8 +22620,8 @@ INSTRUCTIONS:
                                   else if (macdHist[i] > 0 && macdHist[i] > macdHist[i - 1]) { bullFactors += 0.3; }
                                   else if (macdHist[i] < 0 && macdHist[i] < macdHist[i - 1]) { bearFactors += 0.3; }
 
-                                  // Factor 4: Volume confirmation
-                                  const recentVol = volumes.slice(Math.max(0, i - 20), i);
+                                  // Factor 4: Volume confirmation (adaptive lookback)
+                                  const recentVol = volumes.slice(Math.max(0, i - volLookback), i);
                                   const avgVol = recentVol.length > 0 ? recentVol.reduce((a, b) => a + b, 0) / recentVol.length : 1;
                                   const volSurge = avgVol > 0 ? (volumes[i] || 0) / avgVol : 1;
                                   if (volSurge > 1.5 && bar.close > bar.open) { bullFactors += 1; reasons.push('Vol surge ↑'); }
@@ -22601,9 +22633,9 @@ INSTRUCTIONS:
                                     else if (bar.close < vwapArr[i] && prevBar.close >= vwapArr[i]) { bearFactors += 1; reasons.push('Below VWAP'); }
                                   }
 
-                                  // Factor 6: Trend alignment (price vs EMA50)
-                                  if (ema50[i] != null) {
-                                    if (bar.close > ema50[i]) bullFactors += 0.5;
+                                  // Factor 6: Trend alignment (price vs slow EMA)
+                                  if (emaSlow[i] != null) {
+                                    if (bar.close > emaSlow[i]) bullFactors += 0.5;
                                     else bearFactors += 0.5;
                                   }
 
@@ -22623,11 +22655,11 @@ INSTRUCTIONS:
                                     if (bar.close < bar.open && prevBar.close > prevBar.open && bar.close < prevBar.open && bar.open > prevBar.close) { bearFactors += 1.5; reasons.push('Engulfing ↓'); }
                                   }
 
-                                  // Factor 8: Momentum (3-bar)
-                                  if (i >= 53) {
+                                  // Factor 8: Momentum (3-bar, adaptive threshold)
+                                  if (i >= loopStart + 3) {
                                     const mom3 = ((bar.close - fullSeries[i - 3].close) / fullSeries[i - 3].close) * 100;
-                                    if (mom3 > 1) bullFactors += 0.5;
-                                    else if (mom3 < -1) bearFactors += 0.5;
+                                    if (mom3 > momThreshold) { bullFactors += 0.5; if (mom3 > momThreshold * 3) { bullFactors += 0.5; reasons.push('Strong momentum ↑'); } }
+                                    else if (mom3 < -momThreshold) { bearFactors += 0.5; if (mom3 < -momThreshold * 3) { bearFactors += 0.5; reasons.push('Strong momentum ↓'); } }
                                   }
 
                                   // Generate signal
@@ -22643,7 +22675,7 @@ INSTRUCTIONS:
                                     result.push(null);
                                   }
                                 }
-                                return [...Array(50).fill(null), ...result];
+                                return [...Array(loopStart).fill(null), ...result];
                               };
 
                               // Compute on full data, then slice to visible range
@@ -23025,34 +23057,56 @@ INSTRUCTIONS:
                                   })}
 
                                   {/* ── Fair Value Gaps ── */}
-                                  {showFVG && fvgGaps.length > 0 && fvgGaps.map((gap, gi) => {
-                                    if (!gap || gap.top == null || gap.bottom == null) return null;
-                                    // FVG starts at the gap candle and extends right until filled or end of visible
-                                    const x1 = gap.idx - layout.visStart;
-                                    if (x1 >= visData.length || x1 < -5) return null;
-                                    const clampX1 = Math.max(0, x1);
-                                    const clampX2 = Math.min(visData.length, x1 + 15); // Extend gap zone 15 bars
-                                    const yTop = priceToY(gap.top);
-                                    const yBot = priceToY(gap.bottom);
-                                    const isBull = gap.type === 'bullish';
-                                    const alpha = 0.05 + (gap.strength || 0.5) * 0.07;
-                                    return (
-                                      <g key={`fvg-${gi}`}>
-                                        <rect x={clampX1} y={yTop} width={clampX2 - clampX1} height={Math.abs(yBot - yTop)}
-                                          fill={isBull ? `rgba(59,130,246,${alpha})` : `rgba(249,115,22,${alpha})`}
-                                          stroke={isBull ? 'rgba(59,130,246,0.3)' : 'rgba(249,115,22,0.3)'}
-                                          strokeWidth="0.1"
-                                          strokeDasharray="0.5,0.3" />
-                                        {(clampX2 - clampX1) > 3 && (
-                                          <text x={clampX1 + 0.3} y={yTop + 1}
-                                            fill={isBull ? 'rgba(59,130,246,0.5)' : 'rgba(249,115,22,0.5)'}
-                                            fontSize="1" fontWeight="bold">
-                                            {isBull ? 'FVG+' : 'FVG−'}
-                                          </text>
-                                        )}
-                                      </g>
-                                    );
-                                  })}
+                                  {showFVG && fvgGaps.length > 0 && (() => {
+                                    // Adaptive FVG extension based on timeframe
+                                    const fvgTf = (tickerTimeframe || '5m').toLowerCase();
+                                    const fvgExtend = ['1m','2m'].includes(fvgTf) ? 8 : ['5m'].includes(fvgTf) ? 12 : ['15m','30m'].includes(fvgTf) ? 15 : ['60m','1h','90m'].includes(fvgTf) ? 20 : 25;
+                                    return fvgGaps.map((gap, gi) => {
+                                      if (!gap || gap.top == null || gap.bottom == null || isNaN(gap.top) || isNaN(gap.bottom)) return null;
+                                      const x1 = gap.idx - layout.visStart;
+                                      if (x1 >= visData.length || x1 < -fvgExtend) return null;
+                                      const clampX1 = Math.max(0, x1);
+                                      const clampX2 = Math.min(visData.length, x1 + fvgExtend);
+                                      const yTop = priceToY(gap.top);
+                                      const yBot = priceToY(gap.bottom);
+                                      const zoneH = Math.max(Math.abs(yBot - yTop), 0.8);
+                                      const isBull = gap.type === 'bullish';
+                                      // Much more visible alpha: 0.15-0.30 range
+                                      const alpha = 0.15 + (gap.strength || 0.5) * 0.15;
+                                      const borderAlpha = 0.5 + (gap.strength || 0.5) * 0.3;
+                                      const bullColor = '59,130,246';
+                                      const bearColor = '249,115,22';
+                                      const c = isBull ? bullColor : bearColor;
+                                      return (
+                                        <g key={`fvg-${gi}`}>
+                                          {/* Main fill zone */}
+                                          <rect x={clampX1} y={Math.min(yTop, yBot)} width={clampX2 - clampX1} height={zoneH}
+                                            fill={`rgba(${c},${alpha})`}
+                                            stroke={`rgba(${c},${borderAlpha})`}
+                                            strokeWidth="0.2"
+                                            strokeDasharray="1,0.5"
+                                            rx="0.15" />
+                                          {/* Top border line (solid) */}
+                                          <line x1={clampX1} y1={Math.min(yTop, yBot)} x2={clampX2} y2={Math.min(yTop, yBot)}
+                                            stroke={`rgba(${c},${borderAlpha + 0.1})`}
+                                            strokeWidth="0.15" />
+                                          {/* Bottom border line (solid) */}
+                                          <line x1={clampX1} y1={Math.min(yTop, yBot) + zoneH} x2={clampX2} y2={Math.min(yTop, yBot) + zoneH}
+                                            stroke={`rgba(${c},${borderAlpha + 0.1})`}
+                                            strokeWidth="0.15" />
+                                          {/* Label */}
+                                          {(clampX2 - clampX1) > 2 && (
+                                            <text x={clampX1 + 0.5} y={Math.min(yTop, yBot) + 1.6}
+                                              fill={`rgba(${c},0.85)`}
+                                              fontSize="1.4" fontWeight="bold"
+                                              style={{ textShadow: '0 0 2px rgba(0,0,0,0.8)' }}>
+                                              {isBull ? 'FVG+' : 'FVG−'}
+                                            </text>
+                                          )}
+                                        </g>
+                                      );
+                                    });
+                                  })()}
 
                                   {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
                                     // Right-align: both datasets end at "now", so align from the right
