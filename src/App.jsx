@@ -1729,11 +1729,11 @@ function App() {
       steps: [
         { icon: '1️⃣', text: 'Type a stock symbol in the search box at the top' },
         { icon: '2️⃣', text: 'View real-time price data, daily change, volume, and key stats' },
-        { icon: '3️⃣', text: 'Scroll down for the interactive chart with candlesticks and indicators' },
-        { icon: '4️⃣', text: 'Click "Fullscreen" for an expanded TradingView-style chart with drawing tools' },
-        { icon: '📈', text: 'Add stocks to your Watchlist with the star icon for quick access later' },
+        { icon: '3️⃣', text: 'Click "Fullscreen" for an expanded chart with drawing tools, indicators, and advanced overlays' },
+        { icon: '4️⃣', text: 'Enable "Liquidity Flow" in Overlays to see where aggressive orders meet strong limit orders — cyan bubbles show buy absorption (support held), orange bubbles show sell absorption (resistance held)' },
+        { icon: '5️⃣', text: 'Enable "Signal Pulse" in Overlays for real-time buy/sell signals using 8-factor confluence: EMA crossovers, RSI, MACD, volume, VWAP, candlestick patterns, trend alignment, and momentum' },
       ],
-      tip: 'Double-click the fullscreen chart to reset zoom. Use keyboard shortcuts: +/- to zoom, arrows to pan.'
+      tip: 'Combine Liquidity Flow with Signal Pulse for maximum accuracy — when a buy signal appears at a buy absorption zone, it\'s a high-conviction setup.'
     },
     setups: {
       title: 'How to Use Trade Setups',
@@ -5435,7 +5435,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [showStochastic, setShowStochastic] = useState(false);
   const [showATR, setShowATR] = useState(false);
   const [showVWAP, setShowVWAP] = useState(false);
-  
+  const [showLiquidityFlow, setShowLiquidityFlow] = useState(false);
+  const [showSignalPulse, setShowSignalPulse] = useState(false);
+  const [liquiditySensitivity, setLiquiditySensitivity] = useState(1.5); // Volume threshold multiplier
+  const [signalPulseMinConfidence, setSignalPulseMinConfidence] = useState(3); // Min factors for signal
+
   // Indicator settings
   const [smaPeriod, setSmaPeriod] = useState(20);
   const [emaPeriod, setEmaPeriod] = useState(20);
@@ -21803,18 +21807,18 @@ INSTRUCTIONS:
                           {/* Overlays Dropdown */}
                           <div className="group relative">
                             <button className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              (showSMA || showEMA || showBollinger || showVWAP) ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
+                              (showSMA || showEMA || showBollinger || showVWAP || showLiquidityFlow || showSignalPulse) ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
                             }`}>
                               <Layers className="w-3.5 h-3.5" />
                               Overlays
-                              {(showSMA || showEMA || showBollinger || showVWAP) && (
+                              {(showSMA || showEMA || showBollinger || showVWAP || showLiquidityFlow || showSignalPulse) && (
                                 <span className="ml-1 w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] flex items-center justify-center">
-                                  {[showSMA, showEMA, showBollinger, showVWAP].filter(Boolean).length}
+                                  {[showSMA, showEMA, showBollinger, showVWAP, showLiquidityFlow, showSignalPulse].filter(Boolean).length}
                                 </span>
                               )}
                               <ChevronDown className="w-3 h-3 ml-0.5" />
                             </button>
-                            <div className="absolute top-full left-0 mt-1 w-44 bg-slate-800 border border-slate-700/50 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 py-1">
+                            <div className="absolute top-full left-0 mt-1 w-52 bg-slate-800 border border-slate-700/50 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 py-1">
                               {[
                                 { label: 'SMA (20)', active: showSMA, toggle: () => setShowSMA(!showSMA), color: 'text-blue-400' },
                                 { label: 'EMA (20)', active: showEMA, toggle: () => setShowEMA(!showEMA), color: 'text-orange-400' },
@@ -21829,6 +21833,27 @@ INSTRUCTIONS:
                                     {item.active && <Check className="w-2.5 h-2.5 text-white" />}
                                   </div>
                                   <span className={item.active ? item.color + ' font-medium' : 'text-slate-400'}>{item.label}</span>
+                                </button>
+                              ))}
+                              <div className="border-t border-slate-700/50 my-1" />
+                              <div className="px-3 py-1">
+                                <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">Advanced</span>
+                              </div>
+                              {[
+                                { label: 'Liquidity Flow', desc: 'Order absorption zones', active: showLiquidityFlow, toggle: () => setShowLiquidityFlow(!showLiquidityFlow), color: 'text-cyan-300', icon: '◉' },
+                                { label: 'Signal Pulse', desc: 'Buy/sell trend signals', active: showSignalPulse, toggle: () => setShowSignalPulse(!showSignalPulse), color: 'text-emerald-400', icon: '▲' },
+                              ].map(item => (
+                                <button key={item.label} onClick={item.toggle}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-700/50 transition-colors">
+                                  <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${
+                                    item.active ? 'bg-violet-600 border-violet-500' : 'border-slate-600'
+                                  }`}>
+                                    {item.active && <Check className="w-2.5 h-2.5 text-white" />}
+                                  </div>
+                                  <div className="flex flex-col items-start">
+                                    <span className={item.active ? item.color + ' font-medium' : 'text-slate-400'}>{item.icon} {item.label}</span>
+                                    <span className="text-[9px] text-slate-500">{item.desc}</span>
+                                  </div>
                                 </button>
                               ))}
                             </div>
@@ -22335,16 +22360,241 @@ INSTRUCTIONS:
                                 });
                               };
 
+                              // ── Liquidity Flow (Order Absorption Detection) ──
+                              // Detects where aggressive orders meet strong limit orders
+                              const calcLiquidityFlow = () => {
+                                const result = [];
+                                if (fullSeries.length < 25) return result;
+                                for (let i = 20; i < fullSeries.length; i++) {
+                                  const bar = fullSeries[i];
+                                  const range = bar.high - bar.low;
+                                  if (range <= 0) { result.push(null); continue; }
+                                  const body = Math.abs(bar.close - bar.open);
+                                  const bodyRatio = body / range; // Small body = absorption
+
+                                  // Volume analysis: compare to 20-bar average
+                                  const volSlice = fullSeries.slice(i - 20, i).map(b => b.volume || 0);
+                                  const avgVol = volSlice.reduce((a, b) => a + b, 0) / 20;
+                                  const volRatio = avgVol > 0 ? (bar.volume || 0) / avgVol : 0;
+
+                                  // Price cluster: how many nearby bars share similar price level
+                                  const midPrice = (bar.high + bar.low) / 2;
+                                  const clusterRange = range * 1.5;
+                                  let clusterCount = 0;
+                                  for (let j = Math.max(0, i - 10); j < i; j++) {
+                                    const prevMid = (fullSeries[j].high + fullSeries[j].low) / 2;
+                                    if (Math.abs(prevMid - midPrice) < clusterRange) clusterCount++;
+                                  }
+
+                                  // Delta approximation from wick analysis
+                                  const upperWick = bar.high - Math.max(bar.open, bar.close);
+                                  const lowerWick = Math.min(bar.open, bar.close) - bar.low;
+                                  const upperWickRatio = upperWick / range;
+                                  const lowerWickRatio = lowerWick / range;
+
+                                  // Absorption scoring
+                                  const isHighVol = volRatio >= liquiditySensitivity;
+                                  const isSmallBody = bodyRatio < 0.35;
+                                  const isClustered = clusterCount >= 3;
+                                  const hasLongUpperWick = upperWickRatio > 0.4;
+                                  const hasLongLowerWick = lowerWickRatio > 0.4;
+
+                                  // Buy absorption: price held support (buyers absorbed sellers)
+                                  // Indicators: long lower wick, small body, high volume, near recent lows
+                                  const recentLows = fullSeries.slice(Math.max(0, i - 10), i).map(b => b.low);
+                                  const recentHighs = fullSeries.slice(Math.max(0, i - 10), i).map(b => b.high);
+                                  const isNearSupport = recentLows.length > 0 && bar.low <= Math.min(...recentLows) * 1.005;
+                                  const isNearResistance = recentHighs.length > 0 && bar.high >= Math.max(...recentHighs) * 0.995;
+
+                                  let type = null;
+                                  let strength = 0;
+
+                                  // Buy absorption: limit buy orders absorbing sell pressure
+                                  if (isHighVol && (isSmallBody || hasLongLowerWick)) {
+                                    let score = 0;
+                                    if (volRatio >= liquiditySensitivity * 1.5) score += 2; else if (isHighVol) score += 1;
+                                    if (bodyRatio < 0.15) score += 2; else if (isSmallBody) score += 1;
+                                    if (hasLongLowerWick) score += 2;
+                                    if (isClustered) score += 1;
+                                    if (isNearSupport) score += 2;
+                                    if (bar.close >= bar.open) score += 1; // Closed green = buyers won
+                                    if (score >= 4) { type = 'buy'; strength = Math.min(1, score / 8); }
+                                  }
+
+                                  // Sell absorption: limit sell orders absorbing buy pressure
+                                  if (!type && isHighVol && (isSmallBody || hasLongUpperWick)) {
+                                    let score = 0;
+                                    if (volRatio >= liquiditySensitivity * 1.5) score += 2; else if (isHighVol) score += 1;
+                                    if (bodyRatio < 0.15) score += 2; else if (isSmallBody) score += 1;
+                                    if (hasLongUpperWick) score += 2;
+                                    if (isClustered) score += 1;
+                                    if (isNearResistance) score += 2;
+                                    if (bar.close < bar.open) score += 1; // Closed red = sellers won
+                                    if (score >= 4) { type = 'sell'; strength = Math.min(1, score / 8); }
+                                  }
+
+                                  if (type) {
+                                    result.push({
+                                      type,
+                                      strength,
+                                      price: type === 'buy' ? bar.low + lowerWick * 0.5 : bar.high - upperWick * 0.5,
+                                      volume: bar.volume || 0,
+                                      volRatio,
+                                      bodyRatio
+                                    });
+                                  } else {
+                                    result.push(null);
+                                  }
+                                }
+                                // Pad front with nulls
+                                return [...Array(20).fill(null), ...result];
+                              };
+
+                              // ── Signal Pulse (Multi-Factor Buy/Sell Signals) ──
+                              // Real-time signals using 8-factor confluence scoring
+                              const calcSignalPulse = () => {
+                                const result = [];
+                                if (fullSeries.length < 55) return result;
+
+                                // Pre-compute indicators for full series
+                                const ema9 = calcEMA(closes, 9);
+                                const ema21 = calcEMA(closes, 21);
+                                const ema50 = calcEMA(closes, 50);
+                                const volumes = fullSeries.map(b => b.volume || 0);
+
+                                // RSI(14)
+                                const rsiArr = closes.map((_, i) => {
+                                  if (i < 15) return 50;
+                                  const changes = closes.slice(i - 14, i + 1).map((v, j, a) => j > 0 ? v - a[j - 1] : 0).slice(1);
+                                  const gains = changes.filter(c => c > 0);
+                                  const losses = changes.filter(c => c < 0).map(c => Math.abs(c));
+                                  const avgGain = gains.length ? gains.reduce((a, b) => a + b, 0) / 14 : 0;
+                                  const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / 14 : 0.001;
+                                  return 100 - (100 / (1 + avgGain / avgLoss));
+                                });
+
+                                // MACD histogram
+                                const ema12M = calcEMA(closes, 12);
+                                const ema26M = calcEMA(closes, 26);
+                                const macdLine = closes.map((_, i) => (ema12M[i] != null && ema26M[i] != null) ? ema12M[i] - ema26M[i] : null);
+                                const macdFiltered = macdLine.filter(v => v !== null);
+                                const macdSignalLine = macdFiltered.length >= 9 ? calcEMA(macdFiltered, 9) : [];
+                                const macdHist = closes.map((_, i) => {
+                                  const mIdx = macdLine.slice(0, i + 1).filter(v => v !== null).length - 1;
+                                  if (mIdx < 0 || mIdx >= macdSignalLine.length || macdLine[i] === null || macdSignalLine[mIdx] === null) return 0;
+                                  return macdLine[i] - macdSignalLine[mIdx];
+                                });
+
+                                // VWAP
+                                let cumTPV = 0, cumV = 0;
+                                const vwapArr = fullSeries.map(bar => {
+                                  const tp = (bar.high + bar.low + bar.close) / 3;
+                                  cumTPV += tp * (bar.volume || 1);
+                                  cumV += (bar.volume || 1);
+                                  return cumV > 0 ? cumTPV / cumV : null;
+                                });
+
+                                for (let i = 50; i < fullSeries.length; i++) {
+                                  const bar = fullSeries[i];
+                                  const prevBar = fullSeries[i - 1];
+                                  let bullFactors = 0;
+                                  let bearFactors = 0;
+                                  const reasons = [];
+
+                                  // Factor 1: EMA 9/21 crossover
+                                  if (ema9[i] != null && ema21[i] != null && ema9[i - 1] != null && ema21[i - 1] != null) {
+                                    if (ema9[i] > ema21[i] && ema9[i - 1] <= ema21[i - 1]) { bullFactors += 2; reasons.push('EMA cross ↑'); }
+                                    else if (ema9[i] < ema21[i] && ema9[i - 1] >= ema21[i - 1]) { bearFactors += 2; reasons.push('EMA cross ↓'); }
+                                    else if (ema9[i] > ema21[i]) { bullFactors += 0.5; }
+                                    else { bearFactors += 0.5; }
+                                  }
+
+                                  // Factor 2: RSI reversal zones
+                                  const rsi = rsiArr[i];
+                                  const prevRsi = rsiArr[i - 1];
+                                  if (rsi < 30 && prevRsi >= 30) { bullFactors += 1.5; reasons.push('RSI oversold'); }
+                                  else if (rsi > 70 && prevRsi <= 70) { bearFactors += 1.5; reasons.push('RSI overbought'); }
+                                  else if (rsi < 35 && rsi > prevRsi) { bullFactors += 0.5; }
+                                  else if (rsi > 65 && rsi < prevRsi) { bearFactors += 0.5; }
+
+                                  // Factor 3: MACD histogram sign change
+                                  if (macdHist[i] > 0 && macdHist[i - 1] <= 0) { bullFactors += 1.5; reasons.push('MACD flip ↑'); }
+                                  else if (macdHist[i] < 0 && macdHist[i - 1] >= 0) { bearFactors += 1.5; reasons.push('MACD flip ↓'); }
+                                  else if (macdHist[i] > 0 && macdHist[i] > macdHist[i - 1]) { bullFactors += 0.3; }
+                                  else if (macdHist[i] < 0 && macdHist[i] < macdHist[i - 1]) { bearFactors += 0.3; }
+
+                                  // Factor 4: Volume confirmation
+                                  const recentVol = volumes.slice(Math.max(0, i - 20), i);
+                                  const avgVol = recentVol.length > 0 ? recentVol.reduce((a, b) => a + b, 0) / recentVol.length : 1;
+                                  const volSurge = avgVol > 0 ? (volumes[i] || 0) / avgVol : 1;
+                                  if (volSurge > 1.5 && bar.close > bar.open) { bullFactors += 1; reasons.push('Vol surge ↑'); }
+                                  else if (volSurge > 1.5 && bar.close < bar.open) { bearFactors += 1; reasons.push('Vol surge ↓'); }
+
+                                  // Factor 5: Price vs VWAP
+                                  if (vwapArr[i] != null) {
+                                    if (bar.close > vwapArr[i] && prevBar.close <= vwapArr[i]) { bullFactors += 1; reasons.push('Above VWAP'); }
+                                    else if (bar.close < vwapArr[i] && prevBar.close >= vwapArr[i]) { bearFactors += 1; reasons.push('Below VWAP'); }
+                                  }
+
+                                  // Factor 6: Trend alignment (price vs EMA50)
+                                  if (ema50[i] != null) {
+                                    if (bar.close > ema50[i]) bullFactors += 0.5;
+                                    else bearFactors += 0.5;
+                                  }
+
+                                  // Factor 7: Candlestick patterns
+                                  const range = bar.high - bar.low;
+                                  const body = Math.abs(bar.close - bar.open);
+                                  if (range > 0) {
+                                    const lowerWick = Math.min(bar.open, bar.close) - bar.low;
+                                    const upperWick = bar.high - Math.max(bar.open, bar.close);
+                                    // Hammer (bullish)
+                                    if (lowerWick > body * 2 && upperWick < body * 0.5 && bar.close > bar.open) { bullFactors += 1; reasons.push('Hammer'); }
+                                    // Shooting star (bearish)
+                                    if (upperWick > body * 2 && lowerWick < body * 0.5 && bar.close < bar.open) { bearFactors += 1; reasons.push('Shooting star'); }
+                                    // Bullish engulfing
+                                    if (bar.close > bar.open && prevBar.close < prevBar.open && bar.close > prevBar.open && bar.open < prevBar.close) { bullFactors += 1.5; reasons.push('Engulfing ↑'); }
+                                    // Bearish engulfing
+                                    if (bar.close < bar.open && prevBar.close > prevBar.open && bar.close < prevBar.open && bar.open > prevBar.close) { bearFactors += 1.5; reasons.push('Engulfing ↓'); }
+                                  }
+
+                                  // Factor 8: Momentum (3-bar)
+                                  if (i >= 53) {
+                                    const mom3 = ((bar.close - fullSeries[i - 3].close) / fullSeries[i - 3].close) * 100;
+                                    if (mom3 > 1) bullFactors += 0.5;
+                                    else if (mom3 < -1) bearFactors += 0.5;
+                                  }
+
+                                  // Generate signal
+                                  const netBull = bullFactors - bearFactors * 0.3;
+                                  const netBear = bearFactors - bullFactors * 0.3;
+                                  const minConf = signalPulseMinConfidence;
+
+                                  if (netBull >= minConf && bullFactors >= minConf) {
+                                    result.push({ type: 'buy', confidence: Math.min(1, bullFactors / 8), price: bar.low, reasons });
+                                  } else if (netBear >= minConf && bearFactors >= minConf) {
+                                    result.push({ type: 'sell', confidence: Math.min(1, bearFactors / 8), price: bar.high, reasons });
+                                  } else {
+                                    result.push(null);
+                                  }
+                                }
+                                return [...Array(50).fill(null), ...result];
+                              };
+
                               // Compute on full data, then slice to visible range
                               const fullSMA = showSMA ? calcSMA(closes, smaPeriod) : [];
                               const fullEMA = showEMA ? calcEMA(closes, emaPeriod) : [];
                               const fullBollinger = showBollinger ? calcBollinger(closes, bollingerPeriod, bollingerStdDev) : [];
                               const fullVWAP = showVWAP ? calcVWAP() : [];
+                              const fullLiquidity = showLiquidityFlow ? calcLiquidityFlow() : [];
+                              const fullSignals = showSignalPulse ? calcSignalPulse() : [];
 
                               const visSMA = fullSMA.slice(layout.visStart, layout.visEnd);
                               const visEMA = fullEMA.slice(layout.visStart, layout.visEnd);
                               const visBollinger = fullBollinger.slice(layout.visStart, layout.visEnd);
                               const visVWAP = fullVWAP.slice(layout.visStart, layout.visEnd);
+                              const visLiquidity = fullLiquidity.slice(layout.visStart, layout.visEnd);
+                              const visSignals = fullSignals.slice(layout.visStart, layout.visEnd);
 
                               return (
                                 <svg
@@ -22369,6 +22619,72 @@ INSTRUCTIONS:
                                   {showVWAP && visVWAP.length > 0 && (
                                     <polyline points={visVWAP.map((v, i) => v !== null ? `${i},${priceToY(v)}` : '').filter(p => p).join(' ')} fill="none" stroke="#ec4899" strokeWidth="0.5" />
                                   )}
+
+                                  {/* ── Liquidity Flow Bubbles ── */}
+                                  {showLiquidityFlow && visLiquidity.length > 0 && visLiquidity.map((liq, i) => {
+                                    if (!liq) return null;
+                                    const y = priceToY(liq.price);
+                                    const baseR = 0.8 + liq.strength * 2.2;
+                                    const isBuy = liq.type === 'buy';
+                                    return (
+                                      <g key={`lf-${i}`}>
+                                        <circle cx={i + 0.5} cy={y} r={baseR * 1.6}
+                                          fill={isBuy ? 'rgba(34,211,238,0.08)' : 'rgba(251,146,60,0.08)'}
+                                          stroke="none" />
+                                        <circle cx={i + 0.5} cy={y} r={baseR * 1.15}
+                                          fill="none"
+                                          stroke={isBuy ? 'rgba(34,211,238,0.25)' : 'rgba(251,146,60,0.25)'}
+                                          strokeWidth="0.12" />
+                                        <circle cx={i + 0.5} cy={y} r={baseR}
+                                          fill={isBuy ? `rgba(34,211,238,${0.15 + liq.strength * 0.35})` : `rgba(251,146,60,${0.15 + liq.strength * 0.35})`}
+                                          stroke={isBuy ? 'rgba(34,211,238,0.7)' : 'rgba(251,146,60,0.7)'}
+                                          strokeWidth="0.15" />
+                                        <circle cx={i + 0.5} cy={y - baseR * 0.3} r={baseR * 0.35}
+                                          fill={isBuy ? 'rgba(34,211,238,0.3)' : 'rgba(251,146,60,0.3)'}
+                                          stroke="none" />
+                                      </g>
+                                    );
+                                  })}
+
+                                  {/* ── Signal Pulse Arrows ── */}
+                                  {showSignalPulse && visSignals.length > 0 && visSignals.map((sig, i) => {
+                                    if (!sig) return null;
+                                    const isBuy = sig.type === 'buy';
+                                    const bar = visData[i];
+                                    if (!bar) return null;
+                                    const tipY = isBuy ? priceToY(bar.low) + 2.5 : priceToY(bar.high) - 2.5;
+                                    const arrowH = 1.8 + sig.confidence * 1.5;
+                                    const arrowW = 0.35 + sig.confidence * 0.25;
+                                    const opacity = 0.6 + sig.confidence * 0.4;
+                                    const fillColor = isBuy ? '#10b981' : '#ef4444';
+                                    const glowColor = isBuy ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)';
+                                    const cx = i + 0.5;
+
+                                    if (isBuy) {
+                                      const base = tipY + arrowH;
+                                      return (
+                                        <g key={`sp-${i}`} opacity={opacity}>
+                                          <polygon points={`${cx},${tipY + 0.5} ${cx - arrowW - 0.15},${base + 0.5} ${cx + arrowW + 0.15},${base + 0.5}`}
+                                            fill={glowColor} stroke="none" />
+                                          <polygon points={`${cx},${tipY} ${cx - arrowW},${base} ${cx + arrowW},${base}`}
+                                            fill={fillColor} stroke="rgba(255,255,255,0.3)" strokeWidth="0.08" />
+                                          {sig.confidence > 0.6 && <circle cx={cx} cy={base + 0.8} r={0.2} fill={fillColor} opacity="0.8" />}
+                                        </g>
+                                      );
+                                    } else {
+                                      const base = tipY - arrowH;
+                                      return (
+                                        <g key={`sp-${i}`} opacity={opacity}>
+                                          <polygon points={`${cx},${tipY - 0.5} ${cx - arrowW - 0.15},${base - 0.5} ${cx + arrowW + 0.15},${base - 0.5}`}
+                                            fill={glowColor} stroke="none" />
+                                          <polygon points={`${cx},${tipY} ${cx - arrowW},${base} ${cx + arrowW},${base}`}
+                                            fill={fillColor} stroke="rgba(255,255,255,0.3)" strokeWidth="0.08" />
+                                          {sig.confidence > 0.6 && <circle cx={cx} cy={base - 0.8} r={0.2} fill={fillColor} opacity="0.8" />}
+                                        </g>
+                                      );
+                                    }
+                                  })}
+
                                   {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
                                     // Right-align: both datasets end at "now", so align from the right
                                     const mainTotal = fullSeries.length;
@@ -22400,12 +22716,14 @@ INSTRUCTIONS:
                             })()}
                             
                             {/* Overlay Legend */}
-                            {(showSMA || showEMA || showBollinger || showVWAP || showComparison) && (
-                              <div className="absolute top-2 right-20 bg-slate-900/90 rounded px-2 py-1 text-xs flex gap-3 z-20">
+                            {(showSMA || showEMA || showBollinger || showVWAP || showComparison || showLiquidityFlow || showSignalPulse) && (
+                              <div className="absolute top-2 right-20 bg-slate-900/90 rounded px-2 py-1 text-xs flex gap-3 z-20 flex-wrap">
                                 {showSMA && <span className="text-blue-400">━ SMA({smaPeriod})</span>}
                                 {showEMA && <span className="text-orange-400">━ EMA({emaPeriod})</span>}
                                 {showBollinger && <span className="text-cyan-400">┄ BB({bollingerPeriod},{bollingerStdDev})</span>}
                                 {showVWAP && <span className="text-pink-400">━ VWAP</span>}
+                                {showLiquidityFlow && <span className="text-cyan-300">◉ Liquidity Flow</span>}
+                                {showSignalPulse && <span className="text-emerald-400">▲▼ Signal Pulse</span>}
                                 {showComparison && comparisonData && <span className="text-amber-400">┄ {comparisonData.symbol} (normalized)</span>}
                               </div>
                             )}
@@ -22458,6 +22776,62 @@ INSTRUCTIONS:
                                       </span>
                                     </div>
                                   )}
+                                  {/* Signal/Liquidity tooltip — inline check for hovered bar */}
+                                  {bar && (showLiquidityFlow || showSignalPulse) && (() => {
+                                    const absIdx = layout.visStart + Math.min(barIdx, visData.length - 1);
+                                    const fullSeries = tickerData.timeSeries;
+                                    if (absIdx < 20 || absIdx >= fullSeries.length) return null;
+                                    const b = fullSeries[absIdx];
+                                    let liqInfo = null;
+                                    let sigInfo = null;
+
+                                    // Quick liquidity check for this bar
+                                    if (showLiquidityFlow && absIdx >= 20) {
+                                      const range = b.high - b.low;
+                                      if (range > 0) {
+                                        const bodyR = Math.abs(b.close - b.open) / range;
+                                        const volSlice = fullSeries.slice(absIdx - 20, absIdx).map(x => x.volume || 0);
+                                        const avgV = volSlice.reduce((a, c) => a + c, 0) / 20;
+                                        const vr = avgV > 0 ? (b.volume || 0) / avgV : 0;
+                                        const lwR = (Math.min(b.open, b.close) - b.low) / range;
+                                        const uwR = (b.high - Math.max(b.open, b.close)) / range;
+                                        if (vr >= liquiditySensitivity && (bodyR < 0.35 || lwR > 0.4 || uwR > 0.4)) {
+                                          const isBuyAbs = lwR > uwR;
+                                          liqInfo = { type: isBuyAbs ? 'buy' : 'sell', volRatio: vr, strength: Math.min(1, vr / 3) };
+                                        }
+                                      }
+                                    }
+
+                                    // Quick signal check for this bar
+                                    if (showSignalPulse && absIdx >= 50) {
+                                      const closes = fullSeries.map(x => x.close);
+                                      const c = closes[absIdx], pc = closes[absIdx - 1];
+                                      // Simplified trend check
+                                      const ema9v = closes.slice(Math.max(0, absIdx - 9), absIdx + 1).reduce((a, b2) => a + b2, 0) / Math.min(9, absIdx + 1);
+                                      const ema21v = closes.slice(Math.max(0, absIdx - 21), absIdx + 1).reduce((a, b2) => a + b2, 0) / Math.min(21, absIdx + 1);
+                                      if (Math.abs(ema9v - ema21v) / ema21v > 0.002) {
+                                        sigInfo = { type: ema9v > ema21v ? 'buy' : 'sell' };
+                                      }
+                                    }
+
+                                    if (!liqInfo && !sigInfo) return null;
+                                    const tooltipX = relX > chartW * 0.7 ? relX - 160 : relX + 15;
+                                    return (
+                                      <div className="absolute bg-slate-900/95 border border-slate-600/50 rounded-lg px-3 py-2 text-[10px] z-30 backdrop-blur-sm shadow-xl"
+                                        style={{ left: `${tooltipX}px`, top: `${Math.max(8, relY - 60)}px`, minWidth: '140px' }}>
+                                        {liqInfo && (
+                                          <div className={`font-bold ${liqInfo.type === 'buy' ? 'text-cyan-300' : 'text-orange-300'}`}>
+                                            ◉ {liqInfo.type === 'buy' ? 'Buy Absorption' : 'Sell Absorption'} <span className="font-normal text-slate-400">({liqInfo.volRatio.toFixed(1)}x vol)</span>
+                                          </div>
+                                        )}
+                                        {sigInfo && (
+                                          <div className={`font-bold ${sigInfo.type === 'buy' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                            {sigInfo.type === 'buy' ? '▲ Bullish Zone' : '▼ Bearish Zone'}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })()}
