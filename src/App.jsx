@@ -5440,21 +5440,23 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [macdCondition, setMacdCondition] = useState('bullish_cross');
   
   // Chart enhancements
-  const [showVolume, setShowVolume] = useState(true);
-  const [showRSI, setShowRSI] = useState(false);
-  const [showMACD, setShowMACD] = useState(false);
-  const [showSMA, setShowSMA] = useState(false);
-  const [showEMA, setShowEMA] = useState(false);
-  const [showBollinger, setShowBollinger] = useState(false);
-  const [showStochastic, setShowStochastic] = useState(false);
-  const [showATR, setShowATR] = useState(false);
-  const [showVWAP, setShowVWAP] = useState(false);
-  const [showLiquidityFlow, setShowLiquidityFlow] = useState(false);
-  const [showSignalPulse, setShowSignalPulse] = useState(false);
-  const [showIchimoku, setShowIchimoku] = useState(false);
-  const [showSupertrend, setShowSupertrend] = useState(false);
-  const [showOrderBlocks, setShowOrderBlocks] = useState(false);
-  const [showFVG, setShowFVG] = useState(false);
+  // Restore indicator states from localStorage (persists across fullscreen transitions and reloads)
+  const _savedIndicators = (() => { try { return JSON.parse(localStorage.getItem('modus_indicator_states') || '{}'); } catch { return {}; } })();
+  const [showVolume, setShowVolume] = useState(_savedIndicators.showVolume ?? true);
+  const [showRSI, setShowRSI] = useState(_savedIndicators.showRSI || false);
+  const [showMACD, setShowMACD] = useState(_savedIndicators.showMACD || false);
+  const [showSMA, setShowSMA] = useState(_savedIndicators.showSMA || false);
+  const [showEMA, setShowEMA] = useState(_savedIndicators.showEMA || false);
+  const [showBollinger, setShowBollinger] = useState(_savedIndicators.showBollinger || false);
+  const [showStochastic, setShowStochastic] = useState(_savedIndicators.showStochastic || false);
+  const [showATR, setShowATR] = useState(_savedIndicators.showATR || false);
+  const [showVWAP, setShowVWAP] = useState(_savedIndicators.showVWAP || false);
+  const [showLiquidityFlow, setShowLiquidityFlow] = useState(_savedIndicators.showLiquidityFlow || false);
+  const [showSignalPulse, setShowSignalPulse] = useState(_savedIndicators.showSignalPulse || false);
+  const [showIchimoku, setShowIchimoku] = useState(_savedIndicators.showIchimoku || false);
+  const [showSupertrend, setShowSupertrend] = useState(_savedIndicators.showSupertrend || false);
+  const [showOrderBlocks, setShowOrderBlocks] = useState(_savedIndicators.showOrderBlocks || false);
+  const [showFVG, setShowFVG] = useState(_savedIndicators.showFVG || false);
   const [liquiditySensitivity, setLiquiditySensitivity] = useState(1.5); // Volume threshold multiplier
   const [signalPulseMinConfidence, setSignalPulseMinConfidence] = useState(3); // Min factors for signal
   const [supertrendPeriod, setSupertrendPeriod] = useState(10);
@@ -6344,7 +6346,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const discordWebhookUrl = localStorage.getItem('modus_discord_webhook');
       if (discordWebhookUrl) {
         const emoji = alertType === 'price' ? '🔔' : alertType === 'news' ? '📰' : '📊';
-        await fetch(discordWebhookUrl, {
+        const discordResp = await fetch(discordWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -6356,6 +6358,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             }]
           })
         });
+        if (!discordResp.ok) console.warn(`Discord webhook failed: ${discordResp.status}`);
       }
     } catch (e) {
       // Discord webhook optional
@@ -8266,21 +8269,23 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const fetchFromFinnhub = async (symbol, apiKey) => {
     const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
     const response = await fetch(quoteUrl);
+    if (!response.ok) throw new Error(`Finnhub API error: ${response.status}`);
     const data = await response.json();
-    
+
     if (data.error) {
       throw new Error(data.error);
     }
-    
+
     if (!data.c || data.c === 0) {
       throw new Error("No data for this symbol");
     }
-    
+
     // Get candle data for chart (last 24 hours)
     const now = Math.floor(Date.now() / 1000);
     const yesterday = now - 86400;
     const candleUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=5&from=${yesterday}&to=${now}&token=${apiKey}`;
     const candleResponse = await fetch(candleUrl);
+    if (!candleResponse.ok) throw new Error(`Finnhub candles API error: ${candleResponse.status}`);
     const candleData = await candleResponse.json();
     
     const timeSeries = [];
@@ -8805,10 +8810,26 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     return () => window.removeEventListener('keydown', handleFsKeys);
   }, [chartFullscreen, undoDrawing, redoDrawing, fsOverlayOpen, fsIndicatorOpen]);
 
-  // Reset fullscreen dropdown state when leaving fullscreen
+  // Close fullscreen dropdowns when leaving fullscreen (but don't reset indicator states)
   useEffect(() => {
-    if (!chartFullscreen) { setFsOverlayOpen(false); setFsIndicatorOpen(false); }
+    if (!chartFullscreen) {
+      // Only close the dropdown menus — indicator toggle states are preserved globally
+      setFsOverlayOpen(false);
+      setFsIndicatorOpen(false);
+    }
   }, [chartFullscreen]);
+
+  // Persist indicator states to localStorage so they survive fullscreen transitions and page reloads
+  useEffect(() => {
+    try {
+      const indicatorState = {
+        showSMA, showEMA, showBollinger, showVWAP, showRSI, showMACD, showStochastic, showATR, showVolume,
+        showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG
+      };
+      localStorage.setItem('modus_indicator_states', JSON.stringify(indicatorState));
+    } catch (e) { /* ignore quota errors */ }
+  }, [showSMA, showEMA, showBollinger, showVWAP, showRSI, showMACD, showStochastic, showATR, showVolume,
+      showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG]);
 
   // Chart keyboard shortcuts (non-fullscreen) - B for draw (brush), Escape to exit, Ctrl+Z/Y undo/redo
   useEffect(() => {
@@ -8948,8 +8969,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
     
     const response = await fetch(url);
+    if (!response.ok) throw new Error(`AlphaVantage API error: ${response.status}`);
     const data = await response.json();
-    
+
     if (data["Error Message"]) {
       throw new Error("Invalid symbol");
     }
@@ -22832,35 +22854,48 @@ INSTRUCTIONS:
                                     if (!sig) return null;
                                     const isBuy = sig.type === 'buy';
                                     const bar = visData[i];
-                                    if (!bar) return null;
-                                    const tipY = isBuy ? priceToY(bar.low) + 2.5 : priceToY(bar.high) - 2.5;
-                                    const arrowH = 1.8 + sig.confidence * 1.5;
-                                    const arrowW = 0.35 + sig.confidence * 0.25;
-                                    const opacity = 0.6 + sig.confidence * 0.4;
+                                    if (!bar || bar.low == null || bar.high == null || isNaN(bar.low) || isNaN(bar.high)) return null;
+                                    const tipY = isBuy ? priceToY(bar.low) + 3 : priceToY(bar.high) - 3;
+                                    const arrowH = 2.8 + sig.confidence * 2.2;
+                                    const arrowW = 0.55 + sig.confidence * 0.4;
+                                    const opacity = 0.75 + sig.confidence * 0.25;
                                     const fillColor = isBuy ? '#10b981' : '#ef4444';
-                                    const glowColor = isBuy ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)';
+                                    const glowColor = isBuy ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)';
+                                    const outlineColor = isBuy ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.8)';
                                     const cx = i + 0.5;
 
                                     if (isBuy) {
                                       const base = tipY + arrowH;
                                       return (
                                         <g key={`sp-${i}`} opacity={opacity}>
-                                          <polygon points={`${cx},${tipY + 0.5} ${cx - arrowW - 0.15},${base + 0.5} ${cx + arrowW + 0.15},${base + 0.5}`}
+                                          {/* Outer glow */}
+                                          <polygon points={`${cx},${tipY - 0.8} ${cx - arrowW - 0.4},${base + 0.8} ${cx + arrowW + 0.4},${base + 0.8}`}
                                             fill={glowColor} stroke="none" />
+                                          {/* Main arrow with white outline */}
                                           <polygon points={`${cx},${tipY} ${cx - arrowW},${base} ${cx + arrowW},${base}`}
-                                            fill={fillColor} stroke="rgba(255,255,255,0.3)" strokeWidth="0.08" />
-                                          {sig.confidence > 0.6 && <circle cx={cx} cy={base + 0.8} r={0.2} fill={fillColor} opacity="0.8" />}
+                                            fill={fillColor} stroke={outlineColor} strokeWidth="0.18" strokeLinejoin="round" />
+                                          {/* Inner highlight */}
+                                          <polygon points={`${cx},${tipY + 0.6} ${cx - arrowW * 0.5},${base - 0.3} ${cx + arrowW * 0.5},${base - 0.3}`}
+                                            fill="rgba(255,255,255,0.2)" stroke="none" />
+                                          {sig.confidence > 0.5 && <circle cx={cx} cy={base + 1} r={0.3} fill="white" opacity="0.9" />}
+                                          {sig.confidence > 0.7 && <circle cx={cx} cy={base + 1} r={0.5} fill="none" stroke={fillColor} strokeWidth="0.15" opacity="0.8" />}
                                         </g>
                                       );
                                     } else {
                                       const base = tipY - arrowH;
                                       return (
                                         <g key={`sp-${i}`} opacity={opacity}>
-                                          <polygon points={`${cx},${tipY - 0.5} ${cx - arrowW - 0.15},${base - 0.5} ${cx + arrowW + 0.15},${base - 0.5}`}
+                                          {/* Outer glow */}
+                                          <polygon points={`${cx},${tipY + 0.8} ${cx - arrowW - 0.4},${base - 0.8} ${cx + arrowW + 0.4},${base - 0.8}`}
                                             fill={glowColor} stroke="none" />
+                                          {/* Main arrow with white outline */}
                                           <polygon points={`${cx},${tipY} ${cx - arrowW},${base} ${cx + arrowW},${base}`}
-                                            fill={fillColor} stroke="rgba(255,255,255,0.3)" strokeWidth="0.08" />
-                                          {sig.confidence > 0.6 && <circle cx={cx} cy={base - 0.8} r={0.2} fill={fillColor} opacity="0.8" />}
+                                            fill={fillColor} stroke={outlineColor} strokeWidth="0.18" strokeLinejoin="round" />
+                                          {/* Inner highlight */}
+                                          <polygon points={`${cx},${tipY - 0.6} ${cx - arrowW * 0.5},${base + 0.3} ${cx + arrowW * 0.5},${base + 0.3}`}
+                                            fill="rgba(255,255,255,0.2)" stroke="none" />
+                                          {sig.confidence > 0.5 && <circle cx={cx} cy={base - 1} r={0.3} fill="white" opacity="0.9" />}
+                                          {sig.confidence > 0.7 && <circle cx={cx} cy={base - 1} r={0.5} fill="none" stroke={fillColor} strokeWidth="0.15" opacity="0.8" />}
                                         </g>
                                       );
                                     }
@@ -22957,6 +22992,7 @@ INSTRUCTIONS:
 
                                   {/* ── Order Blocks (Smart Money Zones) ── */}
                                   {showOrderBlocks && orderBlocks.length > 0 && orderBlocks.map((ob, oi) => {
+                                    if (!ob || ob.high == null || ob.low == null) return null;
                                     // Convert absolute indices to visible-range positions
                                     const x1 = ob.startIdx - layout.visStart;
                                     const x2 = (ob.endIdx || ob.startIdx + 10) - layout.visStart;
@@ -22990,6 +23026,7 @@ INSTRUCTIONS:
 
                                   {/* ── Fair Value Gaps ── */}
                                   {showFVG && fvgGaps.length > 0 && fvgGaps.map((gap, gi) => {
+                                    if (!gap || gap.top == null || gap.bottom == null) return null;
                                     // FVG starts at the gap candle and extends right until filled or end of visible
                                     const x1 = gap.idx - layout.visStart;
                                     if (x1 >= visData.length || x1 < -5) return null;
