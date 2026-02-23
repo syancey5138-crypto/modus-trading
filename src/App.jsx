@@ -1736,8 +1736,10 @@ function App() {
         { icon: '7️⃣', text: 'Enable "Supertrend" for a clean ATR-based trend line — green line below price = uptrend, red line above = downtrend. Color changes signal trend reversals' },
         { icon: '8️⃣', text: 'Enable "Order Blocks" to see smart money supply/demand zones — green OB+ zones show institutional buying, red OB− zones show selling. Price often bounces from these levels' },
         { icon: '9️⃣', text: 'Enable "Fair Value Gaps" to find price imbalance zones — blue FVG+ gaps signal bullish inefficiency, orange FVG− gaps signal bearish. Price tends to fill these gaps' },
+        { icon: '🔟', text: 'Enable "Parabolic SAR" for trailing stop dots — green dots below candles = uptrend, red dots above = downtrend. Dot flips signal reversals' },
+        { icon: '1️⃣1️⃣', text: 'Enable "Pivot Points" for key S/R levels — PP (pivot), R1-R3 resistance, S1-S3 support lines calculated from prior session data' },
       ],
-      tip: 'Combine Liquidity Flow with Signal Pulse for maximum accuracy — when a buy signal appears at a buy absorption zone, it\'s a high-conviction setup. Use Ichimoku Cloud for trend context and Order Blocks for precision entries.'
+      tip: 'Combine Liquidity Flow with Signal Pulse for maximum accuracy — when a buy signal appears at a buy absorption zone, it\'s a high-conviction setup. Use ADX to confirm trend strength, Parabolic SAR for stops, and Pivot Points for targets.'
     },
     indicatorguide: {
       title: 'How to Use the Indicator Guide',
@@ -5461,6 +5463,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [signalPulseMinConfidence, setSignalPulseMinConfidence] = useState(3); // Min factors for signal
   const [supertrendPeriod, setSupertrendPeriod] = useState(10);
   const [supertrendMultiplier, setSupertrendMultiplier] = useState(3);
+  const [showWilliamsR, setShowWilliamsR] = useState(_savedIndicators.showWilliamsR || false);
+  const [showADX, setShowADX] = useState(_savedIndicators.showADX || false);
+  const [showParabolicSAR, setShowParabolicSAR] = useState(_savedIndicators.showParabolicSAR || false);
+  const [showPivotPoints, setShowPivotPoints] = useState(_savedIndicators.showPivotPoints || false);
   const [expandedIndicator, setExpandedIndicator] = useState(null); // Fullscreen indicator guide modal
 
   // Indicator settings
@@ -8824,12 +8830,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     try {
       const indicatorState = {
         showSMA, showEMA, showBollinger, showVWAP, showRSI, showMACD, showStochastic, showATR, showVolume,
-        showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG
+        showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG,
+        showWilliamsR, showADX, showParabolicSAR, showPivotPoints
       };
       localStorage.setItem('modus_indicator_states', JSON.stringify(indicatorState));
     } catch (e) { /* ignore quota errors */ }
   }, [showSMA, showEMA, showBollinger, showVWAP, showRSI, showMACD, showStochastic, showATR, showVolume,
-      showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG]);
+      showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG,
+      showWilliamsR, showADX, showParabolicSAR, showPivotPoints]);
 
   // Chart keyboard shortcuts (non-fullscreen) - B for draw (brush), Escape to exit, Ctrl+Z/Y undo/redo
   useEffect(() => {
@@ -21907,6 +21915,10 @@ INSTRUCTIONS:
                                 { label: 'Supertrend', desc: 'ATR-based trend direction', active: showSupertrend, toggle: () => setShowSupertrend(!showSupertrend), color: 'text-green-400', icon: '⚡' },
                                 { label: 'Order Blocks', desc: 'Smart money supply/demand', active: showOrderBlocks, toggle: () => setShowOrderBlocks(!showOrderBlocks), color: 'text-yellow-400', icon: '▧' },
                                 { label: 'Fair Value Gaps', desc: 'Price imbalance zones', active: showFVG, toggle: () => setShowFVG(!showFVG), color: 'text-blue-400', icon: '▬' },
+                                { label: 'Williams %R', desc: 'Overbought/oversold oscillator', active: showWilliamsR, toggle: () => setShowWilliamsR(!showWilliamsR), color: 'text-indigo-400', icon: '%' },
+                                { label: 'ADX', desc: 'Trend strength indicator', active: showADX, toggle: () => setShowADX(!showADX), color: 'text-amber-400', icon: '↕' },
+                                { label: 'Parabolic SAR', desc: 'Trend reversal dots', active: showParabolicSAR, toggle: () => setShowParabolicSAR(!showParabolicSAR), color: 'text-lime-400', icon: '•' },
+                                { label: 'Pivot Points', desc: 'Support/resistance levels', active: showPivotPoints, toggle: () => setShowPivotPoints(!showPivotPoints), color: 'text-violet-400', icon: '═' },
                               ].map(item => (
                                 <button key={item.label} onClick={item.toggle}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-700/50 transition-colors">
@@ -22822,6 +22834,119 @@ INSTRUCTIONS:
                               const orderBlocks = showOrderBlocks ? calcOrderBlocks() : [];
                               const fvgGaps = showFVG ? calcFVG() : [];
 
+                              // ── Williams %R (14-period) ──
+                              const calcWilliamsR = () => {
+                                const period = 14;
+                                const result = [];
+                                for (let i = 0; i < fullSeries.length; i++) {
+                                  if (i < period - 1) { result.push(null); continue; }
+                                  const slice = fullSeries.slice(i - period + 1, i + 1);
+                                  const hh = Math.max(...slice.map(b => b.high));
+                                  const ll = Math.min(...slice.map(b => b.low));
+                                  const wr = hh !== ll ? ((hh - fullSeries[i].close) / (hh - ll)) * -100 : -50;
+                                  result.push(wr);
+                                }
+                                return result;
+                              };
+
+                              // ── ADX (Average Directional Index, 14-period) ──
+                              const calcADX = () => {
+                                const period = 14;
+                                const result = [];
+                                if (fullSeries.length < period + 1) return fullSeries.map(() => null);
+                                const trArr = [], pDMArr = [], nDMArr = [];
+                                for (let i = 0; i < fullSeries.length; i++) {
+                                  if (i === 0) { trArr.push(0); pDMArr.push(0); nDMArr.push(0); result.push(null); continue; }
+                                  const h = fullSeries[i].high, l = fullSeries[i].low, c = fullSeries[i - 1].close;
+                                  const ph = fullSeries[i - 1].high, pl = fullSeries[i - 1].low;
+                                  const tr = Math.max(h - l, Math.abs(h - c), Math.abs(l - c));
+                                  const pDM = (h - ph) > (pl - l) && (h - ph) > 0 ? (h - ph) : 0;
+                                  const nDM = (pl - l) > (h - ph) && (pl - l) > 0 ? (pl - l) : 0;
+                                  trArr.push(tr); pDMArr.push(pDM); nDMArr.push(nDM);
+                                  if (i < period) { result.push(null); continue; }
+                                  if (i === period) {
+                                    const sTR = trArr.slice(1, period + 1).reduce((a, b) => a + b, 0);
+                                    const sPDM = pDMArr.slice(1, period + 1).reduce((a, b) => a + b, 0);
+                                    const sNDM = nDMArr.slice(1, period + 1).reduce((a, b) => a + b, 0);
+                                    const pDI = sTR > 0 ? (sPDM / sTR) * 100 : 0;
+                                    const nDI = sTR > 0 ? (sNDM / sTR) * 100 : 0;
+                                    const dx = (pDI + nDI) > 0 ? (Math.abs(pDI - nDI) / (pDI + nDI)) * 100 : 0;
+                                    result.push({ adx: dx, pDI, nDI, smoothTR: sTR, smoothPDM: sPDM, smoothNDM: sNDM });
+                                  } else {
+                                    const prev = result[i - 1];
+                                    if (!prev || typeof prev !== 'object') { result.push(null); continue; }
+                                    const sTR = prev.smoothTR - (prev.smoothTR / period) + trArr[i];
+                                    const sPDM = prev.smoothPDM - (prev.smoothPDM / period) + pDMArr[i];
+                                    const sNDM = prev.smoothNDM - (prev.smoothNDM / period) + nDMArr[i];
+                                    const pDI = sTR > 0 ? (sPDM / sTR) * 100 : 0;
+                                    const nDI = sTR > 0 ? (sNDM / sTR) * 100 : 0;
+                                    const dx = (pDI + nDI) > 0 ? (Math.abs(pDI - nDI) / (pDI + nDI)) * 100 : 0;
+                                    const adx = (i >= period * 2 && prev.adx != null && !isNaN(dx)) ? ((prev.adx * (period - 1)) + dx) / period : dx;
+                                    result.push({ adx, pDI, nDI, smoothTR: sTR, smoothPDM: sPDM, smoothNDM: sNDM });
+                                  }
+                                }
+                                return result;
+                              };
+
+                              // ── Parabolic SAR ──
+                              const calcParabolicSAR = () => {
+                                if (fullSeries.length < 2) return fullSeries.map(() => null);
+                                const result = [];
+                                let af = 0.02, maxAF = 0.2, step = 0.02;
+                                let isUptrend = fullSeries[1].close > fullSeries[0].close;
+                                let sar = isUptrend ? fullSeries[0].low : fullSeries[0].high;
+                                let ep = isUptrend ? fullSeries[0].high : fullSeries[0].low;
+                                result.push({ sar, isUptrend });
+                                for (let i = 1; i < fullSeries.length; i++) {
+                                  const h = fullSeries[i].high, l = fullSeries[i].low;
+                                  let newSar = sar + af * (ep - sar);
+                                  if (isUptrend) {
+                                    newSar = Math.min(newSar, fullSeries[i - 1].low, i >= 2 ? fullSeries[i - 2].low : fullSeries[i - 1].low);
+                                    if (l < newSar) {
+                                      isUptrend = false; newSar = ep; ep = l; af = step;
+                                    } else {
+                                      if (h > ep) { ep = h; af = Math.min(af + step, maxAF); }
+                                    }
+                                  } else {
+                                    newSar = Math.max(newSar, fullSeries[i - 1].high, i >= 2 ? fullSeries[i - 2].high : fullSeries[i - 1].high);
+                                    if (h > newSar) {
+                                      isUptrend = true; newSar = ep; ep = h; af = step;
+                                    } else {
+                                      if (l < ep) { ep = l; af = Math.min(af + step, maxAF); }
+                                    }
+                                  }
+                                  sar = newSar;
+                                  result.push({ sar, isUptrend });
+                                }
+                                return result;
+                              };
+
+                              // ── Pivot Points (Standard) ──
+                              const calcPivotPoints = () => {
+                                const nullResult = { pp: null, r1: null, r2: null, r3: null, s1: null, s2: null, s3: null };
+                                if (fullSeries.length < 3) return nullResult;
+                                // Use previous session's OHLC for pivot calculation
+                                const lookback = Math.min(fullSeries.length, 50);
+                                const recentBars = fullSeries.slice(-lookback);
+                                const barsForCalc = recentBars.slice(0, -1);
+                                if (barsForCalc.length === 0) return nullResult;
+                                const h = Math.max(...barsForCalc.map(b => b.high));
+                                const l = Math.min(...barsForCalc.map(b => b.low));
+                                if (!isFinite(h) || !isFinite(l) || h === l) return nullResult;
+                                const c = recentBars[recentBars.length - 2]?.close || recentBars[recentBars.length - 1].close;
+                                const pp = (h + l + c) / 3;
+                                return {
+                                  pp,
+                                  r1: (2 * pp) - l, r2: pp + (h - l), r3: h + 2 * (pp - l),
+                                  s1: (2 * pp) - h, s2: pp - (h - l), s3: l - 2 * (h - pp)
+                                };
+                              };
+
+                              const fullWilliamsR = showWilliamsR ? calcWilliamsR() : [];
+                              const fullADX = showADX ? calcADX() : [];
+                              const fullParabolicSAR = showParabolicSAR ? calcParabolicSAR() : [];
+                              const pivotPoints = showPivotPoints ? calcPivotPoints() : null;
+
                               const visSMA = fullSMA.slice(layout.visStart, layout.visEnd);
                               const visEMA = fullEMA.slice(layout.visStart, layout.visEnd);
                               const visBollinger = fullBollinger.slice(layout.visStart, layout.visEnd);
@@ -22830,6 +22955,9 @@ INSTRUCTIONS:
                               const visSignals = fullSignals.slice(layout.visStart, layout.visEnd);
                               const visIchimoku = fullIchimoku.slice(layout.visStart, layout.visEnd);
                               const visSupertrend = fullSupertrend.slice(layout.visStart, layout.visEnd);
+                              const visWilliamsR = fullWilliamsR.slice(layout.visStart, layout.visEnd);
+                              const visADX = fullADX.slice(layout.visStart, layout.visEnd);
+                              const visParabolicSAR = fullParabolicSAR.slice(layout.visStart, layout.visEnd);
 
                               return (
                                 <svg
@@ -22940,7 +23068,7 @@ INSTRUCTIONS:
                                     let segments = [];
                                     let currentSeg = [];
                                     visIchimoku.forEach((ich, i) => {
-                                      if (ich && ich.senkouA != null && ich.senkouB != null) {
+                                      if (ich && ich.senkouA != null && ich.senkouB != null && !isNaN(ich.senkouA) && !isNaN(ich.senkouB)) {
                                         currentSeg.push({ i, a: ich.senkouA, b: ich.senkouB });
                                       } else {
                                         if (currentSeg.length > 1) segments.push(currentSeg);
@@ -22993,7 +23121,7 @@ INSTRUCTIONS:
                                     const segments = [];
                                     let current = { trend: null, points: [] };
                                     visSupertrend.forEach((st, i) => {
-                                      if (!st || st.value == null) return;
+                                      if (!st || st.value == null || isNaN(st.value)) return;
                                       const y = priceToY(st.value);
                                       if (st.trend !== current.trend) {
                                         if (current.points.length > 0) {
@@ -23108,6 +23236,47 @@ INSTRUCTIONS:
                                     });
                                   })()}
 
+                                  {/* ── Parabolic SAR dots ── */}
+                                  {showParabolicSAR && visParabolicSAR.length > 0 && visParabolicSAR.map((p, i) => {
+                                    if (!p || p.sar == null || isNaN(p.sar)) return null;
+                                    const y = priceToY(p.sar);
+                                    if (y < 0 || y > 100) return null;
+                                    return (
+                                      <circle key={`psar-${i}`} cx={i + 0.5} cy={y} r={0.3}
+                                        fill={p.isUptrend ? '#10b981' : '#ef4444'}
+                                        opacity={0.85} />
+                                    );
+                                  })}
+
+                                  {/* ── Pivot Points (horizontal lines across chart) ── */}
+                                  {showPivotPoints && pivotPoints && (() => {
+                                    const lines = [
+                                      { price: pivotPoints.pp, color: '#a78bfa', label: 'PP', dash: '' },
+                                      { price: pivotPoints.r1, color: '#34d399', label: 'R1', dash: '1,0.5' },
+                                      { price: pivotPoints.r2, color: '#10b981', label: 'R2', dash: '1,0.5' },
+                                      { price: pivotPoints.r3, color: '#059669', label: 'R3', dash: '0.5,0.5' },
+                                      { price: pivotPoints.s1, color: '#f87171', label: 'S1', dash: '1,0.5' },
+                                      { price: pivotPoints.s2, color: '#ef4444', label: 'S2', dash: '1,0.5' },
+                                      { price: pivotPoints.s3, color: '#dc2626', label: 'S3', dash: '0.5,0.5' },
+                                    ];
+                                    return lines.map((ln, li) => {
+                                      if (ln.price == null || isNaN(ln.price)) return null;
+                                      const y = priceToY(ln.price);
+                                      if (y < -5 || y > 105) return null;
+                                      return (
+                                        <g key={`pivot-${li}`}>
+                                          <line x1={0} y1={y} x2={visData.length} y2={y}
+                                            stroke={ln.color} strokeWidth="0.15" strokeDasharray={ln.dash}
+                                            opacity={0.7} />
+                                          <text x={visData.length - 2.5} y={y - 0.4}
+                                            fill={ln.color} fontSize="1.1" fontWeight="bold" opacity={0.9}>
+                                            {ln.label}
+                                          </text>
+                                        </g>
+                                      );
+                                    });
+                                  })()}
+
                                   {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
                                     // Right-align: both datasets end at "now", so align from the right
                                     const mainTotal = fullSeries.length;
@@ -23151,6 +23320,10 @@ INSTRUCTIONS:
                                 {showSupertrend && <span className="text-green-400">⚡ Supertrend</span>}
                                 {showOrderBlocks && <span className="text-yellow-400">▧ Order Blocks</span>}
                                 {showFVG && <span className="text-blue-400">▬ Fair Value Gaps</span>}
+                                {showWilliamsR && <span className="text-indigo-400">% Williams %R</span>}
+                                {showADX && <span className="text-amber-400">↕ ADX</span>}
+                                {showParabolicSAR && <span className="text-lime-400">• Parabolic SAR</span>}
+                                {showPivotPoints && <span className="text-violet-400">═ Pivot Points</span>}
                                 {showComparison && comparisonData && <span className="text-amber-400">┄ {comparisonData.symbol} (normalized)</span>}
                               </div>
                             )}
@@ -23230,14 +23403,28 @@ INSTRUCTIONS:
                                     }
 
                                     // Quick signal check for this bar
-                                    if (showSignalPulse && absIdx >= 50) {
+                                    if (showSignalPulse && absIdx >= 21) {
                                       const closes = fullSeries.map(x => x.close);
-                                      const c = closes[absIdx], pc = closes[absIdx - 1];
-                                      // Simplified trend check
-                                      const ema9v = closes.slice(Math.max(0, absIdx - 9), absIdx + 1).reduce((a, b2) => a + b2, 0) / Math.min(9, absIdx + 1);
-                                      const ema21v = closes.slice(Math.max(0, absIdx - 21), absIdx + 1).reduce((a, b2) => a + b2, 0) / Math.min(21, absIdx + 1);
-                                      if (Math.abs(ema9v - ema21v) / ema21v > 0.002) {
-                                        sigInfo = { type: ema9v > ema21v ? 'buy' : 'sell' };
+                                      // Use SMA approximation for EMA comparison
+                                      const fast = closes.slice(Math.max(0, absIdx - 8), absIdx + 1);
+                                      const slow = closes.slice(Math.max(0, absIdx - 20), absIdx + 1);
+                                      const fastAvg = fast.reduce((a, b2) => a + b2, 0) / fast.length;
+                                      const slowAvg = slow.reduce((a, b2) => a + b2, 0) / slow.length;
+                                      // Also check momentum direction (last 3 bars)
+                                      const momDir = absIdx >= 3 ? closes[absIdx] - closes[absIdx - 3] : 0;
+                                      // Also check if price is above/below recent VWAP-like midpoint
+                                      const recentHigh = Math.max(...fullSeries.slice(Math.max(0, absIdx - 10), absIdx + 1).map(b => b.high));
+                                      const recentLow = Math.min(...fullSeries.slice(Math.max(0, absIdx - 10), absIdx + 1).map(b => b.low));
+                                      const midPrice = (recentHigh + recentLow) / 2;
+                                      const priceVsMid = closes[absIdx] > midPrice ? 1 : -1;
+                                      // Composite score
+                                      const emaDiff = (fastAvg - slowAvg) / slowAvg;
+                                      const bullScore = (emaDiff > 0.001 ? 1 : 0) + (momDir > 0 ? 1 : 0) + (priceVsMid > 0 ? 1 : 0);
+                                      const bearScore = (emaDiff < -0.001 ? 1 : 0) + (momDir < 0 ? 1 : 0) + (priceVsMid < 0 ? 1 : 0);
+                                      if (bullScore >= 2 && bullScore > bearScore) {
+                                        sigInfo = { type: 'buy', confidence: bullScore / 3 };
+                                      } else if (bearScore >= 2 && bearScore > bullScore) {
+                                        sigInfo = { type: 'sell', confidence: bearScore / 3 };
                                       }
                                     }
 
@@ -24815,6 +25002,10 @@ INSTRUCTIONS:
                                           { label: '⚡ Supertrend', state: showSupertrend, setter: () => setShowSupertrend(v => !v), color: 'text-green-400' },
                                           { label: '▧ Order Blocks', state: showOrderBlocks, setter: () => setShowOrderBlocks(v => !v), color: 'text-yellow-400' },
                                           { label: '▬ Fair Value Gaps', state: showFVG, setter: () => setShowFVG(v => !v), color: 'text-blue-400' },
+                                          { label: '% Williams %R', state: showWilliamsR, setter: () => setShowWilliamsR(v => !v), color: 'text-indigo-400' },
+                                          { label: '↕ ADX', state: showADX, setter: () => setShowADX(v => !v), color: 'text-amber-400' },
+                                          { label: '• Parabolic SAR', state: showParabolicSAR, setter: () => setShowParabolicSAR(v => !v), color: 'text-lime-400' },
+                                          { label: '═ Pivot Points', state: showPivotPoints, setter: () => setShowPivotPoints(v => !v), color: 'text-violet-400' },
                                         ].map(item => (
                                           <button key={item.label} onClick={item.setter}
                                             className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 transition-colors flex items-center justify-between">
@@ -37123,7 +37314,7 @@ INSTRUCTIONS:
                       <h2 className="text-2xl font-bold">Indicator Guide</h2>
                       <p className="text-sm text-slate-400">Learn what each chart indicator does and how to read it</p>
                     </div>
-                    <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full font-medium">15 Indicators</span>
+                    <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full font-medium">19 Indicators</span>
                     <button onClick={() => setShowFeatureGuide('indicatorguide')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use this guide">
                       <Info className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
                     </button>
@@ -37701,6 +37892,133 @@ INSTRUCTIONS:
                     </svg>
                   </div>
 
+                  {/* Williams %R */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-indigo-400/30 transition-colors" style={{ borderLeft: '3px solid #818cf8' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-indigo-400 text-base">% Williams %R</h4>
+                        <p className="text-sm text-slate-400 mt-1">A momentum oscillator that measures overbought/oversold levels. Ranges from 0 to -100, making it ideal for spotting potential price reversals.</p>
+                      </div>
+                      <button onClick={() => setExpandedIndicator('williamsr')} className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors flex-shrink-0 mt-0.5" title="View fullscreen diagram">
+                        <Maximize2 className="w-4 h-4 text-slate-500 hover:text-indigo-400" />
+                      </button>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Above -20 = overbought (potential sell)</li>
+                        <li>• Below -80 = oversold (potential buy)</li>
+                        <li>• Crossing -50 signals momentum shift</li>
+                        <li>• Divergences with price = strong reversal signal</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      <line x1="10" y1="16" x2="190" y2="16" stroke="rgba(129,140,248,0.3)" strokeWidth="0.5" strokeDasharray="3,2" />
+                      <text x="2" y="18" fill="rgba(129,140,248,0.5)" fontSize="5">-20</text>
+                      <line x1="10" y1="64" x2="190" y2="64" stroke="rgba(129,140,248,0.3)" strokeWidth="0.5" strokeDasharray="3,2" />
+                      <text x="2" y="66" fill="rgba(129,140,248,0.5)" fontSize="5">-80</text>
+                      <polyline points="15,40 35,35 55,18 75,12 95,25 115,55 135,68 155,70 175,60 190,45" fill="none" stroke="#818cf8" strokeWidth="1.5" />
+                      <text x="70" y="8" fill="#ef4444" fontSize="5">Overbought</text>
+                      <text x="130" y="78" fill="#10b981" fontSize="5">Oversold</text>
+                    </svg>
+                  </div>
+
+                  {/* ADX */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-amber-400/30 transition-colors" style={{ borderLeft: '3px solid #f59e0b' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-amber-400 text-base">↕ ADX (Average Directional Index)</h4>
+                        <p className="text-sm text-slate-400 mt-1">Measures trend strength from 0-100 without indicating direction. Helps you decide whether to use trending or range-bound strategies.</p>
+                      </div>
+                      <button onClick={() => setExpandedIndicator('adx')} className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors flex-shrink-0 mt-0.5" title="View fullscreen diagram">
+                        <Maximize2 className="w-4 h-4 text-slate-500 hover:text-amber-400" />
+                      </button>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• ADX below 20 = weak/no trend (range-bound)</li>
+                        <li>• ADX 20-40 = developing trend</li>
+                        <li>• ADX above 40 = strong trend</li>
+                        <li>• +DI above -DI = bullish, below = bearish</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      <line x1="10" y1="48" x2="190" y2="48" stroke="rgba(245,158,11,0.3)" strokeWidth="0.5" strokeDasharray="3,2" />
+                      <text x="2" y="50" fill="rgba(245,158,11,0.4)" fontSize="5">20</text>
+                      <polyline points="15,60 35,55 55,50 75,42 95,30 115,22 135,18 155,25 175,35 190,40" fill="none" stroke="#f59e0b" strokeWidth="1.5" />
+                      <polyline points="15,45 35,40 55,38 75,30 95,32 115,35 135,40 155,45 175,50 190,48" fill="none" stroke="#34d399" strokeWidth="1" opacity="0.6" />
+                      <polyline points="15,50 35,55 55,52 75,55 95,48 115,42 135,38 155,35 175,38 190,42" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.6" />
+                      <text x="140" y="14" fill="#f59e0b" fontSize="5">ADX (strong)</text>
+                      <text x="70" y="26" fill="#34d399" fontSize="4">+DI</text>
+                      <text x="70" y="58" fill="#ef4444" fontSize="4">-DI</text>
+                    </svg>
+                  </div>
+
+                  {/* Parabolic SAR */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-lime-400/30 transition-colors" style={{ borderLeft: '3px solid #84cc16' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-lime-400 text-base">• Parabolic SAR</h4>
+                        <p className="text-sm text-slate-400 mt-1">Stop And Reverse indicator that places dots above or below price to indicate trend direction. Useful for setting trailing stops and catching reversals.</p>
+                      </div>
+                      <button onClick={() => setExpandedIndicator('parabolicsar')} className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors flex-shrink-0 mt-0.5" title="View fullscreen diagram">
+                        <Maximize2 className="w-4 h-4 text-slate-500 hover:text-lime-400" />
+                      </button>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• Dots below price = uptrend (bullish)</li>
+                        <li>• Dots above price = downtrend (bearish)</li>
+                        <li>• Dot flip = trend reversal signal</li>
+                        <li>• Use as trailing stop-loss level</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      <polyline points="15,55 35,50 55,45 75,40 95,35 115,30 135,38 155,45 175,50 190,48" fill="none" stroke="#94a3b8" strokeWidth="1" opacity="0.4" />
+                      <circle cx="15" cy="60" r="2" fill="#10b981" /><circle cx="35" cy="55" r="2" fill="#10b981" />
+                      <circle cx="55" cy="50" r="2" fill="#10b981" /><circle cx="75" cy="45" r="2" fill="#10b981" />
+                      <circle cx="95" cy="40" r="2" fill="#10b981" /><circle cx="115" cy="35" r="2" fill="#10b981" />
+                      <circle cx="135" cy="32" r="2" fill="#ef4444" /><circle cx="155" cy="38" r="2" fill="#ef4444" />
+                      <circle cx="175" cy="42" r="2" fill="#ef4444" /><circle cx="190" cy="40" r="2" fill="#ef4444" />
+                      <text x="40" y="70" fill="#10b981" fontSize="5">Uptrend</text>
+                      <text x="140" y="28" fill="#ef4444" fontSize="5">Reversal</text>
+                    </svg>
+                  </div>
+
+                  {/* Pivot Points */}
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-xl p-5 hover:border-violet-400/30 transition-colors" style={{ borderLeft: '3px solid #a78bfa' }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-violet-400 text-base">═ Pivot Points</h4>
+                        <p className="text-sm text-slate-400 mt-1">Classic support/resistance levels calculated from previous session's high, low, and close. Shows PP (pivot), R1-R3 resistance, and S1-S3 support levels.</p>
+                      </div>
+                      <button onClick={() => setExpandedIndicator('pivotpoints')} className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors flex-shrink-0 mt-0.5" title="View fullscreen diagram">
+                        <Maximize2 className="w-4 h-4 text-slate-500 hover:text-violet-400" />
+                      </button>
+                    </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-300 mb-1">How to read:</p>
+                      <ul className="text-xs text-slate-400 space-y-0.5">
+                        <li>• PP (pivot) = key level, trend above = bullish</li>
+                        <li>• R1/R2/R3 = resistance levels (price targets)</li>
+                        <li>• S1/S2/S3 = support levels (bounce zones)</li>
+                        <li>• Price bouncing off levels = confirmed S/R</li>
+                      </ul>
+                    </div>
+                    <svg viewBox="0 0 200 80" className="w-full h-16 rounded bg-slate-900/50">
+                      <line x1="10" y1="10" x2="190" y2="10" stroke="#059669" strokeWidth="0.5" strokeDasharray="2,1" /><text x="2" y="12" fill="#059669" fontSize="4">R3</text>
+                      <line x1="10" y1="22" x2="190" y2="22" stroke="#10b981" strokeWidth="0.5" strokeDasharray="2,1" /><text x="2" y="24" fill="#10b981" fontSize="4">R2</text>
+                      <line x1="10" y1="34" x2="190" y2="34" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2,1" /><text x="2" y="36" fill="#34d399" fontSize="4">R1</text>
+                      <line x1="10" y1="40" x2="190" y2="40" stroke="#a78bfa" strokeWidth="1" /><text x="2" y="42" fill="#a78bfa" fontSize="4">PP</text>
+                      <line x1="10" y1="50" x2="190" y2="50" stroke="#f87171" strokeWidth="0.5" strokeDasharray="2,1" /><text x="2" y="52" fill="#f87171" fontSize="4">S1</text>
+                      <line x1="10" y1="60" x2="190" y2="60" stroke="#ef4444" strokeWidth="0.5" strokeDasharray="2,1" /><text x="2" y="62" fill="#ef4444" fontSize="4">S2</text>
+                      <line x1="10" y1="70" x2="190" y2="70" stroke="#dc2626" strokeWidth="0.5" strokeDasharray="2,1" /><text x="2" y="72" fill="#dc2626" fontSize="4">S3</text>
+                      <polyline points="15,45 35,42 55,38 75,35 95,30 115,36 135,42 155,48 175,52 190,45" fill="none" stroke="#94a3b8" strokeWidth="1" opacity="0.5" />
+                    </svg>
+                  </div>
+
                 </div>
               </div>
 
@@ -38239,23 +38557,141 @@ INSTRUCTIONS:
                     diagram: (
                       <svg viewBox="0 0 500 200" className="w-full h-full">
                         <rect width="500" height="200" fill="#0f172a" rx="4" />
-                        {/* Candles showing gap formation */}
                         <rect x="80" y="110" width="16" height="40" fill="rgba(34,197,94,0.5)" rx="1" />
                         <line x1="88" y1="100" x2="88" y2="155" stroke="rgba(34,197,94,0.4)" strokeWidth="1" />
                         <rect x="112" y="55" width="16" height="45" fill="rgba(34,197,94,0.5)" rx="1" />
                         <line x1="120" y1="42" x2="120" y2="105" stroke="rgba(34,197,94,0.4)" strokeWidth="1" />
                         <rect x="144" y="38" width="16" height="35" fill="rgba(34,197,94,0.5)" rx="1" />
                         <line x1="152" y1="28" x2="152" y2="78" stroke="rgba(34,197,94,0.4)" strokeWidth="1" />
-                        {/* Bullish FVG zone */}
                         <rect x="108" y="78" width="130" height="22" fill="rgba(59,130,246,0.12)" stroke="rgba(59,130,246,0.4)" strokeWidth="1.5" strokeDasharray="4,2" rx="2" />
                         <text x="140" y="92" fill="#3b82f6" fontSize="10" fontWeight="bold">FVG+ (Bullish Gap)</text>
                         <text x="115" y="118" fill="#3b82f6" fontSize="8" opacity="0.7">Gap between candle 1 high and candle 3 low</text>
-                        {/* Price returning to fill */}
                         <polyline points="165,42 200,50 230,62 260,78 280,85 300,82 330,72 360,58" fill="none" stroke="#94a3b8" strokeWidth="1.5" opacity="0.5" />
                         <text x="260" y="108" fill="#fbbf24" fontSize="9" fontWeight="bold">Price fills the gap</text>
-                        {/* Bearish FVG */}
                         <rect x="340" y="92" width="100" height="18" fill="rgba(249,115,22,0.12)" stroke="rgba(249,115,22,0.4)" strokeWidth="1.5" strokeDasharray="4,2" rx="2" />
                         <text x="350" y="104" fill="#f97316" fontSize="10" fontWeight="bold">FVG− (Bearish)</text>
+                      </svg>
+                    )
+                  },
+                  williamsr: {
+                    name: 'Williams %R',
+                    icon: '%', color: '#818cf8', category: 'Advanced / Smart Money',
+                    description: 'Williams %R is a momentum oscillator that ranges from 0 to -100, developed by Larry Williams. It measures the closing price relative to the high-low range over a period. Similar to Stochastic but inverted, making it quick to identify overbought and oversold conditions.',
+                    formula: '%R = ((Highest High - Close) / (Highest High - Lowest Low)) × -100',
+                    parameters: [
+                      { name: 'Period', default: '14', desc: 'Lookback window for highest high and lowest low' }
+                    ],
+                    signals: [
+                      { type: 'Oversold (< -80)', text: 'Price near the bottom of its recent range — potential buy zone if trend confirms' },
+                      { type: 'Overbought (> -20)', text: 'Price near the top of its recent range — potential sell zone or time to tighten stops' },
+                      { type: 'Midline Cross', text: 'Crossing -50 from below signals bullish momentum; from above signals bearish momentum' },
+                      { type: 'Divergence', text: 'Price making new highs while %R fails to = bearish divergence (strong reversal signal)' }
+                    ],
+                    bestWith: ['RSI', 'Bollinger Bands', 'MACD'],
+                    diagram: (
+                      <svg viewBox="0 0 500 200" className="w-full h-full">
+                        <rect width="500" height="200" fill="#0f172a" rx="4" />
+                        <rect x="30" y="20" width="440" height="160" fill="rgba(129,140,248,0.03)" stroke="rgba(129,140,248,0.15)" rx="2" />
+                        <line x1="30" y1="52" x2="470" y2="52" stroke="rgba(239,68,68,0.4)" strokeWidth="1" strokeDasharray="4,3" />
+                        <text x="35" y="48" fill="#ef4444" fontSize="9">-20 (Overbought)</text>
+                        <line x1="30" y1="100" x2="470" y2="100" stroke="rgba(148,163,184,0.2)" strokeWidth="0.5" strokeDasharray="2,2" />
+                        <text x="35" y="96" fill="#94a3b8" fontSize="8">-50</text>
+                        <line x1="30" y1="148" x2="470" y2="148" stroke="rgba(16,185,129,0.4)" strokeWidth="1" strokeDasharray="4,3" />
+                        <text x="35" y="164" fill="#10b981" fontSize="9">-80 (Oversold)</text>
+                        <polyline points="50,100 80,90 110,70 140,48 170,40 200,55 230,85 260,110 290,140 320,155 350,148 380,120 410,90 440,75 460,80" fill="none" stroke="#818cf8" strokeWidth="2" />
+                        <circle cx="170" cy="40" r="5" fill="none" stroke="#ef4444" strokeWidth="1.5" /><text x="180" y="35" fill="#ef4444" fontSize="8">Sell Zone</text>
+                        <circle cx="320" cy="155" r="5" fill="none" stroke="#10b981" strokeWidth="1.5" /><text x="330" y="165" fill="#10b981" fontSize="8">Buy Zone</text>
+                      </svg>
+                    )
+                  },
+                  adx: {
+                    name: 'ADX (Average Directional Index)',
+                    icon: '↕', color: '#f59e0b', category: 'Advanced / Smart Money',
+                    description: 'The ADX measures the strength of a trend, not its direction. Created by J. Welles Wilder, it includes +DI (bullish pressure) and -DI (bearish pressure) lines, plus the ADX line itself which shows how strong the overall trend is.',
+                    formula: 'ADX = EMA(14, |+DI - -DI| / (+DI + -DI) × 100) | +DI = Smoothed(+DM) / ATR × 100',
+                    parameters: [
+                      { name: 'Period', default: '14', desc: 'Smoothing period for DI and ADX calculation' }
+                    ],
+                    signals: [
+                      { type: 'ADX < 20', text: 'Weak or no trend — market is range-bound. Use oscillator strategies (RSI, Stochastic)' },
+                      { type: 'ADX 20-40', text: 'Developing trend — consider trend-following strategies with confirmation' },
+                      { type: 'ADX > 40', text: 'Strong trend in play — ride the trend, use pullbacks for entries' },
+                      { type: '+DI/-DI Cross', text: '+DI crossing above -DI = bullish signal; below = bearish signal' }
+                    ],
+                    bestWith: ['Supertrend', 'Parabolic SAR', 'EMA'],
+                    diagram: (
+                      <svg viewBox="0 0 500 200" className="w-full h-full">
+                        <rect width="500" height="200" fill="#0f172a" rx="4" />
+                        <line x1="30" y1="120" x2="470" y2="120" stroke="rgba(245,158,11,0.3)" strokeWidth="1" strokeDasharray="4,3" />
+                        <text x="35" y="135" fill="#f59e0b" fontSize="8">ADX = 20 (Trend threshold)</text>
+                        <polyline points="50,160 90,150 130,130 170,110 210,80 250,55 290,40 330,50 370,70 410,90 450,100" fill="none" stroke="#f59e0b" strokeWidth="2.5" />
+                        <text x="260" y="32" fill="#f59e0b" fontSize="10" fontWeight="bold">ADX Line (Strength)</text>
+                        <polyline points="50,100 90,90 130,80 170,60 210,70 250,80 290,95 330,105 370,110 410,115 450,108" fill="none" stroke="#34d399" strokeWidth="1.5" opacity="0.7" />
+                        <text x="100" y="55" fill="#34d399" fontSize="9">+DI (Bullish)</text>
+                        <polyline points="50,120 90,125 130,115 170,130 210,120 250,105 290,90 330,85 370,80 410,85 450,95" fill="none" stroke="#ef4444" strokeWidth="1.5" opacity="0.7" />
+                        <text x="340" y="75" fill="#ef4444" fontSize="9">-DI (Bearish)</text>
+                        <rect x="200" y="145" width="100" height="20" fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.3)" rx="3" />
+                        <text x="215" y="159" fill="#f59e0b" fontSize="8">Strong Trend</text>
+                      </svg>
+                    )
+                  },
+                  parabolicsar: {
+                    name: 'Parabolic SAR (Stop And Reverse)',
+                    icon: '•', color: '#84cc16', category: 'Advanced / Smart Money',
+                    description: 'Parabolic SAR places trailing dots above or below price to signal trend direction and provide dynamic stop-loss levels. When dots flip from below to above (or vice versa), it signals a potential trend reversal.',
+                    formula: 'SAR(n+1) = SAR(n) + AF × (EP - SAR(n)) | AF starts 0.02, increments by 0.02 to max 0.20',
+                    parameters: [
+                      { name: 'Step (AF)', default: '0.02', desc: 'Acceleration factor increment' },
+                      { name: 'Max AF', default: '0.20', desc: 'Maximum acceleration factor' }
+                    ],
+                    signals: [
+                      { type: 'Dots Below', text: 'Green dots below candles = active uptrend. Use dots as trailing stop-loss' },
+                      { type: 'Dots Above', text: 'Red dots above candles = active downtrend. Use dots as trailing stop for shorts' },
+                      { type: 'Dot Flip', text: 'Dots switching sides = trend reversal signal. Enter in new direction' },
+                      { type: 'Acceleration', text: 'Dots moving closer to price = trend accelerating, tighten stops' }
+                    ],
+                    bestWith: ['ADX', 'MACD', 'Volume'],
+                    diagram: (
+                      <svg viewBox="0 0 500 200" className="w-full h-full">
+                        <rect width="500" height="200" fill="#0f172a" rx="4" />
+                        <polyline points="40,140 80,130 120,115 160,100 200,85 240,75 280,90 320,110 360,125 400,130 440,120" fill="none" stroke="#94a3b8" strokeWidth="1.5" opacity="0.5" />
+                        {[40,80,120,160,200,240].map(x => <circle key={`up-${x}`} cx={x} cy={[148,138,125,112,98,85][([40,80,120,160,200,240].indexOf(x))]} r="4" fill="#10b981" />)}
+                        {[280,320,360,400,440].map(x => <circle key={`dn-${x}`} cx={x} cy={[78,95,112,118,108][([280,320,360,400,440].indexOf(x))]} r="4" fill="#ef4444" />)}
+                        <line x1="260" y1="25" x2="260" y2="175" stroke="rgba(251,191,36,0.4)" strokeWidth="1" strokeDasharray="4,3" />
+                        <text x="250" y="20" fill="#fbbf24" fontSize="9" fontWeight="bold" textAnchor="middle">Reversal</text>
+                        <text x="140" y="170" fill="#10b981" fontSize="10">Uptrend (dots below)</text>
+                        <text x="340" y="170" fill="#ef4444" fontSize="10">Downtrend (dots above)</text>
+                      </svg>
+                    )
+                  },
+                  pivotpoints: {
+                    name: 'Pivot Points',
+                    icon: '═', color: '#a78bfa', category: 'Advanced / Smart Money',
+                    description: 'Classic floor trader pivot points calculate key support (S1-S3) and resistance (R1-R3) levels from the previous period\'s high, low, and close. These levels are widely watched by institutional traders and often act as magnets for price action.',
+                    formula: 'PP = (H + L + C) / 3 | R1 = 2×PP - L | S1 = 2×PP - H | R2 = PP + (H-L) | S2 = PP - (H-L)',
+                    parameters: [
+                      { name: 'Source', default: 'Previous session', desc: 'Uses last 50 bars for H/L/C calculation' }
+                    ],
+                    signals: [
+                      { type: 'Above PP', text: 'Price above pivot point = bullish bias. Look for longs on pullbacks to PP' },
+                      { type: 'Below PP', text: 'Price below pivot point = bearish bias. Look for shorts on rallies to PP' },
+                      { type: 'R1/R2/R3', text: 'Resistance levels where price may stall or reverse — take profits or sell here' },
+                      { type: 'S1/S2/S3', text: 'Support levels where price may bounce — look for buying opportunities here' }
+                    ],
+                    bestWith: ['Volume', 'RSI', 'Fibonacci'],
+                    diagram: (
+                      <svg viewBox="0 0 500 200" className="w-full h-full">
+                        <rect width="500" height="200" fill="#0f172a" rx="4" />
+                        <line x1="30" y1="25" x2="470" y2="25" stroke="#059669" strokeWidth="1" strokeDasharray="4,2" /><text x="40" y="20" fill="#059669" fontSize="9">R3</text>
+                        <line x1="30" y1="50" x2="470" y2="50" stroke="#10b981" strokeWidth="1" strokeDasharray="4,2" /><text x="40" y="45" fill="#10b981" fontSize="9">R2</text>
+                        <line x1="30" y1="75" x2="470" y2="75" stroke="#34d399" strokeWidth="1" strokeDasharray="4,2" /><text x="40" y="70" fill="#34d399" fontSize="9">R1</text>
+                        <line x1="30" y1="100" x2="470" y2="100" stroke="#a78bfa" strokeWidth="2" /><text x="40" y="95" fill="#a78bfa" fontSize="10" fontWeight="bold">PP (Pivot)</text>
+                        <line x1="30" y1="125" x2="470" y2="125" stroke="#f87171" strokeWidth="1" strokeDasharray="4,2" /><text x="40" y="138" fill="#f87171" fontSize="9">S1</text>
+                        <line x1="30" y1="150" x2="470" y2="150" stroke="#ef4444" strokeWidth="1" strokeDasharray="4,2" /><text x="40" y="163" fill="#ef4444" fontSize="9">S2</text>
+                        <line x1="30" y1="175" x2="470" y2="175" stroke="#dc2626" strokeWidth="1" strokeDasharray="4,2" /><text x="40" y="188" fill="#dc2626" fontSize="9">S3</text>
+                        <polyline points="80,105 120,95 160,80 200,70 240,78 280,95 320,110 360,125 400,120 440,105" fill="none" stroke="#94a3b8" strokeWidth="2" opacity="0.6" />
+                        <circle cx="200" cy="70" r="4" fill="none" stroke="#34d399" strokeWidth="1.5" /><text x="210" y="65" fill="#34d399" fontSize="8">Bounce at R1</text>
+                        <circle cx="360" cy="125" r="4" fill="none" stroke="#f87171" strokeWidth="1.5" /><text x="370" y="133" fill="#f87171" fontSize="8">Bounce at S1</text>
                       </svg>
                     )
                   }
@@ -41721,12 +42157,12 @@ INSTRUCTIONS:
         const cs = colorStyles[guide.color] || colorStyles.violet;
         return (
           <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => dismissFeatureGuide(showFeatureGuide)}>
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-xl font-bold" style={{ color: cs.title }}>{guide.title}</h3>
                 <button onClick={() => dismissFeatureGuide(showFeatureGuide)} className="text-slate-500 hover:text-white transition-colors text-sm">✕</button>
               </div>
-              <div className="space-y-3 mb-5">
+              <div className="space-y-3 mb-5 max-h-[50vh] overflow-y-auto pr-1">
                 {guide.steps.map((step, i) => (
                   <div key={i} className="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3">
                     <span className="text-lg flex-shrink-0">{step.icon}</span>
