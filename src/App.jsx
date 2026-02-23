@@ -1538,6 +1538,19 @@ function App() {
   const [pickTimeframe, setPickTimeframe] = useState("24-48h"); // Holding period timeframe
   const [pickVolatility, setPickVolatility] = useState("medium"); // Volatility preference: low, lowmed, medium, medhigh, high, any
 
+  // Auto-refresh daily pick when volatility or timeframe changes
+  const pickSettingsInitRef = useRef(true);
+  useEffect(() => {
+    // Skip the initial mount render
+    if (pickSettingsInitRef.current) {
+      pickSettingsInitRef.current = false;
+      return;
+    }
+    // Clear stale pick so UI shows the "generate" state, then auto-fetch with new settings
+    setDailyPick(null);
+    setDailyPickError(null);
+  }, [pickTimeframe, pickVolatility]);
+
   // Backtest Engine v4.0
   const [backtestTicker, setBacktestTicker] = useState('AAPL');
   const [backtestRange, setBacktestRange] = useState('3mo');
