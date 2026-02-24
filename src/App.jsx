@@ -11442,10 +11442,11 @@ OUTPUT JSON:
           const volConfig = volatilityThresholds[pickVolatility] || volatilityThresholds.medium;
 
           // VOLATILITY-FIRST SCORING - Hard filter by volatility range, then rank by technical quality
-          const idealAtrPct = (volConfig.min + volConfig.max) / 2; // Sweet spot for chosen volatility
-          // Expanded range: allow stocks slightly outside the range (30% buffer) so we have candidates
-          const expandedMin = Math.max(0, volConfig.min - (volConfig.max - volConfig.min) * 0.3);
-          const expandedMax = volConfig.max + (volConfig.max - volConfig.min) * 0.3;
+          const idealAtrPct = Math.min((volConfig.min + volConfig.max) / 2, volConfig.min + 3); // Sweet spot, capped for wide ranges
+          // Expanded range: small buffer (capped at 1.5% ATR) so we don't match wildly different volatility
+          const buffer = Math.min((volConfig.max - volConfig.min) * 0.3, 1.5);
+          const expandedMin = Math.max(0, volConfig.min - buffer);
+          const expandedMax = volConfig.max + buffer;
 
           const scoredAnalyses = stockAnalyses.map(s => {
             const atrPct = parseFloat(s.atrPercent) || (Math.abs(s.changePercent || 0) * 0.5);
