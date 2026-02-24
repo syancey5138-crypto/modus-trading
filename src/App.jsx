@@ -1660,7 +1660,7 @@ function App() {
         { icon: '2️⃣', text: 'Set the condition (above/below/equals) and target value for each rule' },
         { icon: '3️⃣', text: 'Toggle rules on/off with the checkbox — only enabled rules are applied during the scan' },
         { icon: '4️⃣', text: 'Click "+ Add Rule" for more conditions (up to 10). All rules use AND logic — stocks must match every one' },
-        { icon: '🔍', text: 'Click "Scan Stocks" to run the strategy against 200+ stocks and see ranked results' },
+        { icon: '🔍', text: 'Click "Scan Stocks" to run the strategy against 500+ stocks and see ranked results' },
       ],
       tip: 'Start simple with 1-2 rules (e.g., RSI below 30 + Uptrend), then add more rules to narrow down results.'
     },
@@ -1730,7 +1730,7 @@ function App() {
       steps: [
         { icon: '1️⃣', text: 'Set your volatility preference: Low (stable) to High (aggressive) or Any' },
         { icon: '2️⃣', text: 'Choose your holding period timeframe: hours, days, or weeks' },
-        { icon: '3️⃣', text: 'Click "Find Today\'s Pick" — MODUS scans 200+ stocks for the best match' },
+        { icon: '3️⃣', text: 'Click "Find Today\'s Pick" — MODUS scans 500+ stocks for the best match' },
         { icon: '4️⃣', text: 'Review the top pick with entry, stop loss, and target prices tailored to your settings' },
         { icon: '🎯', text: 'Check "Other Candidates" below for alternative picks ranked by fit score' },
       ],
@@ -1806,7 +1806,7 @@ function App() {
       steps: [
         { icon: '1️⃣', text: 'Choose a scan type: momentum, oversold, breakout, or custom filters' },
         { icon: '2️⃣', text: 'Set your filter criteria: price range, volume, market cap, sector' },
-        { icon: '3️⃣', text: 'Click "Scan" to search across 200+ stocks matching your criteria' },
+        { icon: '3️⃣', text: 'Click "Scan" to search across 500+ stocks matching your criteria' },
         { icon: '4️⃣', text: 'Results show key metrics: RSI, trend, volume spike, ATR%, and AI score' },
         { icon: '🔍', text: 'Click any result to jump to its Live Ticker page for deeper analysis' },
       ],
@@ -1884,7 +1884,7 @@ function App() {
         { tab: 'backtestengine', name: 'Backtest Engine', icon: '🔬', why: 'Test if your strategy actually works on real historical data before risking money' },
         { tab: 'compare', name: 'Stock Comparison', icon: '⚖️', why: 'Compare stocks side-by-side to find the strongest candidates' },
         { tab: 'journal', name: 'Trade Journal', icon: '📓', why: 'Track performance and identify patterns in your trading' },
-        { tab: 'screener', name: 'Market Scanner', icon: '🔍', why: 'Scan 200+ stocks to find setups matching your criteria' },
+        { tab: 'screener', name: 'Market Scanner', icon: '🔍', why: 'Scan 500+ stocks to find setups matching your criteria' },
       ]
     },
     advanced: {
@@ -11394,7 +11394,7 @@ OUTPUT JSON:
       
       const tfConfig = timeframeConfig[pickTimeframe] || timeframeConfig["24-48h"];
 
-      // STEP 1: COMPREHENSIVE PARALLEL SCREENING using all 200+ stocks
+      // STEP 1: COMPREHENSIVE PARALLEL SCREENING using all 500+ stocks
       console.log("[Daily Pick] 🚀 Comprehensive parallel screening starting...");
       const startTime = Date.now();
       setDailyPickProgress({ phase: 'starting', current: 0, total: PRIORITY_STOCKS.length });
@@ -11441,69 +11441,76 @@ OUTPUT JSON:
         } else {
           const volConfig = volatilityThresholds[pickVolatility] || volatilityThresholds.medium;
 
-          // VOLATILITY FIT SCORING - Rank stocks by how well they match user's volatility + timeframe
+          // VOLATILITY-FIRST SCORING - Hard filter by volatility range, then rank by technical quality
           const idealAtrPct = (volConfig.min + volConfig.max) / 2; // Sweet spot for chosen volatility
+          // Expanded range: allow stocks slightly outside the range (30% buffer) so we have candidates
+          const expandedMin = Math.max(0, volConfig.min - (volConfig.max - volConfig.min) * 0.3);
+          const expandedMax = volConfig.max + (volConfig.max - volConfig.min) * 0.3;
 
           const scoredAnalyses = stockAnalyses.map(s => {
             const atrPct = parseFloat(s.atrPercent) || (Math.abs(s.changePercent || 0) * 0.5);
             let volFitScore = 0;
+            let inVolRange = false; // exact match
+            let inExpandedRange = false; // close enough
 
             if (pickVolatility === 'any') {
               // No volatility preference - just use technical score
               volFitScore = 100;
+              inVolRange = true;
+              inExpandedRange = true;
             } else {
-              // Calculate how well this stock's volatility matches the preferred range
+              // Check if stock falls within the volatility range
               if (atrPct >= volConfig.min && atrPct <= volConfig.max) {
+                inVolRange = true;
+                inExpandedRange = true;
                 // Within range: score based on proximity to ideal center
                 const distFromIdeal = Math.abs(atrPct - idealAtrPct);
                 const rangeHalf = (volConfig.max - volConfig.min) / 2;
-                volFitScore = rangeHalf > 0 ? Math.round(100 - (distFromIdeal / rangeHalf) * 30) : 100;
+                volFitScore = rangeHalf > 0 ? Math.round(100 - (distFromIdeal / rangeHalf) * 20) : 100;
+              } else if (atrPct >= expandedMin && atrPct <= expandedMax) {
+                inExpandedRange = true;
+                // Close to range: moderate score
+                const distFromRange = atrPct < volConfig.min ? volConfig.min - atrPct : atrPct - volConfig.max;
+                volFitScore = Math.max(30, Math.round(70 - distFromRange * 20));
               } else {
-                // Outside range: penalize based on distance
-                const distFromRange = atrPct < volConfig.min
-                  ? volConfig.min - atrPct
-                  : atrPct - volConfig.max;
-                volFitScore = Math.max(0, Math.round(50 - distFromRange * 15));
+                // Way outside range: very low score
+                const distFromRange = atrPct < volConfig.min ? volConfig.min - atrPct : atrPct - volConfig.max;
+                volFitScore = Math.max(0, Math.round(25 - distFromRange * 10));
               }
             }
 
             // Timeframe fit: certain volatility levels work better with certain timeframes
             let timeframeFit = 100;
             const tfCat = tfConfig.category; // 'Short', 'Medium', 'Long'
-            if (tfCat === 'Short' && atrPct > 4.0) timeframeFit = 70; // Too volatile for short holds
-            if (tfCat === 'Short' && atrPct < 0.5) timeframeFit = 60; // Too stable for quick trades
-            if (tfCat === 'Long' && atrPct > 5.0) timeframeFit = 65; // Too volatile for position trades
-            if (tfCat === 'Long' && atrPct >= 1.0 && atrPct <= 3.0) timeframeFit = 110; // Sweet spot for swings
-            if (tfCat === 'Medium' && atrPct >= 1.5 && atrPct <= 4.0) timeframeFit = 110; // Sweet spot for medium
+            if (tfCat === 'Short' && atrPct > 4.0) timeframeFit = 70;
+            if (tfCat === 'Short' && atrPct < 0.5) timeframeFit = 60;
+            if (tfCat === 'Long' && atrPct > 5.0) timeframeFit = 65;
+            if (tfCat === 'Long' && atrPct >= 1.0 && atrPct <= 3.0) timeframeFit = 110;
+            if (tfCat === 'Medium' && atrPct >= 1.5 && atrPct <= 4.0) timeframeFit = 110;
 
-            // PRICE VELOCITY SCORING — for high-vol users, prioritize stocks moving FAST right now
-            let velocityFit = 100; // Default: neutral
+            // PRICE VELOCITY SCORING
+            let velocityFit = 100;
             const moveScore = s.movementScore || 0;
             if (pickVolatility === 'high') {
-              // High-vol users want fast movers: heavily reward high movement score
-              velocityFit = Math.min(130, 50 + moveScore * 0.8); // Score 0-50 = penalty, 50+ = bonus
-              if (moveScore < 20) velocityFit = 40; // Stock barely moving = poor fit for high-vol
+              velocityFit = Math.min(130, 50 + moveScore * 0.8);
+              if (moveScore < 20) velocityFit = 40;
             } else if (pickVolatility === 'medhigh') {
               velocityFit = Math.min(120, 60 + moveScore * 0.6);
               if (moveScore < 10) velocityFit = 60;
             } else if (pickVolatility === 'low' || pickVolatility === 'lowmed') {
-              // Low-vol users want stability: penalize stocks moving too fast
-              if (moveScore > 60) velocityFit = 60; // Too jumpy for conservative traders
+              if (moveScore > 60) velocityFit = 60;
               else velocityFit = Math.min(110, 100 + (50 - moveScore) * 0.2);
             }
 
-            // Combined score: weights shift based on volatility preference
+            // Combined score: within the filtered set, rank by technical quality + timeframe fit
             const technicalScore = s.normalizedScore || 50;
             let combinedScore;
             if (pickVolatility === 'high' || pickVolatility === 'medhigh') {
-              // High-vol: velocity matters more (25%), vol fit still important (30%)
-              combinedScore = (volFitScore * 0.30) + (technicalScore * 0.20) + (timeframeFit * 0.25) + (velocityFit * 0.25);
+              combinedScore = (volFitScore * 0.30) + (technicalScore * 0.25) + (timeframeFit * 0.20) + (velocityFit * 0.25);
             } else if (pickVolatility === 'low' || pickVolatility === 'lowmed') {
-              // Low-vol: stability matters, velocity is a check (10%)
-              combinedScore = (volFitScore * 0.40) + (technicalScore * 0.30) + (timeframeFit * 0.20) + (velocityFit * 0.10);
+              combinedScore = (volFitScore * 0.35) + (technicalScore * 0.35) + (timeframeFit * 0.20) + (velocityFit * 0.10);
             } else {
-              // Medium/any: balanced
-              combinedScore = (volFitScore * 0.35) + (technicalScore * 0.25) + (timeframeFit * 0.25) + (velocityFit * 0.15);
+              combinedScore = (volFitScore * 0.30) + (technicalScore * 0.30) + (timeframeFit * 0.25) + (velocityFit * 0.15);
             }
 
             return {
@@ -11513,15 +11520,31 @@ OUTPUT JSON:
               velocityFit: Math.round(velocityFit),
               combinedScore: Math.round(combinedScore),
               atrPctCalc: atrPct,
+              inVolRange,
+              inExpandedRange,
               volMatchLabel: volFitScore >= 85 ? 'Excellent Match' : volFitScore >= 65 ? 'Good Match' : volFitScore >= 40 ? 'Moderate Match' : 'Weak Match',
               volMatchColor: volFitScore >= 85 ? 'emerald' : volFitScore >= 65 ? 'cyan' : volFitScore >= 40 ? 'amber' : 'red'
             };
           });
 
-          // Sort by combined score (best volatility+technical+timeframe fit first)
-          scoredAnalyses.sort((a, b) => b.combinedScore - a.combinedScore);
+          // HARD FILTER: Only pick stocks that match the user's volatility preference
+          // Step 1: Try exact volatility range matches
+          let filteredAnalyses = scoredAnalyses.filter(s => s.inVolRange);
+          if (filteredAnalyses.length >= 3) {
+            console.log(`[Daily Pick] ✓ ${filteredAnalyses.length} stocks in exact volatility range (${volConfig.label})`);
+          } else {
+            // Step 2: Expand to stocks close to the range
+            filteredAnalyses = scoredAnalyses.filter(s => s.inExpandedRange);
+            console.log(`[Daily Pick] ~ ${filteredAnalyses.length} stocks in expanded volatility range (${volConfig.label})`);
+          }
+          // Step 3: Only if nothing matches at all, use everything (rare with 500+ stocks)
+          if (filteredAnalyses.length === 0) {
+            filteredAnalyses = scoredAnalyses;
+            console.log(`[Daily Pick] ⚠️ No stocks matched ${volConfig.label} volatility — using best available`);
+          }
 
-          let filteredAnalyses = scoredAnalyses;
+          // Sort filtered set by combined score
+          filteredAnalyses.sort((a, b) => b.combinedScore - a.combinedScore);
 
           // Find best pick
           const bestPick = filteredAnalyses[0];
@@ -11622,7 +11645,7 @@ OUTPUT JSON:
             priceVelocity: bestPick.priceVelocity || 0,
             avgIntradayRange: bestPick.avgIntradayRange || 0,
             acceleration: bestPick.acceleration || 0,
-            warning: bestPick.volFitScore < 50 ? `This stock's volatility doesn't perfectly match your ${volConfig.label} preference, but it has the strongest technical setup available.` : null
+            warning: (!bestPick.inVolRange && !bestPick.inExpandedRange && pickVolatility !== 'any') ? `No stocks matched your ${volConfig.label} volatility preference. Showing best available pick.` : null
           },
           catalystData: {
             catalysts: catalystData.catalysts || [],
@@ -14206,7 +14229,7 @@ INSTRUCTIONS:
     const startTime = Date.now();
 
     try {
-      // Scan ALL 200+ stocks for comprehensive analysis
+      // Scan ALL 500+ stocks for comprehensive analysis
       const results = await processStocksInParallel(
         PRIORITY_STOCKS,
         analyzeStockFast,
@@ -15249,7 +15272,7 @@ INSTRUCTIONS:
     try {
       setScannerProgress({ phase: 'starting', current: 0, total: PRIORITY_STOCKS.length });
 
-      // Use parallel batch processing with PRIORITY_STOCKS (220+ stocks across all sectors)
+      // Use parallel batch processing with PRIORITY_STOCKS (500+ stocks across all sectors)
       const stocksData = await processStocksInParallel(
         PRIORITY_STOCKS,
         analyzeStockForScanner,
@@ -17330,7 +17353,7 @@ INSTRUCTIONS:
                 <div className="space-y-2 text-left mb-6">
                   {[
                     { icon: '🧠', text: 'AI-powered chart analysis with trade setups' },
-                    { icon: '📊', text: 'Real-time data for 220+ stocks across 15 sectors' },
+                    { icon: '📊', text: 'Real-time data for 500+ stocks across 15 sectors' },
                     { icon: '🔔', text: 'Price alerts, watchlists, and a full trading journal' },
                     { icon: '📱', text: 'Custom dashboard you can personalize to your style' },
                   ].map((tip, i) => (
@@ -29652,7 +29675,7 @@ INSTRUCTIONS:
                     />
                   </div>
                   <p className="text-xs text-slate-500 mt-2">
-                    ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with fresh live data
+                    ⚡ Parallel processing: analyzing 10 stocks per batch across 500+ symbols with fresh live data
                   </p>
                 </div>
               )}
@@ -34385,7 +34408,7 @@ INSTRUCTIONS:
                 <div className="text-sm text-emerald-200">
                   <p className="font-semibold mb-1">📊 Real Technical Analysis (Same as Daily Pick):</p>
                   <p className="text-emerald-300">
-                    Scans <strong>220+ stocks across 15 sectors</strong> using parallel batch processing. Uses <strong>real-time indicators</strong>: RSI (14), MACD histogram, SMA20/SMA50, trend detection, and volume analysis. Always uses fresh live data.
+                    Scans <strong>500+ stocks across 15 sectors</strong> using parallel batch processing. Uses <strong>real-time indicators</strong>: RSI (14), MACD histogram, SMA20/SMA50, trend detection, and volume analysis. Always uses fresh live data.
                     Only shows stocks with clear <strong>BUY</strong> or <strong>SELL</strong> signals - HOLD recommendations are filtered out.
                   </p>
                 </div>
@@ -34415,7 +34438,7 @@ INSTRUCTIONS:
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with fresh live data
+                  ⚡ Parallel processing: analyzing 10 stocks per batch across 500+ symbols with fresh live data
                 </p>
               </div>
             )}
@@ -34437,7 +34460,7 @@ INSTRUCTIONS:
                 <Sparkles className="w-16 h-16 text-slate-700 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No Trade Ideas Yet</h3>
                 <p className="text-slate-400 mb-6">
-                  Click "Find Trading Opportunities" to scan 200+ stocks with real technical analysis. Only stocks with clear BUY or SELL signals are shown - no HOLD recommendations!
+                  Click "Find Trading Opportunities" to scan 500+ stocks with real technical analysis. Only stocks with clear BUY or SELL signals are shown - no HOLD recommendations!
                 </p>
               </div>
             ) : (
@@ -34876,12 +34899,12 @@ INSTRUCTIONS:
                 {loadingScanner ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Scanning 220+ Stocks...
+                    Scanning 500+ Stocks...
                   </>
                 ) : (
                   <>
                     <Search className="w-4 h-4" />
-                    Run Full Market Scan (220+ Stocks)
+                    Run Full Market Scan (500+ Stocks)
                   </>
                 )}
               </button>
@@ -35918,7 +35941,7 @@ INSTRUCTIONS:
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  ⚡ Parallel processing: analyzing 10 stocks per batch across 220+ symbols with fresh live data
+                  ⚡ Parallel processing: analyzing 10 stocks per batch across 500+ symbols with fresh live data
                 </p>
               </div>
             )}
@@ -36236,7 +36259,7 @@ INSTRUCTIONS:
               </div>
               <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
                 <p className="text-sm text-orange-200">
-                  <strong>⚡ Fast Scanner:</strong> Uses parallel processing to scan <strong>220+ stocks across 15 sectors</strong> (Tech, Financials, Healthcare, Energy, Consumer, etc.). Shows RSI, MACD, trend direction, and buy/sell recommendations for each stock. Always fetches fresh live data. Click "Refresh Scanner" to get latest market movers.
+                  <strong>⚡ Fast Scanner:</strong> Uses parallel processing to scan <strong>500+ stocks across 15 sectors</strong> (Tech, Financials, Healthcare, Energy, Consumer, etc.). Shows RSI, MACD, trend direction, and buy/sell recommendations for each stock. Always fetches fresh live data. Click "Refresh Scanner" to get latest market movers.
                 </p>
               </div>
             </div>
@@ -39152,7 +39175,7 @@ INSTRUCTIONS:
 
                       <div className="px-6 py-5 hover:bg-slate-800/20 transition-colors">
                         <h3 className="font-semibold text-white mb-2 text-lg">Stock Screener</h3>
-                        <p className="text-sm text-slate-400 leading-relaxed mb-3">A powerful scanner that analyzes 220+ stocks across 15 sectors to find trade opportunities matching specific criteria. Comes with 8 built-in preset strategies: RSI Oversold (stocks below RSI 30), RSI Overbought (above RSI 70), Volume Breakout (unusual volume spikes), Bullish Momentum (strong uptrend with multiple confirmations), Bearish Momentum, Golden Cross (SMA20 crossing above SMA50), Death Cross, and High Volatility plays.</p>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-3">A powerful scanner that analyzes 500+ stocks across 15 sectors to find trade opportunities matching specific criteria. Comes with 8 built-in preset strategies: RSI Oversold (stocks below RSI 30), RSI Overbought (above RSI 70), Volume Breakout (unusual volume spikes), Bullish Momentum (strong uptrend with multiple confirmations), Bearish Momentum, Golden Cross (SMA20 crossing above SMA50), Death Cross, and High Volatility plays.</p>
                         <p className="text-sm text-slate-400 leading-relaxed">You can also create custom filters by adjusting price range, volume minimum, RSI range, and volatility criteria. Stocks are ranked by a composite technical score and the results show key metrics for each: current price, RSI, change %, ATR, and the overall technical recommendation. Scanning uses parallel batch processing for speed — it can analyze all 220 stocks in under 30 seconds.</p>
                       </div>
 
@@ -42254,7 +42277,7 @@ INSTRUCTIONS:
             {[
               { title: 'Welcome to MODUS v4.0', icon: '🚀', desc: 'Your AI-powered trading analysis platform. Let us show you around.' },
               { title: 'Quick Analysis', icon: '⚡', desc: 'Type any stock ticker to get instant AI-powered technical analysis with 17-factor scoring, inter-market context, and confidence ratings.' },
-              { title: 'Daily Pick', icon: '⭐', desc: 'Set your volatility preference and timeframe. MODUS scans 200+ stocks and recommends the best-fitting trade based on your risk profile.' },
+              { title: 'Daily Pick', icon: '⭐', desc: 'Set your volatility preference and timeframe. MODUS scans 500+ stocks and recommends the best-fitting trade based on your risk profile.' },
               { title: 'New in v4.0', icon: '✨', desc: 'Backtest Engine, Market Heat Map, AI Strategy Builder, Stock Comparison, Portfolio Risk Dashboard, and Trade Replay — all new tools for serious traders.' },
               { title: 'You\'re Ready!', icon: '🎯', desc: 'Start by running a Quick Analysis on your favorite stock, or check the Daily Pick for today\'s top trade. Happy trading!' }
             ].filter((_, i) => i === onboardingStep).map((step, i) => (

@@ -324,7 +324,227 @@ export const COMPANY_NAMES = {
   'EXAS': 'Exact Sciences Corp.',
   'SRPT': 'Sarepta Therapeutics',
   'ALNY': 'Alnylam Pharmaceuticals',
-  'BMRN': 'BioMarin Pharmaceutical'
+  'BMRN': 'BioMarin Pharmaceutical',
+
+  // Additional Small/Mid-Cap Growth & High Volatility
+  'SMCI': 'Super Micro Computer',
+  'ARM': 'Arm Holdings plc',
+  'AI': 'C3.ai, Inc.',
+  'BBAI': 'BigBear.ai Holdings',
+  'SOUN': 'SoundHound AI, Inc.',
+  'IONQ': 'IonQ, Inc.',
+  'RGTI': 'Rigetti Computing',
+  'QUBT': 'Quantum Computing Inc.',
+  'CIFR': 'Cipher Mining Inc.',
+  'IREN': 'Iris Energy Limited',
+  'WULF': 'TeraWulf Inc.',
+  'APLD': 'Applied Digital Corp.',
+  'CORZ': 'Core Scientific, Inc.',
+  'VRT': 'Vertiv Holdings Co.',
+  'DELL': 'Dell Technologies Inc.',
+  'HPE': 'Hewlett Packard Enterprise',
+  'PSTG': 'Pure Storage, Inc.',
+  'NTAP': 'NetApp, Inc.',
+  'ANET': 'Arista Networks, Inc.',
+  'LITE': 'Lumentum Holdings Inc.',
+  'CIEN': 'Ciena Corporation',
+  'JNPR': 'Juniper Networks, Inc.',
+  'AKAM': 'Akamai Technologies',
+  'FFIV': 'F5, Inc.',
+  'FIVN': 'Five9, Inc.',
+  'LMND': 'Lemonade, Inc.',
+  'ROOT': 'Root, Inc.',
+  'OPEN': 'Opendoor Technologies',
+  'COUR': 'Coursera, Inc.',
+  'DUOL': 'Duolingo, Inc.',
+  'MNDY': 'Monday.com Ltd.',
+  'GTLB': 'GitLab Inc.',
+  'CFLT': 'Confluent, Inc.',
+  'BRZE': 'Braze, Inc.',
+  'IOT': 'Samsara Inc.',
+
+  // Additional Biotech & Pharma (volatile)
+  'SAVA': 'Cassava Sciences, Inc.',
+  'AXSM': 'Axsome Therapeutics',
+  'CRSP': 'CRISPR Therapeutics AG',
+  'EDIT': 'Editas Medicine, Inc.',
+  'NTLA': 'Intellia Therapeutics',
+  'BEAM': 'Beam Therapeutics Inc.',
+  'VERV': 'Verve Therapeutics Inc.',
+  'APLS': 'Apellis Pharmaceuticals',
+  'ARCT': 'Arcturus Therapeutics',
+  'PCVX': 'Vaxcyte, Inc.',
+  'HALO': 'Halozyme Therapeutics',
+  'RARE': 'Ultragenyx Pharmaceutical',
+  'CRNX': 'Crinetics Pharmaceuticals',
+  'MNKD': 'MannKind Corporation',
+  'RVMD': 'Revolution Medicines',
+  'CYTK': 'Cytokinetics, Inc.',
+  'NUVB': 'Nuvation Bio Inc.',
+  'IMVT': 'Immunovant, Inc.',
+  'LUNG': 'Pulmonx Corporation',
+  'PRTA': 'Prothena Corporation',
+  'RLAY': 'Relay Therapeutics',
+  'XENE': 'Xenon Pharmaceuticals',
+  'TGTX': 'TG Therapeutics, Inc.',
+  'KRTX': 'Karuna Therapeutics',
+  'ACAD': 'ACADIA Pharmaceuticals',
+
+  // Additional Consumer & Retail
+  'DECK': 'Deckers Outdoor Corp.',
+  'ON': 'ON Semiconductor Corp.',
+  'BROS': 'Dutch Bros Inc.',
+  'CELH': 'Celsius Holdings, Inc.',
+  'MNST': 'Monster Beverage Corp.',
+  'KDP': 'Keurig Dr Pepper Inc.',
+  'STZ': 'Constellation Brands',
+  'BF.B': 'Brown-Forman Corp.',
+  'TAP': 'Molson Coors Beverage',
+  'SAM': 'Boston Beer Company',
+  'FIZZ': 'National Beverage Corp.',
+  'CART': 'Maplebear Inc. (Instacart)',
+  'DRI': 'Darden Restaurants, Inc.',
+  'WINGSTOP': 'Wingstop Inc.',
+  'CASY': 'Caseys General Stores',
+  'ULTA': 'Ulta Beauty, Inc.',
+  'ELF': 'e.l.f. Beauty, Inc.',
+  'HNST': 'Honest Company, Inc.',
+  'HIMS': 'Hims & Hers Health',
+  'CHPT': 'ChargePoint Holdings',
+
+  // Additional Industrials & Defense
+  'AXON': 'Axon Enterprise, Inc.',
+  'TDG': 'TransDigm Group Inc.',
+  'HWM': 'Howmet Aerospace Inc.',
+  'LDOS': 'Leidos Holdings, Inc.',
+  'BAH': 'Booz Allen Hamilton',
+  'KTOS': 'Kratos Defense & Security',
+  'RKLB': 'Rocket Lab USA, Inc.',
+  'LUNR': 'Intuitive Machines, Inc.',
+  'RDW': 'Redwire Corporation',
+  'ASTS': 'AST SpaceMobile, Inc.',
+  'BWXT': 'BWX Technologies, Inc.',
+  'HII': 'Huntington Ingalls',
+  'LHX': 'L3Harris Technologies',
+  'ACHR': 'Archer Aviation, Inc.',
+  'JOBY': 'Joby Aviation, Inc.',
+  'LILM': 'Lilium N.V.',
+
+  // Additional Fintech & Insurance
+  'TOST': 'Toast, Inc.',
+  'BILL': 'BILL Holdings, Inc.',
+  'RELY': 'Remitly Global, Inc.',
+  'PSFE': 'Paysafe Limited',
+  'OLO': 'Olo Inc.',
+  'GLBE': 'Global-e Online Ltd.',
+  'PGNY': 'Progyny, Inc.',
+  'LMND': 'Lemonade, Inc.',
+  'HIG': 'Hartford Financial',
+  'ALL': 'Allstate Corporation',
+  'CINF': 'Cincinnati Financial',
+
+  // Additional REITs & Real Estate
+  'INVH': 'Invitation Homes Inc.',
+  'MAA': 'Mid-America Apartment',
+  'UDR': 'UDR, Inc.',
+  'CPT': 'Camden Property Trust',
+  'SUI': 'Sun Communities, Inc.',
+  'ELS': 'Equity LifeStyle Props',
+  'REXR': 'Rexford Industrial',
+  'STAG': 'STAG Industrial, Inc.',
+  'CUBE': 'CubeSmart',
+  'EXR': 'Extra Space Storage',
+
+  // Additional Telecom & Media
+  'GOOG': 'Alphabet Inc. (Class C)',
+  'PARA': 'Paramount Global',
+  'WBD': 'Warner Bros. Discovery',
+  'IMAX': 'IMAX Corporation',
+  'MSGS': 'MSG Sports Group',
+  'WWE': 'World Wrestling Ent.',
+  'EDR': 'Endeavor Group Holdings',
+  'SIRI': 'Sirius XM Holdings',
+
+  // Additional International ADRs
+  'TSM': 'Taiwan Semiconductor',
+  'ASML': 'ASML Holding N.V.',
+  'SAP': 'SAP SE',
+  'TM': 'Toyota Motor Corp.',
+  'SONY': 'Sony Group Corporation',
+  'BABA': 'Alibaba Group Holding',
+  'JD': 'JD.com, Inc.',
+  'PDD': 'PDD Holdings Inc.',
+  'BIDU': 'Baidu, Inc.',
+  'GRAB': 'Grab Holdings Limited',
+  'CPNG': 'Coupang, Inc.',
+  'MUFG': 'Mitsubishi UFJ Financial',
+  'SMFG': 'Sumitomo Mitsui Financial',
+  'NMR': 'Nomura Holdings, Inc.',
+  'KB': 'KB Financial Group',
+  'SHG': 'Shinhan Financial Group',
+
+  // Additional ETFs & Leveraged
+  'UVXY': 'ProShares Ultra VIX Short-Term',
+  'SPXU': 'ProShares UltraPro Short S&P500',
+  'UPRO': 'ProShares UltraPro S&P500',
+  'LABU': 'Direxion Daily S&P Biotech Bull 3X',
+  'LABD': 'Direxion Daily S&P Biotech Bear 3X',
+  'TNA': 'Direxion Small Cap Bull 3X',
+  'TZA': 'Direxion Small Cap Bear 3X',
+  'NUGT': 'Direxion Gold Miners Bull 2X',
+  'DUST': 'Direxion Gold Miners Bear 2X',
+  'JDST': 'Direxion Gold Miners Bear 2X',
+  'FNGU': 'MicroSectors FANG+ Index 3X',
+  'FNGD': 'MicroSectors FANG+ Index -3X',
+  'TECL': 'Direxion Technology Bull 3X',
+  'TECS': 'Direxion Technology Bear 3X',
+  'FAS': 'Direxion Financial Bull 3X',
+  'FAZ': 'Direxion Financial Bear 3X',
+  'SPXS': 'Direxion S&P 500 Bear 3X',
+  'ERX': 'Direxion Energy Bull 2X',
+  'NAIL': 'Direxion Homebuilders Bull 3X',
+  'DPST': 'Direxion Regional Banks Bull 3X',
+  'BITX': 'ProShares Bitcoin Strategy ETF',
+  'BITO': 'ProShares Bitcoin Strategy ETF',
+  'IBIT': 'iShares Bitcoin Trust ETF',
+  'GBTC': 'Grayscale Bitcoin Trust',
+  'ETHE': 'Grayscale Ethereum Trust',
+
+  // Additional Crypto Mining & Blockchain
+  'BTBT': 'Bit Digital, Inc.',
+  'SOS': 'SOS Limited',
+  'CAN': 'Canaan Inc.',
+  'BTDR': 'Bitdeer Technologies',
+  'ARBK': 'Argo Blockchain plc',
+
+  // Additional Cannabis & Specialty
+  'TLRY': 'Tilray Brands, Inc.',
+  'CGC': 'Canopy Growth Corp.',
+  'ACB': 'Aurora Cannabis Inc.',
+  'SNDL': 'SNDL Inc.',
+  'OGI': 'OrganiGram Holdings',
+
+  // Additional Small-Cap Movers
+  'GSAT': 'Globalstar, Inc.',
+  'CLOV': 'Clover Health Investments',
+  'WISH': 'ContextLogic Inc.',
+  'SKLZ': 'Skillz Inc.',
+  'BYND': 'Beyond Meat, Inc.',
+  'LAZR': 'Luminar Technologies',
+  'MVIS': 'MicroVision, Inc.',
+  'VUZI': 'Vuzix Corporation',
+  'WKHS': 'Workhorse Group, Inc.',
+  'GOEV': 'Canoo Inc.',
+  'FSR': 'Fisker Inc.',
+  'QS': 'QuantumScape Corp.',
+  'MVST': 'Microvast Holdings',
+  'DNA': 'Ginkgo Bioworks Holdings',
+  'BNGO': 'Bionano Genomics, Inc.',
+  'TTOO': 'T2 Biosystems, Inc.',
+  'APGE': 'Apogee Therapeutics',
+  'IAS': 'Integral Ad Science',
+  'RELY': 'Remitly Global, Inc.',
+  'RXRX': 'Recursion Pharmaceuticals'
 };
 
 // Helper function to get company name with fallback
@@ -332,7 +552,7 @@ export const getCompanyName = (symbol) => {
   return COMPANY_NAMES[symbol?.toUpperCase()] || null;
 };
 
-// COMPREHENSIVE STOCK LIST - 200+ stocks across all sectors for thorough analysis
+// COMPREHENSIVE STOCK LIST - 500+ stocks across all sectors for thorough analysis
 export const PRIORITY_STOCKS = [
   // Tier 1: Most Active & Liquid (scan first for quick results)
   'NVDA', 'TSLA', 'AAPL', 'AMD', 'META', 'MSFT', 'AMZN', 'GOOGL', 'NFLX', 'COIN',
@@ -379,5 +599,45 @@ export const PRIORITY_STOCKS = [
   // Tier 15: ETFs for market context
   'SPY', 'QQQ', 'IWM', 'DIA', 'XLF', 'XLE', 'XLK', 'XLV', 'XLI', 'XLB',
   'XLY', 'XLP', 'XLU', 'XLRE', 'XLC', 'ARKK', 'ARKG', 'ARKF', 'SOXX', 'SMH',
-  'KWEB', 'FXI', 'EEM', 'EFA', 'VWO', 'GDX', 'SLV', 'GLD', 'TLT', 'HYG'
+  'KWEB', 'FXI', 'EEM', 'EFA', 'VWO', 'GDX', 'SLV', 'GLD', 'TLT', 'HYG',
+  // Tier 16: AI & Quantum Computing (high volatility)
+  'AI', 'BBAI', 'SOUN', 'IONQ', 'RGTI', 'QUBT', 'SMCI', 'ARM', 'VRT', 'DELL',
+  'HPE', 'PSTG', 'NTAP', 'ANET', 'LITE', 'CIEN', 'JNPR', 'AKAM', 'FFIV', 'FIVN',
+  // Tier 17: Crypto Mining & Bitcoin ETFs (high volatility)
+  'MSTR', 'MARA', 'RIOT', 'HUT', 'BITF', 'CLSK', 'CIFR', 'IREN', 'WULF', 'CORZ',
+  'BTBT', 'SOS', 'CAN', 'BTDR', 'ARBK', 'IBIT', 'GBTC', 'BITO', 'BITX', 'ETHE',
+  // Tier 18: Leveraged ETFs (extreme volatility)
+  'TQQQ', 'SQQQ', 'SOXL', 'SOXS', 'UVXY', 'SPXU', 'UPRO', 'LABU', 'LABD', 'TNA',
+  'TZA', 'NUGT', 'DUST', 'FNGU', 'FNGD', 'TECL', 'TECS', 'FAS', 'FAZ', 'SPXS',
+  'ERX', 'NAIL', 'DPST', 'JDST',
+  // Tier 19: Additional Biotech (volatile)
+  'SAVA', 'AXSM', 'CRSP', 'EDIT', 'NTLA', 'BEAM', 'VERV', 'APLS', 'ARCT', 'PCVX',
+  'HALO', 'RARE', 'CRNX', 'MNKD', 'RVMD', 'CYTK', 'NUVB', 'IMVT', 'PRTA', 'RLAY',
+  'XENE', 'TGTX', 'KRTX', 'ACAD', 'DNA', 'BNGO', 'RXRX', 'APGE',
+  // Tier 20: Space, Defense & Aviation (volatile growth)
+  'RKLB', 'LUNR', 'RDW', 'ASTS', 'ACHR', 'JOBY', 'LILM', 'AXON', 'LDOS', 'BAH',
+  'KTOS', 'BWXT', 'HII', 'LHX',
+  // Tier 21: Cannabis & Meme Stocks (high volatility)
+  'GME', 'AMC', 'BB', 'BBBY', 'SPCE', 'WISH', 'CLOV', 'TLRY', 'CGC', 'ACB',
+  'SNDL', 'OGI', 'SKLZ', 'BYND', 'WKHS', 'GOEV', 'FSR', 'QS',
+  // Tier 22: Small-Cap Movers & SPACs (high volatility)
+  'LAZR', 'MVIS', 'VUZI', 'GSAT', 'MVST', 'OPEN', 'LMND', 'ROOT',
+  // Tier 23: Additional Software & SaaS
+  'MNDY', 'GTLB', 'BRZE', 'IOT', 'DUOL', 'COUR', 'TOST', 'GLBE', 'PGNY', 'IAS',
+  // Tier 24: Additional Consumer Growth
+  'DECK', 'BROS', 'CELH', 'MNST', 'KDP', 'STZ', 'TAP', 'SAM', 'CART', 'ULTA',
+  'ELF', 'HIMS', 'DRI',
+  // Tier 25: International ADRs
+  'TSM', 'ASML', 'SAP', 'TM', 'SONY', 'GRAB', 'CPNG', 'MUFG', 'SMFG', 'NMR',
+  'KB', 'SHG',
+  // Tier 26: Additional REITs
+  'INVH', 'MAA', 'UDR', 'CPT', 'SUI', 'REXR', 'STAG', 'CUBE', 'EXR',
+  // Tier 27: Additional Finance & Insurance
+  'HIG', 'ALL', 'CINF', 'RELY',
+  // Tier 28: Additional Telecom & Media
+  'SIRI', 'IMAX', 'PARA', 'WBD',
+  // Tier 29: Additional Utilities & Staples
+  'NEE', 'DUK', 'SO', 'D', 'SRE', 'AEP', 'EXC', 'XEL', 'ED', 'PCG',
+  'WEC', 'ES', 'AWK', 'AMT', 'PLD', 'CCI', 'EQIX', 'SPG', 'PSA', 'DLR',
+  'O', 'WELL', 'T', 'VZ', 'TMUS'
 ];
