@@ -11690,14 +11690,20 @@ OUTPUT JSON:
 
       // FALLBACK: Legacy slow analysis (only if fast scan fails)
       console.log("[Daily Pick] ⚠️ Fast scan found no results, falling back to detailed analysis...");
-      const candidates = PRIORITY_STOCKS.slice(0, 50); // Use only top 50 for fallback
+      const candidates = PRIORITY_STOCKS.slice(0, 80); // Use top 80 for fallback (includes volatile stocks)
 
-      // Legacy candidate list for fallback (reduced)
+      // Legacy candidate list for fallback - includes stocks across ALL volatility levels
       const legacyCandidates = [
+        // Blue chips (low/medium vol)
         'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'NFLX', 'COIN',
         'PLTR', 'SOFI', 'NIO', 'RIVN', 'F', 'GM', 'BA', 'DIS', 'PYPL', 'JPM',
         'V', 'MA', 'UNH', 'JNJ', 'XOM', 'CVX', 'WMT', 'COST', 'HD', 'MCD',
-        'UBER', 'LYFT', 'DASH', 'ABNB', 'CRM', 'ADBE', 'INTC', 'MU', 'QCOM', 'AVGO'
+        // High volatility stocks (crypto, leveraged ETFs, meme, biotech)
+        'MSTR', 'MARA', 'RIOT', 'SOXL', 'TQQQ', 'SQQQ', 'UVXY', 'LABU', 'IONQ', 'RGTI',
+        'SAVA', 'SMCI', 'GME', 'AMC', 'TLRY', 'PLUG', 'FCEL', 'SPCE', 'LAZR', 'BYND',
+        // Medium-high volatility
+        'UBER', 'LYFT', 'DASH', 'ABNB', 'CRM', 'ADBE', 'INTC', 'MU', 'QCOM', 'AVGO',
+        'SHOP', 'SQ', 'SNOW', 'DDOG', 'CRWD', 'ENPH', 'FSLR', 'AFRM', 'UPST', 'HOOD'
       ];
 
       // Continue with legacy analysis below (kept for compatibility)
@@ -14248,10 +14254,33 @@ INSTRUCTIONS:
         r.recommendation && !['HOLD', 'WAIT'].includes(r.recommendation)
       );
 
+      // Apply volatility preference filter to trade ideas (respect user's Daily Pick volatility setting)
+      const volCfg = volatilityThresholds[pickVolatility] || volatilityThresholds.any;
+      const volBuffer = Math.min((volCfg.max - volCfg.min) * 0.3, 1.5);
+      const volFilterMin = Math.max(0, volCfg.min - volBuffer);
+      const volFilterMax = volCfg.max + volBuffer;
+
+      const applyVolFilter = (list) => {
+        if (pickVolatility === 'any') return list;
+        const exactMatch = list.filter(r => {
+          const atr = parseFloat(r.atrPercent) || 0;
+          return atr >= volCfg.min && atr <= volCfg.max;
+        });
+        if (exactMatch.length >= 5) return exactMatch;
+        const expandedMatch = list.filter(r => {
+          const atr = parseFloat(r.atrPercent) || 0;
+          return atr >= volFilterMin && atr <= volFilterMax;
+        });
+        return expandedMatch.length >= 3 ? expandedMatch : list; // fallback if too few match
+      };
+
+      const filteredActionable = applyVolFilter(actionableResults);
+      const filteredAll = applyVolFilter(results);
+
       // Use actionable results if available, otherwise show top results by score
-      const displayResults = actionableResults.length > 0
-        ? actionableResults.slice(0, 15)
-        : results.slice(0, 10);
+      const displayResults = filteredActionable.length > 0
+        ? filteredActionable.slice(0, 15)
+        : filteredAll.slice(0, 10);
 
       if (displayResults.length === 0) {
         console.log("[Trade Ideas] No results found");
@@ -15199,6 +15228,16 @@ INSTRUCTIONS:
         // Calculate SMA50
         const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : sma20;
 
+        // ATR approximation from close-to-close changes (for volatility filtering)
+        const atrPeriod = Math.min(14, closes.length - 1);
+        const recentCloses = closes.slice(-atrPeriod - 1);
+        let atrSum = 0;
+        for (let i = 1; i < recentCloses.length; i++) {
+          atrSum += Math.abs(recentCloses[i] - recentCloses[i - 1]);
+        }
+        const atrApprox = atrSum / atrPeriod;
+        const atrPercent = currentPrice > 0 ? (atrApprox / currentPrice) * 100 : 0;
+
         // IMPROVED SCORING - More conservative, requires confirmation
         let bullishScore = 0, bearishScore = 0;
         let confirmations = 0;
@@ -15263,6 +15302,8 @@ INSTRUCTIONS:
           bearishScore,
           recommendation,
           score: Math.max(bullishScore, bearishScore), // For sorting
+          atrPercent: parseFloat(atrPercent.toFixed(2)),
+          volatilityCategory: atrPercent >= 4 ? 'High' : atrPercent >= 2.5 ? 'Medium-High' : atrPercent >= 1.5 ? 'Medium' : atrPercent >= 0.8 ? 'Low-Medium' : 'Low',
           isLive: true
         };
       } catch (e) {
