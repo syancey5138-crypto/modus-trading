@@ -11429,15 +11429,70 @@ OUTPUT JSON:
       // STEP 1: COMPREHENSIVE PARALLEL SCREENING using all 500+ stocks
       console.log("[Daily Pick] 🚀 Comprehensive parallel screening starting...");
       const startTime = Date.now();
-      setDailyPickProgress({ phase: 'starting', current: 0, total: PRIORITY_STOCKS.length });
 
-      // Scan ALL stocks for the best daily pick
+      // VOLATILITY-AWARE SCAN ORDER: Put stocks likely matching the selected volatility FIRST
+      // This ensures the early exit (maxResults) finds appropriate stocks, not just blue chips
+      const HIGH_VOL_STOCKS = [
+        'SOXL', 'TQQQ', 'SQQQ', 'UVXY', 'LABU', 'SPXS', 'TNA', 'TECL', 'FAS', 'FAZ',
+        'MSTR', 'MARA', 'RIOT', 'CLSK', 'HUT', 'BITF', 'IREN', 'WULF', 'CORZ', 'CIFR',
+        'IONQ', 'RGTI', 'QBTS', 'QUBT',
+        'GME', 'AMC', 'BBBY', 'SPCE', 'LCID', 'RIVN', 'FFIE', 'GOEV',
+        'SAVA', 'SMCI', 'PLUG', 'FCEL', 'LAZR', 'BYND', 'TLRY', 'CGC', 'ACB', 'SNDL',
+        'AFRM', 'UPST', 'HOOD', 'SOFI', 'CVNA', 'W', 'SNAP', 'PINS',
+        'ENPH', 'FSLR', 'RUN', 'SEDG', 'ARRY',
+        'NIO', 'XPEV', 'LI', 'BABA', 'JD', 'PDD', 'BIDU'
+      ];
+      const MEDHIGH_VOL_STOCKS = [
+        'TSLA', 'AMD', 'COIN', 'PLTR', 'SQ', 'SHOP', 'SNOW', 'DDOG', 'CRWD', 'NET',
+        'UBER', 'LYFT', 'DASH', 'ABNB', 'RBLX', 'U', 'ROKU', 'TTD', 'ZS', 'PANW',
+        'CRM', 'ADBE', 'NOW', 'MU', 'QCOM', 'LRCX', 'KLAC', 'AMAT', 'MRVL', 'ON',
+        'DKNG', 'PENN', 'RSI', 'ARKK', 'ARKG', 'ARKF', 'ARKW',
+        'BA', 'INTC', 'PYPL', 'DIS', 'NFLX', 'BKNG', 'EXPE'
+      ];
+      const LOW_VOL_STOCKS = [
+        'JNJ', 'PG', 'KO', 'PEP', 'WMT', 'COST', 'MCD', 'CL', 'GIS', 'K', 'SJM', 'CPB',
+        'SO', 'DUK', 'NEE', 'AEP', 'D', 'ED', 'XEL', 'WEC', 'ES', 'EXC',
+        'O', 'AMT', 'PLD', 'PSA', 'SPG', 'WELL',
+        'V', 'MA', 'UNH', 'LLY', 'JNJ', 'ABBV', 'MRK', 'PFE', 'BMY',
+        'BRK.B', 'JPM', 'BAC', 'WFC', 'GS', 'MS',
+        'SPY', 'QQQ', 'DIA', 'IWM', 'VTI', 'VOO'
+      ];
+
+      let scanOrder = [...PRIORITY_STOCKS];
+      if (pickVolatility === 'high') {
+        // High vol: scan leveraged ETFs, crypto miners, meme stocks FIRST
+        const prioritized = HIGH_VOL_STOCKS.filter(s => scanOrder.includes(s));
+        scanOrder = [...prioritized, ...scanOrder.filter(s => !prioritized.includes(s))];
+        console.log(`[Daily Pick] Prioritizing ${prioritized.length} high-vol stocks in scan order`);
+      } else if (pickVolatility === 'medhigh') {
+        // Med-high: scan growth/volatile tech first
+        const prioritized = [...MEDHIGH_VOL_STOCKS, ...HIGH_VOL_STOCKS].filter(s => scanOrder.includes(s));
+        const unique = [...new Set(prioritized)];
+        scanOrder = [...unique, ...scanOrder.filter(s => !unique.includes(s))];
+        console.log(`[Daily Pick] Prioritizing ${unique.length} med-high vol stocks in scan order`);
+      } else if (pickVolatility === 'low') {
+        // Low vol: scan utilities, staples, large caps first
+        const prioritized = LOW_VOL_STOCKS.filter(s => scanOrder.includes(s));
+        scanOrder = [...prioritized, ...scanOrder.filter(s => !prioritized.includes(s))];
+        console.log(`[Daily Pick] Prioritizing ${prioritized.length} low-vol stocks in scan order`);
+      } else if (pickVolatility === 'lowmed') {
+        // Low-med: scan stable large caps + blue chips first
+        const prioritized = [...LOW_VOL_STOCKS, ...PRIORITY_STOCKS.slice(0, 50)].filter(s => scanOrder.includes(s));
+        const unique = [...new Set(prioritized)];
+        scanOrder = [...unique, ...scanOrder.filter(s => !unique.includes(s))];
+        console.log(`[Daily Pick] Prioritizing ${unique.length} low-med vol stocks in scan order`);
+      }
+      // For 'medium' and 'any', keep default order (tech-heavy, good mix)
+
+      setDailyPickProgress({ phase: 'starting', current: 0, total: scanOrder.length });
+
+      // Scan stocks with volatility-prioritized ordering
       const quickResults = await processStocksInParallel(
-        PRIORITY_STOCKS,
+        scanOrder,
         analyzeStockFast,
         {
           batchSize: 20,      // Process 20 at a time (optimized)
-          maxResults: 30,     // Get top 30 candidates
+          maxResults: 50,     // Increased from 30 to get more candidates for volatility filtering
           minScore: 0,        // Don't filter by score
           timeout: 4000,      // 4s timeout per stock
           onProgress: (progress) => {
@@ -11447,7 +11502,7 @@ OUTPUT JSON:
       );
 
       const elapsed = ((Date.now() - startTime)/1000).toFixed(1);
-      setDailyPickProgress({ phase: 'complete', current: PRIORITY_STOCKS.length, total: PRIORITY_STOCKS.length, scanTime: parseFloat(elapsed) });
+      setDailyPickProgress({ phase: 'complete', current: scanOrder.length, total: scanOrder.length, scanTime: parseFloat(elapsed) });
 
       console.log(`[Daily Pick] ⚡ Comprehensive screen: ${quickResults.length} stocks analyzed in ${elapsed}s`);
 
@@ -14288,19 +14343,44 @@ INSTRUCTIONS:
   const generateRealTradeIdeas = async () => {
     setLoadingTradeIdeas(true);
     const scanStartTime = Date.now();
-    setTradeIdeasProgress({ phase: 'starting', current: 0, total: PRIORITY_STOCKS.length, scanTime: 0 });
     console.log("[Trade Ideas] 🚀 FAST PARALLEL scan starting...");
 
     const startTime = Date.now();
 
     try {
-      // Scan ALL 500+ stocks for comprehensive analysis
+      // Volatility-aware scan order (same logic as Daily Pick)
+      let tradeIdeasScanOrder = [...PRIORITY_STOCKS];
+      const TI_HIGH_VOL = [
+        'SOXL', 'TQQQ', 'SQQQ', 'UVXY', 'LABU', 'SPXS', 'TNA', 'TECL', 'FAS', 'FAZ',
+        'MSTR', 'MARA', 'RIOT', 'CLSK', 'HUT', 'BITF', 'IREN', 'WULF',
+        'IONQ', 'RGTI', 'QBTS', 'QUBT', 'GME', 'AMC', 'SPCE', 'LCID', 'RIVN',
+        'SAVA', 'SMCI', 'PLUG', 'FCEL', 'LAZR', 'BYND', 'TLRY', 'CGC',
+        'AFRM', 'UPST', 'HOOD', 'SOFI', 'CVNA', 'SNAP', 'ENPH', 'FSLR',
+        'NIO', 'XPEV', 'LI', 'BABA', 'JD', 'PDD'
+      ];
+      const TI_LOW_VOL = [
+        'JNJ', 'PG', 'KO', 'PEP', 'WMT', 'COST', 'MCD', 'CL', 'GIS',
+        'SO', 'DUK', 'NEE', 'AEP', 'D', 'ED', 'XEL',
+        'V', 'MA', 'UNH', 'LLY', 'ABBV', 'MRK', 'PFE',
+        'JPM', 'BAC', 'WFC', 'SPY', 'QQQ', 'DIA'
+      ];
+      if (pickVolatility === 'high' || pickVolatility === 'medhigh') {
+        const prio = TI_HIGH_VOL.filter(s => tradeIdeasScanOrder.includes(s));
+        tradeIdeasScanOrder = [...prio, ...tradeIdeasScanOrder.filter(s => !prio.includes(s))];
+      } else if (pickVolatility === 'low' || pickVolatility === 'lowmed') {
+        const prio = TI_LOW_VOL.filter(s => tradeIdeasScanOrder.includes(s));
+        tradeIdeasScanOrder = [...prio, ...tradeIdeasScanOrder.filter(s => !prio.includes(s))];
+      }
+
+      setTradeIdeasProgress({ phase: 'starting', current: 0, total: tradeIdeasScanOrder.length, scanTime: 0 });
+
+      // Scan stocks with volatility-aware ordering
       const results = await processStocksInParallel(
-        PRIORITY_STOCKS,
+        tradeIdeasScanOrder,
         analyzeStockFast,
         {
           batchSize: 20,      // Process 20 at a time (optimized)
-          maxResults: 20,     // Get top 20 actionable results
+          maxResults: 40,     // Increased from 20 for better volatility filtering
           minScore: 0,        // Don't filter by score here
           timeout: 4000,      // 4s timeout per stock
           onProgress: (progress) => setTradeIdeasProgress(progress)
