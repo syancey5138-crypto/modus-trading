@@ -7140,18 +7140,50 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const avgVol = avgVolSlice.length > 0 ? avgVolSlice.reduce((s, b) => s + b.volume, 0) / avgVolSlice.length : 0;
     const volumeRatio = avgVol > 0 ? recentVol / avgVol : 1;
 
-    // ATR/Volatility calculation
-    const atrPeriod = Math.min(14, bars.length - 1);
-    const trueRanges = [];
-    for (let i = bars.length - atrPeriod; i < bars.length; i++) {
-      const high = bars[i].high;
-      const low = bars[i].low;
-      const prevClose = bars[i - 1]?.close || bars[i].close;
-      const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
-      trueRanges.push(tr);
+    // ATR/Volatility calculation - aggregate 5m bars into DAILY bars for accurate daily ATR
+    // Group bars by trading day (every ~78 bars = 1 day of 5m data)
+    const barsPerDay = 78; // 6.5 hours × 12 bars/hour
+    const dailyBars = [];
+    for (let d = 0; d < Math.floor(bars.length / barsPerDay); d++) {
+      const daySlice = bars.slice(d * barsPerDay, (d + 1) * barsPerDay);
+      if (daySlice.length > 0) {
+        dailyBars.push({
+          high: Math.max(...daySlice.map(b => b.high)),
+          low: Math.min(...daySlice.map(b => b.low)),
+          close: daySlice[daySlice.length - 1].close
+        });
+      }
     }
-    const atr = trueRanges.length > 0 ? trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length : 0;
-    const atrPercent = (atr && currentPrice > 0) ? (atr / currentPrice) * 100 : 0;
+    // Handle remaining bars as partial day
+    const remainder = bars.slice(Math.floor(bars.length / barsPerDay) * barsPerDay);
+    if (remainder.length > 20) { // At least ~1.5 hours of data
+      dailyBars.push({
+        high: Math.max(...remainder.map(b => b.high)),
+        low: Math.min(...remainder.map(b => b.low)),
+        close: remainder[remainder.length - 1].close
+      });
+    }
+
+    let atrPercent = 0;
+    if (dailyBars.length >= 2) {
+      // Compute daily ATR from aggregated daily bars
+      const dailyTrueRanges = [];
+      for (let i = 1; i < dailyBars.length; i++) {
+        const tr = Math.max(
+          dailyBars[i].high - dailyBars[i].low,
+          Math.abs(dailyBars[i].high - dailyBars[i - 1].close),
+          Math.abs(dailyBars[i].low - dailyBars[i - 1].close)
+        );
+        dailyTrueRanges.push(tr);
+      }
+      const dailyAtr = dailyTrueRanges.reduce((a, b) => a + b, 0) / dailyTrueRanges.length;
+      atrPercent = currentPrice > 0 ? (dailyAtr / currentPrice) * 100 : 0;
+    } else {
+      // Fallback: estimate from 5m bars using range of all data
+      const allHigh = Math.max(...bars.slice(-78).map(b => b.high));
+      const allLow = Math.min(...bars.slice(-78).map(b => b.low));
+      atrPercent = currentPrice > 0 ? ((allHigh - allLow) / currentPrice) * 100 : 0;
+    }
     // 5-level volatility categorization
     const volatilityCategory =
       atrPercent >= 4.0 ? 'High' :
@@ -11863,19 +11895,45 @@ OUTPUT JSON:
           const lowerBand = bbSMA - (bbStdDev * stdDev);
           const bbPosition = ((currentPrice - lowerBand) / (upperBand - lowerBand)) * 100; // 0 = lower band, 100 = upper band
 
-          // ATR for volatility
-          const atrPeriod = 14;
-          let trueRanges = [];
-          for (let i = 1; i < Math.min(bars.length, atrPeriod + 1); i++) {
-            const tr = Math.max(
-              bars[i].high - bars[i].low,
-              Math.abs(bars[i].high - bars[i-1].close),
-              Math.abs(bars[i].low - bars[i-1].close)
-            );
-            trueRanges.push(tr);
+          // ATR for volatility - aggregate 5m bars into DAILY bars for accurate daily ATR
+          const barsPerDayFB = 78; // 6.5 hours × 12 bars/hour for 5m interval
+          const dailyBarsFB = [];
+          for (let d = 0; d < Math.floor(bars.length / barsPerDayFB); d++) {
+            const daySlice = bars.slice(d * barsPerDayFB, (d + 1) * barsPerDayFB);
+            if (daySlice.length > 0) {
+              dailyBarsFB.push({
+                high: Math.max(...daySlice.map(b => b.high)),
+                low: Math.min(...daySlice.map(b => b.low)),
+                close: daySlice[daySlice.length - 1].close
+              });
+            }
           }
-          const atr = trueRanges.reduce((a, b) => a + b, 0) / trueRanges.length;
-          const atrPercent = (atr / currentPrice) * 100;
+          const remainderFB = bars.slice(Math.floor(bars.length / barsPerDayFB) * barsPerDayFB);
+          if (remainderFB.length > 20) {
+            dailyBarsFB.push({
+              high: Math.max(...remainderFB.map(b => b.high)),
+              low: Math.min(...remainderFB.map(b => b.low)),
+              close: remainderFB[remainderFB.length - 1].close
+            });
+          }
+          let atrPercent = 0;
+          if (dailyBarsFB.length >= 2) {
+            const dailyTRs = [];
+            for (let i = 1; i < dailyBarsFB.length; i++) {
+              const tr = Math.max(
+                dailyBarsFB[i].high - dailyBarsFB[i].low,
+                Math.abs(dailyBarsFB[i].high - dailyBarsFB[i - 1].close),
+                Math.abs(dailyBarsFB[i].low - dailyBarsFB[i - 1].close)
+              );
+              dailyTRs.push(tr);
+            }
+            const dailyAtrFB = dailyTRs.reduce((a, b) => a + b, 0) / dailyTRs.length;
+            atrPercent = currentPrice > 0 ? (dailyAtrFB / currentPrice) * 100 : 0;
+          } else {
+            const allHigh = Math.max(...bars.slice(-78).map(b => b.high));
+            const allLow = Math.min(...bars.slice(-78).map(b => b.low));
+            atrPercent = currentPrice > 0 ? ((allHigh - allLow) / currentPrice) * 100 : 0;
+          }
 
           // Momentum (Rate of Change)
           const rocPeriod = 10;
@@ -15169,12 +15227,16 @@ INSTRUCTIONS:
         const meta = chartData.meta;
         if (!quote || chartData.timestamp.length < 30) return null;
 
-        // Extract closes and volumes
+        // Extract closes, highs, lows and volumes
         const closes = [];
+        const highs = [];
+        const lows = [];
         const volumes = [];
         for (let i = 0; i < chartData.timestamp.length; i++) {
           if (quote.close?.[i] && !isNaN(quote.close[i])) {
             closes.push(quote.close[i]);
+            highs.push(quote.high?.[i] || quote.close[i]);
+            lows.push(quote.low?.[i] || quote.close[i]);
             volumes.push(quote.volume?.[i] || 0);
           }
         }
@@ -15228,15 +15290,45 @@ INSTRUCTIONS:
         // Calculate SMA50
         const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : sma20;
 
-        // ATR approximation from close-to-close changes (for volatility filtering)
-        const atrPeriod = Math.min(14, closes.length - 1);
-        const recentCloses = closes.slice(-atrPeriod - 1);
-        let atrSum = 0;
-        for (let i = 1; i < recentCloses.length; i++) {
-          atrSum += Math.abs(recentCloses[i] - recentCloses[i - 1]);
+        // ATR - aggregate 5m bars into DAILY bars for accurate daily ATR
+        const barsPerDayScan = 78; // 6.5 hours × 12 bars/hour for 5m interval
+        const dailyBarsScan = [];
+        for (let d = 0; d < Math.floor(closes.length / barsPerDayScan); d++) {
+          const start = d * barsPerDayScan;
+          const end = (d + 1) * barsPerDayScan;
+          dailyBarsScan.push({
+            high: Math.max(...highs.slice(start, end)),
+            low: Math.min(...lows.slice(start, end)),
+            close: closes[end - 1]
+          });
         }
-        const atrApprox = atrSum / atrPeriod;
-        const atrPercent = currentPrice > 0 ? (atrApprox / currentPrice) * 100 : 0;
+        const remStart = Math.floor(closes.length / barsPerDayScan) * barsPerDayScan;
+        if (closes.length - remStart > 20) {
+          dailyBarsScan.push({
+            high: Math.max(...highs.slice(remStart)),
+            low: Math.min(...lows.slice(remStart)),
+            close: closes[closes.length - 1]
+          });
+        }
+        let atrPercent = 0;
+        if (dailyBarsScan.length >= 2) {
+          const dailyTRsScan = [];
+          for (let i = 1; i < dailyBarsScan.length; i++) {
+            const tr = Math.max(
+              dailyBarsScan[i].high - dailyBarsScan[i].low,
+              Math.abs(dailyBarsScan[i].high - dailyBarsScan[i - 1].close),
+              Math.abs(dailyBarsScan[i].low - dailyBarsScan[i - 1].close)
+            );
+            dailyTRsScan.push(tr);
+          }
+          const dailyAtrScan = dailyTRsScan.reduce((a, b) => a + b, 0) / dailyTRsScan.length;
+          atrPercent = currentPrice > 0 ? (dailyAtrScan / currentPrice) * 100 : 0;
+        } else {
+          // Fallback: use full day range
+          const allHigh = Math.max(...highs.slice(-78));
+          const allLow = Math.min(...lows.slice(-78));
+          atrPercent = currentPrice > 0 ? ((allHigh - allLow) / currentPrice) * 100 : 0;
+        }
 
         // IMPROVED SCORING - More conservative, requires confirmation
         let bullishScore = 0, bearishScore = 0;
