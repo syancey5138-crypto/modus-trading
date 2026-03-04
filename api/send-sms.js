@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, fallback: true, smsEmail, message: 'Gmail SMTP not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD env vars.' });
     }
 
-    await transporter.sendMail({ from: process.env.GMAIL_USER, to: smsEmail, subject: '', text: formattedMessage });
+    await transporter.sendMail({ from: process.env.GMAIL_USER, to: smsEmail, subject: 'MODUS', text: formattedMessage });
     console.log(`[SMS] Sent to ${smsEmail} via Gmail SMTP`);
     return res.status(200).json({ success: true, alertType });
   } catch (error) {

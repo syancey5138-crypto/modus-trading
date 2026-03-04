@@ -110,7 +110,7 @@ export default async function handler(req, res) {
     const results = [];
     for (const batch of batches) {
       try {
-        await smtp.transporter.sendMail({ from: smtp.user, to: smsEmail, subject: '', text: batch });
+        await smtp.transporter.sendMail({ from: smtp.user, to: smsEmail, subject: 'MODUS', text: batch });
         results.push({ success: true }); incrementRateLimit();
       } catch (err) {
         console.error('Batch send error:', err.message);
