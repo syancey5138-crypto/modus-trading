@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "nodemailer": "^6.9.0",
     "firebase": "^12.9.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.1",
     "lucide-react": "^0.263.1",
+    "nodemailer": "^6.9.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.12.0"

@@ -2470,20 +2470,15 @@ function App() {
         setAuthPassword('');
       } else if (authMode === 'signup') {
         await signup(authEmail, authPassword, authName, { subscribe: authSubscribe });
-        // Send welcome email in background via EmailJS (client-side, don't block signup)
+        // Send welcome email in background via server-side Gmail SMTP (FREE - no EmailJS needed)
         const welcomeName = authName || (authEmail?.split('@')[0] || 'Trader');
-        fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        const welcomeApiBase = backendUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+        fetch(`${welcomeApiBase}/api/send-welcome-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            service_id: 'service_wka2oph',
-            template_id: 'template_1bn2e5y',
-            user_id: 'P3MjxM_aqWY9csXhF',
-            template_params: {
-              to_email: authEmail,
-              subject: `Welcome to MODUS, ${welcomeName}!`,
-              message: `Welcome aboard, ${welcomeName}!\n\nYour MODUS account is live. Here's what you can do:\n\n- Upload a chart for AI analysis\n- Practice with Paper Trading ($100K virtual balance)\n- Track your trades in the Journal\n- Set up SMS & voice alerts\n\nPro tip: Press V anytime to activate voice commands.\n\nOpen MODUS: https://modus-trading.vercel.app\n\nHappy trading!\n— The MODUS Team`
-            }
+            email: authEmail,
+            displayName: welcomeName,
           })
         }).catch(() => {}); // Silent fail — account is already created
         setShowAuthModal(false);
@@ -6265,25 +6260,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   };
 
   // ============================================
-  // SMS ALERT FUNCTION - Sends SMS via EmailJS (browser-side)
+  // SMS ALERT FUNCTION - Sends SMS via server-side Gmail SMTP (FREE)
   // ============================================
-
-  // Carrier email-to-SMS gateways
-  const CARRIER_GATEWAYS = {
-    'att': 'txt.att.net',
-    'verizon': 'vtext.com',
-    'tmobile': 'tmomail.net',
-    'sprint': 'messaging.sprintpcs.com',
-    'uscellular': 'email.uscc.net',
-    'metropcs': 'mymetropcs.net',
-    'cricket': 'sms.cricketwireless.net',
-    'boost': 'sms.myboostmobile.com',
-    'virgin': 'vmobl.com',
-    'republic': 'text.republicwireless.com',
-    'googlefi': 'msg.fi.google.com',
-    'mint': 'tmomail.net',
-    'visible': 'vtext.com',
-  };
 
   const sendSmsAlert = async (message, alertType = 'price') => {
     if (!smsSettings.enabled || !smsSettings.phone || !smsSettings.carrier) {
@@ -6308,51 +6286,27 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
 
     try {
-      // EmailJS credentials (owner's account - upgrade to paid when scaling)
-      const EMAILJS_SERVICE_ID = 'service_wka2oph';
-      const EMAILJS_TEMPLATE_ID = 'template_1bn2e5y';
-      const EMAILJS_PUBLIC_KEY = 'P3MjxM_aqWY9csXhF';
-
-      // Build SMS email address
-      const cleanPhone = smsSettings.phone.replace(/\D/g, '');
-      const phoneNumber = cleanPhone.length === 11 ? cleanPhone.slice(1) : cleanPhone;
-      const gateway = CARRIER_GATEWAYS[smsSettings.carrier.toLowerCase()];
-      const smsEmail = `${phoneNumber}@${gateway}`;
-
-      // Format message
-      const alertEmojis = {
-        'price': '📊',
-        'entry': '🎯',
-        'stop': '🛑',
-        'target': '💰',
-        'news': '📰',
-      };
-      const emoji = alertEmojis[alertType] || '🔔';
-      const formattedMessage = `${emoji} MODUS Alert\n${message.slice(0, 140)}`;
-
-      // Send via EmailJS (browser-side API)
-      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      // Send via server-side Gmail SMTP API (FREE - no EmailJS needed)
+      const apiBase = backendUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+      const response = await fetch(`${apiBase}/api/send-sms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          service_id: EMAILJS_SERVICE_ID,
-          template_id: EMAILJS_TEMPLATE_ID,
-          user_id: EMAILJS_PUBLIC_KEY,
-          template_params: {
-            to_email: smsEmail,
-            subject: 'MODUS',
-            message: formattedMessage,
-          },
+          phone: smsSettings.phone,
+          carrier: smsSettings.carrier,
+          message: message.slice(0, 300),
+          alertType,
         }),
       });
 
-      if (response.ok) {
-        console.log(`[SMS] ✅ Alert sent to ${smsEmail}`);
+      const data = await response.json();
+
+      if (data.success) {
+        console.log(`[SMS] Alert sent via Gmail SMTP`);
         setSmsQuotaRemaining(prev => Math.max(0, prev - 1));
         return true;
       } else {
-        const error = await response.text();
-        console.error("[SMS] Failed to send:", error);
+        console.error("[SMS] Failed to send:", data.error || data.message);
         return false;
       }
     } catch (error) {
@@ -16357,7 +16311,7 @@ INSTRUCTIONS:
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-2">
-                      200 free SMS/month via EmailJS. Get your own free account above.
+                      Free SMS alerts via Gmail SMTP. No paid service needed.
                     </p>
                   </div>
 
@@ -17747,41 +17701,16 @@ INSTRUCTIONS:
                           localStorage.setItem('modus_beta_emails', JSON.stringify(emails));
                           trackEvent('conversion', 'beta_signup', 'landing_page');
 
-                          // Send welcome email to the subscriber via EmailJS (client-side)
-                          fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                          // Send welcome email to the subscriber via server-side Gmail SMTP (FREE)
+                          const betaApiBase = backendUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+                          fetch(`${betaApiBase}/api/send-welcome-email`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                              service_id: 'service_wka2oph',
-                              template_id: 'template_1bn2e5y',
-                              user_id: 'P3MjxM_aqWY9csXhF',
-                              template_params: {
-                                to_email: betaEmail,
-                                subject: 'Welcome to MODUS!',
-                                message: `Thanks for signing up for MODUS!\n\nYou'll be the first to know when new features drop.\n\nOpen MODUS: https://modus-trading.vercel.app\n\n— The MODUS Team`
-                              }
+                              email: betaEmail,
+                              displayName: betaEmail.split('@')[0],
                             })
                           }).catch(() => {});
-
-                          // Notify you about the new signup via EmailJS
-                          try {
-                            await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                service_id: 'service_wka2oph',
-                                template_id: 'template_1bn2e5y',
-                                user_id: 'P3MjxM_aqWY9csXhF',
-                                template_params: {
-                                  to_email: 'steventox5138@gmail.com',
-                                  subject: 'New MODUS Beta Signup!',
-                                  message: `New beta signup:\n\nEmail: ${betaEmail}\nDate: ${new Date().toLocaleString()}\nTotal signups: ${emails.length}`,
-                                },
-                              }),
-                            });
-                          } catch (e) {
-                            console.log('Email notification skipped');
-                          }
 
                           setEmailSubmitted(true);
                         }
@@ -39978,7 +39907,7 @@ INSTRUCTIONS:
                     <p><strong className="text-white">Firebase (Google):</strong> Authentication and cloud data storage.</p>
                     <p className="mt-1"><strong className="text-white">Yahoo Finance:</strong> Market data and stock prices (fetched client-side).</p>
                     <p className="mt-1"><strong className="text-white">AI Providers (Anthropic/OpenAI):</strong> Chart analysis — images sent directly from your browser.</p>
-                    <p className="mt-1"><strong className="text-white">EmailJS:</strong> Optional SMS alert delivery.</p>
+                    <p className="mt-1"><strong className="text-white">Gmail SMTP:</strong> Free SMS alert delivery via email-to-SMS gateways.</p>
                   </section>
 
                   <section>
@@ -40567,7 +40496,7 @@ INSTRUCTIONS:
                     icon: '🔔',
                     color: 'red',
                     features: [
-                      { name: 'Price Alerts', desc: 'Set alerts for any stock with conditions (above, below, crosses). Get notified via browser notifications, sound alerts, SMS (via EmailJS), and optional Discord webhook.' },
+                      { name: 'Price Alerts', desc: 'Set alerts for any stock with conditions (above, below, crosses). Get notified via browser notifications, sound alerts, free SMS (via Gmail SMTP), and optional Discord webhook.' },
                       { name: 'Watchlist', desc: 'Monitor your favorite stocks with real-time prices updating every 10 seconds. See change percentage, and quickly navigate to any stock for deeper analysis.' },
                       { name: 'Notification Center', desc: 'Centralized notification history showing all triggered alerts with timestamps. Manage notification preferences for sound, browser, and push alerts.' },
                       { name: 'Economic Calendar', desc: 'Track upcoming economic events (FOMC, CPI, NFP, earnings) that could impact your trades. Plan around market-moving events.' }
@@ -40739,7 +40668,7 @@ INSTRUCTIONS:
                     <p className="mt-2"><strong className="text-white">Firebase (Google):</strong> Authentication and cloud data storage. Subject to Google's Privacy Policy.</p>
                     <p className="mt-1"><strong className="text-white">Yahoo Finance:</strong> Market data and stock prices. Data is fetched client-side.</p>
                     <p className="mt-1"><strong className="text-white">AI Providers (Anthropic/OpenAI):</strong> Chart analysis and AI features. Chart images are sent directly from your browser to the AI provider for analysis.</p>
-                    <p className="mt-1"><strong className="text-white">EmailJS:</strong> Optional SMS alert delivery. Your phone number is used only for delivering alerts you configure.</p>
+                    <p className="mt-1"><strong className="text-white">Gmail SMTP:</strong> Free SMS alert delivery. Your phone number is used only for delivering alerts you configure.</p>
                   </section>
 
                   <section>

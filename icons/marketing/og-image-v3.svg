@@ -1,0 +1,62 @@
+<svg viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ogBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#091428;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0c1929;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#071020;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ogAccentGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7dd3fc;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="ogGlowGrad" cx="30%" cy="50%" r="60%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#0ea5e9;stop-opacity:0.02" />
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#ogBgGrad)"/>
+  <rect width="1200" height="630" fill="url(#ogGlowGrad)"/>
+  <circle cx="100" cy="80" r="120" fill="#0ea5e9" opacity="0.08"/>
+  <circle cx="1100" cy="550" r="150" fill="#38bdf8" opacity="0.05"/>
+  <g transform="translate(80, 100)">
+    <rect x="0" y="0" width="320" height="320" rx="16" fill="rgba(255,255,255,0.02)" stroke="#0ea5e9" stroke-width="2" opacity="0.2"/>
+    <g transform="translate(40, 40)">
+      <path d="M 20 200 L 20 60 Q 20 40 40 40 L 40 200" fill="none" stroke="url(#ogAccentGrad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 40 100 Q 80 70 120 110" fill="none" stroke="url(#ogAccentGrad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+      <path d="M 120 160 L 120 40 Q 120 40 140 40 L 140 200" fill="none" stroke="url(#ogAccentGrad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      <g transform="translate(160, 90)">
+        <rect x="0" y="30" width="8" height="20" fill="#0ea5e9"/>
+        <rect x="12" y="15" width="8" height="35" fill="#38bdf8"/>
+        <rect x="24" y="0" width="8" height="50" fill="#0ea5e9"/>
+      </g>
+    </g>
+  </g>
+  <g transform="translate(480, 80)">
+    <rect x="0" y="0" width="680" height="470" rx="12" fill="rgba(255,255,255,0.01)" stroke="#38bdf8" stroke-width="2" opacity="0.25"/>
+    <g>
+      <line x1="50" y1="120" x2="50" y2="180" stroke="#10b981" stroke-width="3"/>
+      <rect x="40" y="145" width="20" height="28" fill="#10b981"/>
+      <line x1="100" y1="100" x2="100" y2="200" stroke="#ef4444" stroke-width="3"/>
+      <rect x="90" y="140" width="20" height="35" fill="#ef4444"/>
+      <line x1="150" y1="130" x2="150" y2="190" stroke="#10b981" stroke-width="3"/>
+      <rect x="140" y="155" width="20" height="28" fill="#10b981"/>
+      <line x1="200" y1="60" x2="200" y2="210" stroke="#34d399" stroke-width="3"/>
+      <rect x="190" y="110" width="20" height="65" fill="#34d399"/>
+      <line x1="250" y1="20" x2="250" y2="220" stroke="#34d399" stroke-width="3"/>
+      <rect x="240" y="80" width="20" height="85" fill="#34d399"/>
+      <line x1="300" y1="80" x2="300" y2="200" stroke="#10b981" stroke-width="3"/>
+      <rect x="290" y="125" width="20" height="60" fill="#10b981"/>
+      <line x1="350" y1="40" x2="350" y2="210" stroke="#34d399" stroke-width="3"/>
+      <rect x="340" y="95" width="20" height="80" fill="#34d399"/>
+      <line x1="400" y1="75" x2="400" y2="205" stroke="#10b981" stroke-width="3"/>
+      <rect x="390" y="120" width="20" height="65" fill="#10b981"/>
+    </g>
+    <polyline points="50,150 100,120 150,140 200,80 250,30 300,110 350,70 400,130" fill="none" stroke="url(#ogAccentGrad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(0, 570)">
+    <rect x="0" y="0" width="1200" height="60" fill="rgba(255,255,255,0.02)" opacity="0.8"/>
+    <text x="100" y="35" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#38bdf8" letter-spacing="-1">MODUS</text>
+    <text x="340" y="35" font-family="Arial, sans-serif" font-size="20" fill="#bae6fd" letter-spacing="0.5">AI-Powered Trading Analytics Platform</text>
+    <circle cx="1100" cy="30" r="6" fill="url(#ogAccentGrad)"/>
+  </g>
+</svg>

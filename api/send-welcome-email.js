@@ -1,15 +1,11 @@
-// Vercel Serverless Function - Welcome Email via EmailJS
-// Sends a welcome email when new users sign up
+// Vercel Serverless Function - Welcome Email via Gmail SMTP (FREE - no EmailJS needed)
+import nodemailer from 'nodemailer';
 
-export const config = {
-  maxDuration: 15,
-};
+export const config = { maxDuration: 15 };
 
 const ALLOWED_ORIGINS = [
-  'https://modus-trading.vercel.app',
-  'https://tradevision-modus.vercel.app',
-  'http://localhost:3000',
-  'http://localhost:5173',
+  'https://modus-trading.vercel.app', 'https://tradevision-modus.vercel.app',
+  'http://localhost:3000', 'http://localhost:5173',
 ];
 
 function getCorsOrigin(req) {
@@ -39,6 +35,16 @@ Happy trading!
 — The MODUS Team`;
 }
 
+function createTransporter() {
+  const user = process.env.GMAIL_USER;
+  const pass = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, '');
+  if (!user || !pass) return null;
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com', port: 465, secure: true,
+    auth: { user, pass },
+  });
+}
+
 export default async function handler(req, res) {
   const corsOrigin = getCorsOrigin(req);
   res.setHeader('Access-Control-Allow-Origin', corsOrigin);
@@ -51,42 +57,25 @@ export default async function handler(req, res) {
 
   try {
     const { email, displayName } = req.body;
-
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       return res.status(400).json({ error: 'Valid email is required.' });
     }
-
     const name = displayName || email.split('@')[0];
 
-    // EmailJS credentials (same as client-side — public keys, safe to include)
-    const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_wka2oph';
-    const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_1bn2e5y';
-    const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'P3MjxM_aqWY9csXhF';
-
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-        template_params: {
-          to_email: email,
-          subject: `Welcome to MODUS, ${name}!`,
-          message: getWelcomeText(name),
-        },
-      }),
-    });
-
-    // EmailJS returns 'OK' as text on success (status 200)
-    if (response.ok) {
-      return res.status(200).json({ success: true });
+    const transporter = createTransporter();
+    if (!transporter) {
+      return res.status(200).json({ success: false, debug: 'Gmail SMTP not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD env vars.' });
     }
 
-    const errText = await response.text();
-    console.error('EmailJS error:', response.status, errText);
-    return res.status(200).json({ success: false, debug: `EmailJS ${response.status}: ${errText}` });
+    await transporter.sendMail({
+      from: `"MODUS Trading" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: `Welcome to MODUS, ${name}!`,
+      text: getWelcomeText(name),
+    });
 
+    console.log(`[Welcome] Email sent to ${email} via Gmail SMTP`);
+    return res.status(200).json({ success: true });
   } catch (error) {
     console.error('Welcome email error:', error);
     return res.status(200).json({ success: false, debug: error.message });

@@ -1,16 +1,11 @@
-// Vercel Serverless Function - Update/Announcement Email via EmailJS
-// Sends announcement emails to opted-in mailing list subscribers
-// Requires admin secret to prevent unauthorized use
+// Vercel Serverless Function - Update/Announcement Email via Gmail SMTP (FREE - no EmailJS needed)
+import nodemailer from 'nodemailer';
 
-export const config = {
-  maxDuration: 30,
-};
+export const config = { maxDuration: 30 };
 
 const ALLOWED_ORIGINS = [
-  'https://modus-trading.vercel.app',
-  'https://tradevision-modus.vercel.app',
-  'http://localhost:3000',
-  'http://localhost:5173',
+  'https://modus-trading.vercel.app', 'https://tradevision-modus.vercel.app',
+  'http://localhost:3000', 'http://localhost:5173',
 ];
 
 function getCorsOrigin(req) {
@@ -20,6 +15,19 @@ function getCorsOrigin(req) {
     return matched || ALLOWED_ORIGINS[0];
   }
   return origin || '*';
+}
+
+function createTransporter() {
+  const user = process.env.GMAIL_USER;
+  const pass = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s/g, '');
+  if (!user || !pass) return null;
+  return {
+    transporter: nodemailer.createTransport({
+      host: 'smtp.gmail.com', port: 465, secure: true,
+      auth: { user, pass },
+    }),
+    user,
+  };
 }
 
 export default async function handler(req, res) {
@@ -33,16 +41,13 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Require admin secret to send bulk emails
     const adminSecret = process.env.ADMIN_SECRET;
     const authHeader = req.headers.authorization;
-
     if (!adminSecret || authHeader !== `Bearer ${adminSecret}`) {
       return res.status(403).json({ error: 'Unauthorized. Admin secret required.' });
     }
 
     const { recipients, subject, body, ctaText, ctaUrl } = req.body;
-
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({ error: 'Recipients array is required.' });
     }
@@ -52,67 +57,37 @@ export default async function handler(req, res) {
     if (!body || typeof body !== 'string') {
       return res.status(400).json({ error: 'Body content is required.' });
     }
-
-    // Cap recipients per batch to avoid abuse
     if (recipients.length > 100) {
       return res.status(400).json({ error: 'Maximum 100 recipients per batch.' });
     }
 
-    // EmailJS credentials
-    const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_wka2oph';
-    const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_1bn2e5y';
-    const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'P3MjxM_aqWY9csXhF';
+    const smtp = createTransporter();
+    if (!smtp) {
+      return res.status(500).json({ error: 'Gmail SMTP not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD env vars.' });
+    }
 
     const buttonText = ctaText || 'Open MODUS';
     const buttonUrl = ctaUrl || 'https://modus-trading.vercel.app';
-
-    // Build the message body
     const messageText = `${body}\n\n${buttonText}: ${buttonUrl}`;
 
-    // Send individually for deliverability
     const results = [];
     for (const email of recipients) {
       try {
-        const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            service_id: serviceId,
-            template_id: templateId,
-            user_id: publicKey,
-            template_params: {
-              to_email: email,
-              subject: subject,
-              message: messageText,
-            },
-          }),
+        await smtp.transporter.sendMail({
+          from: `"MODUS Trading" <${smtp.user}>`,
+          to: email, subject: subject, text: messageText,
         });
-
-        if (response.ok) {
-          results.push({ email, sent: true });
-        } else {
-          results.push({ email, sent: false });
-        }
-      } catch {
+        results.push({ email, sent: true });
+      } catch (err) {
+        console.error(`[Update] Failed to send to ${email}:`, err.message);
         results.push({ email, sent: false });
       }
-
-      // Small delay between sends to avoid rate limiting
-      if (recipients.length > 1) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
+      if (recipients.length > 1) await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     const sent = results.filter(r => r.sent).length;
     const failed = results.filter(r => !r.sent).length;
-
-    return res.status(200).json({
-      success: true,
-      sent,
-      failed,
-      total: recipients.length,
-    });
-
+    return res.status(200).json({ success: true, sent, failed, total: recipients.length });
   } catch (error) {
     console.error('Update email error:', error);
     return res.status(500).json({ error: 'Failed to send update emails.' });
