@@ -23010,10 +23010,76 @@ INSTRUCTIONS:
                                 return gaps.filter(g => !g.filled).slice(-20); // Keep last 20 unfilled
                               };
 
+    const calcStopLossCascades = () => {
+      const cascades = [];
+      const start = Math.max(visStart, 0);
+      const end = Math.min(visEnd, fullSeries.length);
+      if (end - start < 12) return cascades;
+      let atrSum = 0, atrCount = 0;
+      for (let i = start + 1; i < end; i++) {
+        const tr = Math.max(
+          fullSeries[i].high - fullSeries[i].low,
+          Math.abs(fullSeries[i].high - fullSeries[i-1].close),
+          Math.abs(fullSeries[i].low - fullSeries[i-1].close)
+        );
+        atrSum += tr; atrCount++;
+      }
+      const atr = atrCount > 0 ? atrSum / atrCount : 0;
+      if (atr === 0) return cascades;
+      const swingLen = 5;
+      for (let i = start + swingLen; i < end - swingLen; i++) {
+        let isHigh = true, isLow = true;
+        for (let j = 1; j <= swingLen; j++) {
+          if (fullSeries[i].high <= fullSeries[i-j].high || fullSeries[i].high <= fullSeries[i+j].high) isHigh = false;
+          if (fullSeries[i].low >= fullSeries[i-j].low || fullSeries[i].low >= fullSeries[i+j].low) isLow = false;
+        }
+        let volSum = 0;
+        for (let j = -2; j <= 2; j++) {
+          if (i+j >= 0 && i+j < fullSeries.length) volSum += (fullSeries[i+j].volume || 0);
+        }
+        const getRoundBonus = (p) => {
+          if (p % 100 < 2 || p % 100 > 98) return 1.5;
+          if (p % 50 < 2 || p % 50 > 48) return 1.3;
+          if (p % 10 < 1 || p % 10 > 9) return 1.15;
+          return 1.0;
+        };
+        if (isHigh) {
+          const zoneHigh = fullSeries[i].high + atr * 0.5;
+          const zoneLow = fullSeries[i].high;
+          const bonus = getRoundBonus(fullSeries[i].high);
+          let triggered = false;
+          for (let k = i + swingLen; k < end; k++) {
+            if (fullSeries[k].high > zoneHigh) { triggered = true; break; }
+          }
+          cascades.push({
+            type: "buy-stop", high: zoneHigh, low: zoneLow, idx: i,
+            triggered, cascadeStrength: Math.min(bonus * 1.2, 3),
+            clusterSize: volSum * bonus
+          });
+        }
+        if (isLow) {
+          const zoneHigh = fullSeries[i].low;
+          const zoneLow = fullSeries[i].low - atr * 0.5;
+          const bonus = getRoundBonus(fullSeries[i].low);
+          let triggered = false;
+          for (let k = i + swingLen; k < end; k++) {
+            if (fullSeries[k].low < zoneLow) { triggered = true; break; }
+          }
+          cascades.push({
+            type: "sell-stop", high: zoneHigh, low: zoneLow, idx: i,
+            triggered, cascadeStrength: Math.min(bonus * 1.2, 3),
+            clusterSize: volSum * bonus
+          });
+        }
+      }
+      return cascades.slice(-20);
+    };
+
                               const fullIchimoku = showIchimoku ? calcIchimoku() : [];
                               const fullSupertrend = showSupertrend ? calcSupertrend() : [];
                               const orderBlocks = showOrderBlocks ? calcOrderBlocks() : [];
                               const fvgGaps = showFVG ? calcFVG() : [];
+    const stopCascades = showStopLossCascades ? calcStopLossCascades() : [];
 
                               // ── Williams %R (14-period) ──
                               const calcWilliamsR = () => {
@@ -23428,6 +23494,66 @@ INSTRUCTIONS:
                                         opacity={0.85} />
                                     );
                                   })}
+
+              {/* Stop Loss Cascades Rendering */}
+              {showStopLossCascades && stopCascades.map((sc, si) => {
+                const barIdx = sc.idx - visStart;
+                if (barIdx < 0 || barIdx >= visData.length) return null;
+                const yTop = priceToY(sc.high);
+                const yBot = priceToY(sc.low);
+                const h = Math.max(yBot - yTop, 0.5);
+                const w = Math.min(visData.length - barIdx, 25);
+                const isBuy = sc.type === "buy-stop";
+                const baseOp = sc.triggered ? 0.3 : 0.15;
+                const borderOp = sc.triggered ? 0.8 : 0.5;
+                const fillC = isBuy ? "rgba(236,72,153," + baseOp + ")" : "rgba(34,211,238," + baseOp + ")";
+                const strokeC = isBuy ? "rgba(236,72,153," + borderOp + ")" : "rgba(34,211,238," + borderOp + ")";
+                const textC = isBuy ? "#ec4899" : "#22d3ee";
+                const sizeLabel = sc.clusterSize >= 1e6 ? (sc.clusterSize/1e6).toFixed(1) + "M" :
+                  sc.clusterSize >= 1000 ? (sc.clusterSize/1000).toFixed(1) + "K" :
+                  Math.round(sc.clusterSize).toString();
+                return <g key={`slc-${si}`}>
+                  {sc.triggered && <rect x={barIdx - 0.15} y={yTop - 0.15} width={w + 0.3} height={h + 0.3}
+                    fill="none" stroke={isBuy ? "rgba(236,72,153,0.25)" : "rgba(34,211,238,0.25)"}
+                    strokeWidth="0.2" rx="0.1" />}
+                  <rect x={barIdx} y={yTop} width={w} height={h}
+                    fill={fillC} stroke={strokeC}
+                    strokeWidth="0.08" strokeDasharray="0.4 0.2" rx="0.05" />
+                  <text x={barIdx + 0.3} y={yTop + h * 0.4} fill={textC}
+                    fontSize="0.9" dominantBaseline="middle" opacity="0.9">
+                    {isBuy ? "\u25B2" : "\u25BC"} {sizeLabel}
+                  </text>
+                  <text x={barIdx + 0.3} y={yTop + h * 0.75} fill={textC}
+                    fontSize="0.6" dominantBaseline="middle" opacity="0.55">
+                    {sc.triggered ? "TRIGGERED" : "STOPS"}
+                  </text>
+                </g>;
+              })}
+
+              {/* Cascade Meter */}
+              {showStopLossCascades && stopCascades.length > 0 && (() => {
+                const buyStops = stopCascades.filter(s => s.type === "buy-stop" && !s.triggered);
+                const sellStops = stopCascades.filter(s => s.type === "sell-stop" && !s.triggered);
+                const buyTotal = buyStops.reduce((a, c) => a + c.clusterSize, 0);
+                const sellTotal = sellStops.reduce((a, c) => a + c.clusterSize, 0);
+                const total = buyTotal + sellTotal;
+                if (total === 0) return null;
+                const buyPct = buyTotal / total;
+                const mX = visData.length - 14;
+                const mY = 2;
+                return <g>
+                  <rect x={mX} y={mY} width={12} height={5.5} fill="rgba(0,0,0,0.65)" rx="0.3" stroke="rgba(255,255,255,0.08)" strokeWidth="0.05" />
+                  <text x={mX + 6} y={mY + 1.3} fill="#e2e8f0" fontSize="0.65" textAnchor="middle" dominantBaseline="middle">CASCADE METER</text>
+                  <rect x={mX + 0.5} y={mY + 2.2} width={11} height={1.2} fill="rgba(34,211,238,0.3)" rx="0.15" />
+                  <rect x={mX + 0.5} y={mY + 2.2} width={11 * buyPct} height={1.2} fill="rgba(236,72,153,0.5)" rx="0.15" />
+                  <text x={mX + 1} y={mY + 4.5} fill="#ec4899" fontSize="0.55" dominantBaseline="middle">
+                    {"\u25B2 " + (buyTotal >= 1e6 ? (buyTotal/1e6).toFixed(1) + "M" : (buyTotal/1000).toFixed(0) + "K")}
+                  </text>
+                  <text x={mX + 11.5} y={mY + 4.5} fill="#22d3ee" fontSize="0.55" textAnchor="end" dominantBaseline="middle">
+                    {"\u25BC " + (sellTotal >= 1e6 ? (sellTotal/1e6).toFixed(1) + "M" : (sellTotal/1000).toFixed(0) + "K")}
+                  </text>
+                </g>;
+              })()}
 
                                   {/* ── Pivot Points (horizontal lines across chart) ── */}
                                   {showPivotPoints && pivotPoints && (() => {
