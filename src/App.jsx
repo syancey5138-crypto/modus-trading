@@ -1762,7 +1762,7 @@ function App() {
         { icon: '2️⃣', text: 'Each card shows what the indicator does, how to read it, and a mini visual diagram so you know exactly what to look for on your charts' },
         { icon: '3️⃣', text: 'To enable any indicator, go to the Live Ticker fullscreen chart and click the Overlays or Indicators dropdown' },
       ],
-      tip: 'Start with SMA and RSI as your foundation, then add advanced indicators like Ichimoku Cloud and Order Blocks as you get more comfortable.'
+      tip: 'Start with SMA and RSI as your foundation, then add advanced indicators like Ichimoku Cloud, Order Blocks, and Stop Loss Cascades as you get more comfortable.'
     },
     setups: {
       title: 'How to Use Trade Setups',
@@ -5466,6 +5466,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [showIchimoku, setShowIchimoku] = useState(_savedIndicators.showIchimoku || false);
   const [showSupertrend, setShowSupertrend] = useState(_savedIndicators.showSupertrend || false);
   const [showOrderBlocks, setShowOrderBlocks] = useState(_savedIndicators.showOrderBlocks || false);
+  const [showStopLossCascades, setShowStopLossCascades] = useState(_savedIndicators.showStopLossCascades || false);
   const [showFVG, setShowFVG] = useState(_savedIndicators.showFVG || false);
   const [liquiditySensitivity, setLiquiditySensitivity] = useState(1.5); // Volume threshold multiplier
   const [signalPulseMinConfidence, setSignalPulseMinConfidence] = useState(3); // Min factors for signal
@@ -8830,13 +8831,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const indicatorState = {
         showSMA, showEMA, showBollinger, showVWAP, showRSI, showMACD, showStochastic, showATR, showVolume,
         showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG,
-        showWilliamsR, showADX, showParabolicSAR, showPivotPoints
+        showWilliamsR, showADX, showParabolicSAR, showPivotPoints, showStopLossCascades
       };
       localStorage.setItem('modus_indicator_states', JSON.stringify(indicatorState));
     } catch (e) { /* ignore quota errors */ }
   }, [showSMA, showEMA, showBollinger, showVWAP, showRSI, showMACD, showStochastic, showATR, showVolume,
       showLiquidityFlow, showSignalPulse, showIchimoku, showSupertrend, showOrderBlocks, showFVG,
-      showWilliamsR, showADX, showParabolicSAR, showPivotPoints]);
+      showWilliamsR, showADX, showParabolicSAR, showPivotPoints, showStopLossCascades]);
 
   // Chart keyboard shortcuts (non-fullscreen) - B for draw (brush), Escape to exit, Ctrl+Z/Y undo/redo
   useEffect(() => {
@@ -22097,6 +22098,7 @@ INSTRUCTIONS:
                                 { label: 'Williams %R', desc: 'Overbought/oversold oscillator', active: showWilliamsR, toggle: () => setShowWilliamsR(!showWilliamsR), color: 'text-indigo-400', icon: '%' },
                                 { label: 'ADX', desc: 'Trend strength indicator', active: showADX, toggle: () => setShowADX(!showADX), color: 'text-amber-400', icon: '↕' },
                                 { label: 'Parabolic SAR', desc: 'Trend reversal dots', active: showParabolicSAR, toggle: () => setShowParabolicSAR(!showParabolicSAR), color: 'text-lime-400', icon: '•' },
+                    { label: 'Stop Loss Cascades', desc: 'Breakout cascade zones', active: showStopLossCascades, toggle: () => setShowStopLossCascades(!showStopLossCascades), color: 'text-red-400', icon: '🔻' },
                                 { label: 'Pivot Points', desc: 'Support/resistance levels', active: showPivotPoints, toggle: () => setShowPivotPoints(!showPivotPoints), color: 'text-violet-400', icon: '═' },
                               ].map(item => (
                                 <button key={item.label} onClick={item.toggle}
@@ -23487,7 +23489,7 @@ INSTRUCTIONS:
                             })()}
                             
                             {/* Overlay Legend */}
-                            {(showSMA || showEMA || showBollinger || showVWAP || showComparison || showLiquidityFlow || showSignalPulse || showIchimoku || showSupertrend || showOrderBlocks || showFVG) && (
+                            {(showSMA || showEMA || showBollinger || showVWAP || showComparison || showLiquidityFlow || showSignalPulse || showIchimoku || showSupertrend || showOrderBlocks || showFVG || showStopLossCascades) && (
                               <div className="absolute top-2 right-20 bg-slate-900/90 rounded px-2 py-1 text-xs flex gap-3 z-20 flex-wrap">
                                 {showSMA && <span className="text-blue-400">━ SMA({smaPeriod})</span>}
                                 {showEMA && <span className="text-orange-400">━ EMA({emaPeriod})</span>}
@@ -23499,6 +23501,7 @@ INSTRUCTIONS:
                                 {showSupertrend && <span className="text-green-400">⚡ Supertrend</span>}
                                 {showOrderBlocks && <span className="text-yellow-400">▧ Order Blocks</span>}
                                 {showFVG && <span className="text-blue-400">▬ Fair Value Gaps</span>}
+                    {showStopLossCascades && <span className="text-red-400">🔻 Stop Loss Cascades</span>}
                                 {showWilliamsR && <span className="text-indigo-400">% Williams %R</span>}
                                 {showADX && <span className="text-amber-400">↕ ADX</span>}
                                 {showParabolicSAR && <span className="text-lime-400">• Parabolic SAR</span>}
@@ -25183,6 +25186,7 @@ INSTRUCTIONS:
                                           { label: '▬ Fair Value Gaps', state: showFVG, setter: () => setShowFVG(v => !v), color: 'text-blue-400' },
                                           { label: '% Williams %R', state: showWilliamsR, setter: () => setShowWilliamsR(v => !v), color: 'text-indigo-400' },
                                           { label: '↕ ADX', state: showADX, setter: () => setShowADX(v => !v), color: 'text-amber-400' },
+                    { label: '🔻 Stop Loss Cascades', state: showStopLossCascades, setter: () => setShowStopLossCascades(v => !v), color: 'text-red-400' },
                                           { label: '• Parabolic SAR', state: showParabolicSAR, setter: () => setShowParabolicSAR(v => !v), color: 'text-lime-400' },
                                           { label: '═ Pivot Points', state: showPivotPoints, setter: () => setShowPivotPoints(v => !v), color: 'text-violet-400' },
                                         ].map(item => (
@@ -37493,7 +37497,7 @@ INSTRUCTIONS:
                       <h2 className="text-2xl font-bold">Indicator Guide</h2>
                       <p className="text-sm text-slate-400">Learn what each chart indicator does and how to read it</p>
                     </div>
-                    <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full font-medium">19 Indicators</span>
+                    <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full font-medium">21 Indicators</span>
                     <button onClick={() => setShowFeatureGuide('indicatorguide')} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors group" title="How to use this guide">
                       <Info className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
                     </button>
