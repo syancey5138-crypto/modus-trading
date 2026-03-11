@@ -24269,7 +24269,18 @@ INSTRUCTIONS:
               {/* WILLIAMS %R INDICATOR */}
               {showWilliamsR && (() => {
                 const layout = getChartLayout();
-                const slicedWR = fullWilliamsR.slice(layout.visStart, layout.visEnd);
+                const bars = tickerData.timeSeries;
+                const period = 14;
+                const wrVals = [];
+                for (let i = 0; i < bars.length; i++) {
+                  if (i < period - 1) { wrVals.push(null); continue; }
+                  const sl = bars.slice(i - period + 1, i + 1);
+                  const hh = Math.max(...sl.map(b => b.high));
+                  const ll = Math.min(...sl.map(b => b.low));
+                  const r = hh - ll;
+                  wrVals.push(r === 0 ? -50 : ((hh - bars[i].close) / r) * -100);
+                }
+                const slicedWR = wrVals.slice(layout.visStart, layout.visEnd);
                 const validWR = slicedWR.filter(v => v !== null);
                 const currentWR = validWR.length > 0 ? validWR[validWR.length - 1] : -50;
                 if (validWR.length < 2) return null;
@@ -24305,7 +24316,35 @@ INSTRUCTIONS:
               {/* ADX INDICATOR */}
               {showADX && (() => {
                 const layout = getChartLayout();
-                const slicedADX = fullADX.slice(layout.visStart, layout.visEnd);
+                const bars2 = tickerData.timeSeries;
+                const p = 14;
+                const adxVals = new Array(bars2.length).fill(null);
+                if (bars2.length > p * 2 + 2) {
+                  const trs = [], pdms = [], ndms = [];
+                  for (let i = 1; i < bars2.length; i++) {
+                    trs.push(Math.max(bars2[i].high - bars2[i].low, Math.abs(bars2[i].high - bars2[i-1].close), Math.abs(bars2[i].low - bars2[i-1].close)));
+                    const up = bars2[i].high - bars2[i-1].high;
+                    const dn = bars2[i-1].low - bars2[i].low;
+                    pdms.push(up > dn && up > 0 ? up : 0);
+                    ndms.push(dn > up && dn > 0 ? dn : 0);
+                  }
+                  let sTR = trs.slice(0,p).reduce((a,b)=>a+b,0);
+                  let sPDM = pdms.slice(0,p).reduce((a,b)=>a+b,0);
+                  let sNDM = ndms.slice(0,p).reduce((a,b)=>a+b,0);
+                  const dxs = [];
+                  for (let i = p; i < trs.length; i++) {
+                    if (i > p) { sTR = sTR - sTR/p + trs[i]; sPDM = sPDM - sPDM/p + pdms[i]; sNDM = sNDM - sNDM/p + ndms[i]; }
+                    const pdi = sTR === 0 ? 0 : (sPDM/sTR)*100;
+                    const ndi = sTR === 0 ? 0 : (sNDM/sTR)*100;
+                    dxs.push((pdi+ndi)===0 ? 0 : Math.abs(pdi-ndi)/(pdi+ndi)*100);
+                  }
+                  let adx = dxs.slice(0,p).reduce((a,b)=>a+b,0)/p;
+                  for (let i = 0; i < dxs.length; i++) {
+                    if (i >= p) adx = (adx*(p-1)+dxs[i])/p;
+                    if (i >= p-1) { const idx = i + p + 1; if (idx < bars2.length) adxVals[idx] = adx; }
+                  }
+                }
+                const slicedADX = adxVals.slice(layout.visStart, layout.visEnd);
                 const validADX = slicedADX.filter(v => v !== null);
                 const currentADX = validADX.length > 0 ? validADX[validADX.length - 1] : 25;
                 if (validADX.length < 2) return null;
