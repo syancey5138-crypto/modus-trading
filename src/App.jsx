@@ -24265,7 +24265,75 @@ INSTRUCTIONS:
                           );
                         })()}
                         
-                        {/* MACD INDICATOR */}
+                        
+              {/* WILLIAMS %R INDICATOR */}
+              {showWilliamsR && (() => {
+                const layout = getChartLayout();
+                const slicedWR = fullWilliamsR.slice(layout.visStart, layout.visEnd);
+                const validWR = slicedWR.filter(v => v !== null);
+                const currentWR = validWR.length > 0 ? validWR[validWR.length - 1] : -50;
+                if (validWR.length < 2) return null;
+                return (
+                  <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs text-slate-400 font-semibold">Williams %R (14)</div>
+                      <div className={`text-sm font-bold ${currentWR > -20 ? "text-red-400" : currentWR < -80 ? "text-emerald-400" : "text-indigo-400"}`}>
+                        {currentWR.toFixed(1)}
+                      </div>
+                    </div>
+                    <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
+                      <div className="absolute w-full bg-red-500/10" style={{ top: 0, height: "20%" }} />
+                      <div className="absolute w-full bg-emerald-500/10" style={{ bottom: 0, height: "20%" }} />
+                      <div className="absolute w-full border-t border-red-500/50" style={{ top: "20%" }}>
+                        <span className="absolute right-1 -top-2.5 text-[10px] text-red-400">-20</span>
+                      </div>
+                      <div className="absolute w-full border-t border-slate-600/50" style={{ top: "50%" }}>
+                        <span className="absolute right-1 -top-2.5 text-[11px] text-slate-400/80">-50</span>
+                      </div>
+                      <div className="absolute w-full border-t border-emerald-500/50" style={{ top: "80%" }}>
+                        <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400">-80</span>
+                      </div>
+                      <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validWR.length, 1) + 4} 100`} preserveAspectRatio="none">
+                        <polyline points={validWR.map((val, i) => `${i + 1},${Math.abs(val)}`).join(" ")} fill="none" stroke="#818cf8" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute w-2 h-2 bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/50" style={{ right: `${(3 / (validWR.length + 4)) * 100}%`, top: `${Math.abs(currentWR)}%`, transform: "translate(50%, -50%)" }} />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ADX INDICATOR */}
+              {showADX && (() => {
+                const layout = getChartLayout();
+                const slicedADX = fullADX.slice(layout.visStart, layout.visEnd);
+                const validADX = slicedADX.filter(v => v !== null);
+                const currentADX = validADX.length > 0 ? validADX[validADX.length - 1] : 25;
+                if (validADX.length < 2) return null;
+                return (
+                  <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs text-slate-400 font-semibold">ADX (14)</div>
+                      <div className={`text-sm font-bold ${currentADX > 50 ? "text-amber-400" : currentADX > 25 ? "text-emerald-400" : "text-slate-500"}`}>
+                        {currentADX.toFixed(1)}
+                      </div>
+                    </div>
+                    <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
+                      <div className="absolute w-full bg-amber-500/8" style={{ top: 0, height: "75%" }} />
+                      <div className="absolute w-full border-t border-amber-500/50" style={{ top: "75%" }}>
+                        <span className="absolute right-1 -top-2.5 text-[10px] text-amber-400">25</span>
+                      </div>
+                      <div className="absolute w-full border-t border-slate-600/50" style={{ top: "50%" }}>
+                        <span className="absolute right-1 -top-2.5 text-[11px] text-slate-400/80">50</span>
+                      </div>
+                      <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validADX.length, 1) + 4} 100`} preserveAspectRatio="none">
+                        <polyline points={validADX.map((val, i) => `${i + 1},${100 - Math.min(val, 100)}`).join(" ")} fill="none" stroke="#f59e0b" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute w-2 h-2 bg-amber-500 rounded-full shadow-lg shadow-amber-500/50" style={{ right: `${(3 / (validADX.length + 4)) * 100}%`, top: `${100 - Math.min(currentADX, 100)}%`, transform: "translate(50%, -50%)" }} />
+                    </div>
+                  </div>
+                );
+              })()}
+{/* MACD INDICATOR */}
                         {showMACD && (() => {
                           const layout = getChartLayout();
                           const prices = tickerData.timeSeries.map(b => b.close || 0);
