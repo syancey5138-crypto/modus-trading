@@ -23502,7 +23502,7 @@ INSTRUCTIONS:
                 const yTop = priceToY(sc.high);
                 const yBot = priceToY(sc.low);
                 const h = Math.max(yBot - yTop, 0.5);
-                const w = Math.min(visData.length - barIdx, 25);
+                const w = Math.min(visData.length - barIdx, Math.max(3, Math.floor(visData.length * 0.06)));
                 const isBuy = sc.type === "buy-stop";
                 const baseOp = sc.triggered ? 0.3 : 0.15;
                 const borderOp = sc.triggered ? 0.8 : 0.5;
