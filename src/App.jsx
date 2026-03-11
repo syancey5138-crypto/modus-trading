@@ -23457,89 +23457,41 @@ INSTRUCTIONS:
                                   })()}
 
                                   {/* ── Order Blocks (Smart Money Zones) ── */}
-                                  {showOrderBlocks && orderBlocks.length > 0 && orderBlocks.map((ob, oi) => {
-                                    if (!ob || ob.high == null || ob.low == null) return null;
-                                    const x1 = ob.startIdx - layout.visStart;
-                                    const obMaxW = Math.max(3, Math.floor(visData.length * 0.05));
-                                    const x2 = Math.min(x1 + obMaxW, (ob.endIdx || ob.startIdx + 10) - layout.visStart);
-                                    if (x2 < 0 || x1 >= visData.length) return null;
-                                    const clampX1 = Math.max(0, x1);
-                                    const clampX2 = Math.min(visData.length, x2);
-                                    const w = clampX2 - clampX1;
-                                    if (w <= 0) return null;
-                                    const yTop = priceToY(ob.high);
-                                    const yBot = priceToY(ob.low);
-                                    const h = Math.abs(yBot - yTop);
-                                    const isBull = ob.type === 'bullish';
-                                    const str = ob.strength || 0.5;
-                                    const alpha = 0.08 + str * 0.12;
-                                    const strokeAlpha = 0.3 + str * 0.3;
-                                    const glowAlpha = 0.15 + str * 0.15;
-                                    return (
-                                      <g key={`ob-${oi}`}>
-                                        <rect x={clampX1 - 0.2} y={yTop - 0.2} width={w + 0.4} height={h + 0.4}
-                                          fill="none" stroke={isBull ? `rgba(34,197,94,${glowAlpha})` : `rgba(239,68,68,${glowAlpha})`}
-                                          strokeWidth="0.4" rx="0.3" />
-                                        <rect x={clampX1} y={yTop} width={w} height={h}
-                                          fill={isBull ? `rgba(34,197,94,${alpha})` : `rgba(239,68,68,${alpha})`}
-                                          stroke={isBull ? `rgba(34,197,94,${strokeAlpha})` : `rgba(239,68,68,${strokeAlpha})`}
-                                          strokeWidth="0.15" rx="0.15" />
-                                        <line x1={clampX1} y1={isBull ? yBot : yTop} x2={clampX2} y2={isBull ? yBot : yTop}
-                                          stroke={isBull ? `rgba(34,197,94,${strokeAlpha + 0.15})` : `rgba(239,68,68,${strokeAlpha + 0.15})`}
-                                          strokeWidth="0.25" />
-                                        {w > 2 && (
-                                          <text x={clampX1 + 0.3} y={yTop + 1.5}
-                                            fill={isBull ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'}
-                                            fontSize="1.1" fontWeight="bold"
-                                            style={{ textShadow: '0 0 2px rgba(0,0,0,0.8)' }}>
-                                            {isBull ? 'OB+' : 'OB−'}
-                                          </text>
-                                        )}
-                                      </g>
-                                    );
-                                  })}
-
-                                  {/* ── Fair Value Gaps ── */}
-                                  {showFVG && fvgGaps.length > 0 && (() => {
-                                    const fvgTf = (tickerTimeframe || '5m').toLowerCase();
-                                    const fvgBase = ['1m','2m'].includes(fvgTf) ? 8 : ['5m'].includes(fvgTf) ? 12 : ['15m','30m'].includes(fvgTf) ? 15 : ['60m','1h','90m'].includes(fvgTf) ? 20 : 25;
-                                    const fvgExtend = Math.min(fvgBase, Math.max(3, Math.floor(visData.length * 0.04)));
-                                    return fvgGaps.map((gap, gi) => {
-                                      if (!gap || gap.top == null || gap.bottom == null || isNaN(gap.top) || isNaN(gap.bottom)) return null;
-                                      const x1 = gap.idx - layout.visStart;
-                                      if (x1 >= visData.length || x1 < -fvgExtend) return null;
-                                      const clampX1 = Math.max(0, x1);
-                                      const clampX2 = Math.min(visData.length, x1 + fvgExtend);
-                                      const w = clampX2 - clampX1;
-                                      if (w <= 0) return null;
-                                      const yTop = priceToY(gap.top);
-                                      const yBot = priceToY(gap.bottom);
-                                      const zoneH = Math.max(Math.abs(yBot - yTop), 0.5);
-                                      const isBull = gap.type === 'bullish';
-                                      const str = gap.strength || 0.5;
-                                      const alpha = 0.10 + str * 0.12;
-                                      const borderAlpha = 0.4 + str * 0.25;
-                                      const bullColor = '99,155,255';
-                                      const bearColor = '255,140,60';
-                                      const c = isBull ? bullColor : bearColor;
+                                  {showOrderBlocks && orderBlocks.length > 0 && (() => {
+                                    const obMaxW = Math.max(2, Math.floor(visData.length * 0.04));
+                                    return orderBlocks.map((ob, oi) => {
+                                      if (!ob || ob.high == null || ob.low == null) return null;
+                                      const x1r = ob.startIdx - layout.visStart;
+                                      const x2r = Math.min(x1r + obMaxW, (ob.endIdx || ob.startIdx + 8) - layout.visStart);
+                                      if (x2r < 0 || x1r >= visData.length) return null;
+                                      const cx1 = Math.max(0, x1r), cx2 = Math.min(visData.length, x2r);
+                                      const w = cx2 - cx1; if (w <= 0) return null;
+                                      const yT = priceToY(ob.high), yB = priceToY(ob.low), h = Math.abs(yB - yT);
+                                      const isBull = ob.type === 'bullish';
+                                      const str = Math.min(1, (ob.strength || 0.5));
                                       return (
-                                        <g key={`fvg-${gi}`}>
-                                          <rect x={clampX1 - 0.1} y={Math.min(yTop, yBot) - 0.1} width={w + 0.2} height={zoneH + 0.2}
-                                            fill="none" stroke={`rgba(${c},${alpha * 0.6})`}
-                                            strokeWidth="0.35" rx="0.2" />
-                                          <rect x={clampX1} y={Math.min(yTop, yBot)} width={w} height={zoneH}
-                                            fill={`rgba(${c},${alpha})`}
-                                            stroke={`rgba(${c},${borderAlpha})`}
-                                            strokeWidth="0.15" strokeDasharray="0.8,0.4" rx="0.1" />
-                                          <line x1={clampX1} y1={Math.min(yTop, yBot)} x2={clampX2} y2={Math.min(yTop, yBot)}
-                                            stroke={`rgba(${c},${borderAlpha + 0.1})`} strokeWidth="0.12" />
-                                          <line x1={clampX1} y1={Math.min(yTop, yBot) + zoneH} x2={clampX2} y2={Math.min(yTop, yBot) + zoneH}
-                                            stroke={`rgba(${c},${borderAlpha + 0.1})`} strokeWidth="0.12" />
-                                          {w > 1.5 && zoneH > 1.5 && (
-                                            <text x={clampX1 + 0.3} y={Math.min(yTop, yBot) + 1.3}
-                                              fill={`rgba(${c},0.8)`} fontSize="1.0" fontWeight="bold"
-                                              style={{ textShadow: '0 0 2px rgba(0,0,0,0.9)' }}>
-                                              {isBull ? 'FVG+' : 'FVG−'}
+                                        <g key={`ob-${oi}`}>
+                                          <defs>
+                                            <linearGradient id={`obG${oi}`} x1="0" y1={isBull?"1":"0"} x2="0" y2={isBull?"0":"1"}>
+                                              <stop offset="0%" stopColor={isBull?"#22c55e":"#ef4444"} stopOpacity={0.12+str*0.12}/>
+                                              <stop offset="100%" stopColor={isBull?"#22c55e":"#ef4444"} stopOpacity={0.02}/>
+                                            </linearGradient>
+                                            <pattern id={`obH${oi}`} width="0.6" height="0.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                                              <line x1="0" y1="0" x2="0" y2="0.6" stroke={isBull?"rgba(34,197,94,0.08)":"rgba(239,68,68,0.08)"} strokeWidth="0.15"/>
+                                            </pattern>
+                                          </defs>
+                                          <rect x={cx1} y={yT} width={w} height={h} fill={`url(#obG${oi})`} rx="0.1"/>
+                                          <rect x={cx1} y={yT} width={w} height={h} fill={`url(#obH${oi})`} rx="0.1"/>
+                                          <line x1={cx1} y1={isBull?yB:yT} x2={cx2} y2={isBull?yB:yT}
+                                            stroke={isBull?"rgba(34,197,94,0.55)":"rgba(239,68,68,0.55)"} strokeWidth="0.2"/>
+                                          <line x1={cx1} y1={isBull?yT:yB} x2={cx2} y2={isBull?yT:yB}
+                                            stroke={isBull?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"} strokeWidth="0.1" strokeDasharray="0.5,0.3"/>
+                                          {w > 1.5 && h > 1.5 && (
+                                            <text x={cx1+0.2} y={yT+1.2}
+                                              fill={isBull?"rgba(34,197,94,0.65)":"rgba(239,68,68,0.65)"}
+                                              fontSize="0.9" fontWeight="600" letterSpacing="0.05"
+                                              style={{textShadow:'0 0 3px rgba(0,0,0,0.9)'}}>
+                                              {isBull ? 'OB ▲' : 'OB ▼'}
                                             </text>
                                           )}
                                         </g>
@@ -23547,7 +23499,53 @@ INSTRUCTIONS:
                                     });
                                   })()}
 
-                                  {/* ── Parabolic SAR dots ── */}
+{/* ── Fair Value Gaps (Price Imbalances) ── */}
+{showFVG && fvgGaps.length > 0 && (() => {
+  const fvgTf = (tickerTimeframe || '5m').toLowerCase();
+  const fvgBase = ['1m','2m'].includes(fvgTf)?6:['5m'].includes(fvgTf)?8:['15m','30m'].includes(fvgTf)?10:['60m','1h','90m'].includes(fvgTf)?14:18;
+  const fvgExtend = Math.min(fvgBase, Math.max(2, Math.floor(visData.length * 0.035)));
+  return fvgGaps.map((gap, gi) => {
+    if (!gap || gap.top == null || gap.bottom == null || isNaN(gap.top) || isNaN(gap.bottom)) return null;
+    const x1 = gap.idx - layout.visStart;
+    if (x1 >= visData.length || x1 < -fvgExtend) return null;
+    const cx1 = Math.max(0, x1), cx2 = Math.min(visData.length, x1 + fvgExtend);
+    const w = cx2 - cx1; if (w <= 0) return null;
+    const yT = priceToY(gap.top), yB = priceToY(gap.bottom);
+    const yMin = Math.min(yT, yB), zH = Math.max(Math.abs(yB - yT), 0.3);
+    const isBull = gap.type === 'bullish';
+    const str = Math.min(1, (gap.strength || 0.5));
+    const alpha = 0.06 + str * 0.08;
+    const bdr = 0.25 + str * 0.2;
+    return (
+      <g key={`fvg-${gi}`}>
+        <defs>
+          <linearGradient id={`fG${gi}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={isBull?"#3b82f6":"#f97316"} stopOpacity={alpha*1.5}/>
+            <stop offset="80%" stopColor={isBull?"#3b82f6":"#f97316"} stopOpacity={alpha*0.3}/>
+            <stop offset="100%" stopColor={isBull?"#3b82f6":"#f97316"} stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        <rect x={cx1} y={yMin} width={w} height={zH} fill={`url(#fG${gi})`} rx="0.08"/>
+        <line x1={cx1} y1={yMin} x2={cx1+w*0.7} y2={yMin}
+          stroke={isBull?`rgba(59,130,246,${bdr})`:`rgba(249,115,22,${bdr})`} strokeWidth="0.12"/>
+        <line x1={cx1} y1={yMin+zH} x2={cx1+w*0.7} y2={yMin+zH}
+          stroke={isBull?`rgba(59,130,246,${bdr})`:`rgba(249,115,22,${bdr})`} strokeWidth="0.12"/>
+        <line x1={cx1} y1={yMin} x2={cx1} y2={yMin+zH}
+          stroke={isBull?`rgba(59,130,246,${bdr+0.15})`:`rgba(249,115,22,${bdr+0.15})`} strokeWidth="0.18"/>
+        {w > 1.2 && zH > 1.0 && (
+          <text x={cx1+0.2} y={yMin+zH*0.6}
+            fill={isBull?`rgba(59,130,246,${0.5+str*0.25})`:`rgba(249,115,22,${0.5+str*0.25})`}
+            fontSize="0.8" fontWeight="600" letterSpacing="0.03"
+            style={{textShadow:'0 0 3px rgba(0,0,0,0.9)'}}>
+            FVG
+          </text>
+        )}
+      </g>
+    );
+  });
+})()}
+
+{/* ── Parabolic SAR dots ── */}
                                   {showParabolicSAR && visParabolicSAR.length > 0 && visParabolicSAR.map((p, i) => {
                                     if (!p || p.sar == null || isNaN(p.sar)) return null;
                                     const y = priceToY(p.sar);
