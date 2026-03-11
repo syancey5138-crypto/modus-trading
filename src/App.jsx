@@ -23012,8 +23012,8 @@ INSTRUCTIONS:
 
     const calcStopLossCascades = () => {
       const cascades = [];
-      const start = Math.max(visStart, 0);
-      const end = Math.min(visEnd, fullSeries.length);
+      const start = Math.max(0, fullSeries.length - 300);
+      const end = fullSeries.length;
       if (end - start < 12) return cascades;
       let atrSum = 0, atrCount = 0;
       for (let i = start + 1; i < end; i++) {
