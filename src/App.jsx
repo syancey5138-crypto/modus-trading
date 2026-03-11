@@ -7082,12 +7082,32 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     const sma20 = sma(closes, 20);
     const sma50 = sma(closes, 50);
 
-    // Fast MACD
-    const ema12Denom = closes.slice(-26).reduce((acc, _, i) => acc + Math.pow(2/13, 25-i), 0);
-    const ema26Denom = closes.slice(-26).reduce((acc, _, i) => acc + Math.pow(2/27, 25-i), 0);
-    const ema12 = ema12Denom > 0 ? closes.slice(-26).reduce((acc, val, i) => acc + val * Math.pow(2/13, 25-i), 0) / ema12Denom : 0;
-    const ema26 = ema26Denom > 0 ? closes.slice(-26).reduce((acc, val, i) => acc + val * Math.pow(2/27, 25-i), 0) / ema26Denom : 0;
+    // Proper EMA-based MACD (standard method)
+    const calcEMA = (data, period) => {
+      const k = 2 / (period + 1);
+      let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      for (let i = period; i < data.length; i++) ema = data[i] * k + ema * (1 - k);
+      return ema;
+    };
+    const ema12 = calcEMA(closes, 12);
+    const ema26 = calcEMA(closes, 26);
     const macdLine = ema12 - ema26;
+    const macdValues = [];
+    let tmpEma12 = closes.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
+    let tmpEma26 = closes.slice(0, 26).reduce((a, b) => a + b, 0) / 26;
+    const k12 = 2 / 13, k26 = 2 / 27;
+    for (let i = 26; i < closes.length; i++) {
+      tmpEma12 = closes[i] * k12 + tmpEma12 * (1 - k12);
+      tmpEma26 = closes[i] * k26 + tmpEma26 * (1 - k26);
+      macdValues.push(tmpEma12 - tmpEma26);
+    }
+    let macdSignal = 0;
+    if (macdValues.length >= 9) {
+      macdSignal = macdValues.slice(0, 9).reduce((a, b) => a + b, 0) / 9;
+      const kSig = 2 / 10;
+      for (let i = 9; i < macdValues.length; i++) macdSignal = macdValues[i] * kSig + macdSignal * (1 - kSig);
+    }
+    const macdHistogram = macdLine - macdSignal;
 
     // Volume analysis
     const recentVolSlice = bars.slice(-5);
@@ -7176,16 +7196,23 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       signals.push(`RSI neutral (${rsi.toFixed(0)})`);
     }
 
-    // === MACD ANALYSIS (with momentum check) ===
-    const macdStrength = Math.abs(macdLine / currentPrice) * 10000; // Normalize MACD
-    if (macdLine > 0 && macdStrength > 0.5) {
+    // === MACD ANALYSIS (histogram + crossover) ===
+    const macdStrength = Math.abs(macdLine / currentPrice) * 10000;
+    const histStrength = Math.abs(macdHistogram / currentPrice) * 10000;
+    if (macdHistogram > 0 && macdLine > 0) {
       bullish += 15;
-      if (macdStrength > 1.5) confirmations++;
-      signals.push(`MACD bullish (strength: ${macdStrength.toFixed(1)})`);
-    } else if (macdLine < 0 && macdStrength > 0.5) {
+      if (macdStrength > 1.2 && histStrength > 0.3) confirmations++;
+      signals.push(`MACD bullish crossover (hist: +${histStrength.toFixed(1)})`);
+    } else if (macdHistogram < 0 && macdLine < 0) {
       bearish += 15;
-      if (macdStrength > 1.5) confirmations++;
-      signals.push(`MACD bearish (strength: ${macdStrength.toFixed(1)})`);
+      if (macdStrength > 1.2 && histStrength > 0.3) confirmations++;
+      signals.push(`MACD bearish crossover (hist: -${histStrength.toFixed(1)})`);
+    } else if (macdHistogram > 0 && macdLine < 0) {
+      bullish += 8;
+      signals.push('MACD histogram turning bullish');
+    } else if (macdHistogram < 0 && macdLine > 0) {
+      bearish += 8;
+      signals.push('MACD histogram turning bearish');
     } else {
       signals.push('MACD neutral/weak');
     }
@@ -7258,6 +7285,28 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       signals.push(`Recent momentum bearish (${recentChange.toFixed(1)}%)`);
     }
 
+    // === BOLLINGER BAND SQUEEZE / BREAKOUT ===
+    if (closes.length >= 20) {
+      const bb20 = sma(closes, 20);
+      const bbSlice = closes.slice(-20);
+      const bbStdDev = Math.sqrt(bbSlice.reduce((sum, v) => sum + Math.pow(v - bb20, 2), 0) / 20);
+      const upperBB = bb20 + 2 * bbStdDev;
+      const lowerBB = bb20 - 2 * bbStdDev;
+      const bbWidth = bb20 > 0 ? (upperBB - lowerBB) / bb20 * 100 : 0;
+      if (currentPrice >= upperBB) { bullish += 8; signals.push(`Price at upper Bollinger Band (${bbWidth.toFixed(1)}% width)`); }
+      else if (currentPrice <= lowerBB) { bearish += 8; signals.push(`Price at lower Bollinger Band (${bbWidth.toFixed(1)}% width)`); }
+      if (bbWidth < 3.0) signals.push(`Bollinger squeeze (${bbWidth.toFixed(1)}% width) - breakout imminent`);
+    }
+
+    // === HIGHER-LOW / LOWER-HIGH STRUCTURE ===
+    if (closes.length >= 40) {
+      const recent10 = closes.slice(-10), prior10 = closes.slice(-20, -10);
+      const r10Min = Math.min(...recent10), p10Min = Math.min(...prior10);
+      const r10Max = Math.max(...recent10), p10Max = Math.max(...prior10);
+      if (r10Min > p10Min && r10Max > p10Max) { bullish += 8; signals.push('Higher highs + higher lows (bullish structure)'); }
+      else if (r10Max < p10Max && r10Min < p10Min) { bearish += 8; signals.push('Lower highs + lower lows (bearish structure)'); }
+    }
+
     // === CALCULATE FINAL SCORES ===
     const direction = bullish > bearish ? 'LONG' : 'SHORT';
     const netScore = Math.abs(bullish - bearish);
@@ -7327,7 +7376,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       currentPrice,
       changePercent,
       rsi,
-      macdHistogram: macdLine,
+      macdHistogram: macdHistogram || macdLine,
       trend,
       trendSlope,
       volumeRatio,
