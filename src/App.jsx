@@ -23497,7 +23497,7 @@ INSTRUCTIONS:
 
               {/* Stop Loss Cascades Rendering */}
               {showStopLossCascades && stopCascades.map((sc, si) => {
-                const barIdx = sc.idx - visStart;
+                const barIdx = sc.idx - layout.visStart;
                 if (barIdx < 0 || barIdx >= visData.length) return null;
                 const yTop = priceToY(sc.high);
                 const yBot = priceToY(sc.low);
