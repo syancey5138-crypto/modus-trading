@@ -11639,8 +11639,17 @@ OUTPUT JSON:
           // Sort filtered set by combined score
           filteredAnalyses.sort((a, b) => b.combinedScore - a.combinedScore);
 
-          // Find best pick
-          const bestPick = filteredAnalyses[0];
+          // Deterministic variety: hash of settings picks from top candidates
+          const settingsKey = pickTimeframe + '|' + pickVolatility + '|' + new Date().toDateString();
+          let settingsHash = 0;
+          for (let i = 0; i < settingsKey.length; i++) {
+            settingsHash = ((settingsHash << 5) - settingsHash) + settingsKey.charCodeAt(i);
+            settingsHash = settingsHash & settingsHash;
+          }
+          const topN = Math.min(5, filteredAnalyses.length);
+          const pickIdx = Math.abs(settingsHash) % topN;
+          const bestPick = filteredAnalyses[pickIdx];
+          console.log(`[Daily Pick] Settings -> index ${pickIdx}/${topN} -> ${bestPick.symbol}`);
 
         // Build the pick object
         const direction = bestPick.direction;
@@ -22170,7 +22179,7 @@ INSTRUCTIONS:
                           {/* Indicators Dropdown */}
                           <div className="group relative">
                             <button className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              (showVolume || showRSI || showMACD || showStochastic || showATR) ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
+                              (showVolume || showRSI || showMACD || showStochastic || showATR || showWilliamsR || showADX) ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/40 text-slate-400 hover:text-white hover:bg-slate-700/60'
                             }`}>
                               <BarChart3 className="w-3.5 h-3.5" />
                               Indicators
@@ -23450,30 +23459,39 @@ INSTRUCTIONS:
                                   {/* ── Order Blocks (Smart Money Zones) ── */}
                                   {showOrderBlocks && orderBlocks.length > 0 && orderBlocks.map((ob, oi) => {
                                     if (!ob || ob.high == null || ob.low == null) return null;
-                                    // Convert absolute indices to visible-range positions
                                     const x1 = ob.startIdx - layout.visStart;
-                                    const x2 = (ob.endIdx || ob.startIdx + 10) - layout.visStart;
-                                    // Check if block is at least partially visible
+                                    const obMaxW = Math.max(3, Math.floor(visData.length * 0.05));
+                                    const x2 = Math.min(x1 + obMaxW, (ob.endIdx || ob.startIdx + 10) - layout.visStart);
                                     if (x2 < 0 || x1 >= visData.length) return null;
                                     const clampX1 = Math.max(0, x1);
                                     const clampX2 = Math.min(visData.length, x2);
+                                    const w = clampX2 - clampX1;
+                                    if (w <= 0) return null;
                                     const yTop = priceToY(ob.high);
                                     const yBot = priceToY(ob.low);
+                                    const h = Math.abs(yBot - yTop);
                                     const isBull = ob.type === 'bullish';
-                                    const alpha = 0.06 + (ob.strength || 0.5) * 0.08;
-                                    const strokeAlpha = 0.25 + (ob.strength || 0.5) * 0.25;
+                                    const str = ob.strength || 0.5;
+                                    const alpha = 0.08 + str * 0.12;
+                                    const strokeAlpha = 0.3 + str * 0.3;
+                                    const glowAlpha = 0.15 + str * 0.15;
                                     return (
                                       <g key={`ob-${oi}`}>
-                                        <rect x={clampX1} y={yTop} width={clampX2 - clampX1} height={Math.abs(yBot - yTop)}
+                                        <rect x={clampX1 - 0.2} y={yTop - 0.2} width={w + 0.4} height={h + 0.4}
+                                          fill="none" stroke={isBull ? `rgba(34,197,94,${glowAlpha})` : `rgba(239,68,68,${glowAlpha})`}
+                                          strokeWidth="0.4" rx="0.3" />
+                                        <rect x={clampX1} y={yTop} width={w} height={h}
                                           fill={isBull ? `rgba(34,197,94,${alpha})` : `rgba(239,68,68,${alpha})`}
                                           stroke={isBull ? `rgba(34,197,94,${strokeAlpha})` : `rgba(239,68,68,${strokeAlpha})`}
-                                          strokeWidth="0.15"
-                                          rx="0.1" />
-                                        {/* Zone label */}
-                                        {(clampX2 - clampX1) > 3 && (
-                                          <text x={clampX1 + 0.3} y={yTop + 1.2}
-                                            fill={isBull ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)'}
-                                            fontSize="1.2" fontWeight="bold">
+                                          strokeWidth="0.15" rx="0.15" />
+                                        <line x1={clampX1} y1={isBull ? yBot : yTop} x2={clampX2} y2={isBull ? yBot : yTop}
+                                          stroke={isBull ? `rgba(34,197,94,${strokeAlpha + 0.15})` : `rgba(239,68,68,${strokeAlpha + 0.15})`}
+                                          strokeWidth="0.25" />
+                                        {w > 2 && (
+                                          <text x={clampX1 + 0.3} y={yTop + 1.5}
+                                            fill={isBull ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'}
+                                            fontSize="1.1" fontWeight="bold"
+                                            style={{ textShadow: '0 0 2px rgba(0,0,0,0.8)' }}>
                                             {isBull ? 'OB+' : 'OB−'}
                                           </text>
                                         )}
@@ -23483,48 +23501,44 @@ INSTRUCTIONS:
 
                                   {/* ── Fair Value Gaps ── */}
                                   {showFVG && fvgGaps.length > 0 && (() => {
-                                    // Adaptive FVG extension based on timeframe
                                     const fvgTf = (tickerTimeframe || '5m').toLowerCase();
-                                    const fvgExtend = ['1m','2m'].includes(fvgTf) ? 8 : ['5m'].includes(fvgTf) ? 12 : ['15m','30m'].includes(fvgTf) ? 15 : ['60m','1h','90m'].includes(fvgTf) ? 20 : 25;
+                                    const fvgBase = ['1m','2m'].includes(fvgTf) ? 8 : ['5m'].includes(fvgTf) ? 12 : ['15m','30m'].includes(fvgTf) ? 15 : ['60m','1h','90m'].includes(fvgTf) ? 20 : 25;
+                                    const fvgExtend = Math.min(fvgBase, Math.max(3, Math.floor(visData.length * 0.04)));
                                     return fvgGaps.map((gap, gi) => {
                                       if (!gap || gap.top == null || gap.bottom == null || isNaN(gap.top) || isNaN(gap.bottom)) return null;
                                       const x1 = gap.idx - layout.visStart;
                                       if (x1 >= visData.length || x1 < -fvgExtend) return null;
                                       const clampX1 = Math.max(0, x1);
                                       const clampX2 = Math.min(visData.length, x1 + fvgExtend);
+                                      const w = clampX2 - clampX1;
+                                      if (w <= 0) return null;
                                       const yTop = priceToY(gap.top);
                                       const yBot = priceToY(gap.bottom);
-                                      const zoneH = Math.max(Math.abs(yBot - yTop), 0.8);
+                                      const zoneH = Math.max(Math.abs(yBot - yTop), 0.5);
                                       const isBull = gap.type === 'bullish';
-                                      // Much more visible alpha: 0.15-0.30 range
-                                      const alpha = 0.15 + (gap.strength || 0.5) * 0.15;
-                                      const borderAlpha = 0.5 + (gap.strength || 0.5) * 0.3;
-                                      const bullColor = '59,130,246';
-                                      const bearColor = '249,115,22';
+                                      const str = gap.strength || 0.5;
+                                      const alpha = 0.10 + str * 0.12;
+                                      const borderAlpha = 0.4 + str * 0.25;
+                                      const bullColor = '99,155,255';
+                                      const bearColor = '255,140,60';
                                       const c = isBull ? bullColor : bearColor;
                                       return (
                                         <g key={`fvg-${gi}`}>
-                                          {/* Main fill zone */}
-                                          <rect x={clampX1} y={Math.min(yTop, yBot)} width={clampX2 - clampX1} height={zoneH}
+                                          <rect x={clampX1 - 0.1} y={Math.min(yTop, yBot) - 0.1} width={w + 0.2} height={zoneH + 0.2}
+                                            fill="none" stroke={`rgba(${c},${alpha * 0.6})`}
+                                            strokeWidth="0.35" rx="0.2" />
+                                          <rect x={clampX1} y={Math.min(yTop, yBot)} width={w} height={zoneH}
                                             fill={`rgba(${c},${alpha})`}
                                             stroke={`rgba(${c},${borderAlpha})`}
-                                            strokeWidth="0.2"
-                                            strokeDasharray="1,0.5"
-                                            rx="0.15" />
-                                          {/* Top border line (solid) */}
+                                            strokeWidth="0.15" strokeDasharray="0.8,0.4" rx="0.1" />
                                           <line x1={clampX1} y1={Math.min(yTop, yBot)} x2={clampX2} y2={Math.min(yTop, yBot)}
-                                            stroke={`rgba(${c},${borderAlpha + 0.1})`}
-                                            strokeWidth="0.15" />
-                                          {/* Bottom border line (solid) */}
+                                            stroke={`rgba(${c},${borderAlpha + 0.1})`} strokeWidth="0.12" />
                                           <line x1={clampX1} y1={Math.min(yTop, yBot) + zoneH} x2={clampX2} y2={Math.min(yTop, yBot) + zoneH}
-                                            stroke={`rgba(${c},${borderAlpha + 0.1})`}
-                                            strokeWidth="0.15" />
-                                          {/* Label */}
-                                          {(clampX2 - clampX1) > 2 && (
-                                            <text x={clampX1 + 0.5} y={Math.min(yTop, yBot) + 1.6}
-                                              fill={`rgba(${c},0.85)`}
-                                              fontSize="1.4" fontWeight="bold"
-                                              style={{ textShadow: '0 0 2px rgba(0,0,0,0.8)' }}>
+                                            stroke={`rgba(${c},${borderAlpha + 0.1})`} strokeWidth="0.12" />
+                                          {w > 1.5 && zoneH > 1.5 && (
+                                            <text x={clampX1 + 0.3} y={Math.min(yTop, yBot) + 1.3}
+                                              fill={`rgba(${c},0.8)`} fontSize="1.0" fontWeight="bold"
+                                              style={{ textShadow: '0 0 2px rgba(0,0,0,0.9)' }}>
                                               {isBull ? 'FVG+' : 'FVG−'}
                                             </text>
                                           )}
@@ -24995,6 +25009,157 @@ INSTRUCTIONS:
                                   <polyline points={validADX.map((v, i) => `${i + 1},${100 - Math.min(v.adx, maxADXVal) / maxADXVal * 100}`).join(' ')} fill="none" stroke="#f59e0b" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
                                 </svg>
                                 <div className="absolute w-2 h-2 bg-amber-500 rounded-full shadow-lg shadow-amber-500/50" style={{ right: `${(3 / (validADX.length + 4)) * 100}%`, top: `${100 - Math.min(currentADX, maxADXVal) / maxADXVal * 100}%`, transform: 'translate(50%, -50%)' }} />
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* WILLIAMS %R INDICATOR */}
+                        {showWilliamsR && (() => {
+                          const layout = getChartLayout();
+                          const bars = tickerData.timeSeries;
+                          if (bars.length < 14) return (<div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4"><div className="text-xs text-slate-400 font-semibold mb-2">Williams %R (14)</div><div className="text-center text-slate-500 py-4">Need at least 14 data points.</div></div>);
+                          const period = 14;
+                          const wrValues = [];
+                          for (let i = 0; i < bars.length; i++) {
+                            if (i < period - 1) { wrValues.push(null); continue; }
+                            const slice = bars.slice(i - period + 1, i + 1);
+                            const hh = Math.max(...slice.map(b => b.high));
+                            const ll = Math.min(...slice.map(b => b.low));
+                            wrValues.push(hh !== ll ? ((hh - bars[i].close) / (hh - ll)) * -100 : -50);
+                          }
+                          const visWR = wrValues.slice(layout.visStart, layout.visEnd);
+                          const validWR = visWR.filter(v => v !== null);
+                          const currentWR = validWR.length > 0 ? validWR[validWR.length - 1] : -50;
+                          const zone = currentWR > -20 ? 'Overbought' : currentWR < -80 ? 'Oversold' : 'Neutral';
+                          const zoneColor = currentWR > -20 ? 'red' : currentWR < -80 ? 'emerald' : 'indigo';
+                          return (
+                            <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs text-slate-400 font-semibold">Williams %R (14)</div>
+                                  <div className="group relative">
+                                    <HelpCircle className="w-3.5 h-3.5 text-slate-500 cursor-help hover:text-indigo-400 transition-colors" />
+                                    <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200" style={{ zIndex: 9999 }}>
+                                      <div className="font-semibold text-indigo-400 mb-1">% Williams %R</div>
+                                      <p className="mb-2">Momentum oscillator: closing price relative to high-low range.</p>
+                                      <div className="space-y-1 text-[10px]">
+                                        <div className="flex items-center gap-2"><span className="text-red-400">●</span> Above -20 = Overbought</div>
+                                        <div className="flex items-center gap-2"><span className="text-emerald-400">●</span> Below -80 = Oversold</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className={`text-lg font-bold tabular-nums text-${zoneColor}-400`}>{currentWR.toFixed(1)}</div>
+                                  <div className={`text-xs px-2.5 py-1 rounded-full font-medium bg-${zoneColor}-500/20 text-${zoneColor}-300`}>{zone}</div>
+                                </div>
+                              </div>
+                              <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
+                                <div className="absolute w-full bg-red-500/10" style={{ top: 0, height: '20%' }} />
+                                <div className="absolute w-full bg-emerald-500/10" style={{ bottom: 0, height: '20%' }} />
+                                <div className="absolute w-full border-t border-red-500/40" style={{ top: '20%' }}>
+                                  <span className="absolute right-1 -top-2.5 text-[10px] text-red-400/80">-20</span>
+                                </div>
+                                <div className="absolute w-full border-t border-slate-600/40" style={{ top: '50%' }}>
+                                  <span className="absolute right-1 -top-2.5 text-[10px] text-slate-500">-50</span>
+                                </div>
+                                <div className="absolute w-full border-t border-emerald-500/40" style={{ top: '80%' }}>
+                                  <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400/80">-80</span>
+                                </div>
+                                <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validWR.length, 1) + 4} 100`} preserveAspectRatio="none">
+                                  <defs><linearGradient id="wrGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity="0.3"/><stop offset="100%" stopColor="#818cf8" stopOpacity="0.02"/></linearGradient></defs>
+                                  <polygon points={`0,100 ${validWR.map((v, i) => `${i + 1},${(v + 100)}`).join(' ')} ${validWR.length + 1},100`} fill="url(#wrGrad)" />
+                                  <polyline points={validWR.map((v, i) => `${i + 1},${(v + 100)}`).join(' ')} fill="none" stroke="#818cf8" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+                                </svg>
+                                <div className="absolute w-2 h-2 bg-indigo-400 rounded-full shadow-lg shadow-indigo-500/50" style={{ right: `${(3 / (validWR.length + 4)) * 100}%`, top: `${currentWR + 100}%`, transform: 'translate(50%, -50%)' }} />
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* ADX INDICATOR */}
+                        {showADX && (() => {
+                          const layout = getChartLayout();
+                          const bars = tickerData.timeSeries;
+                          if (bars.length < 30) return (<div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4"><div className="text-xs text-slate-400 font-semibold mb-2">ADX (14)</div><div className="text-center text-slate-500 py-4">Need at least 30 data points.</div></div>);
+                          const period = 14;
+                          const trA = [], pDMA = [], nDMA = [], result = [];
+                          for (let i = 0; i < bars.length; i++) {
+                            if (i === 0) { trA.push(0); pDMA.push(0); nDMA.push(0); result.push(null); continue; }
+                            const h = bars[i].high, l = bars[i].low, c = bars[i-1].close;
+                            const ph = bars[i-1].high, pl = bars[i-1].low;
+                            trA.push(Math.max(h-l, Math.abs(h-c), Math.abs(l-c)));
+                            pDMA.push((h-ph) > (pl-l) && (h-ph) > 0 ? (h-ph) : 0);
+                            nDMA.push((pl-l) > (h-ph) && (pl-l) > 0 ? (pl-l) : 0);
+                            if (i < period) { result.push(null); continue; }
+                            if (i === period) {
+                              const sT = trA.slice(1, period+1).reduce((a,b) => a+b, 0);
+                              const sP = pDMA.slice(1, period+1).reduce((a,b) => a+b, 0);
+                              const sN = nDMA.slice(1, period+1).reduce((a,b) => a+b, 0);
+                              const pD = sT > 0 ? (sP/sT)*100 : 0, nD = sT > 0 ? (sN/sT)*100 : 0;
+                              const dx = (pD+nD) > 0 ? (Math.abs(pD-nD)/(pD+nD))*100 : 0;
+                              result.push({ adx: dx, pDI: pD, nDI: nD, sT, sP, sN });
+                            } else {
+                              const p = result[i-1];
+                              if (!p || typeof p !== 'object') { result.push(null); continue; }
+                              const sT = p.sT - (p.sT/period) + trA[i];
+                              const sP = p.sP - (p.sP/period) + pDMA[i];
+                              const sN = p.sN - (p.sN/period) + nDMA[i];
+                              const pD = sT > 0 ? (sP/sT)*100 : 0, nD = sT > 0 ? (sN/sT)*100 : 0;
+                              const dx = (pD+nD) > 0 ? (Math.abs(pD-nD)/(pD+nD))*100 : 0;
+                              const adx = (i >= period*2 && p.adx != null) ? ((p.adx*(period-1))+dx)/period : dx;
+                              result.push({ adx, pDI: pD, nDI: nD, sT, sP, sN });
+                            }
+                          }
+                          const visADX = result.slice(layout.visStart, layout.visEnd);
+                          const validADX = visADX.filter(v => v && typeof v === 'object');
+                          const curADX = validADX.length > 0 ? validADX[validADX.length-1] : { adx: 0, pDI: 0, nDI: 0 };
+                          const trendStr = curADX.adx >= 50 ? 'Very Strong' : curADX.adx >= 25 ? 'Strong' : curADX.adx >= 15 ? 'Weak' : 'No Trend';
+                          const trendColor = curADX.adx >= 50 ? 'amber' : curADX.adx >= 25 ? 'emerald' : curADX.adx >= 15 ? 'slate' : 'red';
+                          return (
+                            <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs text-slate-400 font-semibold">ADX (14)</div>
+                                  <div className="group relative">
+                                    <HelpCircle className="w-3.5 h-3.5 text-slate-500 cursor-help hover:text-amber-400 transition-colors" />
+                                    <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200" style={{ zIndex: 9999 }}>
+                                      <div className="font-semibold text-amber-400 mb-1">↕ ADX (Average Directional Index)</div>
+                                      <p className="mb-2">Measures trend strength regardless of direction.</p>
+                                      <div className="space-y-1 text-[10px]">
+                                        <div className="flex items-center gap-2"><span className="text-amber-400">━</span> ADX = Trend strength</div>
+                                        <div className="flex items-center gap-2"><span className="text-emerald-400">━</span> +DI = Bullish pressure</div>
+                                        <div className="flex items-center gap-2"><span className="text-red-400">━</span> -DI = Bearish pressure</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs tabular-nums">
+                                  <span className="text-amber-400">ADX: {curADX.adx.toFixed(1)}</span>
+                                  <span className="text-emerald-400">+DI: {curADX.pDI.toFixed(1)}</span>
+                                  <span className="text-red-400">-DI: {curADX.nDI.toFixed(1)}</span>
+                                  <div className={`text-xs px-2 py-1 rounded-full font-medium bg-${trendColor}-500/20 text-${trendColor}-300`}>{trendStr}</div>
+                                </div>
+                              </div>
+                              <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
+                                <div className="absolute w-full border-t border-amber-500/30" style={{ bottom: '50%' }}>
+                                  <span className="absolute right-1 -top-2.5 text-[10px] text-amber-400/60">50</span>
+                                </div>
+                                <div className="absolute w-full border-t border-slate-600/30" style={{ bottom: '25%' }}>
+                                  <span className="absolute right-1 -top-2.5 text-[10px] text-slate-500/60">25</span>
+                                </div>
+                                <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validADX.length, 1)} 100`} preserveAspectRatio="none">
+                                  <polyline points={validADX.map((v, i) => `${i},${100 - v.adx}`).join(' ')} fill="none" stroke="#f59e0b" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+                                  <polyline points={validADX.map((v, i) => `${i},${100 - Math.min(v.pDI, 100)}`).join(' ')} fill="none" stroke="#34d399" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeDasharray="4,2" />
+                                  <polyline points={validADX.map((v, i) => `${i},${100 - Math.min(v.nDI, 100)}`).join(' ')} fill="none" stroke="#f87171" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeDasharray="4,2" />
+                                </svg>
+                                {curADX.pDI > curADX.nDI && curADX.adx > 20 && (
+                                  <div className="absolute top-2 left-2"><span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded border border-emerald-500/30">↑ Bullish Trend</span></div>
+                                )}
+                                {curADX.nDI > curADX.pDI && curADX.adx > 20 && (
+                                  <div className="absolute top-2 left-2"><span className="bg-red-500/20 text-red-300 text-[10px] px-2 py-0.5 rounded border border-red-500/30">↓ Bearish Trend</span></div>
+                                )}
                               </div>
                             </div>
                           );
