@@ -23458,7 +23458,7 @@ INSTRUCTIONS:
 
                                   {/* ── Order Blocks (Smart Money Zones) ── */}
                                   {showOrderBlocks && orderBlocks.length > 0 && (() => {
-                                    const obMaxW = Math.max(2, Math.floor(visData.length * 0.04));
+                                    const obMaxW = Math.max(2, Math.floor(visData.length * 0.025));
                                     return orderBlocks.map((ob, oi) => {
                                       if (!ob || ob.high == null || ob.low == null) return null;
                                       const x1r = ob.startIdx - layout.visStart;
@@ -23503,7 +23503,7 @@ INSTRUCTIONS:
 {showFVG && fvgGaps.length > 0 && (() => {
   const fvgTf = (tickerTimeframe || '5m').toLowerCase();
   const fvgBase = ['1m','2m'].includes(fvgTf)?6:['5m'].includes(fvgTf)?8:['15m','30m'].includes(fvgTf)?10:['60m','1h','90m'].includes(fvgTf)?14:18;
-  const fvgExtend = Math.min(fvgBase, Math.max(2, Math.floor(visData.length * 0.035)));
+  const fvgExtend = Math.min(fvgBase, Math.max(2, Math.floor(visData.length * 0.02)));
   return fvgGaps.map((gap, gi) => {
     if (!gap || gap.top == null || gap.bottom == null || isNaN(gap.top) || isNaN(gap.bottom)) return null;
     const x1 = gap.idx - layout.visStart;
@@ -23557,121 +23557,41 @@ INSTRUCTIONS:
                                     );
                                   })}
 
-              {/* Stop Loss Cascades Rendering */}
-              {showStopLossCascades && stopCascades.map((sc, si) => {
-                const barIdx = sc.idx - layout.visStart;
-                if (barIdx < 0 || barIdx >= visData.length) return null;
-                const yTop = priceToY(sc.high);
-                const yBot = priceToY(sc.low);
-                const h = Math.max(yBot - yTop, 0.5);
-                const w = Math.min(visData.length - barIdx, Math.max(3, Math.floor(visData.length * 0.06)));
-                const isBuy = sc.type === "buy-stop";
-                const baseOp = sc.triggered ? 0.3 : 0.15;
-                const borderOp = sc.triggered ? 0.8 : 0.5;
-                const fillC = isBuy ? "rgba(236,72,153," + baseOp + ")" : "rgba(34,211,238," + baseOp + ")";
-                const strokeC = isBuy ? "rgba(236,72,153," + borderOp + ")" : "rgba(34,211,238," + borderOp + ")";
-                const textC = isBuy ? "#ec4899" : "#22d3ee";
-                const sizeLabel = sc.clusterSize >= 1e6 ? (sc.clusterSize/1e6).toFixed(1) + "M" :
-                  sc.clusterSize >= 1000 ? (sc.clusterSize/1000).toFixed(1) + "K" :
-                  Math.round(sc.clusterSize).toString();
-                return <g key={`slc-${si}`}>
-                  {sc.triggered && <rect x={barIdx - 0.15} y={yTop - 0.15} width={w + 0.3} height={h + 0.3}
-                    fill="none" stroke={isBuy ? "rgba(236,72,153,0.25)" : "rgba(34,211,238,0.25)"}
-                    strokeWidth="0.2" rx="0.1" />}
-                  <rect x={barIdx} y={yTop} width={w} height={h}
-                    fill={fillC} stroke={strokeC}
-                    strokeWidth="0.08" strokeDasharray="0.4 0.2" rx="0.05" />
-                  <text x={barIdx + 0.3} y={yTop + h * 0.4} fill={textC}
-                    fontSize="0.9" dominantBaseline="middle" opacity="0.9">
-                    {isBuy ? "\u25B2" : "\u25BC"} {sizeLabel}
-                  </text>
-                  <text x={barIdx + 0.3} y={yTop + h * 0.75} fill={textC}
-                    fontSize="0.6" dominantBaseline="middle" opacity="0.55">
-                    {sc.triggered ? "TRIGGERED" : "STOPS"}
-                  </text>
-                </g>;
-              })}
-
-              {/* Cascade Meter */}
-              {showStopLossCascades && stopCascades.length > 0 && (() => {
-                const buyStops = stopCascades.filter(s => s.type === "buy-stop" && !s.triggered);
-                const sellStops = stopCascades.filter(s => s.type === "sell-stop" && !s.triggered);
-                const buyTotal = buyStops.reduce((a, c) => a + c.clusterSize, 0);
-                const sellTotal = sellStops.reduce((a, c) => a + c.clusterSize, 0);
-                const total = buyTotal + sellTotal;
-                if (total === 0) return null;
-                const buyPct = buyTotal / total;
-                const mX = visData.length - 14;
-                const mY = 2;
-                return <g>
-                  <rect x={mX} y={mY} width={12} height={5.5} fill="rgba(0,0,0,0.65)" rx="0.3" stroke="rgba(255,255,255,0.08)" strokeWidth="0.05" />
-                  <text x={mX + 6} y={mY + 1.3} fill="#e2e8f0" fontSize="0.65" textAnchor="middle" dominantBaseline="middle">CASCADE METER</text>
-                  <rect x={mX + 0.5} y={mY + 2.2} width={11} height={1.2} fill="rgba(34,211,238,0.3)" rx="0.15" />
-                  <rect x={mX + 0.5} y={mY + 2.2} width={11 * buyPct} height={1.2} fill="rgba(236,72,153,0.5)" rx="0.15" />
-                  <text x={mX + 1} y={mY + 4.5} fill="#ec4899" fontSize="0.55" dominantBaseline="middle">
-                    {"\u25B2 " + (buyTotal >= 1e6 ? (buyTotal/1e6).toFixed(1) + "M" : (buyTotal/1000).toFixed(0) + "K")}
-                  </text>
-                  <text x={mX + 11.5} y={mY + 4.5} fill="#22d3ee" fontSize="0.55" textAnchor="end" dominantBaseline="middle">
-                    {"\u25BC " + (sellTotal >= 1e6 ? (sellTotal/1e6).toFixed(1) + "M" : (sellTotal/1000).toFixed(0) + "K")}
-                  </text>
-                </g>;
-              })()}
-
-                                  {/* ── Pivot Points (horizontal lines across chart) ── */}
-                                  {showPivotPoints && pivotPoints && (() => {
-                                    const lines = [
-                                      { price: pivotPoints.pp, color: '#a78bfa', label: 'PP', dash: '' },
-                                      { price: pivotPoints.r1, color: '#34d399', label: 'R1', dash: '1,0.5' },
-                                      { price: pivotPoints.r2, color: '#10b981', label: 'R2', dash: '1,0.5' },
-                                      { price: pivotPoints.r3, color: '#059669', label: 'R3', dash: '0.5,0.5' },
-                                      { price: pivotPoints.s1, color: '#f87171', label: 'S1', dash: '1,0.5' },
-                                      { price: pivotPoints.s2, color: '#ef4444', label: 'S2', dash: '1,0.5' },
-                                      { price: pivotPoints.s3, color: '#dc2626', label: 'S3', dash: '0.5,0.5' },
-                                    ];
-                                    return lines.map((ln, li) => {
-                                      if (ln.price == null || isNaN(ln.price)) return null;
-                                      const y = priceToY(ln.price);
-                                      if (y < -5 || y > 105) return null;
-                                      return (
-                                        <g key={`pivot-${li}`}>
-                                          <line x1={0} y1={y} x2={visData.length} y2={y}
-                                            stroke={ln.color} strokeWidth="0.15" strokeDasharray={ln.dash}
-                                            opacity={0.7} />
-                                          <text x={visData.length - 2.5} y={y - 0.4}
-                                            fill={ln.color} fontSize="1.1" fontWeight="bold" opacity={0.9}>
-                                            {ln.label}
+                                  {/* ── Stop Loss Cascades ── */}
+                                  {showStopLossCascades && stopCascades.map((sc, si) => {
+                                    const bIdx = sc.idx - layout.visStart;
+                                    if (bIdx < 0 || bIdx >= visData.length) return null;
+                                    const yT = priceToY(sc.high), yB = priceToY(sc.low);
+                                    const h = Math.max(yB - yT, 0.4);
+                                    const w = Math.max(1.5, Math.min(3, Math.floor(visData.length * 0.02)));
+                                    const isBuy = sc.type === "buy-stop";
+                                    const trig = sc.triggered;
+                                    const baseC = isBuy ? "236,72,153" : "34,211,238";
+                                    const sizeLabel = sc.clusterSize >= 1e6 ? (sc.clusterSize/1e6).toFixed(1)+"M" : sc.clusterSize >= 1000 ? (sc.clusterSize/1000).toFixed(0)+"K" : Math.round(sc.clusterSize).toString();
+                                    return (
+                                      <g key={`slc-${si}`}>
+                                        <defs>
+                                          <linearGradient id={`slcG${si}`} x1="0" y1={isBuy?"1":"0"} x2="0" y2={isBuy?"0":"1"}>
+                                            <stop offset="0%" stopColor={`rgb(${baseC})`} stopOpacity={trig ? 0.25 : 0.12}/>
+                                            <stop offset="100%" stopColor={`rgb(${baseC})`} stopOpacity={0.02}/>
+                                          </linearGradient>
+                                        </defs>
+                                        <rect x={bIdx} y={yT} width={w} height={h}
+                                          fill={`url(#slcG${si})`} rx="0.06"/>
+                                        <line x1={bIdx} y1={isBuy ? yB : yT} x2={bIdx + w} y2={isBuy ? yB : yT}
+                                          stroke={`rgba(${baseC},${trig ? 0.6 : 0.35})`} strokeWidth="0.15"/>
+                                        {h > 0.8 && (
+                                          <text x={bIdx + 0.15} y={yT + h * 0.45}
+                                            fill={`rgba(${baseC},0.75)`} fontSize="0.65" fontWeight="600"
+                                            style={{textShadow:'0 0 2px rgba(0,0,0,0.9)'}}>
+                                            {isBuy ? "\u25B2" : "\u25BC"}{sizeLabel}
                                           </text>
-                                        </g>
-                                      );
-                                    });
-                                  })()}
+                                        )}
+                                      </g>
+                                    );
+                                  })}
 
-                                  {showComparison && comparisonData?.timeSeries?.length > 0 && (() => {
-                                    // Right-align: both datasets end at "now", so align from the right
-                                    const mainTotal = fullSeries.length;
-                                    const compTotal = comparisonData.timeSeries.length;
-                                    // compOffset maps main index to comparison index: compIdx = mainIdx + compOffset
-                                    const compOffset = compTotal - mainTotal;
-                                    // Extract comparison closes for the visible window
-                                    const points = [];
-                                    let compStartPrice = null;
-                                    let mainStartPrice = null;
-                                    for (let j = 0; j < visData.length; j++) {
-                                      const compIdx = layout.visStart + j + compOffset;
-                                      if (compIdx >= 0 && compIdx < compTotal) {
-                                        const compClose = comparisonData.timeSeries[compIdx]?.close;
-                                        if (compClose != null) {
-                                          if (compStartPrice === null) { compStartPrice = compClose; mainStartPrice = visData[j]?.close || visData[0]?.close || 1; }
-                                          // Normalize: comparison returns mapped to main chart's price scale
-                                          const normalizedPrice = mainStartPrice * (1 + (compClose - compStartPrice) / compStartPrice);
-                                          points.push(`${j},${priceToY(normalizedPrice)}`);
-                                        }
-                                      }
-                                    }
-                                    return points.length > 1 ? (
-                                      <polyline points={points.join(' ')} fill="none" stroke="#fbbf24" strokeWidth="0.7" strokeDasharray="3,1" opacity="0.85" />
-                                    ) : null;
-                                  })()}
+
                                 </svg>
                               );
                             })()}
@@ -24328,113 +24248,7 @@ INSTRUCTIONS:
                         })()}
                         
                         
-              {/* WILLIAMS %R INDICATOR */}
-              {showWilliamsR && (() => {
-                const layout = getChartLayout();
-                const bars = tickerData.timeSeries;
-                const period = 14;
-                const wrVals = [];
-                for (let i = 0; i < bars.length; i++) {
-                  if (i < period - 1) { wrVals.push(null); continue; }
-                  const sl = bars.slice(i - period + 1, i + 1);
-                  const hh = Math.max(...sl.map(b => b.high));
-                  const ll = Math.min(...sl.map(b => b.low));
-                  const r = hh - ll;
-                  wrVals.push(r === 0 ? -50 : ((hh - bars[i].close) / r) * -100);
-                }
-                const slicedWR = wrVals.slice(layout.visStart, layout.visEnd);
-                const validWR = slicedWR.filter(v => v !== null);
-                const currentWR = validWR.length > 0 ? validWR[validWR.length - 1] : -50;
-                if (validWR.length < 2) return null;
-                return (
-                  <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs text-slate-400 font-semibold">Williams %R (14)</div>
-                      <div className={`text-sm font-bold ${currentWR > -20 ? "text-red-400" : currentWR < -80 ? "text-emerald-400" : "text-indigo-400"}`}>
-                        {currentWR.toFixed(1)}
-                      </div>
-                    </div>
-                    <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
-                      <div className="absolute w-full bg-red-500/10" style={{ top: 0, height: "20%" }} />
-                      <div className="absolute w-full bg-emerald-500/10" style={{ bottom: 0, height: "20%" }} />
-                      <div className="absolute w-full border-t border-red-500/50" style={{ top: "20%" }}>
-                        <span className="absolute right-1 -top-2.5 text-[10px] text-red-400">-20</span>
-                      </div>
-                      <div className="absolute w-full border-t border-slate-600/50" style={{ top: "50%" }}>
-                        <span className="absolute right-1 -top-2.5 text-[11px] text-slate-400/80">-50</span>
-                      </div>
-                      <div className="absolute w-full border-t border-emerald-500/50" style={{ top: "80%" }}>
-                        <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400">-80</span>
-                      </div>
-                      <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validWR.length, 1) + 4} 100`} preserveAspectRatio="none">
-                        <polyline points={validWR.map((val, i) => `${i + 1},${Math.abs(val)}`).join(" ")} fill="none" stroke="#818cf8" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-                      </svg>
-                      <div className="absolute w-2 h-2 bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/50" style={{ right: `${(3 / (validWR.length + 4)) * 100}%`, top: `${Math.abs(currentWR)}%`, transform: "translate(50%, -50%)" }} />
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ADX INDICATOR */}
-              {showADX && (() => {
-                const layout = getChartLayout();
-                const bars2 = tickerData.timeSeries;
-                const p = 14;
-                const adxVals = new Array(bars2.length).fill(null);
-                if (bars2.length > p * 2 + 2) {
-                  const trs = [], pdms = [], ndms = [];
-                  for (let i = 1; i < bars2.length; i++) {
-                    trs.push(Math.max(bars2[i].high - bars2[i].low, Math.abs(bars2[i].high - bars2[i-1].close), Math.abs(bars2[i].low - bars2[i-1].close)));
-                    const up = bars2[i].high - bars2[i-1].high;
-                    const dn = bars2[i-1].low - bars2[i].low;
-                    pdms.push(up > dn && up > 0 ? up : 0);
-                    ndms.push(dn > up && dn > 0 ? dn : 0);
-                  }
-                  let sTR = trs.slice(0,p).reduce((a,b)=>a+b,0);
-                  let sPDM = pdms.slice(0,p).reduce((a,b)=>a+b,0);
-                  let sNDM = ndms.slice(0,p).reduce((a,b)=>a+b,0);
-                  const dxs = [];
-                  for (let i = p; i < trs.length; i++) {
-                    if (i > p) { sTR = sTR - sTR/p + trs[i]; sPDM = sPDM - sPDM/p + pdms[i]; sNDM = sNDM - sNDM/p + ndms[i]; }
-                    const pdi = sTR === 0 ? 0 : (sPDM/sTR)*100;
-                    const ndi = sTR === 0 ? 0 : (sNDM/sTR)*100;
-                    dxs.push((pdi+ndi)===0 ? 0 : Math.abs(pdi-ndi)/(pdi+ndi)*100);
-                  }
-                  let adx = dxs.slice(0,p).reduce((a,b)=>a+b,0)/p;
-                  for (let i = 0; i < dxs.length; i++) {
-                    if (i >= p) adx = (adx*(p-1)+dxs[i])/p;
-                    if (i >= p-1) { const idx = i + p + 1; if (idx < bars2.length) adxVals[idx] = adx; }
-                  }
-                }
-                const slicedADX = adxVals.slice(layout.visStart, layout.visEnd);
-                const validADX = slicedADX.filter(v => v !== null);
-                const currentADX = validADX.length > 0 ? validADX[validADX.length - 1] : 25;
-                if (validADX.length < 2) return null;
-                return (
-                  <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs text-slate-400 font-semibold">ADX (14)</div>
-                      <div className={`text-sm font-bold ${currentADX > 50 ? "text-amber-400" : currentADX > 25 ? "text-emerald-400" : "text-slate-500"}`}>
-                        {currentADX.toFixed(1)}
-                      </div>
-                    </div>
-                    <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
-                      <div className="absolute w-full bg-amber-500/8" style={{ top: 0, height: "75%" }} />
-                      <div className="absolute w-full border-t border-amber-500/50" style={{ top: "75%" }}>
-                        <span className="absolute right-1 -top-2.5 text-[10px] text-amber-400">25</span>
-                      </div>
-                      <div className="absolute w-full border-t border-slate-600/50" style={{ top: "50%" }}>
-                        <span className="absolute right-1 -top-2.5 text-[11px] text-slate-400/80">50</span>
-                      </div>
-                      <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validADX.length, 1) + 4} 100`} preserveAspectRatio="none">
-                        <polyline points={validADX.map((val, i) => `${i + 1},${100 - Math.min(val, 100)}`).join(" ")} fill="none" stroke="#f59e0b" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-                      </svg>
-                      <div className="absolute w-2 h-2 bg-amber-500 rounded-full shadow-lg shadow-amber-500/50" style={{ right: `${(3 / (validADX.length + 4)) * 100}%`, top: `${100 - Math.min(currentADX, 100)}%`, transform: "translate(50%, -50%)" }} />
-                    </div>
-                  </div>
-                );
-              })()}
-{/* MACD INDICATOR */}
+                        {/* MACD INDICATOR */}
                         {showMACD && (() => {
                           const layout = getChartLayout();
                           const prices = tickerData.timeSeries.map(b => b.close || 0);
@@ -30115,11 +29929,8 @@ INSTRUCTIONS:
                     }}
                     className="bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                   >
-                    <option value="all">All Assets</option>
+                    <option value="all">All Stocks</option>
                     <option value="stocks">Stocks Only</option>
-                    <option value="crypto">Crypto Only</option>
-                    <option value="forex">Forex Only</option>
-                    <option value="commodities">Commodities Only</option>
                   </select>
                 </div>
               </div>
