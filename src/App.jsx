@@ -2844,8 +2844,9 @@ function App() {
       const sectorNames = { 'XLK': 'Technology', 'XLF': 'Financials', 'XLE': 'Energy', 'XLV': 'Healthcare', 'XLY': 'Consumer Discretionary', 'XLP': 'Consumer Staples', 'XLU': 'Utilities', 'XLRE': 'Real Estate', 'XLI': 'Industrials', 'XLC': 'Communication Services', 'XLB': 'Materials' };
 
       // Fetch higher timeframe + SPY market context + news + sector ETF in parallel
+      let sectorData = null;
       try {
-        const [htfData, spyData, newsData, sectorData, vixData, dxyData, tltData] = await Promise.all([
+        const [htfData, spyData, newsData, _sectorData, vixData, dxyData, tltData] = await Promise.all([
           fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${htfInterval}&range=${htfRange}`, 6000).catch(() => null),
           fetchWithCache(`https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1mo`, 6000, API_CACHE_TTL).catch(() => null),
           fetchRealTimeNews(sym, 5).catch(() => []),
@@ -2854,6 +2855,7 @@ function App() {
           fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=1mo`, 5000).catch(() => null),
           fetchYahooWithProxies(`https://query1.finance.yahoo.com/v8/finance/chart/TLT?interval=1d&range=1mo`, 5000).catch(() => null)
         ]);
+        sectorData = _sectorData;
 
         // Higher timeframe trend
         if (htfData) {
@@ -10911,6 +10913,25 @@ OUTPUT JSON:
           reconciledFinal.reconciled = false;
           reconciledFinal.dataValidated = true;
           reconciledFinal.directionalBias = realIndicators.direction;
+        }
+
+        // Fix AI sub-objects to match reconciled direction
+        const reconciledDir = reconciledFinal.directionalBias;
+        if (reconciledDir) {
+          if (reconciledFinal.tradeInstruction && reconciledFinal.tradeInstruction.action) {
+            const tiAction = reconciledFinal.tradeInstruction.action.toUpperCase();
+            if (reconciledDir === "SHORT" && tiAction.includes("BUY")) {
+              reconciledFinal.tradeInstruction.action = reconciledFinal.tradeInstruction.action.replace(/BUY/gi, "SELL");
+              console.log("[Chart Analysis] Fixed tradeInstruction: BUY -> SELL");
+            } else if (reconciledDir === "LONG" && tiAction.includes("SELL")) {
+              reconciledFinal.tradeInstruction.action = reconciledFinal.tradeInstruction.action.replace(/SELL/gi, "BUY");
+              console.log("[Chart Analysis] Fixed tradeInstruction: SELL -> BUY");
+            }
+          }
+          if (reconciledFinal.ifYouMustTrade && reconciledFinal.ifYouMustTrade.direction !== reconciledDir) {
+            console.log("[Chart Analysis] Fixed ifYouMustTrade: " + reconciledFinal.ifYouMustTrade.direction + " -> " + reconciledDir);
+            reconciledFinal.ifYouMustTrade.direction = reconciledDir;
+          }
         }
 
         // Use confidence calculated same way as Daily Pick
@@ -24662,170 +24683,6 @@ INSTRUCTIONS:
                           );
                         })()}
 
-                        {/* WILLIAMS %R OSCILLATOR */}
-                        {showWilliamsR && (() => {
-                          const bars = tickerData.timeSeries;
-                          if (bars.length < 15) return (
-                            <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
-                              <div className="text-xs text-slate-400 font-semibold mb-2">Williams %R (14)</div>
-                              <div className="text-center text-slate-500 py-4">Need at least 15 data points. Current: {bars.length}</div>
-                            </div>
-                          );
-                          const layout = getChartLayout();
-                          const period = 14;
-                          const wrAll = [];
-                          for (let i = 0; i < bars.length; i++) {
-                            if (i < period - 1) { wrAll.push(null); continue; }
-                            const sl = bars.slice(i - period + 1, i + 1);
-                            const hh = Math.max(...sl.map(b => b.high));
-                            const ll = Math.min(...sl.map(b => b.low));
-                            const range = hh - ll;
-                            wrAll.push(range === 0 ? -50 : ((hh - bars[i].close) / range) * -100);
-                          }
-                          const visWR = wrAll.slice(layout.visStart, layout.visEnd);
-                          const validWR = visWR.filter(v => v !== null);
-                          if (validWR.length < 2) return null;
-                          const currentWR = validWR[validWR.length - 1];
-                          const wrZone = currentWR > -20 ? 'Overbought' : currentWR < -80 ? 'Oversold' : 'Neutral';
-                          const wrColor = currentWR > -20 ? 'text-red-400' : currentWR < -80 ? 'text-emerald-400' : 'text-indigo-400';
-                          return (
-                            <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="text-xs text-slate-400 font-semibold">Williams %R (14)</div>
-                                  <div className="group relative">
-                                    <HelpCircle className="w-3.5 h-3.5 text-slate-500 cursor-help hover:text-indigo-400 transition-colors" />
-                                    <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200" style={{ zIndex: 9999 }}>
-                                      <div className="font-semibold text-indigo-400 mb-1">% Williams %R</div>
-                                      <p className="mb-2">Momentum oscillator (0 to -100) measuring closing price relative to high-low range.</p>
-                                      <div className="space-y-1 text-[10px]">
-                                        <div className="flex items-center gap-2"><span className="text-red-400">●</span> Above -20 = Overbought</div>
-                                        <div className="flex items-center gap-2"><span className="text-emerald-400">●</span> Below -80 = Oversold</div>
-                                        <div className="flex items-center gap-2"><span className="text-indigo-400">●</span> -50 = Neutral zone</div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm tabular-nums">
-                                  <span className={wrColor + " font-bold"}>{currentWR.toFixed(1)}</span>
-                                  <span className={"text-xs px-1.5 py-0.5 rounded " + (currentWR > -20 ? 'bg-red-500/20 text-red-400' : currentWR < -80 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400')}>{wrZone}</span>
-                                </div>
-                              </div>
-                              <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
-                                <div className="absolute w-full bg-red-500/10" style={{ top: '0%', height: '20%' }} />
-                                <div className="absolute w-full bg-emerald-500/10" style={{ top: '80%', height: '20%' }} />
-                                <div className="absolute w-full border-t border-red-500/50" style={{ top: '20%' }}>
-                                  <span className="absolute right-1 -top-2.5 text-[10px] text-red-400">-20</span>
-                                </div>
-                                <div className="absolute w-full border-t border-slate-600/50" style={{ top: '50%' }}>
-                                  <span className="absolute right-1 -top-2.5 text-[11px] text-slate-400/80">-50</span>
-                                </div>
-                                <div className="absolute w-full border-t border-emerald-500/50" style={{ top: '80%' }}>
-                                  <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400">-80</span>
-                                </div>
-                                <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validWR.length, 1) + 4} 100`} preserveAspectRatio="none">
-                                  <polyline points={validWR.map((val, i) => `${i + 1},${Math.abs(val)}`).join(' ')} fill="none" stroke="#818cf8" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-                                </svg>
-                                <div className="absolute w-2 h-2 bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/50" style={{ right: `${(3 / (validWR.length + 4)) * 100}%`, top: `${Math.abs(currentWR)}%`, transform: 'translate(50%, -50%)' }} />
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* ADX (Average Directional Index) */}
-                        {showADX && (() => {
-                          const bars = tickerData.timeSeries;
-                          if (bars.length < 30) return (
-                            <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
-                              <div className="text-xs text-slate-400 font-semibold mb-2">ADX (14)</div>
-                              <div className="text-center text-slate-500 py-4">Need at least 30 data points. Current: {bars.length}</div>
-                            </div>
-                          );
-                          const layout = getChartLayout();
-                          const p = 14;
-                          const trArr = [0], pDMArr = [0], nDMArr = [0];
-                          const adxAll = [null];
-                          for (let i = 1; i < bars.length; i++) {
-                            const h = bars[i].high, l = bars[i].low, c = bars[i - 1].close;
-                            const ph = bars[i - 1].high, pl = bars[i - 1].low;
-                            trArr.push(Math.max(h - l, Math.abs(h - c), Math.abs(l - c)));
-                            pDMArr.push((h - ph) > (pl - l) && (h - ph) > 0 ? (h - ph) : 0);
-                            nDMArr.push((pl - l) > (h - ph) && (pl - l) > 0 ? (pl - l) : 0);
-                            if (i < p) { adxAll.push(null); continue; }
-                            if (i === p) {
-                              const sTR = trArr.slice(1, p + 1).reduce((a, b) => a + b, 0);
-                              const sPDM = pDMArr.slice(1, p + 1).reduce((a, b) => a + b, 0);
-                              const sNDM = nDMArr.slice(1, p + 1).reduce((a, b) => a + b, 0);
-                              const pDI = sTR > 0 ? (sPDM / sTR) * 100 : 0;
-                              const nDI = sTR > 0 ? (sNDM / sTR) * 100 : 0;
-                              const dx = (pDI + nDI) > 0 ? (Math.abs(pDI - nDI) / (pDI + nDI)) * 100 : 0;
-                              adxAll.push({ adx: dx, pDI, nDI, sTR, sPDM, sNDM });
-                            } else {
-                              const prev = adxAll[i - 1];
-                              if (!prev || typeof prev !== 'object') { adxAll.push(null); continue; }
-                              const sTR = prev.sTR - (prev.sTR / p) + trArr[i];
-                              const sPDM = prev.sPDM - (prev.sPDM / p) + pDMArr[i];
-                              const sNDM = prev.sNDM - (prev.sNDM / p) + nDMArr[i];
-                              const pDI = sTR > 0 ? (sPDM / sTR) * 100 : 0;
-                              const nDI = sTR > 0 ? (sNDM / sTR) * 100 : 0;
-                              const dx = (pDI + nDI) > 0 ? (Math.abs(pDI - nDI) / (pDI + nDI)) * 100 : 0;
-                              const adxVal = (i >= p * 2 && prev.adx != null) ? ((prev.adx * (p - 1)) + dx) / p : dx;
-                              adxAll.push({ adx: adxVal, pDI, nDI, sTR, sPDM, sNDM });
-                            }
-                          }
-                          const visADXData = adxAll.slice(layout.visStart, layout.visEnd);
-                          const validADX = visADXData.filter(v => v !== null && typeof v === 'object');
-                          if (validADX.length < 2) return null;
-                          const currentADX = validADX[validADX.length - 1].adx;
-                          const currentPDI = validADX[validADX.length - 1].pDI;
-                          const currentNDI = validADX[validADX.length - 1].nDI;
-                          const trendStrength = currentADX >= 50 ? 'Very Strong' : currentADX >= 25 ? 'Strong' : currentADX >= 20 ? 'Developing' : 'Weak/No Trend';
-                          const trendColor = currentADX >= 50 ? 'text-emerald-400' : currentADX >= 25 ? 'text-amber-400' : 'text-slate-400';
-                          const maxADXVal = 80;
-                          return (
-                            <div className="bg-slate-900 rounded-lg p-4 border-2 border-slate-700 mt-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="text-xs text-slate-400 font-semibold">ADX (14)</div>
-                                  <div className="group relative">
-                                    <HelpCircle className="w-3.5 h-3.5 text-slate-500 cursor-help hover:text-amber-400 transition-colors" />
-                                    <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 shadow-2xl transition-all duration-200" style={{ zIndex: 9999 }}>
-                                      <div className="font-semibold text-amber-400 mb-1">↕ ADX (Average Directional Index)</div>
-                                      <p className="mb-2">Measures trend strength regardless of direction.</p>
-                                      <div className="space-y-1 text-[10px]">
-                                        <div className="flex items-center gap-2"><span className="text-emerald-400">●</span> Above 25 = Strong trend</div>
-                                        <div className="flex items-center gap-2"><span className="text-amber-400">●</span> Above 50 = Very strong</div>
-                                        <div className="flex items-center gap-2"><span className="text-slate-400">●</span> Below 20 = Weak/no trend</div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm tabular-nums">
-                                  <span className={"text-emerald-400 text-[10px]"}>+DI {currentPDI.toFixed(1)}</span>
-                                  <span className={"text-red-400 text-[10px]"}>-DI {currentNDI.toFixed(1)}</span>
-                                  <span className={trendColor + " font-bold"}>{currentADX.toFixed(1)}</span>
-                                  <span className={"text-xs px-1.5 py-0.5 rounded " + (currentADX >= 25 ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-400')}>{trendStrength}</span>
-                                </div>
-                              </div>
-                              <div className="h-24 relative bg-slate-800/50 rounded border border-slate-700">
-                                <div className="absolute w-full bg-amber-500/5" style={{ top: '0%', height: `${(1 - 25/maxADXVal) * 100}%` }} />
-                                <div className="absolute w-full border-t border-amber-500/50" style={{ top: `${(1 - 25/maxADXVal) * 100}%` }}>
-                                  <span className="absolute right-1 -top-2.5 text-[10px] text-amber-400">25</span>
-                                </div>
-                                <div className="absolute w-full border-t border-emerald-500/30 border-dashed" style={{ top: `${(1 - 50/maxADXVal) * 100}%` }}>
-                                  <span className="absolute right-1 -top-2.5 text-[10px] text-emerald-400/60">50</span>
-                                </div>
-                                <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${Math.max(validADX.length, 1) + 4} 100`} preserveAspectRatio="none">
-                                  <polyline points={validADX.map((v, i) => `${i + 1},${100 - Math.min(v.pDI, maxADXVal) / maxADXVal * 100}`).join(' ')} fill="none" stroke="#34d399" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeLinejoin="round" opacity="0.6" />
-                                  <polyline points={validADX.map((v, i) => `${i + 1},${100 - Math.min(v.nDI, maxADXVal) / maxADXVal * 100}`).join(' ')} fill="none" stroke="#f87171" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeLinejoin="round" opacity="0.6" />
-                                  <polyline points={validADX.map((v, i) => `${i + 1},${100 - Math.min(v.adx, maxADXVal) / maxADXVal * 100}`).join(' ')} fill="none" stroke="#f59e0b" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-                                </svg>
-                                <div className="absolute w-2 h-2 bg-amber-500 rounded-full shadow-lg shadow-amber-500/50" style={{ right: `${(3 / (validADX.length + 4)) * 100}%`, top: `${100 - Math.min(currentADX, maxADXVal) / maxADXVal * 100}%`, transform: 'translate(50%, -50%)' }} />
-                              </div>
-                            </div>
-                          );
-                        })()}
-
                         {/* WILLIAMS %R INDICATOR */}
                         {showWilliamsR && (() => {
                           const layout = getChartLayout();
@@ -26886,7 +26743,7 @@ INSTRUCTIONS:
                     const entryPrice = parseFloat(ti.action?.match(/[\d.]+/)?.[0] || ie.entryPrice || analysis.context?.currentPrice || 0);
                     const stopPrice = parseFloat(String(ti.stop || ie.stopLoss || '').replace(/[^0-9.]/g, '')) || null;
                     const targetPrice = parseFloat(String(ti.target || ie.targetPrice || '').replace(/[^0-9.]/g, '')) || null;
-                    const isBuy = ti.action?.toUpperCase().includes('BUY') || analysis.final.directionalBias === 'LONG';
+                    const rec = (analysis.final.recommendation || '').toUpperCase(); const isBuy = rec.includes('BUY') ? true : rec.includes('SELL') ? false : (ti.action?.toUpperCase().includes('BUY') || analysis.final.directionalBias === 'LONG');
                     const riskPerShare = stopPrice && entryPrice ? Math.abs(entryPrice - stopPrice) : null;
                     const rewardPerShare = targetPrice && entryPrice ? Math.abs(targetPrice - entryPrice) : null;
 
