@@ -3735,7 +3735,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     positionsChecked: 0,
     closedPositions: [],
     holdPositions: [],
+    dailyPnlPct: '0.00',
+    dailyTarget: '0.00',
   });
+  const accountHighRef = useRef(0);
 
 
   // NEW: Trade Plan Enforcement (v3.0.0)
@@ -6742,10 +6745,72 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // ═══════════════════════════════════════════════════
   const positionManagerRef = useRef(null);
 
-  const manageOpenPositions = async () => {
-    if (!botEnabled || !alpacaConfig.connected || alpacaPositions.length === 0) return;
+  // Track peak equity per position for trailing stop
+  const peakPricesRef = useRef({});
 
-    console.log('[PositionMgr] Checking ' + alpacaPositions.length + ' open positions...');
+  const manageOpenPositions = async () => {
+    if (!botEnabled || !alpacaConfig.connected) return;
+
+    // ── STEP 0: New account high detection ──
+    const currentEquity = parseFloat(alpacaAccount?.equity || 0);
+    if (currentEquity > 0 && currentEquity > accountHighRef.current) {
+      const prevHigh = accountHighRef.current;
+      accountHighRef.current = currentEquity;
+      // Only notify if we had a previous high (not on first load) and it's a meaningful new high
+      if (prevHigh > 0 && currentEquity > prevHigh + 10) {
+        console.log('[PositionMgr] NEW ACCOUNT HIGH: $' + currentEquity.toFixed(2) + ' (prev: $' + prevHigh.toFixed(2) + ')');
+        addNotification('New account high: $' + currentEquity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' (+$' + (currentEquity - prevHigh).toFixed(2) + ')', 'success');
+      }
+    }
+
+    // ── STEP 1: Daily profit target check (1% above start of day) ──
+    // Alpaca gives us last_equity = yesterday's close equity
+    const dayStartEquity = parseFloat(alpacaAccount?.last_equity || 0);
+    const dailyTarget = dayStartEquity * 1.01; // 1% profit target
+
+    if (dayStartEquity > 0 && currentEquity >= dailyTarget && alpacaPositions.length > 0) {
+      console.log('[PositionMgr] DAILY PROFIT TARGET HIT! Equity: $' + currentEquity.toFixed(2) + ' >= Target: $' + dailyTarget.toFixed(2) + ' (1% above $' + dayStartEquity.toFixed(2) + ')');
+      addNotification('Daily profit target reached! Equity $' + currentEquity.toFixed(2) + ' hit 1% above start ($' + dayStartEquity.toFixed(2) + '). Closing ALL positions to lock in gains!', 'success');
+
+      try {
+        await alpacaCloseAllPositions();
+        const logEntry = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          symbol: 'ALL',
+          side: 'sell',
+          shares: 0,
+          entryPrice: 0,
+          stopPrice: null,
+          targetPrice: null,
+          recommendation: 'DAILY_TARGET',
+          confidence: 100,
+          riskReward: null,
+          source: 'position-manager',
+          orderId: null,
+          status: 'closed',
+          pnl: currentEquity - dayStartEquity,
+          closeReason: '1% daily profit target hit ($' + (currentEquity - dayStartEquity).toFixed(2) + ' gain)',
+        };
+        setBotTradeLog(prev => [logEntry, ...prev]);
+        setPositionMgrStatus(prev => ({
+          ...prev, lastCheck: new Date().toISOString(),
+          closedPositions: [{ symbol: 'ALL POSITIONS', side: 'sell', reason: '1% daily target hit', pnl: currentEquity - dayStartEquity }],
+          holdPositions: [],
+        }));
+        // Pause the bot after hitting daily target to prevent re-entry
+        setBotEnabled(false);
+        addNotification('Bot paused after hitting daily target. Re-enable manually if you want to keep trading.', 'info');
+      } catch (err) {
+        console.error('[PositionMgr] Failed to close all positions:', err.message);
+      }
+      setTimeout(alpacaRefresh, 3000);
+      return;
+    }
+
+    if (alpacaPositions.length === 0) return;
+
+    console.log('[PositionMgr] Checking ' + alpacaPositions.length + ' positions | Equity: $' + currentEquity.toFixed(2) + ' / Target: $' + dailyTarget.toFixed(2) + ' (' + ((currentEquity / dayStartEquity - 1) * 100).toFixed(2) + '%)');
     setPositionMgrStatus(prev => ({ ...prev, active: true, lastCheck: new Date().toISOString(), positionsChecked: alpacaPositions.length, closedPositions: [], holdPositions: [] }));
     const closedThisRun = [];
     const holdThisRun = [];
@@ -6753,105 +6818,110 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     for (const pos of alpacaPositions) {
       try {
         const symbol = pos.symbol;
-        const side = pos.side; // 'long' or 'short'
+        const side = pos.side;
         const entryPrice = parseFloat(pos.avg_entry_price);
         const currentPrice = parseFloat(pos.current_price);
         const unrealizedPL = parseFloat(pos.unrealized_pl || 0);
         const unrealizedPLPct = parseFloat(pos.unrealized_plpc || 0) * 100;
 
-        // Fetch fresh data for this position
-        const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=3mo';
+        // ── Trailing stop: track peak price per position ──
+        const peaks = peakPricesRef.current;
+        if (!peaks[symbol] || currentPrice > peaks[symbol]) {
+          peaks[symbol] = currentPrice;
+        }
+        const peakPrice = peaks[symbol];
+        const dropFromPeak = peakPrice > 0 ? ((peakPrice - currentPrice) / peakPrice) * 100 : 0;
+
+        // ── Fetch 5-minute intraday data for fast RSI/MACD ──
+        const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=5m&range=5d';
         let data;
         try {
-          data = await fetchYahooWithProxies(yahooUrl, 8000);
-        } catch { continue; }
+          data = await fetchYahooWithProxies(yahooUrl, 6000);
+        } catch { /* skip Yahoo fetch, still check trailing stop */ }
 
-        if (!data?.chart?.result?.[0]) continue;
+        let rsi = 50, macdVal = 0, trendSlope = 0;
 
-        const quote = data.chart.result[0];
-        const ohlcv = quote.indicators?.quote?.[0] || {};
-        const timestamps = quote.timestamp || [];
-        const closes = [], highs = [], lows = [], volumes = [];
-        for (let i = 0; i < timestamps.length; i++) {
-          if (ohlcv.close?.[i] != null && !isNaN(ohlcv.close[i])) {
-            closes.push(ohlcv.close[i]);
-            highs.push(ohlcv.high?.[i] ?? ohlcv.close[i]);
-            lows.push(ohlcv.low?.[i] ?? ohlcv.close[i]);
-            volumes.push(ohlcv.volume?.[i] ?? 0);
+        if (data?.chart?.result?.[0]) {
+          const ohlcv = data.chart.result[0].indicators?.quote?.[0] || {};
+          const timestamps = data.chart.result[0].timestamp || [];
+          const closes = [];
+          for (let i = 0; i < timestamps.length; i++) {
+            if (ohlcv.close?.[i] != null && !isNaN(ohlcv.close[i])) closes.push(ohlcv.close[i]);
+          }
+
+          if (closes.length >= 30) {
+            // RSI on 5m candles
+            const calcRSI = (d, p = 14) => {
+              if (d.length < p + 1) return 50;
+              let ag = 0, al = 0;
+              for (let i = d.length - p; i < d.length; i++) {
+                const c = d[i] - d[i - 1];
+                if (c > 0) ag += c; else al += Math.abs(c);
+              }
+              ag /= p; al /= p;
+              return al === 0 ? 100 : 100 - (100 / (1 + ag / al));
+            };
+            rsi = calcRSI(closes);
+
+            // MACD on 5m candles
+            const calcEMA = (d, p) => {
+              const k = 2 / (p + 1);
+              let ema = d.slice(0, p).reduce((a, b) => a + b, 0) / p;
+              for (let i = p; i < d.length; i++) ema = d[i] * k + ema * (1 - k);
+              return ema;
+            };
+            if (closes.length >= 26) {
+              const e12 = calcEMA(closes, 12);
+              const e26 = calcEMA(closes, 26);
+              macdVal = e12 - e26;
+            }
+
+            // Short-term trend slope (last 12 candles = 1 hour of 5m data)
+            const rc = closes.slice(-12);
+            trendSlope = rc.length >= 2 ? ((rc[rc.length - 1] - rc[0]) / rc[0]) * 100 : 0;
           }
         }
-        if (closes.length < 30) continue;
-
-        // Quick RSI + MACD check
-        const calcRSI = (d, p = 14) => {
-          if (d.length < p + 1) return 50;
-          let ag = 0, al = 0;
-          for (let i = 1; i <= p; i++) { const c = d[d.length - p - 1 + i] - d[d.length - p - 1 + i - 1]; if (c > 0) ag += c; else al += Math.abs(c); }
-          ag /= p; al /= p;
-          for (let i = p + 1; i <= Math.min(2 * p, d.length - 1); i++) {
-            const c = d[d.length - 2 * p - 1 + i] - d[d.length - 2 * p - 1 + i - 1];
-            ag = (ag * (p - 1) + (c > 0 ? c : 0)) / p;
-            al = (al * (p - 1) + (c < 0 ? Math.abs(c) : 0)) / p;
-          }
-          return al === 0 ? 100 : 100 - (100 / (1 + ag / al));
-        };
-        const rsi = calcRSI(closes);
-
-        const calcEMA = (d, p) => {
-          const k = 2 / (p + 1);
-          let ema = d.slice(0, p).reduce((a, b) => a + b, 0) / p;
-          for (let i = p; i < d.length; i++) ema = d[i] * k + ema * (1 - k);
-          return ema;
-        };
-        const ema12 = calcEMA(closes, 12);
-        const ema26 = calcEMA(closes, 26);
-        const macdVal = ema12 - ema26;
-
-        // Trend slope
-        const rc = closes.slice(-10);
-        const trendSlope = rc.length >= 2 ? ((rc[rc.length - 1] - rc[0]) / rc[0]) * 100 : 0;
 
         let shouldClose = false;
         let closeReason = '';
 
-        if (side === 'long') {
-          // Close LONG if: RSI overbought (>80) + MACD turning negative + trend reversing
-          if (rsi > 80 && macdVal < 0) {
+        // ── TRAILING STOP: 1.5% drop from peak ──
+        if (side === 'long' && dropFromPeak >= 1.5 && unrealizedPLPct > 0.5) {
+          shouldClose = true;
+          closeReason = 'Trailing stop: dropped ' + dropFromPeak.toFixed(1) + '% from peak $' + peakPrice.toFixed(2);
+        }
+        else if (side === 'short' && currentPrice > peakPrice * 1.015 && unrealizedPLPct > 0.5) {
+          shouldClose = true;
+          closeReason = 'Trailing stop: price rose ' + dropFromPeak.toFixed(1) + '% from low';
+        }
+
+        // ── RSI + MACD reversal on 5m data ──
+        if (!shouldClose && side === 'long') {
+          if (rsi > 78 && macdVal < 0) {
             shouldClose = true;
-            closeReason = 'RSI overbought (' + rsi.toFixed(0) + ') + MACD bearish';
+            closeReason = '5m RSI overbought (' + rsi.toFixed(0) + ') + MACD bearish crossover';
           }
-          // Close if trend strongly reversed against us
-          else if (trendSlope < -3 && rsi > 65 && macdVal < 0) {
+          else if (trendSlope < -0.5 && rsi > 65 && macdVal < 0) {
             shouldClose = true;
-            closeReason = 'Strong bearish reversal (slope: ' + trendSlope.toFixed(1) + '%)';
+            closeReason = '5m bearish reversal (slope: ' + trendSlope.toFixed(2) + '%, RSI: ' + rsi.toFixed(0) + ')';
           }
-          // Close if we've lost more than 5% on this position
-          else if (unrealizedPLPct < -5) {
+          else if (unrealizedPLPct < -3) {
             shouldClose = true;
-            closeReason = 'Position down ' + unrealizedPLPct.toFixed(1) + '% — emergency exit';
+            closeReason = 'Emergency exit: down ' + unrealizedPLPct.toFixed(1) + '%';
           }
-          // Trailing profit protection: if up >4% but RSI > 70 and MACD weakening
-          else if (unrealizedPLPct > 4 && rsi > 70 && macdVal < 0) {
+        }
+        if (!shouldClose && side === 'short') {
+          if (rsi < 22 && macdVal > 0) {
             shouldClose = true;
-            closeReason = 'Profit protection: up ' + unrealizedPLPct.toFixed(1) + '% with weakening momentum';
+            closeReason = '5m RSI oversold (' + rsi.toFixed(0) + ') + MACD bullish crossover';
           }
-        } else {
-          // Close SHORT if: RSI oversold (<20) + MACD turning positive
-          if (rsi < 20 && macdVal > 0) {
+          else if (trendSlope > 0.5 && rsi < 35 && macdVal > 0) {
             shouldClose = true;
-            closeReason = 'RSI oversold (' + rsi.toFixed(0) + ') + MACD bullish';
+            closeReason = '5m bullish reversal (slope: +' + trendSlope.toFixed(2) + '%, RSI: ' + rsi.toFixed(0) + ')';
           }
-          else if (trendSlope > 3 && rsi < 35 && macdVal > 0) {
+          else if (unrealizedPLPct < -3) {
             shouldClose = true;
-            closeReason = 'Strong bullish reversal (slope: +' + trendSlope.toFixed(1) + '%)';
-          }
-          else if (unrealizedPLPct < -5) {
-            shouldClose = true;
-            closeReason = 'Position down ' + unrealizedPLPct.toFixed(1) + '% — emergency exit';
-          }
-          else if (unrealizedPLPct > 4 && rsi < 30 && macdVal > 0) {
-            shouldClose = true;
-            closeReason = 'Profit protection: up ' + unrealizedPLPct.toFixed(1) + '% with weakening momentum';
+            closeReason = 'Emergency exit: down ' + unrealizedPLPct.toFixed(1) + '%';
           }
         }
 
@@ -6859,6 +6929,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           console.log('[PositionMgr] CLOSING ' + symbol + ' (' + side + '): ' + closeReason);
           try {
             await alpacaClosePosition(symbol);
+            // Clear peak tracking for this symbol
+            delete peakPricesRef.current[symbol];
             const logEntry = {
               id: Date.now(),
               timestamp: new Date().toISOString(),
@@ -6884,31 +6956,37 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             console.error('[PositionMgr] Failed to close ' + symbol + ':', closeErr.message);
           }
         } else {
-          console.log('[PositionMgr] ' + symbol + ' (' + side + '): HOLD — RSI=' + rsi.toFixed(0) + ', MACD=' + macdVal.toFixed(3) + ', P&L=' + unrealizedPLPct.toFixed(1) + '%');
-          holdThisRun.push({ symbol, side, rsi: rsi.toFixed(0), macd: macdVal.toFixed(3), pnlPct: unrealizedPLPct.toFixed(1) });
+          console.log('[PositionMgr] ' + symbol + ' (' + side + '): HOLD — RSI=' + rsi.toFixed(0) + ', MACD=' + macdVal.toFixed(3) + ', P&L=' + unrealizedPLPct.toFixed(1) + '%, Peak=$' + peakPrice.toFixed(2) + ', Drop=' + dropFromPeak.toFixed(1) + '%');
+          holdThisRun.push({ symbol, side, rsi: rsi.toFixed(0), macd: macdVal.toFixed(3), pnlPct: unrealizedPLPct.toFixed(1), peakDrop: dropFromPeak.toFixed(1) });
         }
       } catch (err) {
         console.error('[PositionMgr] Error checking ' + pos.symbol + ':', err.message);
       }
     }
 
-    setPositionMgrStatus(prev => ({ ...prev, lastCheck: new Date().toISOString(), closedPositions: closedThisRun, holdPositions: holdThisRun, nextCheckIn: 5 }));
-    // Refresh positions after any closes
-    setTimeout(alpacaRefresh, 3000);
+    setPositionMgrStatus(prev => ({
+      ...prev,
+      lastCheck: new Date().toISOString(),
+      closedPositions: closedThisRun,
+      holdPositions: holdThisRun,
+      dailyPnlPct: dayStartEquity > 0 ? ((currentEquity / dayStartEquity - 1) * 100).toFixed(2) : '0.00',
+      dailyTarget: dailyTarget.toFixed(2),
+    }));
+    setTimeout(alpacaRefresh, 2000);
   };
 
-  // Run position manager every 5 minutes when bot is active
+  // Run position manager every 15 seconds when bot is active
   useEffect(() => {
     if (positionManagerRef.current) {
       clearInterval(positionManagerRef.current);
       positionManagerRef.current = null;
     }
-    if (botEnabled && alpacaConfig.connected && alpacaPositions.length > 0) {
-      console.log('[PositionMgr] Starting — checking positions every 5 minutes');
+    if (botEnabled && alpacaConfig.connected) {
+      console.log('[PositionMgr] Starting — checking every 15 seconds');
       setPositionMgrStatus(prev => ({ ...prev, active: true }));
-      // First check after 30 seconds
-      const initTimeout = setTimeout(manageOpenPositions, 30000);
-      positionManagerRef.current = setInterval(manageOpenPositions, 5 * 60 * 1000);
+      // First check after 5 seconds
+      const initTimeout = setTimeout(manageOpenPositions, 5000);
+      positionManagerRef.current = setInterval(manageOpenPositions, 15000);
       return () => {
         clearTimeout(initTimeout);
         if (positionManagerRef.current) clearInterval(positionManagerRef.current);
@@ -6917,7 +6995,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     } else {
       setPositionMgrStatus(prev => ({ ...prev, active: false }));
     }
-  }, [botEnabled, alpacaConfig.connected, alpacaPositions.length]);
+  }, [botEnabled, alpacaConfig.connected]);
 
   // ═══════════════════════════════════════════════════
   // BOT SIGNAL MONITORS - Watch analysis & daily pick
@@ -33039,27 +33117,53 @@ INSTRUCTIONS:
                       <div>
                         <span className="text-sm font-medium text-white">Position Manager</span>
                         <span className={"ml-2 text-xs px-2 py-0.5 rounded-full font-semibold " + (positionMgrStatus.active ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-400")}>
-                          {positionMgrStatus.active ? "ACTIVE" : alpacaPositions.length === 0 ? "NO POSITIONS" : !botEnabled ? "BOT PAUSED" : "INACTIVE"}
+                          {positionMgrStatus.active ? "ACTIVE — every 15s" : alpacaPositions.length === 0 ? "NO POSITIONS" : !botEnabled ? "BOT PAUSED" : "INACTIVE"}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-6 text-xs text-slate-400">
                       {positionMgrStatus.lastCheck && (
-                        <span>Last check: {new Date(positionMgrStatus.lastCheck).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
+                        <span>Last: {new Date(positionMgrStatus.lastCheck).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})}</span>
                       )}
-                      {positionMgrStatus.active && <span>Checks every 5 min</span>}
                       <span>Watching: {alpacaPositions.length} position{alpacaPositions.length !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
-                  {positionMgrStatus.holdPositions.length > 0 && (
+
+                  {/* Daily Target Progress Bar */}
+                  {positionMgrStatus.active && positionMgrStatus.dailyTarget && parseFloat(positionMgrStatus.dailyTarget) > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-700/50">
-                      <div className="text-xs text-slate-500 mb-2">Last Analysis:</div>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-slate-400">Daily Profit Target (1%)</span>
+                        <span className={parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
+                          {parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "+" : ""}{positionMgrStatus.dailyPnlPct}% / 1.00%
+                        </span>
+                      </div>
+                      <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden relative">
+                        <div
+                          className={"h-full rounded-full transition-all duration-500 " + (parseFloat(positionMgrStatus.dailyPnlPct) >= 1.0 ? "bg-gradient-to-r from-green-500 to-emerald-400" : parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "bg-gradient-to-r from-blue-500 to-violet-500" : "bg-gradient-to-r from-red-600 to-red-400")}
+                          style={{width: Math.min(100, Math.max(0, Math.abs(parseFloat(positionMgrStatus.dailyPnlPct)) * 100)) + '%'}}
+                        />
+                        {/* 1% marker line */}
+                        <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400" style={{left: '100%', transform: 'translateX(-2px)'}} />
+                      </div>
+                      <div className="flex items-center justify-between text-xs mt-1">
+                        <span className="text-slate-500">Auto-sells all at target</span>
+                        <span className="text-slate-500">Account high: {"$" + (accountHighRef.current > 0 ? accountHighRef.current.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--')}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Position Analysis Chips */}
+                  {(positionMgrStatus.holdPositions.length > 0 || positionMgrStatus.closedPositions.length > 0) && (
+                    <div className={"mt-3 pt-3 border-t border-slate-700/50" + (!positionMgrStatus.dailyTarget || parseFloat(positionMgrStatus.dailyTarget) === 0 ? "" : "")}>
+                      <div className="text-xs text-slate-500 mb-2">Live Analysis (5m candles):</div>
                       <div className="flex flex-wrap gap-2">
                         {positionMgrStatus.holdPositions.map((h, i) => (
                           <div key={i} className="bg-slate-800/80 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
                             <span className="font-bold text-white">{h.symbol}</span>
                             <span className={parseFloat(h.pnlPct) >= 0 ? "text-green-400" : "text-red-400"}>{parseFloat(h.pnlPct) >= 0 ? "+" : ""}{h.pnlPct}%</span>
                             <span className="text-slate-500">RSI:{h.rsi}</span>
+                            {h.peakDrop && parseFloat(h.peakDrop) > 0 && <span className="text-amber-400">Peak:-{h.peakDrop}%</span>}
                             <span className="text-emerald-400 font-medium">HOLD</span>
                           </div>
                         ))}
