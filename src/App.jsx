@@ -6730,6 +6730,178 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   }, [scannerEnabled, botEnabled, alpacaConfig.connected, scannerSettings.scanInterval]);
 
   // ═══════════════════════════════════════════════════
+  // ACTIVE POSITION MANAGER — Re-analyze & auto-exit
+  // ═══════════════════════════════════════════════════
+  const positionManagerRef = useRef(null);
+
+  const manageOpenPositions = async () => {
+    if (!botEnabled || !alpacaConfig.connected || alpacaPositions.length === 0) return;
+
+    console.log('[PositionMgr] Checking ' + alpacaPositions.length + ' open positions...');
+
+    for (const pos of alpacaPositions) {
+      try {
+        const symbol = pos.symbol;
+        const side = pos.side; // 'long' or 'short'
+        const entryPrice = parseFloat(pos.avg_entry_price);
+        const currentPrice = parseFloat(pos.current_price);
+        const unrealizedPL = parseFloat(pos.unrealized_pl || 0);
+        const unrealizedPLPct = parseFloat(pos.unrealized_plpc || 0) * 100;
+
+        // Fetch fresh data for this position
+        const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=3mo';
+        let data;
+        try {
+          data = await fetchYahooWithProxies(yahooUrl, 8000);
+        } catch { continue; }
+
+        if (!data?.chart?.result?.[0]) continue;
+
+        const quote = data.chart.result[0];
+        const ohlcv = quote.indicators?.quote?.[0] || {};
+        const timestamps = quote.timestamp || [];
+        const closes = [], highs = [], lows = [], volumes = [];
+        for (let i = 0; i < timestamps.length; i++) {
+          if (ohlcv.close?.[i] != null && !isNaN(ohlcv.close[i])) {
+            closes.push(ohlcv.close[i]);
+            highs.push(ohlcv.high?.[i] ?? ohlcv.close[i]);
+            lows.push(ohlcv.low?.[i] ?? ohlcv.close[i]);
+            volumes.push(ohlcv.volume?.[i] ?? 0);
+          }
+        }
+        if (closes.length < 30) continue;
+
+        // Quick RSI + MACD check
+        const calcRSI = (d, p = 14) => {
+          if (d.length < p + 1) return 50;
+          let ag = 0, al = 0;
+          for (let i = 1; i <= p; i++) { const c = d[d.length - p - 1 + i] - d[d.length - p - 1 + i - 1]; if (c > 0) ag += c; else al += Math.abs(c); }
+          ag /= p; al /= p;
+          for (let i = p + 1; i <= Math.min(2 * p, d.length - 1); i++) {
+            const c = d[d.length - 2 * p - 1 + i] - d[d.length - 2 * p - 1 + i - 1];
+            ag = (ag * (p - 1) + (c > 0 ? c : 0)) / p;
+            al = (al * (p - 1) + (c < 0 ? Math.abs(c) : 0)) / p;
+          }
+          return al === 0 ? 100 : 100 - (100 / (1 + ag / al));
+        };
+        const rsi = calcRSI(closes);
+
+        const calcEMA = (d, p) => {
+          const k = 2 / (p + 1);
+          let ema = d.slice(0, p).reduce((a, b) => a + b, 0) / p;
+          for (let i = p; i < d.length; i++) ema = d[i] * k + ema * (1 - k);
+          return ema;
+        };
+        const ema12 = calcEMA(closes, 12);
+        const ema26 = calcEMA(closes, 26);
+        const macdVal = ema12 - ema26;
+
+        // Trend slope
+        const rc = closes.slice(-10);
+        const trendSlope = rc.length >= 2 ? ((rc[rc.length - 1] - rc[0]) / rc[0]) * 100 : 0;
+
+        let shouldClose = false;
+        let closeReason = '';
+
+        if (side === 'long') {
+          // Close LONG if: RSI overbought (>80) + MACD turning negative + trend reversing
+          if (rsi > 80 && macdVal < 0) {
+            shouldClose = true;
+            closeReason = 'RSI overbought (' + rsi.toFixed(0) + ') + MACD bearish';
+          }
+          // Close if trend strongly reversed against us
+          else if (trendSlope < -3 && rsi > 65 && macdVal < 0) {
+            shouldClose = true;
+            closeReason = 'Strong bearish reversal (slope: ' + trendSlope.toFixed(1) + '%)';
+          }
+          // Close if we've lost more than 5% on this position
+          else if (unrealizedPLPct < -5) {
+            shouldClose = true;
+            closeReason = 'Position down ' + unrealizedPLPct.toFixed(1) + '% — emergency exit';
+          }
+          // Trailing profit protection: if up >4% but RSI > 70 and MACD weakening
+          else if (unrealizedPLPct > 4 && rsi > 70 && macdVal < 0) {
+            shouldClose = true;
+            closeReason = 'Profit protection: up ' + unrealizedPLPct.toFixed(1) + '% with weakening momentum';
+          }
+        } else {
+          // Close SHORT if: RSI oversold (<20) + MACD turning positive
+          if (rsi < 20 && macdVal > 0) {
+            shouldClose = true;
+            closeReason = 'RSI oversold (' + rsi.toFixed(0) + ') + MACD bullish';
+          }
+          else if (trendSlope > 3 && rsi < 35 && macdVal > 0) {
+            shouldClose = true;
+            closeReason = 'Strong bullish reversal (slope: +' + trendSlope.toFixed(1) + '%)';
+          }
+          else if (unrealizedPLPct < -5) {
+            shouldClose = true;
+            closeReason = 'Position down ' + unrealizedPLPct.toFixed(1) + '% — emergency exit';
+          }
+          else if (unrealizedPLPct > 4 && rsi < 30 && macdVal > 0) {
+            shouldClose = true;
+            closeReason = 'Profit protection: up ' + unrealizedPLPct.toFixed(1) + '% with weakening momentum';
+          }
+        }
+
+        if (shouldClose) {
+          console.log('[PositionMgr] CLOSING ' + symbol + ' (' + side + '): ' + closeReason);
+          try {
+            await alpacaClosePosition(symbol);
+            const logEntry = {
+              id: Date.now(),
+              timestamp: new Date().toISOString(),
+              symbol,
+              side: side === 'long' ? 'sell' : 'buy',
+              shares: parseInt(pos.qty),
+              entryPrice,
+              stopPrice: null,
+              targetPrice: null,
+              recommendation: 'AUTO_EXIT',
+              confidence: 0,
+              riskReward: null,
+              source: 'position-manager',
+              orderId: null,
+              status: 'closed',
+              pnl: unrealizedPL,
+              closeReason,
+            };
+            setBotTradeLog(prev => [logEntry, ...prev]);
+            addNotification('Position Manager: Closed ' + symbol + ' (' + side + ') — ' + closeReason + ' | P&L: ' + (unrealizedPL >= 0 ? '+' : '') + unrealizedPL.toFixed(2), unrealizedPL >= 0 ? 'success' : 'error');
+          } catch (closeErr) {
+            console.error('[PositionMgr] Failed to close ' + symbol + ':', closeErr.message);
+          }
+        } else {
+          console.log('[PositionMgr] ' + symbol + ' (' + side + '): HOLD — RSI=' + rsi.toFixed(0) + ', MACD=' + macdVal.toFixed(3) + ', P&L=' + unrealizedPLPct.toFixed(1) + '%');
+        }
+      } catch (err) {
+        console.error('[PositionMgr] Error checking ' + pos.symbol + ':', err.message);
+      }
+    }
+
+    // Refresh positions after any closes
+    setTimeout(alpacaRefresh, 3000);
+  };
+
+  // Run position manager every 5 minutes when bot is active
+  useEffect(() => {
+    if (positionManagerRef.current) {
+      clearInterval(positionManagerRef.current);
+      positionManagerRef.current = null;
+    }
+    if (botEnabled && alpacaConfig.connected && alpacaPositions.length > 0) {
+      console.log('[PositionMgr] Starting — checking positions every 5 minutes');
+      // First check after 30 seconds
+      const initTimeout = setTimeout(manageOpenPositions, 30000);
+      positionManagerRef.current = setInterval(manageOpenPositions, 5 * 60 * 1000);
+      return () => {
+        clearTimeout(initTimeout);
+        if (positionManagerRef.current) clearInterval(positionManagerRef.current);
+      };
+    }
+  }, [botEnabled, alpacaConfig.connected, alpacaPositions.length]);
+
+  // ═══════════════════════════════════════════════════
   // BOT SIGNAL MONITORS - Watch analysis & daily pick
   // ═══════════════════════════════════════════════════
   const lastBotSignalRef = useRef(null);
@@ -32830,7 +33002,7 @@ INSTRUCTIONS:
                     <div className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${botEnabled ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}`} />
                       <span className="text-sm font-medium text-white">
-                        {botEnabled ? (scannerEnabled ? (scannerStatus.isScanning ? 'Scanner running: analyzing ' + (scannerStatus.currentStock || '...') + ' (' + scannerStatus.progress + '%)' : 'Bot active + Scanner armed (every ' + scannerSettings.scanInterval + 'min)') : 'Bot is monitoring signals (scanner off)') : 'Bot is paused — no trades will be executed'}
+                        {botEnabled ? (scannerEnabled ? (scannerStatus.isScanning ? 'Scanner running: analyzing ' + (scannerStatus.currentStock || '...') + ' (' + scannerStatus.progress + '%)' : 'Bot active + Scanner armed (every ' + scannerSettings.scanInterval + 'min)' + (alpacaPositions.length > 0 ? ' | Position Manager watching ' + alpacaPositions.length + ' position(s)' : '')) : 'Bot is monitoring signals (scanner off)') : 'Bot is paused — no trades will be executed'}
                       </span>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-400">
