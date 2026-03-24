@@ -11,7 +11,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move, Share2, MousePointer, ExternalLink, Play } from "lucide-react";
+import { Upload, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, BarChart2, BarChart3, RefreshCw, Target, Shield, Clock, DollarSign, Activity, Zap, Eye, Calendar, Star, ArrowUpRight, ArrowDownRight, ArrowLeft, ArrowRight, Sparkles, MessageCircle, Send, HelpCircle, Check, X, Key, Settings, Bell, BellOff, LineChart, Camera, Layers, ArrowUpDown, AlertCircle, List, Plus, Download, PieChart, Wallet, CalendarDays, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Info, Flame, Pencil, Save, Newspaper, Calculator, Menu, User, LogOut, LogIn, Mail, Lock, Cloud, CloudOff, Lightbulb, GripVertical, Globe, Brain, Trophy, Gauge, BookOpen, Hash, Crosshair, Timer, LayoutGrid, Command, BellRing, Compass, Maximize2, Minimize2, RotateCcw, Keyboard, ZoomIn, ZoomOut, Move, Share2, MousePointer, ExternalLink, Play, Cpu } from "lucide-react";
 import { COMPANY_NAMES, getCompanyName, PRIORITY_STOCKS } from "./constants/stockData";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -3664,6 +3664,43 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     trades: []
   });
 
+  // ═══════════════════════════════════════════════════
+  // AUTO TRADING BOT - Alpaca Paper Trading
+  // ═══════════════════════════════════════════════════
+  const [alpacaConfig, setAlpacaConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_alpaca_config')) || { apiKey: '', secretKey: '', connected: false, paperMode: true }; }
+    catch { return { apiKey: '', secretKey: '', connected: false, paperMode: true }; }
+  });
+  const [botEnabled, setBotEnabled] = useState(() => {
+    try { return localStorage.getItem('modus_bot_enabled') === 'true'; } catch { return false; }
+  });
+  const [botSettings, setBotSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_bot_settings')) || {
+      minConfidence: 75,
+      allowedSignals: ['STRONG_BUY', 'STRONG_SELL'],
+      maxPositions: 3,
+      maxDailyTrades: 5,
+      maxDailyLoss: 500,
+      riskPerTrade: 1,
+      tradeSource: 'both',
+      requireMinRR: 1.5,
+      autoStopLoss: true,
+      autoTakeProfit: true,
+      tradingHoursOnly: true,
+    }; } catch { return { minConfidence: 75, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 5, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 1.5, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true }; }
+  });
+  const [alpacaAccount, setAlpacaAccount] = useState(null);
+  const [alpacaPositions, setAlpacaPositions] = useState([]);
+  const [alpacaOrders, setAlpacaOrders] = useState([]);
+  const [botTradeLog, setBotTradeLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('modus_bot_trade_log')) || []; } catch { return []; }
+  });
+  const [botStatus, setBotStatus] = useState({ lastCheck: null, todayTrades: 0, todayPnL: 0, errors: [] });
+  const [botSettingsTab, setBotSettingsTab] = useState('dashboard');
+  const alpacaBaseUrl = alpacaConfig.paperMode ? 'https://paper-api.alpaca.markets' : 'https://api.alpaca.markets';
+  const botProcessingRef = useRef(false);
+
+
   // NEW: Trade Plan Enforcement (v3.0.0)
   const [tradePlanSettings, setTradePlanSettings] = useState({
     maxTradesPerDay: 5,
@@ -6002,6 +6039,306 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       setPortfolioSettings(JSON.parse(savedPortfolioSettings));
     }
   }, []);
+
+  // ═══════════════════════════════════════════════════
+  // AUTO BOT: Persist settings
+  // ═══════════════════════════════════════════════════
+  useEffect(() => { try { localStorage.setItem('modus_alpaca_config', JSON.stringify(alpacaConfig)); } catch {} }, [alpacaConfig]);
+  useEffect(() => { try { localStorage.setItem('modus_bot_enabled', String(botEnabled)); } catch {} }, [botEnabled]);
+  useEffect(() => { try { localStorage.setItem('modus_bot_settings', JSON.stringify(botSettings)); } catch {} }, [botSettings]);
+  useEffect(() => { try { localStorage.setItem('modus_bot_trade_log', JSON.stringify(botTradeLog.slice(-200))); } catch {} }, [botTradeLog]);
+
+  // ═══════════════════════════════════════════════════
+  // ALPACA API HELPERS
+  // ═══════════════════════════════════════════════════
+  const alpacaFetch = async (endpoint, method = 'GET', body = null) => {
+    if (!alpacaConfig.apiKey || !alpacaConfig.secretKey) throw new Error('Alpaca API keys not configured');
+    const baseUrl = alpacaConfig.paperMode ? 'https://paper-api.alpaca.markets' : 'https://api.alpaca.markets';
+    const opts = {
+      method,
+      headers: {
+        'APCA-API-KEY-ID': alpacaConfig.apiKey,
+        'APCA-API-SECRET-KEY': alpacaConfig.secretKey,
+        'Content-Type': 'application/json',
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(baseUrl + endpoint, opts);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText);
+      throw new Error(`Alpaca ${method} ${endpoint}: ${res.status} ${errText}`);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  };
+
+  const alpacaConnect = async () => {
+    try {
+      const account = await alpacaFetch('/v2/account');
+      setAlpacaAccount(account);
+      setAlpacaConfig(prev => ({ ...prev, connected: true }));
+      addNotification(`Connected to Alpaca ${alpacaConfig.paperMode ? 'Paper' : 'Live'} Trading! Balance: $${parseFloat(account.equity).toLocaleString()}`, 'success');
+      return true;
+    } catch (err) {
+      addNotification(`Alpaca connection failed: ${err.message}`, 'error');
+      setAlpacaConfig(prev => ({ ...prev, connected: false }));
+      return false;
+    }
+  };
+
+  const alpacaRefresh = async () => {
+    if (!alpacaConfig.connected) return;
+    try {
+      const [account, positions, orders] = await Promise.all([
+        alpacaFetch('/v2/account'),
+        alpacaFetch('/v2/positions'),
+        alpacaFetch('/v2/orders?status=open&limit=50'),
+      ]);
+      setAlpacaAccount(account);
+      setAlpacaPositions(positions || []);
+      setAlpacaOrders(orders || []);
+    } catch (err) {
+      console.error('[AutoBot] Refresh error:', err.message);
+    }
+  };
+
+  // Refresh Alpaca data every 30 seconds when connected
+  useEffect(() => {
+    if (!alpacaConfig.connected) return;
+    alpacaRefresh();
+    const interval = setInterval(alpacaRefresh, 30000);
+    return () => clearInterval(interval);
+  }, [alpacaConfig.connected, alpacaConfig.apiKey]);
+
+  const alpacaPlaceOrder = async (symbol, qty, side, type = 'market', limitPrice = null, stopPrice = null, takeProfitPrice = null) => {
+    const orderBody = {
+      symbol: symbol.toUpperCase(),
+      qty: String(Math.max(1, Math.floor(qty))),
+      side, // 'buy' or 'sell'
+      type, // 'market', 'limit', 'stop', 'stop_limit'
+      time_in_force: 'day',
+    };
+    if (type === 'limit' || type === 'stop_limit') orderBody.limit_price = String(limitPrice);
+    if (type === 'stop' || type === 'stop_limit') orderBody.stop_price = String(stopPrice);
+
+    // Add bracket order (stop loss + take profit) if enabled
+    if (botSettings.autoStopLoss && stopPrice && takeProfitPrice) {
+      orderBody.order_class = 'bracket';
+      orderBody.stop_loss = { stop_price: String(parseFloat(stopPrice).toFixed(2)) };
+      orderBody.take_profit = { limit_price: String(parseFloat(takeProfitPrice).toFixed(2)) };
+    } else if (botSettings.autoStopLoss && stopPrice) {
+      orderBody.order_class = 'oto';
+      orderBody.stop_loss = { stop_price: String(parseFloat(stopPrice).toFixed(2)) };
+    }
+
+    const order = await alpacaFetch('/v2/orders', 'POST', orderBody);
+    return order;
+  };
+
+  const alpacaClosePosition = async (symbol) => {
+    return alpacaFetch(`/v2/positions/${symbol.toUpperCase()}`, 'DELETE');
+  };
+
+  const alpacaCloseAllPositions = async () => {
+    return alpacaFetch('/v2/positions?cancel_orders=true', 'DELETE');
+  };
+
+  // ═══════════════════════════════════════════════════
+  // BOT TRADE EXECUTION ENGINE
+  // ═══════════════════════════════════════════════════
+  const executeBotTrade = async (signal) => {
+    if (!botEnabled || !alpacaConfig.connected || botProcessingRef.current) return;
+    botProcessingRef.current = true;
+
+    try {
+      const { symbol, recommendation, confidence, direction, entry, stop, target, source, riskReward } = signal;
+
+      // Safety checks
+      const todayStr = new Date().toDateString();
+      const todayTrades = botTradeLog.filter(t => new Date(t.timestamp).toDateString() === todayStr);
+      if (todayTrades.length >= botSettings.maxDailyTrades) {
+        console.log('[AutoBot] Max daily trades reached');
+        return;
+      }
+
+      const todayPnL = todayTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+      if (todayPnL <= -botSettings.maxDailyLoss) {
+        console.log('[AutoBot] Daily loss limit hit');
+        setBotEnabled(false);
+        addNotification('Auto Bot disabled: Daily loss limit reached ($' + botSettings.maxDailyLoss + ')', 'error');
+        return;
+      }
+
+      if (alpacaPositions.length >= botSettings.maxPositions) {
+        console.log('[AutoBot] Max positions reached');
+        return;
+      }
+
+      // Check if already in this position
+      if (alpacaPositions.find(p => p.symbol === symbol.toUpperCase())) {
+        console.log('[AutoBot] Already in position for', symbol);
+        return;
+      }
+
+      if (!botSettings.allowedSignals.includes(recommendation)) {
+        console.log('[AutoBot] Signal not in allowed list:', recommendation);
+        return;
+      }
+
+      if (confidence < botSettings.minConfidence) {
+        console.log('[AutoBot] Confidence too low:', confidence, '<', botSettings.minConfidence);
+        return;
+      }
+
+      if (riskReward && riskReward < botSettings.requireMinRR) {
+        console.log('[AutoBot] R:R too low:', riskReward, '<', botSettings.requireMinRR);
+        return;
+      }
+
+      // Check trading hours
+      if (botSettings.tradingHoursOnly) {
+        const now = new Date();
+        const hour = now.getHours();
+        const min = now.getMinutes();
+        const totalMin = hour * 60 + min;
+        // Market open 9:30 ET - 16:00 ET (adjust for local time later)
+        if (totalMin < 570 || totalMin > 960) {
+          console.log('[AutoBot] Outside trading hours');
+          return;
+        }
+      }
+
+      // Calculate position size
+      const accountEquity = parseFloat(alpacaAccount?.equity || 0);
+      const riskAmount = accountEquity * (botSettings.riskPerTrade / 100);
+      const entryPrice = parseFloat(entry);
+      const stopPrice = parseFloat(stop);
+      const targetPrice = parseFloat(target);
+
+      if (!entryPrice || !stopPrice || isNaN(entryPrice) || isNaN(stopPrice)) {
+        console.log('[AutoBot] Invalid entry/stop prices');
+        return;
+      }
+
+      const riskPerShare = Math.abs(entryPrice - stopPrice);
+      if (riskPerShare <= 0) return;
+
+      const shares = Math.floor(riskAmount / riskPerShare);
+      if (shares < 1) {
+        console.log('[AutoBot] Position too small (< 1 share)');
+        return;
+      }
+
+      // Place the order!
+      const side = direction === 'LONG' ? 'buy' : 'sell';
+      console.log(`[AutoBot] Placing ${side} order: ${shares} shares of ${symbol} @ ~$${entryPrice}`);
+
+      const order = await alpacaPlaceOrder(
+        symbol,
+        shares,
+        side,
+        'market',
+        null,
+        stopPrice,
+        targetPrice && !isNaN(targetPrice) ? targetPrice : null
+      );
+
+      const logEntry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        symbol,
+        side,
+        shares,
+        entryPrice,
+        stopPrice,
+        targetPrice: targetPrice || null,
+        recommendation,
+        confidence,
+        riskReward,
+        source,
+        orderId: order?.id,
+        status: 'filled',
+        pnl: 0,
+      };
+
+      setBotTradeLog(prev => [logEntry, ...prev]);
+      addNotification(`🤖 Auto Bot: ${side.toUpperCase()} ${shares} ${symbol} @ $${entryPrice.toFixed(2)} | Stop: $${stopPrice.toFixed(2)} | Target: $${targetPrice?.toFixed(2) || 'N/A'}`, 'success');
+
+      // Refresh positions
+      setTimeout(alpacaRefresh, 2000);
+
+    } catch (err) {
+      console.error('[AutoBot] Trade error:', err.message);
+      setBotStatus(prev => ({ ...prev, errors: [...prev.errors.slice(-9), { time: new Date().toISOString(), msg: err.message }] }));
+      addNotification(`Auto Bot error: ${err.message}`, 'error');
+    } finally {
+      botProcessingRef.current = false;
+    }
+  };
+
+  // ═══════════════════════════════════════════════════
+  // BOT SIGNAL MONITORS - Watch analysis & daily pick
+  // ═══════════════════════════════════════════════════
+  const lastBotSignalRef = useRef(null);
+
+  useEffect(() => {
+    if (!botEnabled || !alpacaConfig.connected || !analysis?.final?.recommendation) return;
+    if (botSettings.tradeSource === 'dailypick') return; // Only trade daily picks
+
+    const rec = analysis.final.recommendation;
+    const ticker = analysis.context?.ticker;
+    const confidence = analysis.final.confidence || analysis.final.calculatedConfidence || 0;
+    const direction = analysis.final.directionalBias;
+    const entry = analysis.tradeSetup?.immediateEntry?.entry || analysis.realIndicators?.currentPrice;
+    const stop = analysis.tradeSetup?.immediateEntry?.stop || analysis.tradeSetup?.immediateEntry?.stopLoss;
+    const target = analysis.tradeSetup?.immediateEntry?.target1;
+    const rr = analysis.tradeSetup?.immediateEntry?.riskRewardRatio;
+    const rrNum = rr ? parseFloat(String(rr).split(':').pop()) : null;
+
+    const signalKey = `${ticker}-${rec}-${Date.now()}`;
+    if (lastBotSignalRef.current === `${ticker}-${rec}`) return;
+    lastBotSignalRef.current = `${ticker}-${rec}`;
+
+    executeBotTrade({
+      symbol: ticker,
+      recommendation: rec,
+      confidence,
+      direction,
+      entry,
+      stop,
+      target,
+      source: 'chart-analysis',
+      riskReward: rrNum,
+    });
+  }, [analysis, botEnabled, alpacaConfig.connected]);
+
+  useEffect(() => {
+    if (!botEnabled || !alpacaConfig.connected || !dailyPick?.symbol) return;
+    if (botSettings.tradeSource === 'analysis') return; // Only trade analysis signals
+
+    const rec = dailyPick.recommendation;
+    const ticker = dailyPick.symbol;
+    const confidence = dailyPick.confidence || dailyPick.normalizedScore || 0;
+    const direction = dailyPick.directionalBias || (rec?.includes('BUY') ? 'LONG' : 'SHORT');
+    const entry = dailyPick.entry || dailyPick.currentPrice;
+    const stop = dailyPick.stop;
+    const target = dailyPick.targets?.[0] || dailyPick.target1;
+    const rrNum = dailyPick.riskReward ? parseFloat(String(dailyPick.riskReward).split(':').pop()) : null;
+
+    executeBotTrade({
+      symbol: ticker,
+      recommendation: rec?.replace(/ /g, '_'),
+      confidence,
+      direction,
+      entry,
+      stop,
+      target,
+      source: 'daily-pick',
+      riskReward: rrNum,
+    });
+  }, [dailyPick, botEnabled, alpacaConfig.connected]);
+
+
 
   // =================================================================
   // CLOUD SYNC - Load ALL user data when logged in
@@ -18448,6 +18785,30 @@ INSTRUCTIONS:
               <MessageCircle className="w-5 h-5 flex-shrink-0" />
               {!sidebarCollapsed && <span className="font-medium">Ask AI</span>}
             </button>
+
+            <button
+              onClick={() => setActiveTab("autobot")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-all duration-200 ${
+                activeTab === "autobot"
+                  ? "bg-violet-500/10 text-white border-l-2 border-violet-500 shadow-sm"
+                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+              }`}
+              title={sidebarCollapsed ? "Auto Bot" : ""}
+            >
+              <Cpu className={`w-5 h-5 flex-shrink-0 ${activeTab === "autobot" ? "text-white" : ""}`} />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="font-medium">Auto Bot</span>
+                  {botEnabled && alpacaConfig.connected && (
+                    <span className="ml-auto flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                      <span className="text-[10px] text-green-400 font-bold">LIVE</span>
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+
 
             {/* MANAGEMENT Section */}
             {!sidebarCollapsed && (
@@ -31902,6 +32263,387 @@ INSTRUCTIONS:
         )}
 
         {/* Trading Journal Tab */}
+        {/* ═══════════════════════════════════════════ */}
+        {/* AUTO BOT DASHBOARD                          */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === "autobot" && (
+          <div className="p-6 max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <Cpu className="w-7 h-7 text-violet-400" />
+                  Auto Trading Bot
+                  <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-full font-semibold">PAPER TRADING</span>
+                </h2>
+                <p className="text-sm text-slate-400 mt-1">Automated trading powered by MODUS AI signals via Alpaca</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {alpacaConfig.connected && (
+                  <button
+                    onClick={() => { setBotEnabled(!botEnabled); addNotification(botEnabled ? 'Auto Bot paused' : 'Auto Bot activated!', botEnabled ? 'info' : 'success'); }}
+                    className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                      botEnabled
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                        : 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
+                    }`}
+                  >
+                    {botEnabled ? '⏸ Pause Bot' : '▶ Start Bot'}
+                  </button>
+                )}
+                {alpacaConfig.connected && alpacaPositions.length > 0 && (
+                  <button
+                    onClick={async () => { if (confirm('Close ALL positions immediately?')) { await alpacaCloseAllPositions(); setTimeout(alpacaRefresh, 1000); addNotification('All positions closed!', 'info'); }}}
+                    className="px-4 py-2.5 rounded-xl font-bold text-sm bg-red-600/30 text-red-300 border border-red-600/40 hover:bg-red-600/50"
+                  >
+                    KILL SWITCH
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Sub-tabs */}
+            <div className="flex gap-2 mb-6 border-b border-slate-700 pb-3">
+              {['dashboard', 'settings', 'history'].map(tab => (
+                <button key={tab} onClick={() => setBotSettingsTab(tab)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${botSettingsTab === tab ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+                  {tab === 'dashboard' ? '📊 Dashboard' : tab === 'settings' ? '⚙️ Settings' : '📋 Trade Log'}
+                </button>
+              ))}
+            </div>
+
+            {/* CONNECTION SETUP */}
+            {!alpacaConfig.connected && (
+              <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 text-center">
+                <div className="text-4xl mb-4">🔗</div>
+                <h3 className="text-xl font-bold text-white mb-2">Connect Alpaca Paper Trading</h3>
+                <p className="text-slate-400 mb-6 max-w-md mx-auto">Sign up for a free Alpaca account at <a href="https://alpaca.markets" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">alpaca.markets</a>, get your paper trading API keys, and paste them below.</p>
+                <div className="max-w-sm mx-auto space-y-3">
+                  <input type="text" placeholder="API Key ID" value={alpacaConfig.apiKey}
+                    onChange={e => setAlpacaConfig(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none" />
+                  <input type="password" placeholder="Secret Key" value={alpacaConfig.secretKey}
+                    onChange={e => setAlpacaConfig(prev => ({ ...prev, secretKey: e.target.value }))}
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none" />
+                  <label className="flex items-center gap-2 text-sm text-slate-400">
+                    <input type="checkbox" checked={alpacaConfig.paperMode}
+                      onChange={e => setAlpacaConfig(prev => ({ ...prev, paperMode: e.target.checked }))}
+                      className="rounded" />
+                    Paper Trading Mode (recommended)
+                  </label>
+                  <button onClick={alpacaConnect}
+                    disabled={!alpacaConfig.apiKey || !alpacaConfig.secretKey}
+                    className="w-full py-3 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold rounded-lg transition-all">
+                    Connect to Alpaca
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* DASHBOARD TAB */}
+            {alpacaConfig.connected && botSettingsTab === 'dashboard' && (
+              <div className="space-y-6">
+                {/* Account Overview Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+                    <div className="text-xs text-slate-500 mb-1">Account Equity</div>
+                    <div className="text-2xl font-bold text-white">{'$' + parseFloat(alpacaAccount?.equity || 0).toLocaleString()}</div>
+                    <div className="text-xs text-slate-400 mt-1">Buying Power: {'$' + parseFloat(alpacaAccount?.buying_power || 0).toLocaleString()}</div>
+                  </div>
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+                    <div className="text-xs text-slate-500 mb-1">Today's P&L</div>
+                    <div className={`text-2xl font-bold ${parseFloat(alpacaAccount?.equity || 0) - parseFloat(alpacaAccount?.last_equity || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {(parseFloat(alpacaAccount?.equity || 0) - parseFloat(alpacaAccount?.last_equity || 0) >= 0 ? '+' : '') + (parseFloat(alpacaAccount?.equity || 0) - parseFloat(alpacaAccount?.last_equity || 0)).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+                    <div className="text-xs text-slate-500 mb-1">Open Positions</div>
+                    <div className="text-2xl font-bold text-white">{alpacaPositions.length} / {botSettings.maxPositions}</div>
+                  </div>
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+                    <div className="text-xs text-slate-500 mb-1">Bot Status</div>
+                    <div className={`text-2xl font-bold ${botEnabled ? 'text-green-400' : 'text-amber-400'}`}>
+                      {botEnabled ? '● Active' : '○ Paused'}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      {botTradeLog.filter(t => new Date(t.timestamp).toDateString() === new Date().toDateString()).length} trades today
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bot Status Bar */}
+                <div className={`rounded-xl p-4 border ${botEnabled ? 'bg-green-500/5 border-green-500/20' : 'bg-slate-800/40 border-slate-700'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${botEnabled ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}`} />
+                      <span className="text-sm font-medium text-white">
+                        {botEnabled ? 'Bot is actively monitoring signals' : 'Bot is paused — no trades will be executed'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-slate-400">
+                      <span>Min Confidence: {botSettings.minConfidence}%</span>
+                      <span>Risk/Trade: {botSettings.riskPerTrade}%</span>
+                      <span>Signals: {botSettings.allowedSignals.join(', ').replace(/_/g, ' ')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Open Positions */}
+                <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
+                    <h3 className="font-semibold text-white">Open Positions</h3>
+                    <button onClick={alpacaRefresh} className="text-xs text-violet-400 hover:text-violet-300">Refresh</button>
+                  </div>
+                  {alpacaPositions.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500">No open positions</div>
+                  ) : (
+                    <div className="divide-y divide-slate-700/50">
+                      {alpacaPositions.map((pos, i) => {
+                        const pnl = parseFloat(pos.unrealized_pl || 0);
+                        const pnlPct = parseFloat(pos.unrealized_plpc || 0) * 100;
+                        return (
+                          <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-slate-800/60">
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <span className="font-bold text-white">{pos.symbol}</span>
+                                <span className={`ml-2 text-xs px-2 py-0.5 rounded ${pos.side === 'long' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                  {pos.side?.toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                {pos.qty} shares @ {parseFloat(pos.avg_entry_price).toFixed(2)}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className={`text-right ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                <div className="font-bold">{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}</div>
+                                <div className="text-xs">{pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%</div>
+                              </div>
+                              <button onClick={async () => { await alpacaClosePosition(pos.symbol); setTimeout(alpacaRefresh, 1000); }}
+                                className="text-xs px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30">
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Open Orders */}
+                {alpacaOrders.length > 0 && (
+                  <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden">
+                    <div className="px-5 py-3 border-b border-slate-700">
+                      <h3 className="font-semibold text-white">Pending Orders</h3>
+                    </div>
+                    <div className="divide-y divide-slate-700/50">
+                      {alpacaOrders.map((ord, i) => (
+                        <div key={i} className="px-5 py-3 flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-white">{ord.symbol}</span>
+                            <span className={`ml-2 text-xs ${ord.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>{ord.side?.toUpperCase()}</span>
+                            <span className="ml-2 text-xs text-slate-400">{ord.qty} shares • {ord.type} • {ord.status}</span>
+                          </div>
+                          <button onClick={async () => { await alpacaFetch(`/v2/orders/${ord.id}`, 'DELETE'); setTimeout(alpacaRefresh, 1000); }}
+                            className="text-xs px-3 py-1 text-amber-400 hover:text-amber-300">Cancel</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Bot Activity */}
+                <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-slate-700">
+                    <h3 className="font-semibold text-white">Recent Bot Activity</h3>
+                  </div>
+                  {botTradeLog.slice(0, 5).length === 0 ? (
+                    <div className="p-8 text-center text-slate-500">No trades yet — bot will execute when signals meet your criteria</div>
+                  ) : (
+                    <div className="divide-y divide-slate-700/50">
+                      {botTradeLog.slice(0, 5).map((t, i) => (
+                        <div key={i} className="px-5 py-3 flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs px-2 py-0.5 rounded ${t.side === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {t.side?.toUpperCase()}
+                            </span>
+                            <span className="font-medium text-white">{t.symbol}</span>
+                            <span className="text-slate-400">{t.shares} shares @ {t.entryPrice?.toFixed(2)}</span>
+                          </div>
+                          <div className="text-xs text-slate-500">{new Date(t.timestamp).toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SETTINGS TAB */}
+            {alpacaConfig.connected && botSettingsTab === 'settings' && (
+              <div className="space-y-6 max-w-2xl">
+                {/* Signal Settings */}
+                <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5">
+                  <h3 className="font-semibold text-white mb-4">Signal Settings</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Minimum Confidence (%)</label>
+                      <input type="range" min="50" max="95" step="5" value={botSettings.minConfidence}
+                        onChange={e => setBotSettings(prev => ({ ...prev, minConfidence: parseInt(e.target.value) }))}
+                        className="w-full accent-violet-500" />
+                      <div className="text-right text-sm text-violet-400 font-bold">{botSettings.minConfidence}%</div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-2 block">Allowed Signals</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {['STRONG_BUY', 'BUY', 'SELL', 'STRONG_SELL'].map(sig => (
+                          <button key={sig} onClick={() => setBotSettings(prev => ({
+                            ...prev,
+                            allowedSignals: prev.allowedSignals.includes(sig)
+                              ? prev.allowedSignals.filter(s => s !== sig)
+                              : [...prev.allowedSignals, sig]
+                          }))}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                              botSettings.allowedSignals.includes(sig)
+                                ? sig.includes('BUY') ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-red-500/20 border-red-500/40 text-red-400'
+                                : 'bg-slate-800 border-slate-600 text-slate-500'
+                            }`}>
+                            {sig.replace(/_/g, ' ')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Signal Source</label>
+                      <select value={botSettings.tradeSource}
+                        onChange={e => setBotSettings(prev => ({ ...prev, tradeSource: e.target.value }))}
+                        className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm w-full">
+                        <option value="both">Both (Chart Analysis + Daily Pick)</option>
+                        <option value="analysis">Chart Analysis Only</option>
+                        <option value="dailypick">Daily Pick Only</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Minimum Risk:Reward</label>
+                      <input type="number" min="0.5" max="10" step="0.25" value={botSettings.requireMinRR}
+                        onChange={e => setBotSettings(prev => ({ ...prev, requireMinRR: parseFloat(e.target.value) }))}
+                        className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm w-32" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Risk Management */}
+                <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5">
+                  <h3 className="font-semibold text-white mb-4">Risk Management</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Risk Per Trade (%)</label>
+                      <input type="number" min="0.25" max="5" step="0.25" value={botSettings.riskPerTrade}
+                        onChange={e => setBotSettings(prev => ({ ...prev, riskPerTrade: parseFloat(e.target.value) }))}
+                        className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm w-full" />
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Max Positions</label>
+                      <input type="number" min="1" max="20" value={botSettings.maxPositions}
+                        onChange={e => setBotSettings(prev => ({ ...prev, maxPositions: parseInt(e.target.value) }))}
+                        className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm w-full" />
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Max Daily Trades</label>
+                      <input type="number" min="1" max="50" value={botSettings.maxDailyTrades}
+                        onChange={e => setBotSettings(prev => ({ ...prev, maxDailyTrades: parseInt(e.target.value) }))}
+                        className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm w-full" />
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400 mb-1 block">Daily Loss Limit ($)</label>
+                      <input type="number" min="50" max="10000" step="50" value={botSettings.maxDailyLoss}
+                        onChange={e => setBotSettings(prev => ({ ...prev, maxDailyLoss: parseInt(e.target.value) }))}
+                        className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm w-full" />
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input type="checkbox" checked={botSettings.autoStopLoss}
+                        onChange={e => setBotSettings(prev => ({ ...prev, autoStopLoss: e.target.checked }))}
+                        className="rounded accent-violet-500" />
+                      Auto Stop Loss (bracket orders)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input type="checkbox" checked={botSettings.autoTakeProfit}
+                        onChange={e => setBotSettings(prev => ({ ...prev, autoTakeProfit: e.target.checked }))}
+                        className="rounded accent-violet-500" />
+                      Auto Take Profit
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input type="checkbox" checked={botSettings.tradingHoursOnly}
+                        onChange={e => setBotSettings(prev => ({ ...prev, tradingHoursOnly: e.target.checked }))}
+                        className="rounded accent-violet-500" />
+                      Trading Hours Only (9:30 AM - 4:00 PM ET)
+                    </label>
+                  </div>
+                </div>
+
+                {/* Connection */}
+                <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5">
+                  <h3 className="font-semibold text-white mb-4">Connection</h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-slate-300">Alpaca {alpacaConfig.paperMode ? 'Paper' : 'Live'} Trading</div>
+                      <div className="text-xs text-green-400 mt-1">● Connected</div>
+                    </div>
+                    <button onClick={() => { setAlpacaConfig(prev => ({ ...prev, connected: false, apiKey: '', secretKey: '' })); setAlpacaAccount(null); setAlpacaPositions([]); setBotEnabled(false); }}
+                      className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10">
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TRADE LOG TAB */}
+            {alpacaConfig.connected && botSettingsTab === 'history' && (
+              <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden">
+                <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
+                  <h3 className="font-semibold text-white">Trade History ({botTradeLog.length} trades)</h3>
+                  {botTradeLog.length > 0 && (
+                    <button onClick={() => { if (confirm('Clear all trade history?')) setBotTradeLog([]); }}
+                      className="text-xs text-red-400 hover:text-red-300">Clear All</button>
+                  )}
+                </div>
+                {botTradeLog.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500">No trades recorded yet</div>
+                ) : (
+                  <div className="divide-y divide-slate-700/50 max-h-[600px] overflow-y-auto">
+                    {botTradeLog.map((t, i) => (
+                      <div key={i} className="px-5 py-3 hover:bg-slate-800/60">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs px-2 py-0.5 rounded font-bold ${t.side === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {t.side?.toUpperCase()}
+                            </span>
+                            <span className="font-bold text-white">{t.symbol}</span>
+                            <span className="text-sm text-slate-400">{t.shares} shares @ {t.entryPrice?.toFixed(2)}</span>
+                          </div>
+                          <span className="text-xs text-slate-500">{new Date(t.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div className="flex gap-4 text-xs text-slate-500">
+                          <span>Signal: {t.recommendation?.replace(/_/g, ' ')}</span>
+                          <span>Confidence: {t.confidence}%</span>
+                          <span>Stop: {t.stopPrice?.toFixed(2)}</span>
+                          <span>Target: {t.targetPrice?.toFixed(2) || 'N/A'}</span>
+                          <span>Source: {t.source}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+
         {activeTab === "journal" && (
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-3 sm:gap-0">
