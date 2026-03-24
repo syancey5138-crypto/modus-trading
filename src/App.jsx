@@ -3709,11 +3709,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [scannerSettings, setScannerSettings] = useState(() => {
     try { return JSON.parse(localStorage.getItem('modus_scanner_settings')) || {
       scanInterval: 30,
-      maxStocksPerScan: 50,
-      scanTiers: 5,
+      maxStocksPerScan: 0,
+      batchSize: 5,
       minNetScore: 20,
       minConfirmations: 1,
-    }; } catch { return { scanInterval: 30, maxStocksPerScan: 50, scanTiers: 5, minNetScore: 20, minConfirmations: 1 }; }
+    }; } catch { return { scanInterval: 30, maxStocksPerScan: 0, batchSize: 5, minNetScore: 20, minConfirmations: 1 }; }
   });
   const [scannerStatus, setScannerStatus] = useState({
     isScanning: false,
@@ -6351,29 +6351,22 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     let tradesExecuted = 0;
     const scanErrors = [];
 
-    // Build stock list from PRIORITY_STOCKS tiers
-    let stocksToScan = [];
-    const tierKeys = Object.keys(PRIORITY_STOCKS).sort((a, b) => {
-      const aNum = parseInt(a.replace(/\D/g, '')) || 99;
-      const bNum = parseInt(b.replace(/\D/g, '')) || 99;
-      return aNum - bNum;
-    });
-    for (let t = 0; t < Math.min(scannerSettings.scanTiers, tierKeys.length); t++) {
-      const tier = PRIORITY_STOCKS[tierKeys[t]];
-      if (Array.isArray(tier)) stocksToScan.push(...tier);
-    }
-    // Limit and shuffle for variety
-    stocksToScan = [...new Set(stocksToScan)]; // dedupe
+    // Build stock list from PRIORITY_STOCKS (flat array of 500+ tickers)
+    let stocksToScan = [...PRIORITY_STOCKS];
+    // Shuffle for variety so different stocks get scanned each cycle
     for (let i = stocksToScan.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [stocksToScan[i], stocksToScan[j]] = [stocksToScan[j], stocksToScan[i]];
     }
-    stocksToScan = stocksToScan.slice(0, scannerSettings.maxStocksPerScan);
+    // Apply limit (0 = scan all)
+    if (scannerSettings.maxStocksPerScan > 0 && scannerSettings.maxStocksPerScan < stocksToScan.length) {
+      stocksToScan = stocksToScan.slice(0, scannerSettings.maxStocksPerScan);
+    }
 
-    console.log('[Scanner] Scanning ' + stocksToScan.length + ' stocks from top ' + scannerSettings.scanTiers + ' tiers');
+    console.log('[Scanner] Scanning ' + stocksToScan.length + ' of ' + PRIORITY_STOCKS.length + ' total stocks');
 
     // Process in batches of 5 to avoid rate limits
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = scannerSettings.batchSize || 5;
     for (let batchStart = 0; batchStart < stocksToScan.length; batchStart += BATCH_SIZE) {
       if (scannerAbortRef.current) {
         console.log('[Scanner] Scan aborted by user');
@@ -32989,23 +32982,22 @@ INSTRUCTIONS:
                       <select value={scannerSettings.maxStocksPerScan}
                         onChange={e => setScannerSettings(prev => ({...prev, maxStocksPerScan: parseInt(e.target.value)}))}
                         className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">
-                        <option value={20}>20 stocks</option>
-                        <option value={35}>35 stocks</option>
                         <option value={50}>50 stocks</option>
-                        <option value={75}>75 stocks</option>
                         <option value={100}>100 stocks</option>
+                        <option value={200}>200 stocks</option>
+                        <option value={350}>350 stocks</option>
+                        <option value={0}>All 519 stocks</option>
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-slate-500 block mb-1">Priority Tiers</label>
-                      <select value={scannerSettings.scanTiers}
-                        onChange={e => setScannerSettings(prev => ({...prev, scanTiers: parseInt(e.target.value)}))}
+                      <label className="text-xs text-slate-500 block mb-1">Batch Size</label>
+                      <select value={scannerSettings.batchSize || 5}
+                        onChange={e => setScannerSettings(prev => ({...prev, batchSize: parseInt(e.target.value)}))}
                         className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">
-                        <option value={3}>Top 3 tiers</option>
-                        <option value={5}>Top 5 tiers</option>
-                        <option value={10}>Top 10 tiers</option>
-                        <option value={15}>Top 15 tiers</option>
-                        <option value={29}>All 29 tiers</option>
+                        <option value={3}>3 (slow, safe)</option>
+                        <option value={5}>5 (balanced)</option>
+                        <option value={8}>8 (faster)</option>
+                        <option value={12}>12 (aggressive)</option>
                       </select>
                     </div>
                     <div>
