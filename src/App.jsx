@@ -3728,6 +3728,14 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   });
   const scannerIntervalRef = useRef(null);
   const scannerAbortRef = useRef(false);
+  const [positionMgrStatus, setPositionMgrStatus] = useState({
+    active: false,
+    lastCheck: null,
+    nextCheckIn: null,
+    positionsChecked: 0,
+    closedPositions: [],
+    holdPositions: [],
+  });
 
 
   // NEW: Trade Plan Enforcement (v3.0.0)
@@ -6738,6 +6746,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     if (!botEnabled || !alpacaConfig.connected || alpacaPositions.length === 0) return;
 
     console.log('[PositionMgr] Checking ' + alpacaPositions.length + ' open positions...');
+    setPositionMgrStatus(prev => ({ ...prev, active: true, lastCheck: new Date().toISOString(), positionsChecked: alpacaPositions.length, closedPositions: [], holdPositions: [] }));
+    const closedThisRun = [];
+    const holdThisRun = [];
 
     for (const pos of alpacaPositions) {
       try {
@@ -6868,17 +6879,20 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             };
             setBotTradeLog(prev => [logEntry, ...prev]);
             addNotification('Position Manager: Closed ' + symbol + ' (' + side + ') — ' + closeReason + ' | P&L: ' + (unrealizedPL >= 0 ? '+' : '') + unrealizedPL.toFixed(2), unrealizedPL >= 0 ? 'success' : 'error');
+            closedThisRun.push({ symbol, side, reason: closeReason, pnl: unrealizedPL });
           } catch (closeErr) {
             console.error('[PositionMgr] Failed to close ' + symbol + ':', closeErr.message);
           }
         } else {
           console.log('[PositionMgr] ' + symbol + ' (' + side + '): HOLD — RSI=' + rsi.toFixed(0) + ', MACD=' + macdVal.toFixed(3) + ', P&L=' + unrealizedPLPct.toFixed(1) + '%');
+          holdThisRun.push({ symbol, side, rsi: rsi.toFixed(0), macd: macdVal.toFixed(3), pnlPct: unrealizedPLPct.toFixed(1) });
         }
       } catch (err) {
         console.error('[PositionMgr] Error checking ' + pos.symbol + ':', err.message);
       }
     }
 
+    setPositionMgrStatus(prev => ({ ...prev, lastCheck: new Date().toISOString(), closedPositions: closedThisRun, holdPositions: holdThisRun, nextCheckIn: 5 }));
     // Refresh positions after any closes
     setTimeout(alpacaRefresh, 3000);
   };
@@ -6891,13 +6905,17 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     }
     if (botEnabled && alpacaConfig.connected && alpacaPositions.length > 0) {
       console.log('[PositionMgr] Starting — checking positions every 5 minutes');
+      setPositionMgrStatus(prev => ({ ...prev, active: true }));
       // First check after 30 seconds
       const initTimeout = setTimeout(manageOpenPositions, 30000);
       positionManagerRef.current = setInterval(manageOpenPositions, 5 * 60 * 1000);
       return () => {
         clearTimeout(initTimeout);
         if (positionManagerRef.current) clearInterval(positionManagerRef.current);
+        setPositionMgrStatus(prev => ({ ...prev, active: false }));
       };
+    } else {
+      setPositionMgrStatus(prev => ({ ...prev, active: false }));
     }
   }, [botEnabled, alpacaConfig.connected, alpacaPositions.length]);
 
@@ -33011,6 +33029,51 @@ INSTRUCTIONS:
                       <span>Signals: {botSettings.allowedSignals.join(', ').replace(/_/g, ' ')}</span>
                     </div>
                   </div>
+                </div>
+
+                {/* Position Manager Status */}
+                <div className={"rounded-xl p-4 border " + (positionMgrStatus.active ? "bg-emerald-500/5 border-emerald-500/20" : "bg-slate-800/40 border-slate-700")}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={"w-3 h-3 rounded-full " + (positionMgrStatus.active ? "bg-emerald-400 animate-pulse" : "bg-slate-600")} />
+                      <div>
+                        <span className="text-sm font-medium text-white">Position Manager</span>
+                        <span className={"ml-2 text-xs px-2 py-0.5 rounded-full font-semibold " + (positionMgrStatus.active ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-400")}>
+                          {positionMgrStatus.active ? "ACTIVE" : alpacaPositions.length === 0 ? "NO POSITIONS" : !botEnabled ? "BOT PAUSED" : "INACTIVE"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6 text-xs text-slate-400">
+                      {positionMgrStatus.lastCheck && (
+                        <span>Last check: {new Date(positionMgrStatus.lastCheck).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
+                      )}
+                      {positionMgrStatus.active && <span>Checks every 5 min</span>}
+                      <span>Watching: {alpacaPositions.length} position{alpacaPositions.length !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                  {positionMgrStatus.holdPositions.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-700/50">
+                      <div className="text-xs text-slate-500 mb-2">Last Analysis:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {positionMgrStatus.holdPositions.map((h, i) => (
+                          <div key={i} className="bg-slate-800/80 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
+                            <span className="font-bold text-white">{h.symbol}</span>
+                            <span className={parseFloat(h.pnlPct) >= 0 ? "text-green-400" : "text-red-400"}>{parseFloat(h.pnlPct) >= 0 ? "+" : ""}{h.pnlPct}%</span>
+                            <span className="text-slate-500">RSI:{h.rsi}</span>
+                            <span className="text-emerald-400 font-medium">HOLD</span>
+                          </div>
+                        ))}
+                        {positionMgrStatus.closedPositions.map((c, i) => (
+                          <div key={'c' + i} className="bg-red-500/10 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
+                            <span className="font-bold text-white">{c.symbol}</span>
+                            <span className={c.pnl >= 0 ? "text-green-400" : "text-red-400"}>{c.pnl >= 0 ? "+" : ""}{c.pnl.toFixed(2)}</span>
+                            <span className="text-red-400 font-medium">CLOSED</span>
+                            <span className="text-slate-500">{c.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Open Positions */}
