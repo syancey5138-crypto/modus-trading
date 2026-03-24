@@ -3739,6 +3739,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     dailyTarget: '0.00',
   });
   const accountHighRef = useRef(0);
+  const profitBaselineRef = useRef(0); // Tracks the equity baseline for 1% target — resets on bot re-enable
 
 
   // NEW: Trade Plan Enforcement (v3.0.0)
@@ -6763,14 +6764,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
     }
 
-    // ── STEP 1: Daily profit target check (1% above start of day) ──
-    // Alpaca gives us last_equity = yesterday's close equity
-    const dayStartEquity = parseFloat(alpacaAccount?.last_equity || 0);
-    const dailyTarget = dayStartEquity * 1.01; // 1% profit target
+    // ── STEP 1: Profit target check (1% above baseline) ──
+    // Baseline resets to current equity every time the bot is (re-)enabled
+    const baselineEquity = profitBaselineRef.current || parseFloat(alpacaAccount?.last_equity || 0);
+    const dailyTarget = baselineEquity * 1.01; // 1% profit target
 
-    if (dayStartEquity > 0 && currentEquity >= dailyTarget && alpacaPositions.length > 0) {
-      console.log('[PositionMgr] DAILY PROFIT TARGET HIT! Equity: $' + currentEquity.toFixed(2) + ' >= Target: $' + dailyTarget.toFixed(2) + ' (1% above $' + dayStartEquity.toFixed(2) + ')');
-      addNotification('Daily profit target reached! Equity $' + currentEquity.toFixed(2) + ' hit 1% above start ($' + dayStartEquity.toFixed(2) + '). Closing ALL positions to lock in gains!', 'success');
+    if (baselineEquity > 0 && currentEquity >= dailyTarget && alpacaPositions.length > 0) {
+      const gain = currentEquity - baselineEquity;
+      console.log('[PositionMgr] 1% PROFIT TARGET HIT! Equity: $' + currentEquity.toFixed(2) + ' >= Target: $' + dailyTarget.toFixed(2) + ' (1% above baseline $' + baselineEquity.toFixed(2) + ')');
+      addNotification('1% profit target reached! Equity $' + currentEquity.toFixed(2) + ' hit 1% above baseline ($' + baselineEquity.toFixed(2) + '). Closing ALL positions — +$' + gain.toFixed(2) + ' gain!', 'success');
 
       try {
         await alpacaCloseAllPositions();
@@ -6789,13 +6791,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           source: 'position-manager',
           orderId: null,
           status: 'closed',
-          pnl: currentEquity - dayStartEquity,
-          closeReason: '1% daily profit target hit ($' + (currentEquity - dayStartEquity).toFixed(2) + ' gain)',
+          pnl: currentEquity - baselineEquity,
+          closeReason: '1% profit target hit ($' + (currentEquity - baselineEquity).toFixed(2) + ' gain from $' + baselineEquity.toFixed(2) + ' baseline)',
         };
         setBotTradeLog(prev => [logEntry, ...prev]);
         setPositionMgrStatus(prev => ({
           ...prev, lastCheck: new Date().toISOString(),
-          closedPositions: [{ symbol: 'ALL POSITIONS', side: 'sell', reason: '1% daily target hit', pnl: currentEquity - dayStartEquity }],
+          closedPositions: [{ symbol: 'ALL POSITIONS', side: 'sell', reason: '1% target hit', pnl: currentEquity - baselineEquity }],
           holdPositions: [],
         }));
         // Pause the bot after hitting daily target to prevent re-entry
@@ -6810,7 +6812,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
     if (alpacaPositions.length === 0) return;
 
-    console.log('[PositionMgr] Checking ' + alpacaPositions.length + ' positions | Equity: $' + currentEquity.toFixed(2) + ' / Target: $' + dailyTarget.toFixed(2) + ' (' + ((currentEquity / dayStartEquity - 1) * 100).toFixed(2) + '%)');
+    console.log('[PositionMgr] Checking ' + alpacaPositions.length + ' positions | Equity: $' + currentEquity.toFixed(2) + ' / Target: $' + dailyTarget.toFixed(2) + ' (' + ((currentEquity / baselineEquity - 1) * 100).toFixed(2) + '%)');
     setPositionMgrStatus(prev => ({ ...prev, active: true, lastCheck: new Date().toISOString(), positionsChecked: alpacaPositions.length, closedPositions: [], holdPositions: [] }));
     const closedThisRun = [];
     const holdThisRun = [];
@@ -6969,7 +6971,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       lastCheck: new Date().toISOString(),
       closedPositions: closedThisRun,
       holdPositions: holdThisRun,
-      dailyPnlPct: dayStartEquity > 0 ? ((currentEquity / dayStartEquity - 1) * 100).toFixed(2) : '0.00',
+      dailyPnlPct: baselineEquity > 0 ? ((currentEquity / baselineEquity - 1) * 100).toFixed(2) : '0.00',
       dailyTarget: dailyTarget.toFixed(2),
     }));
     setTimeout(alpacaRefresh, 2000);
@@ -6982,6 +6984,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       positionManagerRef.current = null;
     }
     if (botEnabled && alpacaConfig.connected) {
+      // Set profit baseline to current equity when bot is (re-)enabled
+      const eqNow = parseFloat(alpacaAccount?.equity || 0);
+      if (eqNow > 0) {
+        profitBaselineRef.current = eqNow;
+        console.log('[PositionMgr] Profit baseline set to $' + eqNow.toFixed(2) + ' — target: $' + (eqNow * 1.01).toFixed(2));
+      }
       console.log('[PositionMgr] Starting — checking every 15 seconds');
       setPositionMgrStatus(prev => ({ ...prev, active: true }));
       // First check after 5 seconds
@@ -33133,7 +33141,7 @@ INSTRUCTIONS:
                   {positionMgrStatus.active && positionMgrStatus.dailyTarget && parseFloat(positionMgrStatus.dailyTarget) > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-700/50">
                       <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="text-slate-400">Daily Profit Target (1%)</span>
+                        <span className="text-slate-400">Profit Target (1% from baseline)</span>
                         <span className={parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
                           {parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "+" : ""}{positionMgrStatus.dailyPnlPct}% / 1.00%
                         </span>
@@ -33147,7 +33155,7 @@ INSTRUCTIONS:
                         <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400" style={{left: '100%', transform: 'translateX(-2px)'}} />
                       </div>
                       <div className="flex items-center justify-between text-xs mt-1">
-                        <span className="text-slate-500">Auto-sells all at target</span>
+                        <span className="text-slate-500">Sells all + pauses at 1% — re-enable to reset baseline</span>
                         <span className="text-slate-500">Account high: {"$" + (accountHighRef.current > 0 ? accountHighRef.current.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--')}</span>
                       </div>
                     </div>
