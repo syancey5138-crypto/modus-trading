@@ -3687,7 +3687,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       autoStopLoss: true,
       autoTakeProfit: true,
       tradingHoursOnly: true,
-    }; } catch { return { minConfidence: 75, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 5, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 1.5, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true }; }
+      profitTargetPct: 1.0,
+    }; } catch { return { minConfidence: 75, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 5, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 1.5, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 1.0 }; }
   });
   const [alpacaAccount, setAlpacaAccount] = useState(null);
   const [alpacaPositions, setAlpacaPositions] = useState([]);
@@ -6767,12 +6768,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     // ── STEP 1: Profit target check (1% above baseline) ──
     // Baseline resets to current equity every time the bot is (re-)enabled
     const baselineEquity = profitBaselineRef.current || parseFloat(alpacaAccount?.last_equity || 0);
-    const dailyTarget = baselineEquity * 1.01; // 1% profit target
+    const targetPct = botSettings.profitTargetPct || 1.0;
+    const dailyTarget = baselineEquity * (1 + targetPct / 100); // configurable profit target
 
     if (baselineEquity > 0 && currentEquity >= dailyTarget && alpacaPositions.length > 0) {
       const gain = currentEquity - baselineEquity;
-      console.log('[PositionMgr] 1% PROFIT TARGET HIT! Equity: $' + currentEquity.toFixed(2) + ' >= Target: $' + dailyTarget.toFixed(2) + ' (1% above baseline $' + baselineEquity.toFixed(2) + ')');
-      addNotification('1% profit target reached! Equity $' + currentEquity.toFixed(2) + ' hit 1% above baseline ($' + baselineEquity.toFixed(2) + '). Closing ALL positions — +$' + gain.toFixed(2) + ' gain!', 'success');
+      console.log('[PositionMgr] ' + targetPct + '% PROFIT TARGET HIT! Equity: $' + currentEquity.toFixed(2) + ' >= Target: $' + dailyTarget.toFixed(2) + ' (' + targetPct + '% above baseline $' + baselineEquity.toFixed(2) + ')');
+      addNotification(targetPct + '% profit target reached! Equity $' + currentEquity.toFixed(2) + ' hit ' + targetPct + '% above baseline ($' + baselineEquity.toFixed(2) + '). Closing ALL positions — +$' + gain.toFixed(2) + ' gain!', 'success');
 
       try {
         await alpacaCloseAllPositions();
@@ -6792,7 +6794,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           orderId: null,
           status: 'closed',
           pnl: currentEquity - baselineEquity,
-          closeReason: '1% profit target hit ($' + (currentEquity - baselineEquity).toFixed(2) + ' gain from $' + baselineEquity.toFixed(2) + ' baseline)',
+          closeReason: targetPct + '% profit target hit ($' + (currentEquity - baselineEquity).toFixed(2) + ' gain from $' + baselineEquity.toFixed(2) + ' baseline)',
         };
         setBotTradeLog(prev => [logEntry, ...prev]);
         setPositionMgrStatus(prev => ({
@@ -6988,7 +6990,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const eqNow = parseFloat(alpacaAccount?.equity || 0);
       if (eqNow > 0) {
         profitBaselineRef.current = eqNow;
-        console.log('[PositionMgr] Profit baseline set to $' + eqNow.toFixed(2) + ' — target: $' + (eqNow * 1.01).toFixed(2));
+        console.log('[PositionMgr] Profit baseline set to $' + eqNow.toFixed(2) + ' — target: $' + (eqNow * (1 + (botSettings.profitTargetPct || 1) / 100)).toFixed(2) + ' (' + (botSettings.profitTargetPct || 1) + '%)');
       }
       console.log('[PositionMgr] Starting — checking every 15 seconds');
       setPositionMgrStatus(prev => ({ ...prev, active: true }));
@@ -33141,21 +33143,21 @@ INSTRUCTIONS:
                   {positionMgrStatus.active && positionMgrStatus.dailyTarget && parseFloat(positionMgrStatus.dailyTarget) > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-700/50">
                       <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="text-slate-400">Profit Target (1% from baseline)</span>
+                        <span className="text-slate-400">Profit Target ({botSettings.profitTargetPct || 1}% from baseline)</span>
                         <span className={parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
-                          {parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "+" : ""}{positionMgrStatus.dailyPnlPct}% / 1.00%
+                          {parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "+" : ""}{positionMgrStatus.dailyPnlPct}% / {(botSettings.profitTargetPct || 1).toFixed(2)}%
                         </span>
                       </div>
                       <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden relative">
                         <div
-                          className={"h-full rounded-full transition-all duration-500 " + (parseFloat(positionMgrStatus.dailyPnlPct) >= 1.0 ? "bg-gradient-to-r from-green-500 to-emerald-400" : parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "bg-gradient-to-r from-blue-500 to-violet-500" : "bg-gradient-to-r from-red-600 to-red-400")}
-                          style={{width: Math.min(100, Math.max(0, Math.abs(parseFloat(positionMgrStatus.dailyPnlPct)) * 100)) + '%'}}
+                          className={"h-full rounded-full transition-all duration-500 " + (parseFloat(positionMgrStatus.dailyPnlPct) >= (botSettings.profitTargetPct || 1) ? "bg-gradient-to-r from-green-500 to-emerald-400" : parseFloat(positionMgrStatus.dailyPnlPct) >= 0 ? "bg-gradient-to-r from-blue-500 to-violet-500" : "bg-gradient-to-r from-red-600 to-red-400")}
+                          style={{width: Math.min(100, Math.max(0, (Math.abs(parseFloat(positionMgrStatus.dailyPnlPct)) / (botSettings.profitTargetPct || 1)) * 100)) + '%'}}
                         />
                         {/* 1% marker line */}
                         <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400" style={{left: '100%', transform: 'translateX(-2px)'}} />
                       </div>
                       <div className="flex items-center justify-between text-xs mt-1">
-                        <span className="text-slate-500">Sells all + pauses at 1% — re-enable to reset baseline</span>
+                        <span className="text-slate-500">Sells all + pauses at {botSettings.profitTargetPct || 1}% — re-enable to reset baseline</span>
                         <span className="text-slate-500">Account high: {"$" + (accountHighRef.current > 0 ? accountHighRef.current.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--')}</span>
                       </div>
                     </div>
@@ -33548,6 +33550,19 @@ INSTRUCTIONS:
                       <input type="number" min="50" max="10000" step="50" value={botSettings.maxDailyLoss}
                         onChange={e => setBotSettings(prev => ({ ...prev, maxDailyLoss: parseInt(e.target.value) }))}
                         className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm w-full" />
+                    </div>
+                  </div>
+                  {/* Profit Target */}
+                  <div className="mt-4 pt-4 border-t border-slate-700/50">
+                    <label className="text-sm text-slate-400 mb-1 block">Profit Target (%)</label>
+                    <p className="text-xs text-slate-500 mb-2">Sells all positions and pauses the bot when equity rises this % above baseline. Re-enable to set a new baseline and keep compounding.</p>
+                    <input type="range" min="0.25" max="5" step="0.25" value={botSettings.profitTargetPct || 1}
+                      onChange={e => setBotSettings(prev => ({ ...prev, profitTargetPct: parseFloat(e.target.value) }))}
+                      className="w-full accent-emerald-500" />
+                    <div className="flex justify-between text-xs mt-1">
+                      <span className="text-slate-500">0.25%</span>
+                      <span className="text-emerald-400 font-bold">{botSettings.profitTargetPct || 1}%</span>
+                      <span className="text-slate-500">5%</span>
                     </div>
                   </div>
                   <div className="mt-4 space-y-2">
