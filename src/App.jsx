@@ -6312,9 +6312,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // ═══════════════════════════════════════════════════
   // AUTO-SCANNER: Passive Stock Scanning Engine
   // ═══════════════════════════════════════════════════
-  const botAutoScan = async () => {
-    if (!botEnabled || !alpacaConfig.connected || !scannerEnabled) {
-      console.log('[Scanner] Skipping — bot disabled, not connected, or scanner off');
+  const botAutoScan = async (manual = false) => {
+    console.log('[Scanner] botAutoScan called, manual=' + manual + ', botEnabled=' + botEnabled + ', connected=' + alpacaConfig.connected + ', scannerEnabled=' + scannerEnabled);
+    if (!alpacaConfig.connected) {
+      console.log('[Scanner] Skipping — not connected to Alpaca');
+      addNotification('Scanner: Connect to Alpaca first', 'error');
+      return;
+    }
+    if (!manual && (!botEnabled || !scannerEnabled)) {
+      console.log('[Scanner] Skipping — bot disabled or scanner off (auto-scan only)');
       return;
     }
     if (scannerStatus.isScanning) {
@@ -6322,19 +6328,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       return;
     }
 
-    // Check trading hours (9:30 AM - 3:45 PM ET) — stop 15 min early to avoid last-minute fills
-    if (botSettings.tradingHoursOnly) {
+    // Check trading hours (9:30 AM - 3:45 PM ET) — skip check for manual scans
+    if (!manual && botSettings.tradingHoursOnly) {
       const now = new Date();
-      const etOffset = -5; // EST (simplified — DST handled by checking both)
-      const utcHour = now.getUTCHours();
-      const utcMin = now.getUTCMinutes();
-      const etTotalMin = ((utcHour + etOffset + 24) % 24) * 60 + utcMin;
-      // Also check EDT (-4)
-      const edtTotalMin = ((utcHour + etOffset + 1 + 24) % 24) * 60 + utcMin;
-      const totalMin = Math.min(etTotalMin, edtTotalMin);
-      // Market: 9:30 (570) to 15:45 (945)
-      if (totalMin < 570 || totalMin > 945) {
-        console.log('[Scanner] Outside trading hours (ET), skipping scan');
+      const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+      const etDate = new Date(etStr);
+      const etTotalMin = etDate.getHours() * 60 + etDate.getMinutes();
+      console.log('[Scanner] ET time check: ' + etDate.getHours() + ':' + etDate.getMinutes() + ' (' + etTotalMin + ' min), market 570-945');
+      if (etTotalMin < 570 || etTotalMin > 945) {
+        console.log('[Scanner] Outside trading hours (ET), skipping auto-scan');
         return;
       }
     }
@@ -32952,9 +32954,9 @@ INSTRUCTIONS:
                     </h3>
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => { if (scannerStatus.isScanning) { scannerAbortRef.current = true; } else { botAutoScan(); } }}
-                        disabled={!botEnabled}
-                        className={"px-4 py-2 rounded-lg text-sm font-medium transition-all " + (scannerStatus.isScanning ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30" : "bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30") + (!botEnabled ? " opacity-50 cursor-not-allowed" : "")}
+                        onClick={() => { if (scannerStatus.isScanning) { scannerAbortRef.current = true; } else { botAutoScan(true); } }}
+                        disabled={!alpacaConfig.connected}
+                        className={"px-4 py-2 rounded-lg text-sm font-medium transition-all " + (scannerStatus.isScanning ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30" : "bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30") + (!alpacaConfig.connected ? " opacity-50 cursor-not-allowed" : "")}
                       >
                         {scannerStatus.isScanning ? 'Stop Scan' : 'Run Scan Now'}
                       </button>
