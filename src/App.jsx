@@ -3696,7 +3696,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       minConfidence: 78,
       allowedSignals: ['STRONG_BUY', 'STRONG_SELL'],
       maxPositions: 3,
-      maxDailyTrades: 8,
+      maxDailyTrades: 20,
       maxDailyLoss: 500,
       riskPerTrade: 1,
       tradeSource: 'both',
@@ -3712,7 +3712,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       volumeSurgeFilter: true,
       multiTimeframeCheck: true,
       momentumScaling: false,
-    }; } catch { return { minConfidence: 78, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 8, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
+    }; } catch { return { minConfidence: 78, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 20, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
   });
   const [alpacaAccount, setAlpacaAccount] = useState(null);
   const [alpacaPositions, setAlpacaPositions] = useState([]);
@@ -33488,10 +33488,12 @@ INSTRUCTIONS:
                         setBotEnabled(false);
                         setScannerEnabled(false);
                         await alpacaCloseAllPositions();
-                        addNotification('KILL SWITCH: All positions closed! Bot disabled.', 'success');
+                        addNotification('KILL SWITCH: All positions closed! Bot disabled. Trade count reset.', 'success');
                         peakPricesRef.current = {};
                         partialTakenRef.current = {};
                         scalingCountRef.current = {};
+                        // Reset today's trade log so daily limit doesn't block after restart
+                        setBotTradeLog([]);
                       } catch (err) {
                         addNotification('Kill switch error: ' + err.message, 'error');
                       }
