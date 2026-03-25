@@ -6241,22 +6241,95 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         return;
       }
 
-      // Check trading hours
+      // ── CONSECUTIVE LOSS CIRCUIT BREAKER ──
+      const recentTrades = botTradeLog.slice(0, 5);
+      const consecutiveLosses = recentTrades.findIndex(t => (t.pnl || 0) >= 0);
+      if (consecutiveLosses >= 3 || (consecutiveLosses === -1 && recentTrades.length >= 3)) {
+        console.log('[AutoBot] CIRCUIT BREAKER: 3+ consecutive losses, skipping trade');
+        addNotification('Circuit breaker: 3 consecutive losses detected — pausing entries. Review your settings.', 'error');
+        return;
+      }
+
+      // ── TRADING HOURS + AVOID CHOPPY OPEN/CLOSE ──
       if (botSettings.tradingHoursOnly) {
         const now = new Date();
-        const hour = now.getHours();
-        const min = now.getMinutes();
-        const totalMin = hour * 60 + min;
-        // Market open 9:30 ET - 16:00 ET (adjust for local time later)
-        if (totalMin < 570 || totalMin > 960) {
+        const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+        const etDate = new Date(etStr);
+        const etTotalMin = etDate.getHours() * 60 + etDate.getMinutes();
+        // Market: 9:30 (570) to 16:00 (960)
+        if (etTotalMin < 570 || etTotalMin > 960) {
           console.log('[AutoBot] Outside trading hours');
+          return;
+        }
+        // Avoid first 15 min (choppy open) and last 15 min (volatile close)
+        if (etTotalMin < 585) {
+          console.log('[AutoBot] Skipping first 15 min of market (choppy open)');
+          return;
+        }
+        if (etTotalMin > 945) {
+          console.log('[AutoBot] Skipping last 15 min of market (volatile close)');
           return;
         }
       }
 
+      // ── SPY MARKET TREND FILTER — don't trade against the market ──
+      try {
+        const spyUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=5m&range=1d';
+        const spyData = await fetchYahooWithProxies(spyUrl, 5000);
+        if (spyData?.chart?.result?.[0]) {
+          const spyQuote = spyData.chart.result[0].indicators?.quote?.[0] || {};
+          const spyCloses = [];
+          const spyTs = spyData.chart.result[0].timestamp || [];
+          for (let si = 0; si < spyTs.length; si++) {
+            if (spyQuote.close?.[si] != null && !isNaN(spyQuote.close[si])) spyCloses.push(spyQuote.close[si]);
+          }
+          if (spyCloses.length >= 6) {
+            // Check last 30 min of SPY (6 x 5m candles)
+            const spyRecent = spyCloses.slice(-6);
+            const spyTrend = ((spyRecent[spyRecent.length - 1] - spyRecent[0]) / spyRecent[0]) * 100;
+            // Also check broader trend (last ~2 hours)
+            const spyBroad = spyCloses.length >= 24 ? spyCloses.slice(-24) : spyCloses;
+            const spyBroadTrend = ((spyBroad[spyBroad.length - 1] - spyBroad[0]) / spyBroad[0]) * 100;
+
+            if (direction === 'LONG' && spyTrend < -0.15 && spyBroadTrend < -0.3) {
+              console.log('[AutoBot] SPY FILTER: Market dropping (30m: ' + spyTrend.toFixed(2) + '%, 2h: ' + spyBroadTrend.toFixed(2) + '%) — skipping LONG entry');
+              return;
+            }
+            if (direction === 'SHORT' && spyTrend > 0.15 && spyBroadTrend > 0.3) {
+              console.log('[AutoBot] SPY FILTER: Market rising (30m: +' + spyTrend.toFixed(2) + '%, 2h: +' + spyBroadTrend.toFixed(2) + '%) — skipping SHORT entry');
+              return;
+            }
+            console.log('[AutoBot] SPY check passed: 30m=' + spyTrend.toFixed(2) + '%, 2h=' + spyBroadTrend.toFixed(2) + '%');
+          }
+        }
+      } catch (spyErr) {
+        console.log('[AutoBot] SPY check failed (continuing anyway):', spyErr.message);
+      }
+
+      // ── SECTOR CONCENTRATION LIMIT ──
+      // Group stocks by sector (simplified mapping)
+      const sectorMap = {
+        tech: ['AAPL','MSFT','GOOGL','META','NVDA','AMD','INTC','CRM','ADBE','ORCL','IBM','QCOM','AVGO','TXN','NOW','AMAT','MU','LRCX','NXPI','MRVL','KLAC','SNPS','CDNS','ON','MCHP','ADI'],
+        software: ['SHOP','SQ','SNOW','DDOG','NET','CRWD','ZS','PANW','FTNT','OKTA','MDB','WDAY','TEAM','HUBS','PATH','BILL','SPLK','DOCN','CFLT'],
+        ev: ['TSLA','RIVN','LCID','NIO','CHPT','EVGO','BLNK','FSLR','ENPH','PLUG','FCEL'],
+        finance: ['JPM','BAC','WFC','C','GS','MS','BLK','SCHW','COF','V','MA','AXP','HOOD','SOFI','AFRM','UPST'],
+        health: ['UNH','JNJ','PFE','MRK','ABBV','LLY','BMY','GILD','AMGN','REGN','MRNA','BNTX'],
+        energy: ['XOM','CVX','COP','SLB','EOG','MPC','VLO','OXY','HAL','DVN'],
+        consumer: ['AMZN','DIS','NFLX','ROKU','UBER','LYFT','DASH','ABNB','RBLX','SPOT'],
+      };
+      const symbolUpper = symbol.toUpperCase();
+      const stockSector = Object.entries(sectorMap).find(([, tickers]) => tickers.includes(symbolUpper))?.[0] || 'other';
+      const sectorPositions = alpacaPositions.filter(p => {
+        const pSector = Object.entries(sectorMap).find(([, tickers]) => tickers.includes(p.symbol))?.[0] || 'other';
+        return pSector === stockSector;
+      });
+      if (sectorPositions.length >= 2) {
+        console.log('[AutoBot] SECTOR LIMIT: Already have ' + sectorPositions.length + ' positions in ' + stockSector + ' sector, skipping ' + symbol);
+        return;
+      }
+
       // Calculate position size
       const accountEquity = parseFloat(alpacaAccount?.equity || 0);
-      const riskAmount = accountEquity * (botSettings.riskPerTrade / 100);
       const entryPrice = parseFloat(entry);
       const stopPrice = parseFloat(stop);
       const targetPrice = parseFloat(target);
@@ -6266,6 +6339,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         return;
       }
 
+      // ── CONFIDENCE-SCALED POSITION SIZING ──
+      // Higher confidence = larger position (linear scale from 50% to 100% of risk budget)
+      const confidenceScale = 0.5 + (Math.min(confidence, 95) - botSettings.minConfidence) / (95 - botSettings.minConfidence) * 0.5;
+      const riskAmount = accountEquity * (botSettings.riskPerTrade / 100) * confidenceScale;
+
       const riskPerShare = Math.abs(entryPrice - stopPrice);
       if (riskPerShare <= 0) return;
 
@@ -6274,6 +6352,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         console.log('[AutoBot] Position too small (< 1 share)');
         return;
       }
+
+      console.log('[AutoBot] Position sizing: confidence ' + confidence + '% -> scale ' + (confidenceScale * 100).toFixed(0) + '% -> ' + shares + ' shares');
 
       // Place the order!
       const side = direction === 'LONG' ? 'buy' : 'sell';
@@ -6828,13 +6908,18 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         const unrealizedPL = parseFloat(pos.unrealized_pl || 0);
         const unrealizedPLPct = parseFloat(pos.unrealized_plpc || 0) * 100;
 
-        // ── Trailing stop: track peak price per position ──
+        // ── Trailing stop: track peak/trough price per position ──
+        // For longs: track highest price (sell when it drops from peak)
+        // For shorts: track lowest price (cover when it rises from trough)
         const peaks = peakPricesRef.current;
-        if (!peaks[symbol] || currentPrice > peaks[symbol]) {
-          peaks[symbol] = currentPrice;
+        if (side === 'long') {
+          if (!peaks[symbol] || currentPrice > peaks[symbol]) peaks[symbol] = currentPrice;
+        } else {
+          // Short: track the lowest price
+          if (!peaks[symbol] || currentPrice < peaks[symbol]) peaks[symbol] = currentPrice;
         }
         const peakPrice = peaks[symbol];
-        const dropFromPeak = peakPrice > 0 ? ((peakPrice - currentPrice) / peakPrice) * 100 : 0;
+        const dropFromPeak = side === 'long' && peakPrice > 0 ? ((peakPrice - currentPrice) / peakPrice) * 100 : 0;
 
         // ── Fetch 5-minute intraday data for fast RSI/MACD ──
         const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=5m&range=5d';
@@ -6844,16 +6929,38 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         } catch { /* skip Yahoo fetch, still check trailing stop */ }
 
         let rsi = 50, macdVal = 0, trendSlope = 0;
+        let atrValue = 0; // ATR for dynamic trailing stop
 
         if (data?.chart?.result?.[0]) {
           const ohlcv = data.chart.result[0].indicators?.quote?.[0] || {};
           const timestamps = data.chart.result[0].timestamp || [];
           const closes = [];
+          const highs = [];
+          const lows = [];
           for (let i = 0; i < timestamps.length; i++) {
-            if (ohlcv.close?.[i] != null && !isNaN(ohlcv.close[i])) closes.push(ohlcv.close[i]);
+            if (ohlcv.close?.[i] != null && !isNaN(ohlcv.close[i])) {
+              closes.push(ohlcv.close[i]);
+              highs.push(ohlcv.high?.[i] ?? ohlcv.close[i]);
+              lows.push(ohlcv.low?.[i] ?? ohlcv.close[i]);
+            }
           }
 
           if (closes.length >= 30) {
+            // ── ATR on 5m candles (14-period) for dynamic trailing stop ──
+            const atrPeriod = 14;
+            if (closes.length >= atrPeriod + 1) {
+              let atrSum = 0;
+              for (let i = closes.length - atrPeriod; i < closes.length; i++) {
+                const tr = Math.max(
+                  highs[i] - lows[i],
+                  Math.abs(highs[i] - closes[i - 1]),
+                  Math.abs(lows[i] - closes[i - 1])
+                );
+                atrSum += tr;
+              }
+              atrValue = atrSum / atrPeriod;
+            }
+
             // RSI on 5m candles
             const calcRSI = (d, p = 14) => {
               if (d.length < p + 1) return 50;
@@ -6889,14 +6996,27 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         let shouldClose = false;
         let closeReason = '';
 
-        // ── TRAILING STOP: 1.5% drop from peak ──
-        if (side === 'long' && dropFromPeak >= 1.5 && unrealizedPLPct > 0.5) {
+        // ── ATR-BASED DYNAMIC TRAILING STOP ──
+        // Uses 2x ATR from peak price — volatile stocks get wider stops, stable stocks get tighter
+        // Falls back to 1.5% if ATR data unavailable
+        const atrTrailDist = atrValue > 0 ? atrValue * 2 : 0;
+        const atrTrailPct = currentPrice > 0 && atrTrailDist > 0
+          ? (atrTrailDist / currentPrice) * 100
+          : 1.5; // fallback to 1.5% if no ATR
+        // Clamp between 0.5% and 5% to prevent extreme stops
+        const trailPct = Math.min(5, Math.max(0.5, atrTrailPct));
+
+        if (side === 'long' && dropFromPeak >= trailPct && unrealizedPLPct > 0.3) {
           shouldClose = true;
-          closeReason = 'Trailing stop: dropped ' + dropFromPeak.toFixed(1) + '% from peak $' + peakPrice.toFixed(2);
+          closeReason = 'ATR trailing stop: dropped ' + dropFromPeak.toFixed(1) + '% from peak $' + peakPrice.toFixed(2) + ' (trail: ' + trailPct.toFixed(1) + '%, ATR: $' + atrValue.toFixed(2) + ')';
         }
-        else if (side === 'short' && currentPrice > peakPrice * 1.015 && unrealizedPLPct > 0.5) {
-          shouldClose = true;
-          closeReason = 'Trailing stop: price rose ' + dropFromPeak.toFixed(1) + '% from low';
+        else if (side === 'short') {
+          // For shorts, peak tracks the LOWEST price
+          const riseFromLow = peakPrice > 0 ? ((currentPrice - peakPrice) / peakPrice) * 100 : 0;
+          if (riseFromLow >= trailPct && unrealizedPLPct > 0.3) {
+            shouldClose = true;
+            closeReason = 'ATR trailing stop: rose ' + riseFromLow.toFixed(1) + '% from low $' + peakPrice.toFixed(2) + ' (trail: ' + trailPct.toFixed(1) + '%, ATR: $' + atrValue.toFixed(2) + ')';
+          }
         }
 
         // ── RSI + MACD reversal on 5m data ──
@@ -6960,8 +7080,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             console.error('[PositionMgr] Failed to close ' + symbol + ':', closeErr.message);
           }
         } else {
-          console.log('[PositionMgr] ' + symbol + ' (' + side + '): HOLD — RSI=' + rsi.toFixed(0) + ', MACD=' + macdVal.toFixed(3) + ', P&L=' + unrealizedPLPct.toFixed(1) + '%, Peak=$' + peakPrice.toFixed(2) + ', Drop=' + dropFromPeak.toFixed(1) + '%');
-          holdThisRun.push({ symbol, side, rsi: rsi.toFixed(0), macd: macdVal.toFixed(3), pnlPct: unrealizedPLPct.toFixed(1), peakDrop: dropFromPeak.toFixed(1) });
+          const peakDropDisplay = side === 'long' ? dropFromPeak : (peakPrice > 0 ? ((currentPrice - peakPrice) / peakPrice) * 100 : 0);
+          console.log('[PositionMgr] ' + symbol + ' (' + side + '): HOLD — RSI=' + rsi.toFixed(0) + ', MACD=' + macdVal.toFixed(3) + ', P&L=' + unrealizedPLPct.toFixed(1) + '%, Peak=$' + peakPrice.toFixed(2) + ', Drop=' + peakDropDisplay.toFixed(1) + '%, Trail=' + trailPct.toFixed(1) + '% (ATR=$' + atrValue.toFixed(2) + ')');
+          holdThisRun.push({ symbol, side, rsi: rsi.toFixed(0), macd: macdVal.toFixed(3), pnlPct: unrealizedPLPct.toFixed(1), peakDrop: peakDropDisplay.toFixed(1), trailPct: trailPct.toFixed(1) });
         }
       } catch (err) {
         console.error('[PositionMgr] Error checking ' + pos.symbol + ':', err.message);
@@ -33174,6 +33295,7 @@ INSTRUCTIONS:
                             <span className={parseFloat(h.pnlPct) >= 0 ? "text-green-400" : "text-red-400"}>{parseFloat(h.pnlPct) >= 0 ? "+" : ""}{h.pnlPct}%</span>
                             <span className="text-slate-500">RSI:{h.rsi}</span>
                             {h.peakDrop && parseFloat(h.peakDrop) > 0 && <span className="text-amber-400">Peak:-{h.peakDrop}%</span>}
+                            {h.trailPct && <span className="text-violet-400">Trail:{h.trailPct}%</span>}
                             <span className="text-emerald-400 font-medium">HOLD</span>
                           </div>
                         ))}
