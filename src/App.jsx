@@ -7297,10 +7297,36 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         setScannerEnabled(true);
         addNotification('Auto-schedule: Bot enabled at market open', 'info');
       } else if ((!isWeekday || !isMarketHours) && botEnabled) {
-        // Auto-stop at market close
-        console.log('[AutoSchedule] Market closed — auto-disabling bot');
+        // Auto-stop at market close — SELL EVERYTHING first to secure gains
+        console.log('[AutoSchedule] Market closed — closing all positions and disabling bot');
         setBotEnabled(false);
-        addNotification('Auto-schedule: Bot disabled at market close', 'info');
+        // Close all open positions to lock in gains (no overnight risk)
+        if (alpacaPositions.length > 0) {
+          try {
+            alpacaCloseAllPositions();
+            const eqNow = parseFloat(alpacaAccount?.equity || 0);
+            const baseline = profitBaselineRef.current || 0;
+            const dayGain = baseline > 0 ? ((eqNow / baseline - 1) * 100).toFixed(2) : '0.00';
+            addNotification('Market close: Sold ALL ' + alpacaPositions.length + ' positions to secure gains (' + (parseFloat(dayGain) >= 0 ? '+' : '') + dayGain + '% today). Bot disabled.', 'success');
+            console.log('[AutoSchedule] Closed ' + alpacaPositions.length + ' positions at market close. Day P&L: ' + dayGain + '%');
+            // Clear tracking refs for fresh start tomorrow
+            peakPricesRef.current = {};
+            partialTakenRef.current = {};
+            scalingCountRef.current = {};
+            setTimeout(alpacaRefresh, 3000);
+          } catch (closeErr) {
+            console.error('[AutoSchedule] Failed to close positions at market close:', closeErr.message);
+            addNotification('Warning: Failed to close positions at market close — check manually!', 'error');
+          }
+        } else {
+          addNotification('Auto-schedule: Bot disabled at market close. No open positions.', 'info');
+        }
+      }
+      // ── PRE-CLOSE WARNING: 10 min before close, stop new entries ──
+      if (isWeekday && etMin >= 950 && etMin < 960 && botEnabled && scannerEnabled) {
+        console.log('[AutoSchedule] 10 min to close — disabling scanner (no new entries)');
+        setScannerEnabled(false);
+        addNotification('10 min to close: Scanner paused — no new trades. Positions sell at 4:00 PM.', 'info');
       }
     };
 
@@ -33905,7 +33931,7 @@ INSTRUCTIONS:
                           className="rounded accent-emerald-500" />
                         Auto-start/stop at market open/close
                       </label>
-                      <p className="text-xs text-slate-500 ml-6 -mt-1">Enables bot at 9:30 AM ET, disables at 4:00 PM ET on weekdays</p>
+                      <p className="text-xs text-slate-500 ml-6 -mt-1">Enables bot at 9:30 AM ET. At 3:50 PM stops new trades, at 4:00 PM sells ALL positions and disables bot to lock in gains.</p>
 
                       <label className="flex items-center gap-2 text-sm text-slate-300">
                         <input type="checkbox" checked={botSettings.autoRestart !== false}
