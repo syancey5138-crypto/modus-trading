@@ -3692,6 +3692,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         saved.momentumScaling = saved.momentumScaling || false;
         localStorage.setItem('modus_bot_settings', JSON.stringify(saved));
       }
+      // v3: fix daily trade limit that was blocking all trades
+      if (saved && !saved._v3) {
+        saved._v3 = true;
+        saved.maxDailyTrades = 20;
+        localStorage.setItem('modus_bot_settings', JSON.stringify(saved));
+      }
       return saved || {
       minConfidence: 78,
       allowedSignals: ['STRONG_BUY', 'STRONG_SELL'],
@@ -3724,6 +3730,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const [botSettingsTab, setBotSettingsTab] = useState('dashboard');
   const alpacaBaseUrl = alpacaConfig.paperMode ? 'https://paper-api.alpaca.markets' : 'https://api.alpaca.markets';
   const botProcessingRef = useRef(false);
+  // Timestamp of last kill switch / reset — trades before this don't count toward daily limits
+  const botResetTimestampRef = useRef(null);
 
   // ═══════════════════════════════════════════════════
   // AUTO-SCANNER STATE
@@ -6270,11 +6278,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     try {
       const { symbol, recommendation, confidence, direction, entry, stop, target, source, riskReward } = signal;
 
-      // Safety checks
+      // Safety checks — only count trades after last reset (kill switch)
       const todayStr = new Date().toDateString();
-      const todayTrades = botTradeLog.filter(t => new Date(t.timestamp).toDateString() === todayStr);
+      const resetTs = botResetTimestampRef.current;
+      const todayTrades = botTradeLog.filter(t => {
+        const tDate = new Date(t.timestamp);
+        return tDate.toDateString() === todayStr && (!resetTs || tDate >= resetTs);
+      });
       if (todayTrades.length >= botSettings.maxDailyTrades) {
-        console.log('[AutoBot] Max daily trades reached');
+        console.log('[AutoBot] Max daily trades reached (' + todayTrades.length + '/' + botSettings.maxDailyTrades + ')');
         return;
       }
 
@@ -6904,37 +6916,25 @@ Be thorough, educational, and use real price levels based on the data. Every fie
               // Hard cap: don't place more than 3 trades per scan
               if (tradesExecuted >= MAX_TRADES_PER_SCAN) {
                 console.log('[Scanner] Per-scan trade limit (' + MAX_TRADES_PER_SCAN + ') reached — saving remaining signals for next scan');
+              } else if (alpacaPositions.length + tradesExecuted >= botSettings.maxPositions) {
+                console.log('[Scanner] Max positions reached (' + botSettings.maxPositions + '), skipping ' + r.symbol);
               } else {
-                // Check positions + today's trades before each execution
-                const currentPositionCount = alpacaPositions.length + tradesExecuted;
-                const todayStr2 = new Date().toDateString();
-                const todayTradeCount2 = botTradeLog.filter(t => new Date(t.timestamp).toDateString() === todayStr2).length + tradesExecuted;
-                const remainingBP = parseFloat(alpacaAccount?.buying_power || 0) - (tradesExecuted * r.entry * 10); // rough estimate
-
-                if (currentPositionCount >= botSettings.maxPositions) {
-                  console.log('[Scanner] Max positions reached (' + botSettings.maxPositions + '), skipping ' + r.symbol);
-                } else if (todayTradeCount2 >= botSettings.maxDailyTrades) {
-                  console.log('[Scanner] Max daily trades reached (' + botSettings.maxDailyTrades + '), skipping ' + r.symbol);
-                } else if (remainingBP < 500) {
-                  console.log('[Scanner] Low buying power (~$' + remainingBP.toFixed(0) + '), skipping ' + r.symbol);
-                } else {
-                  // Attempt to execute the trade
-                  try {
-                    await executeBotTrade({
-                      symbol: r.symbol,
-                      recommendation: r.recommendation,
-                      confidence: r.confidence,
-                      direction: r.direction,
-                      entry: r.entry,
-                      stop: r.stop,
-                      target: r.target,
-                      source: 'auto-scanner',
-                      riskReward: r.riskReward,
-                    });
-                    tradesExecuted++;
-                  } catch (tradeErr) {
-                    console.error('[Scanner] Trade execution failed for ' + r.symbol + ':', tradeErr.message);
-                  }
+                // Let executeBotTrade handle all other checks (daily limits, buying power, etc.)
+                try {
+                  await executeBotTrade({
+                    symbol: r.symbol,
+                    recommendation: r.recommendation,
+                    confidence: r.confidence,
+                    direction: r.direction,
+                    entry: r.entry,
+                    stop: r.stop,
+                    target: r.target,
+                    source: 'auto-scanner',
+                    riskReward: r.riskReward,
+                  });
+                  tradesExecuted++;
+                } catch (tradeErr) {
+                  console.error('[Scanner] Trade execution failed for ' + r.symbol + ':', tradeErr.message);
                 }
               }
             }
@@ -33488,12 +33488,12 @@ INSTRUCTIONS:
                         setBotEnabled(false);
                         setScannerEnabled(false);
                         await alpacaCloseAllPositions();
-                        addNotification('KILL SWITCH: All positions closed! Bot disabled. Trade count reset.', 'success');
+                        addNotification('KILL SWITCH: All positions closed! Bot disabled. Counters reset.', 'success');
                         peakPricesRef.current = {};
                         partialTakenRef.current = {};
                         scalingCountRef.current = {};
-                        // Reset today's trade log so daily limit doesn't block after restart
-                        setBotTradeLog([]);
+                        // Mark reset time — trades before this won't count toward daily limits
+                        botResetTimestampRef.current = new Date();
                       } catch (err) {
                         addNotification('Kill switch error: ' + err.message, 'error');
                       }
