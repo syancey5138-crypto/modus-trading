@@ -6265,6 +6265,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         return;
       }
 
+      // ── BUYING POWER CHECK — don't trade if out of money ──
+      const buyingPower = parseFloat(alpacaAccount?.buying_power || 0);
+      const minBuyingPower = 100; // Need at least $100 to place any trade
+      if (buyingPower < minBuyingPower) {
+        console.log('[AutoBot] Insufficient buying power: $' + buyingPower.toFixed(2) + ' (need $' + minBuyingPower + ')');
+        addNotification('Bot paused: Only $' + buyingPower.toFixed(2) + ' buying power left. Waiting for positions to close.', 'warning');
+        return;
+      }
+
       // Check if already in this position
       if (alpacaPositions.find(p => p.symbol === symbol.toUpperCase())) {
         console.log('[AutoBot] Already in position for', symbol);
@@ -6455,13 +6464,25 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const riskPerShare = Math.abs(entryPrice - stopPrice);
       if (riskPerShare <= 0) return;
 
-      const shares = Math.floor(riskAmount / riskPerShare);
+      let shares = Math.floor(riskAmount / riskPerShare);
       if (shares < 1) {
         console.log('[AutoBot] Position too small (< 1 share)');
         return;
       }
 
-      console.log('[AutoBot] Position sizing: confidence ' + confidence + '% -> scale ' + (confidenceScale * 100).toFixed(0) + '% -> ' + shares + ' shares');
+      // Cap shares by available buying power
+      const currentBP = parseFloat(alpacaAccount?.buying_power || 0);
+      const orderCost = shares * entryPrice;
+      if (orderCost > currentBP) {
+        shares = Math.floor(currentBP / entryPrice);
+        if (shares < 1) {
+          console.log('[AutoBot] Not enough buying power for even 1 share of ' + symbol + ' ($' + entryPrice.toFixed(2) + ', BP: $' + currentBP.toFixed(2) + ')');
+          return;
+        }
+        console.log('[AutoBot] Reduced shares to ' + shares + ' due to buying power ($' + currentBP.toFixed(2) + ')');
+      }
+
+      console.log('[AutoBot] Position sizing: confidence ' + confidence + '% -> scale ' + (confidenceScale * 100).toFixed(0) + '% -> ' + shares + ' shares (BP: $' + currentBP.toFixed(2) + ')');
 
       // Place the order!
       const side = direction === 'LONG' ? 'buy' : 'sell';
@@ -14785,12 +14806,24 @@ INSTRUCTIONS:
   // NOTIFICATION CENTER
   // ========================
 
-  const addNotification = useCallback((notification) => {
+  const addNotification = useCallback((notification, legacyType) => {
+    // Support both: addNotification({title, message, type}) AND addNotification('message', 'type')
+    let notifObj = notification;
+    if (typeof notification === 'string') {
+      const typeIcons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+      const typeStr = legacyType || 'info';
+      notifObj = {
+        type: typeStr,
+        title: typeStr === 'success' ? 'Success' : typeStr === 'error' ? 'Error' : typeStr === 'warning' ? 'Warning' : 'Bot Update',
+        message: notification,
+        icon: typeIcons[typeStr] || '🤖',
+      };
+    }
     const newNotif = {
       id: Date.now() + Math.random(),
       timestamp: new Date().toISOString(),
       read: false,
-      ...notification
+      ...notifObj
     };
 
     setNotificationHistory(prev => [newNotif, ...prev].slice(0, 100)); // Keep last 100
