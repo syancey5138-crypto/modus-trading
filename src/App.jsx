@@ -3675,15 +3675,32 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     try { return localStorage.getItem('modus_bot_enabled') === 'true'; } catch { return false; }
   });
   const [botSettings, setBotSettings] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('modus_bot_settings')) || {
-      minConfidence: 75,
+    try {
+      const saved = JSON.parse(localStorage.getItem('modus_bot_settings'));
+      // v2 upgrade: if user had old loose settings, tighten them
+      if (saved && !saved._v2) {
+        saved._v2 = true;
+        saved.minConfidence = Math.max(saved.minConfidence || 75, 80);
+        saved.requireMinRR = Math.max(saved.requireMinRR || 1.5, 2.0);
+        saved.maxPositions = Math.min(saved.maxPositions || 3, 5);
+        saved.autoSchedule = saved.autoSchedule !== undefined ? saved.autoSchedule : true;
+        saved.autoRestart = saved.autoRestart !== undefined ? saved.autoRestart : true;
+        saved.autoRestartDelay = saved.autoRestartDelay || 10;
+        saved.partialTakeProfit = saved.partialTakeProfit !== undefined ? saved.partialTakeProfit : true;
+        saved.volumeSurgeFilter = saved.volumeSurgeFilter !== undefined ? saved.volumeSurgeFilter : true;
+        saved.multiTimeframeCheck = saved.multiTimeframeCheck !== undefined ? saved.multiTimeframeCheck : true;
+        saved.momentumScaling = saved.momentumScaling || false;
+        localStorage.setItem('modus_bot_settings', JSON.stringify(saved));
+      }
+      return saved || {
+      minConfidence: 80,
       allowedSignals: ['STRONG_BUY', 'STRONG_SELL'],
       maxPositions: 3,
-      maxDailyTrades: 5,
+      maxDailyTrades: 8,
       maxDailyLoss: 500,
       riskPerTrade: 1,
       tradeSource: 'both',
-      requireMinRR: 1.5,
+      requireMinRR: 2.0,
       autoStopLoss: true,
       autoTakeProfit: true,
       tradingHoursOnly: true,
@@ -3695,7 +3712,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       volumeSurgeFilter: true,
       multiTimeframeCheck: true,
       momentumScaling: false,
-    }; } catch { return { minConfidence: 75, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 5, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 1.5, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
+    }; } catch { return { minConfidence: 80, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 8, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
   });
   const [alpacaAccount, setAlpacaAccount] = useState(null);
   const [alpacaPositions, setAlpacaPositions] = useState([]);
@@ -3715,13 +3732,22 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     try { return localStorage.getItem('modus_scanner_enabled') === 'true'; } catch { return false; }
   });
   const [scannerSettings, setScannerSettings] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('modus_scanner_settings')) || {
+    try {
+      const ss = JSON.parse(localStorage.getItem('modus_scanner_settings'));
+      // v2: upgrade old loose thresholds
+      if (ss && !ss._v2) {
+        ss._v2 = true;
+        ss.minNetScore = Math.max(ss.minNetScore || 20, 40);
+        ss.minConfirmations = Math.max(ss.minConfirmations || 1, 3);
+        localStorage.setItem('modus_scanner_settings', JSON.stringify(ss));
+      }
+      return ss || {
       scanInterval: 30,
       maxStocksPerScan: 0,
       batchSize: 5,
-      minNetScore: 20,
-      minConfirmations: 1,
-    }; } catch { return { scanInterval: 30, maxStocksPerScan: 0, batchSize: 5, minNetScore: 20, minConfirmations: 1 }; }
+      minNetScore: 40,
+      minConfirmations: 3,
+    }; } catch { return { scanInterval: 30, maxStocksPerScan: 0, batchSize: 5, minNetScore: 40, minConfirmations: 3 }; }
   });
   const [scannerStatus, setScannerStatus] = useState({
     isScanning: false,
@@ -6821,11 +6847,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           const hasModerateSignal = confirmations >= 1 && netScore >= 15;
 
           let recommendation = 'HOLD';
-          if (hasStrongSignal && netScore >= 30) recommendation = direction === 'LONG' ? 'STRONG_BUY' : 'STRONG_SELL';
-          else if (hasModerateSignal && netScore >= 20) recommendation = direction === 'LONG' ? 'BUY' : 'SELL';
-          else if (netScore >= 12) recommendation = direction === 'LONG' ? 'LEAN_BUY' : 'LEAN_SELL';
+          if (hasStrongSignal && netScore >= 45 && confirmations >= 4) recommendation = direction === 'LONG' ? 'STRONG_BUY' : 'STRONG_SELL';
+          else if (hasStrongSignal && netScore >= 35 && confirmations >= 3) recommendation = direction === 'LONG' ? 'BUY' : 'SELL';
+          else if (hasModerateSignal && netScore >= 25) recommendation = direction === 'LONG' ? 'LEAN_BUY' : 'LEAN_SELL';
 
-          const confidence = Math.min(95, Math.round(40 + Math.min(30, confirmations * 10) + Math.min(25, netScore * 0.5)));
+          // Confidence now scales more conservatively — starts at 30, needs high net score + confirmations to reach 80+
+          const confidence = Math.min(95, Math.round(30 + Math.min(25, confirmations * 7) + Math.min(30, netScore * 0.4) + (adx && adx > 25 ? 10 : 0)));
 
           // Calculate stop/target using ATR
           const stopDist = atr ? atr * 1.5 : currentPrice * 0.02;
@@ -6867,27 +6894,47 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           results.push(r);
 
           // Check if this signal qualifies for a trade
+          const MAX_TRADES_PER_SCAN = 3; // Never place more than 3 trades per scan cycle
           if (r.netScore >= scannerSettings.minNetScore && r.confirmations >= scannerSettings.minConfirmations) {
             if (botSettings.allowedSignals.includes(r.recommendation) && r.confidence >= botSettings.minConfidence) {
               signalsFound++;
               console.log('[Scanner] SIGNAL: ' + r.symbol + ' — ' + r.recommendation + ' (conf: ' + r.confidence + '%, net: ' + r.netScore + ', confirms: ' + r.confirmations + ')');
 
-              // Attempt to execute the trade
-              try {
-                await executeBotTrade({
-                  symbol: r.symbol,
-                  recommendation: r.recommendation,
-                  confidence: r.confidence,
-                  direction: r.direction,
-                  entry: r.entry,
-                  stop: r.stop,
-                  target: r.target,
-                  source: 'auto-scanner',
-                  riskReward: r.riskReward,
-                });
-                tradesExecuted++;
-              } catch (tradeErr) {
-                console.error('[Scanner] Trade execution failed for ' + r.symbol + ':', tradeErr.message);
+              // Hard cap: don't place more than 3 trades per scan
+              if (tradesExecuted >= MAX_TRADES_PER_SCAN) {
+                console.log('[Scanner] Per-scan trade limit (' + MAX_TRADES_PER_SCAN + ') reached — saving remaining signals for next scan');
+              } else {
+                // Check positions + today's trades before each execution
+                const currentPositionCount = alpacaPositions.length + tradesExecuted;
+                const todayStr2 = new Date().toDateString();
+                const todayTradeCount2 = botTradeLog.filter(t => new Date(t.timestamp).toDateString() === todayStr2).length + tradesExecuted;
+                const remainingBP = parseFloat(alpacaAccount?.buying_power || 0) - (tradesExecuted * r.entry * 10); // rough estimate
+
+                if (currentPositionCount >= botSettings.maxPositions) {
+                  console.log('[Scanner] Max positions reached (' + botSettings.maxPositions + '), skipping ' + r.symbol);
+                } else if (todayTradeCount2 >= botSettings.maxDailyTrades) {
+                  console.log('[Scanner] Max daily trades reached (' + botSettings.maxDailyTrades + '), skipping ' + r.symbol);
+                } else if (remainingBP < 500) {
+                  console.log('[Scanner] Low buying power (~$' + remainingBP.toFixed(0) + '), skipping ' + r.symbol);
+                } else {
+                  // Attempt to execute the trade
+                  try {
+                    await executeBotTrade({
+                      symbol: r.symbol,
+                      recommendation: r.recommendation,
+                      confidence: r.confidence,
+                      direction: r.direction,
+                      entry: r.entry,
+                      stop: r.stop,
+                      target: r.target,
+                      source: 'auto-scanner',
+                      riskReward: r.riskReward,
+                    });
+                    tradesExecuted++;
+                  } catch (tradeErr) {
+                    console.error('[Scanner] Trade execution failed for ' + r.symbol + ':', tradeErr.message);
+                  }
+                }
               }
             }
           }
