@@ -3687,8 +3687,15 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       autoStopLoss: true,
       autoTakeProfit: true,
       tradingHoursOnly: true,
-      profitTargetPct: 1.0,
-    }; } catch { return { minConfidence: 75, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 5, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 1.5, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 1.0 }; }
+      profitTargetPct: 2.0,
+      autoSchedule: true,
+      autoRestart: true,
+      autoRestartDelay: 10,
+      partialTakeProfit: true,
+      volumeSurgeFilter: true,
+      multiTimeframeCheck: true,
+      momentumScaling: false,
+    }; } catch { return { minConfidence: 75, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 5, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 1.5, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
   });
   const [alpacaAccount, setAlpacaAccount] = useState(null);
   const [alpacaPositions, setAlpacaPositions] = useState([]);
@@ -6181,8 +6188,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     return order;
   };
 
-  const alpacaClosePosition = async (symbol) => {
-    return alpacaFetch(`/v2/positions/${symbol.toUpperCase()}`, 'DELETE');
+  const alpacaClosePosition = async (symbol, qty = null) => {
+    const qtyParam = qty ? '?qty=' + qty : '';
+    return alpacaFetch('/v2/positions/' + symbol.toUpperCase() + qtyParam, 'DELETE');
   };
 
   const alpacaCloseAllPositions = async () => {
@@ -6304,6 +6312,73 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         }
       } catch (spyErr) {
         console.log('[AutoBot] SPY check failed (continuing anyway):', spyErr.message);
+      }
+
+      // ── VOLUME SURGE CONFIRMATION ──
+      // Only enter trades where current volume is above 20-day average (confirms institutional interest)
+      if (botSettings.volumeSurgeFilter) {
+        try {
+          const volUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=1mo';
+          const volData = await fetchYahooWithProxies(volUrl, 5000);
+          if (volData?.chart?.result?.[0]) {
+            const volQuote = volData.chart.result[0].indicators?.quote?.[0] || {};
+            const vols = [];
+            const volTs = volData.chart.result[0].timestamp || [];
+            for (let vi = 0; vi < volTs.length; vi++) {
+              if (volQuote.volume?.[vi] != null) vols.push(volQuote.volume[vi]);
+            }
+            if (vols.length >= 5) {
+              const avgVol = vols.slice(0, -1).reduce((a, b) => a + b, 0) / (vols.length - 1);
+              const todayVol = vols[vols.length - 1];
+              const volRatio = avgVol > 0 ? todayVol / avgVol : 1;
+              if (volRatio < 0.6) {
+                console.log('[AutoBot] VOLUME FILTER: ' + symbol + ' volume too low (ratio: ' + volRatio.toFixed(2) + 'x avg) — skipping');
+                return;
+              }
+              console.log('[AutoBot] Volume check passed: ' + symbol + ' ratio=' + volRatio.toFixed(2) + 'x');
+            }
+          }
+        } catch (volErr) {
+          console.log('[AutoBot] Volume check failed (continuing):', volErr.message);
+        }
+      }
+
+      // ── MULTI-TIMEFRAME TREND ALIGNMENT ──
+      // Confirm the trade direction aligns with the daily trend (not just intraday)
+      if (botSettings.multiTimeframeCheck) {
+        try {
+          const mtfUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=1d&range=3mo';
+          const mtfData = await fetchYahooWithProxies(mtfUrl, 5000);
+          if (mtfData?.chart?.result?.[0]) {
+            const mtfQuote = mtfData.chart.result[0].indicators?.quote?.[0] || {};
+            const mtfTs = mtfData.chart.result[0].timestamp || [];
+            const mtfCloses = [];
+            for (let mi = 0; mi < mtfTs.length; mi++) {
+              if (mtfQuote.close?.[mi] != null) mtfCloses.push(mtfQuote.close[mi]);
+            }
+            if (mtfCloses.length >= 20) {
+              // Calculate 20-day and 50-day trend
+              const sma20 = mtfCloses.slice(-20).reduce((a, b) => a + b, 0) / 20;
+              const latestPrice = mtfCloses[mtfCloses.length - 1];
+              const dailyTrend = latestPrice > sma20 ? 'UP' : 'DOWN';
+
+              // Also check 10-day momentum
+              const tenDayChg = mtfCloses.length >= 10 ? ((mtfCloses[mtfCloses.length - 1] - mtfCloses[mtfCloses.length - 10]) / mtfCloses[mtfCloses.length - 10]) * 100 : 0;
+
+              if (direction === 'LONG' && dailyTrend === 'DOWN' && tenDayChg < -3) {
+                console.log('[AutoBot] MTF FILTER: ' + symbol + ' daily trend DOWN (below SMA20, 10d: ' + tenDayChg.toFixed(1) + '%) — skipping LONG');
+                return;
+              }
+              if (direction === 'SHORT' && dailyTrend === 'UP' && tenDayChg > 3) {
+                console.log('[AutoBot] MTF FILTER: ' + symbol + ' daily trend UP (above SMA20, 10d: +' + tenDayChg.toFixed(1) + '%) — skipping SHORT');
+                return;
+              }
+              console.log('[AutoBot] MTF check passed: ' + symbol + ' daily=' + dailyTrend + ', 10d=' + tenDayChg.toFixed(1) + '%');
+            }
+          }
+        } catch (mtfErr) {
+          console.log('[AutoBot] MTF check failed (continuing):', mtfErr.message);
+        }
       }
 
       // ── SECTOR CONCENTRATION LIMIT ──
@@ -6829,6 +6904,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   // Track peak equity per position for trailing stop
   const peakPricesRef = useRef({});
+  // Track which positions have had partial profit taken
+  const partialTakenRef = useRef({});
+  // Track momentum scaling (how many times we've added to a winner)
+  const scalingCountRef = useRef({});
 
   const manageOpenPositions = async () => {
     if (!botEnabled || !alpacaConfig.connected) return;
@@ -6882,9 +6961,33 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           closedPositions: [{ symbol: 'ALL POSITIONS', side: 'sell', reason: '1% target hit', pnl: currentEquity - baselineEquity }],
           holdPositions: [],
         }));
-        // Pause the bot after hitting daily target to prevent re-entry
+        // Pause the bot after hitting daily target
         setBotEnabled(false);
-        addNotification('Bot paused after hitting daily target. Re-enable manually if you want to keep trading.', 'info');
+
+        // Auto-restart with cooldown if enabled
+        if (botSettings.autoRestart) {
+          const delayMin = botSettings.autoRestartDelay || 10;
+          addNotification('Bot paused after ' + targetPct + '% target. Auto-restarting in ' + delayMin + ' min with new baseline.', 'info');
+          if (autoRestartTimerRef.current) clearTimeout(autoRestartTimerRef.current);
+          autoRestartTimerRef.current = setTimeout(() => {
+            // Only restart during market hours
+            const now = new Date();
+            const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+            const etDate = new Date(etStr);
+            const etMin = etDate.getHours() * 60 + etDate.getMinutes();
+            if (etMin >= 570 && etMin <= 930) { // Don't restart in last 30 min
+              console.log('[AutoRestart] Re-enabling bot with new baseline after ' + delayMin + ' min cooldown');
+              setBotEnabled(true);
+              setScannerEnabled(true);
+              addNotification('Auto-restart: Bot re-enabled with new baseline. Compounding gains!', 'success');
+            } else {
+              console.log('[AutoRestart] Skipping restart — too close to market close');
+              addNotification('Auto-restart skipped — too close to market close. Will resume tomorrow.', 'info');
+            }
+          }, delayMin * 60 * 1000);
+        } else {
+          addNotification('Bot paused after hitting daily target. Re-enable manually if you want to keep trading.', 'info');
+        }
       } catch (err) {
         console.error('[PositionMgr] Failed to close all positions:', err.message);
       }
@@ -6920,6 +7023,46 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         }
         const peakPrice = peaks[symbol];
         const dropFromPeak = side === 'long' && peakPrice > 0 ? ((peakPrice - currentPrice) / peakPrice) * 100 : 0;
+
+        // ── PARTIAL PROFIT TAKING: Sell half when up 1.5%+ to lock in gains ──
+        const totalQty = parseInt(pos.qty);
+        if (botSettings.partialTakeProfit && !partialTakenRef.current[symbol] && totalQty >= 2) {
+          const partialThreshold = 1.5; // Take partial at 1.5% profit
+          if (unrealizedPLPct >= partialThreshold) {
+            const halfQty = Math.floor(totalQty / 2);
+            console.log('[PositionMgr] PARTIAL TAKE: Selling ' + halfQty + '/' + totalQty + ' shares of ' + symbol + ' at +' + unrealizedPLPct.toFixed(1) + '%');
+            try {
+              await alpacaClosePosition(symbol, halfQty);
+              partialTakenRef.current[symbol] = true;
+              addNotification('Partial profit: Sold ' + halfQty + '/' + totalQty + ' ' + symbol + ' at +' + unrealizedPLPct.toFixed(1) + '% — letting rest ride with trailing stop', 'success');
+            } catch (partialErr) {
+              console.error('[PositionMgr] Partial take failed for ' + symbol + ':', partialErr.message);
+            }
+          }
+        }
+
+        // ── MOMENTUM SCALING: Add to winners on pullback ──
+        // If a position is profitable and pulls back to near entry, add more shares (max 1 scale-in)
+        if (botSettings.momentumScaling && !scalingCountRef.current[symbol]) {
+          const scaleQty = Math.floor(totalQty * 0.5); // Add 50% more
+          if (scaleQty >= 1 && unrealizedPLPct > 0.3 && unrealizedPLPct < 1.0 && dropFromPeak >= 0.5) {
+            // Price pulled back from peak but still in profit — good add point
+            const accountEq = parseFloat(alpacaAccount?.equity || 0);
+            const maxPosValue = accountEq * 0.05; // Cap at 5% of equity per position
+            const currentPosValue = totalQty * currentPrice;
+            if (currentPosValue + (scaleQty * currentPrice) <= maxPosValue) {
+              console.log('[PositionMgr] SCALE-IN: Adding ' + scaleQty + ' shares to ' + symbol + ' on pullback (P&L: +' + unrealizedPLPct.toFixed(1) + '%, drop from peak: ' + dropFromPeak.toFixed(1) + '%)');
+              try {
+                const scaleSide = side === 'long' ? 'buy' : 'sell';
+                await alpacaPlaceOrder(symbol, scaleQty, scaleSide, 'market');
+                scalingCountRef.current[symbol] = 1;
+                addNotification('Momentum scale-in: Added ' + scaleQty + ' ' + symbol + ' on pullback from peak — building winner', 'success');
+              } catch (scaleErr) {
+                console.error('[PositionMgr] Scale-in failed:', scaleErr.message);
+              }
+            }
+          }
+        }
 
         // ── Fetch 5-minute intraday data for fast RSI/MACD ──
         const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?interval=5m&range=5d';
@@ -7055,6 +7198,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             await alpacaClosePosition(symbol);
             // Clear peak tracking for this symbol
             delete peakPricesRef.current[symbol];
+            delete partialTakenRef.current[symbol];
+            delete scalingCountRef.current[symbol];
             const logEntry = {
               id: Date.now(),
               timestamp: new Date().toISOString(),
@@ -7127,6 +7272,48 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       setPositionMgrStatus(prev => ({ ...prev, active: false }));
     }
   }, [botEnabled, alpacaConfig.connected]);
+
+  // ═══════════════════════════════════════════════════
+  // AUTO-SCHEDULE: Auto-start at market open, auto-stop at close
+  // ═══════════════════════════════════════════════════
+  const autoScheduleRef = useRef(null);
+  useEffect(() => {
+    if (autoScheduleRef.current) { clearInterval(autoScheduleRef.current); autoScheduleRef.current = null; }
+    if (!botSettings.autoSchedule || !alpacaConfig.connected) return;
+
+    const checkMarketSchedule = () => {
+      const now = new Date();
+      const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+      const etDate = new Date(etStr);
+      const etDay = etDate.getDay(); // 0=Sun, 6=Sat
+      const etMin = etDate.getHours() * 60 + etDate.getMinutes();
+      const isWeekday = etDay >= 1 && etDay <= 5;
+      const isMarketHours = etMin >= 570 && etMin <= 960; // 9:30-16:00
+
+      if (isWeekday && isMarketHours && !botEnabled) {
+        // Auto-start at market open
+        console.log('[AutoSchedule] Market open — auto-enabling bot');
+        setBotEnabled(true);
+        setScannerEnabled(true);
+        addNotification('Auto-schedule: Bot enabled at market open', 'info');
+      } else if ((!isWeekday || !isMarketHours) && botEnabled) {
+        // Auto-stop at market close
+        console.log('[AutoSchedule] Market closed — auto-disabling bot');
+        setBotEnabled(false);
+        addNotification('Auto-schedule: Bot disabled at market close', 'info');
+      }
+    };
+
+    // Check every 30 seconds
+    checkMarketSchedule();
+    autoScheduleRef.current = setInterval(checkMarketSchedule, 30000);
+    return () => { if (autoScheduleRef.current) clearInterval(autoScheduleRef.current); };
+  }, [botSettings.autoSchedule, alpacaConfig.connected]);
+
+  // ═══════════════════════════════════════════════════
+  // AUTO-RESTART: Re-enable bot after hitting profit target
+  // ═══════════════════════════════════════════════════
+  const autoRestartTimerRef = useRef(null);
 
   // ═══════════════════════════════════════════════════
   // BOT SIGNAL MONITORS - Watch analysis & daily pick
@@ -33278,7 +33465,7 @@ INSTRUCTIONS:
                         <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400" style={{left: '100%', transform: 'translateX(-2px)'}} />
                       </div>
                       <div className="flex items-center justify-between text-xs mt-1">
-                        <span className="text-slate-500">Sells all + pauses at {botSettings.profitTargetPct || 1}% — re-enable to reset baseline</span>
+                        <span className="text-slate-500">Sells all at {botSettings.profitTargetPct || 2}% — {botSettings.autoRestart !== false ? 'auto-restarts in ' + (botSettings.autoRestartDelay || 10) + 'min' : 'manual re-enable to reset baseline'}</span>
                         <span className="text-slate-500">Account high: {"$" + (accountHighRef.current > 0 ? accountHighRef.current.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '--')}</span>
                       </div>
                     </div>
@@ -33706,6 +33893,79 @@ INSTRUCTIONS:
                         className="rounded accent-violet-500" />
                       Trading Hours Only (9:30 AM - 4:00 PM ET)
                     </label>
+                  </div>
+
+                  {/* Passive Automation */}
+                  <div className="mt-4 pt-4 border-t border-slate-700/50">
+                    <h4 className="text-sm font-semibold text-violet-400 mb-3">Passive Automation</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm text-slate-300">
+                        <input type="checkbox" checked={botSettings.autoSchedule !== false}
+                          onChange={e => setBotSettings(prev => ({ ...prev, autoSchedule: e.target.checked }))}
+                          className="rounded accent-emerald-500" />
+                        Auto-start/stop at market open/close
+                      </label>
+                      <p className="text-xs text-slate-500 ml-6 -mt-1">Enables bot at 9:30 AM ET, disables at 4:00 PM ET on weekdays</p>
+
+                      <label className="flex items-center gap-2 text-sm text-slate-300">
+                        <input type="checkbox" checked={botSettings.autoRestart !== false}
+                          onChange={e => setBotSettings(prev => ({ ...prev, autoRestart: e.target.checked }))}
+                          className="rounded accent-emerald-500" />
+                        Auto-restart after profit target
+                      </label>
+                      <p className="text-xs text-slate-500 ml-6 -mt-1">Re-enables bot with new baseline after cooldown to compound gains throughout the day</p>
+                      {botSettings.autoRestart !== false && (
+                        <div className="ml-6">
+                          <label className="text-xs text-slate-400">Cooldown (minutes)</label>
+                          <input type="range" min="5" max="30" step="5" value={botSettings.autoRestartDelay || 10}
+                            onChange={e => setBotSettings(prev => ({ ...prev, autoRestartDelay: parseInt(e.target.value) }))}
+                            className="w-full accent-emerald-500" />
+                          <div className="flex justify-between text-xs">
+                            <span className="text-slate-500">5m</span>
+                            <span className="text-emerald-400 font-bold">{botSettings.autoRestartDelay || 10}m</span>
+                            <span className="text-slate-500">30m</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <label className="flex items-center gap-2 text-sm text-slate-300">
+                        <input type="checkbox" checked={botSettings.partialTakeProfit !== false}
+                          onChange={e => setBotSettings(prev => ({ ...prev, partialTakeProfit: e.target.checked }))}
+                          className="rounded accent-emerald-500" />
+                        Partial profit-taking (sell half at +1.5%)
+                      </label>
+                      <p className="text-xs text-slate-500 ml-6 -mt-1">Locks in gains by selling half the position early, lets the rest ride with trailing stop</p>
+                    </div>
+                  </div>
+
+                  {/* Entry Filters */}
+                  <div className="mt-4 pt-4 border-t border-slate-700/50">
+                    <h4 className="text-sm font-semibold text-blue-400 mb-3">Entry Filters</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm text-slate-300">
+                        <input type="checkbox" checked={botSettings.volumeSurgeFilter !== false}
+                          onChange={e => setBotSettings(prev => ({ ...prev, volumeSurgeFilter: e.target.checked }))}
+                          className="rounded accent-blue-500" />
+                        Volume confirmation filter
+                      </label>
+                      <p className="text-xs text-slate-500 ml-6 -mt-1">Skips trades where volume is below 60% of 20-day average (no institutional interest)</p>
+
+                      <label className="flex items-center gap-2 text-sm text-slate-300">
+                        <input type="checkbox" checked={botSettings.multiTimeframeCheck !== false}
+                          onChange={e => setBotSettings(prev => ({ ...prev, multiTimeframeCheck: e.target.checked }))}
+                          className="rounded accent-blue-500" />
+                        Multi-timeframe trend alignment
+                      </label>
+                      <p className="text-xs text-slate-500 ml-6 -mt-1">Only enters trades when daily trend aligns with signal direction (avoids counter-trend trades)</p>
+
+                      <label className="flex items-center gap-2 text-sm text-slate-300">
+                        <input type="checkbox" checked={botSettings.momentumScaling || false}
+                          onChange={e => setBotSettings(prev => ({ ...prev, momentumScaling: e.target.checked }))}
+                          className="rounded accent-amber-500" />
+                        Momentum scaling (add to winners)
+                      </label>
+                      <p className="text-xs text-slate-500 ml-6 -mt-1">Adds 50% more shares to winning positions on pullbacks. Higher risk/reward — off by default.</p>
+                    </div>
                   </div>
                 </div>
 
