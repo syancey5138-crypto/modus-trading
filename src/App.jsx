@@ -6272,7 +6272,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // BOT TRADE EXECUTION ENGINE
   // ═══════════════════════════════════════════════════
   const executeBotTrade = async (signal) => {
-    if (!botEnabled || !alpacaConfig.connected || botProcessingRef.current) return;
+    if (!botEnabled || !alpacaConfig.connected || botProcessingRef.current) return false;
     botProcessingRef.current = true;
 
     try {
@@ -6287,7 +6287,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       });
       if (todayTrades.length >= botSettings.maxDailyTrades) {
         console.log('[AutoBot] Max daily trades reached (' + todayTrades.length + '/' + botSettings.maxDailyTrades + ')');
-        return;
+        return false;
       }
 
       const todayPnL = todayTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
@@ -6295,12 +6295,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         console.log('[AutoBot] Daily loss limit hit');
         setBotEnabled(false);
         addNotification('Auto Bot disabled: Daily loss limit reached ($' + botSettings.maxDailyLoss + ')', 'error');
-        return;
+        return false;
       }
 
       if (alpacaPositions.length >= botSettings.maxPositions) {
         console.log('[AutoBot] Max positions reached');
-        return;
+        return false;
       }
 
       // ── BUYING POWER CHECK — don't trade if out of money ──
@@ -6309,28 +6309,28 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       if (buyingPower < minBuyingPower) {
         console.log('[AutoBot] Insufficient buying power: $' + buyingPower.toFixed(2) + ' (need $' + minBuyingPower + ')');
         addNotification('Bot paused: Only $' + buyingPower.toFixed(2) + ' buying power left. Waiting for positions to close.', 'warning');
-        return;
+        return false;
       }
 
       // Check if already in this position
       if (alpacaPositions.find(p => p.symbol === symbol.toUpperCase())) {
         console.log('[AutoBot] Already in position for', symbol);
-        return;
+        return false;
       }
 
       if (!botSettings.allowedSignals.includes(recommendation)) {
         console.log('[AutoBot] Signal not in allowed list:', recommendation);
-        return;
+        return false;
       }
 
       if (confidence < botSettings.minConfidence) {
         console.log('[AutoBot] Confidence too low:', confidence, '<', botSettings.minConfidence);
-        return;
+        return false;
       }
 
       if (riskReward && riskReward < botSettings.requireMinRR) {
         console.log('[AutoBot] R:R too low:', riskReward, '<', botSettings.requireMinRR);
-        return;
+        return false;
       }
 
       // ── CONSECUTIVE LOSS CIRCUIT BREAKER ──
@@ -6339,7 +6339,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       if (consecutiveLosses >= 3 || (consecutiveLosses === -1 && recentTrades.length >= 3)) {
         console.log('[AutoBot] CIRCUIT BREAKER: 3+ consecutive losses, skipping trade');
         addNotification('Circuit breaker: 3 consecutive losses detected — pausing entries. Review your settings.', 'error');
-        return;
+        return false;
       }
 
       // ── TRADING HOURS + AVOID CHOPPY OPEN/CLOSE ──
@@ -6351,12 +6351,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         // Market: 9:30 (570) to 16:00 (960)
         if (etTotalMin < 570 || etTotalMin > 960) {
           console.log('[AutoBot] Outside trading hours');
-          return;
+          return false;
         }
         // Skip first 5 min (genuinely chaotic open) — end-of-day handled by auto-schedule pre-close at 3:50 PM
         if (etTotalMin < 575) {
           console.log('[AutoBot] Skipping first 5 min of market (chaotic open)');
-          return;
+          return false;
         }
       }
 
@@ -6379,13 +6379,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             const spyBroad = spyCloses.length >= 24 ? spyCloses.slice(-24) : spyCloses;
             const spyBroadTrend = ((spyBroad[spyBroad.length - 1] - spyBroad[0]) / spyBroad[0]) * 100;
 
-            if (direction === 'LONG' && spyTrend < -0.15 && spyBroadTrend < -0.3) {
-              console.log('[AutoBot] SPY FILTER: Market dropping (30m: ' + spyTrend.toFixed(2) + '%, 2h: ' + spyBroadTrend.toFixed(2) + '%) — skipping LONG entry');
-              return;
+            if (direction === 'LONG' && spyTrend < -0.3 && spyBroadTrend < -0.5) {
+              console.log('[AutoBot] SPY FILTER: Market dropping hard (30m: ' + spyTrend.toFixed(2) + '%, 2h: ' + spyBroadTrend.toFixed(2) + '%) — skipping LONG');
+              return false;
             }
-            if (direction === 'SHORT' && spyTrend > 0.15 && spyBroadTrend > 0.3) {
-              console.log('[AutoBot] SPY FILTER: Market rising (30m: +' + spyTrend.toFixed(2) + '%, 2h: +' + spyBroadTrend.toFixed(2) + '%) — skipping SHORT entry');
-              return;
+            if (direction === 'SHORT' && spyTrend > 0.3 && spyBroadTrend > 0.5) {
+              console.log('[AutoBot] SPY FILTER: Market rallying hard (30m: +' + spyTrend.toFixed(2) + '%, 2h: +' + spyBroadTrend.toFixed(2) + '%) — skipping SHORT');
+              return false;
             }
             console.log('[AutoBot] SPY check passed: 30m=' + spyTrend.toFixed(2) + '%, 2h=' + spyBroadTrend.toFixed(2) + '%');
           }
@@ -6411,9 +6411,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
               const avgVol = vols.slice(0, -1).reduce((a, b) => a + b, 0) / (vols.length - 1);
               const todayVol = vols[vols.length - 1];
               const volRatio = avgVol > 0 ? todayVol / avgVol : 1;
-              if (volRatio < 0.6) {
-                console.log('[AutoBot] VOLUME FILTER: ' + symbol + ' volume too low (ratio: ' + volRatio.toFixed(2) + 'x avg) — skipping');
-                return;
+              if (volRatio < 0.3) {
+                console.log('[AutoBot] VOLUME FILTER: ' + symbol + ' volume very low (ratio: ' + volRatio.toFixed(2) + 'x avg) — skipping');
+                return false;
               }
               console.log('[AutoBot] Volume check passed: ' + symbol + ' ratio=' + volRatio.toFixed(2) + 'x');
             }
@@ -6445,13 +6445,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
               // Also check 10-day momentum
               const tenDayChg = mtfCloses.length >= 10 ? ((mtfCloses[mtfCloses.length - 1] - mtfCloses[mtfCloses.length - 10]) / mtfCloses[mtfCloses.length - 10]) * 100 : 0;
 
-              if (direction === 'LONG' && dailyTrend === 'DOWN' && tenDayChg < -3) {
-                console.log('[AutoBot] MTF FILTER: ' + symbol + ' daily trend DOWN (below SMA20, 10d: ' + tenDayChg.toFixed(1) + '%) — skipping LONG');
-                return;
+              if (direction === 'LONG' && dailyTrend === 'DOWN' && tenDayChg < -6) {
+                console.log('[AutoBot] MTF FILTER: ' + symbol + ' strong daily downtrend (10d: ' + tenDayChg.toFixed(1) + '%) — skipping LONG');
+                return false;
               }
-              if (direction === 'SHORT' && dailyTrend === 'UP' && tenDayChg > 3) {
-                console.log('[AutoBot] MTF FILTER: ' + symbol + ' daily trend UP (above SMA20, 10d: +' + tenDayChg.toFixed(1) + '%) — skipping SHORT');
-                return;
+              if (direction === 'SHORT' && dailyTrend === 'UP' && tenDayChg > 6) {
+                console.log('[AutoBot] MTF FILTER: ' + symbol + ' strong daily uptrend (10d: +' + tenDayChg.toFixed(1) + '%) — skipping SHORT');
+                return false;
               }
               console.log('[AutoBot] MTF check passed: ' + symbol + ' daily=' + dailyTrend + ', 10d=' + tenDayChg.toFixed(1) + '%');
             }
@@ -6480,7 +6480,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       });
       if (sectorPositions.length >= 2) {
         console.log('[AutoBot] SECTOR LIMIT: Already have ' + sectorPositions.length + ' positions in ' + stockSector + ' sector, skipping ' + symbol);
-        return;
+        return false;
       }
 
       // Calculate position size
@@ -6491,7 +6491,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
       if (!entryPrice || !stopPrice || isNaN(entryPrice) || isNaN(stopPrice)) {
         console.log('[AutoBot] Invalid entry/stop prices');
-        return;
+        return false;
       }
 
       // ── CONFIDENCE-SCALED POSITION SIZING ──
@@ -6500,12 +6500,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const riskAmount = accountEquity * (botSettings.riskPerTrade / 100) * confidenceScale;
 
       const riskPerShare = Math.abs(entryPrice - stopPrice);
-      if (riskPerShare <= 0) return;
+      if (riskPerShare <= 0) return false;
 
       let shares = Math.floor(riskAmount / riskPerShare);
       if (shares < 1) {
         console.log('[AutoBot] Position too small (< 1 share)');
-        return;
+        return false;
       }
 
       // Cap shares by available buying power
@@ -6515,7 +6515,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         shares = Math.floor(currentBP / entryPrice);
         if (shares < 1) {
           console.log('[AutoBot] Not enough buying power for even 1 share of ' + symbol + ' ($' + entryPrice.toFixed(2) + ', BP: $' + currentBP.toFixed(2) + ')');
-          return;
+          return false;
         }
         console.log('[AutoBot] Reduced shares to ' + shares + ' due to buying power ($' + currentBP.toFixed(2) + ')');
       }
@@ -6559,11 +6559,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
       // Refresh positions
       setTimeout(alpacaRefresh, 2000);
+      return true; // Trade was actually placed
 
     } catch (err) {
       console.error('[AutoBot] Trade error:', err.message);
       setBotStatus(prev => ({ ...prev, errors: [...prev.errors.slice(-9), { time: new Date().toISOString(), msg: err.message }] }));
       addNotification(`Auto Bot error: ${err.message}`, 'error');
+      return false;
     } finally {
       botProcessingRef.current = false;
     }
@@ -6921,7 +6923,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
               } else {
                 // Let executeBotTrade handle all other checks (daily limits, buying power, etc.)
                 try {
-                  await executeBotTrade({
+                  const placed = await executeBotTrade({
                     symbol: r.symbol,
                     recommendation: r.recommendation,
                     confidence: r.confidence,
@@ -6932,7 +6934,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
                     source: 'auto-scanner',
                     riskReward: r.riskReward,
                   });
-                  tradesExecuted++;
+                  if (placed) tradesExecuted++;
                 } catch (tradeErr) {
                   console.error('[Scanner] Trade execution failed for ' + r.symbol + ':', tradeErr.message);
                 }
