@@ -6190,11 +6190,48 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
   const alpacaClosePosition = async (symbol, qty = null) => {
     const qtyParam = qty ? '?qty=' + qty : '';
-    return alpacaFetch('/v2/positions/' + symbol.toUpperCase() + qtyParam, 'DELETE');
+    const endpoint = '/v2/positions/' + symbol.toUpperCase() + qtyParam;
+    const baseUrl = alpacaConfig.paperMode ? 'https://paper-api.alpaca.markets' : 'https://api.alpaca.markets';
+    const res = await fetch(baseUrl + endpoint, {
+      method: 'DELETE',
+      headers: {
+        'APCA-API-KEY-ID': alpacaConfig.apiKey,
+        'APCA-API-SECRET-KEY': alpacaConfig.secretKey,
+      },
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText);
+      throw new Error('Close ' + symbol + ' failed: ' + res.status + ' ' + errText);
+    }
+    try { return await res.json(); } catch { return null; }
   };
 
   const alpacaCloseAllPositions = async () => {
-    return alpacaFetch('/v2/positions?cancel_orders=true', 'DELETE');
+    const baseUrl = alpacaConfig.paperMode ? 'https://paper-api.alpaca.markets' : 'https://api.alpaca.markets';
+    // First cancel all open orders so bracket legs don't interfere
+    try {
+      await fetch(baseUrl + '/v2/orders', {
+        method: 'DELETE',
+        headers: {
+          'APCA-API-KEY-ID': alpacaConfig.apiKey,
+          'APCA-API-SECRET-KEY': alpacaConfig.secretKey,
+        },
+      });
+    } catch (e) { console.warn('[Alpaca] Cancel orders failed:', e.message); }
+    // Then close all positions
+    const res = await fetch(baseUrl + '/v2/positions?cancel_orders=true', {
+      method: 'DELETE',
+      headers: {
+        'APCA-API-KEY-ID': alpacaConfig.apiKey,
+        'APCA-API-SECRET-KEY': alpacaConfig.secretKey,
+      },
+    });
+    // 207 Multi-Status is normal for this endpoint
+    if (res.status !== 200 && res.status !== 204 && res.status !== 207) {
+      const errText = await res.text().catch(() => res.statusText);
+      throw new Error('Close all failed: ' + res.status + ' ' + errText);
+    }
+    try { return await res.json(); } catch { return null; }
   };
 
   // ═══════════════════════════════════════════════════
@@ -33358,10 +33395,36 @@ INSTRUCTIONS:
                 )}
                 {alpacaConfig.connected && alpacaPositions.length > 0 && (
                   <button
-                    onClick={async () => { if (confirm('Close ALL positions immediately?')) { await alpacaCloseAllPositions(); setTimeout(alpacaRefresh, 1000); addNotification('All positions closed!', 'info'); }}}
-                    className="px-4 py-2.5 rounded-xl font-bold text-sm bg-red-600/30 text-red-300 border border-red-600/40 hover:bg-red-600/50"
+                    onClick={async (e) => {
+                      const btn = e.currentTarget;
+                      if (btn.dataset.armed !== 'true') {
+                        btn.dataset.armed = 'true';
+                        btn.textContent = '⚠️ TAP AGAIN TO CONFIRM';
+                        btn.style.background = 'rgba(220,38,38,0.5)';
+                        setTimeout(() => { btn.dataset.armed = 'false'; btn.textContent = '🛑 KILL SWITCH'; btn.style.background = ''; }, 3000);
+                        return;
+                      }
+                      btn.dataset.armed = 'false';
+                      btn.textContent = 'CLOSING...';
+                      btn.disabled = true;
+                      try {
+                        setBotEnabled(false);
+                        setScannerEnabled(false);
+                        await alpacaCloseAllPositions();
+                        addNotification('KILL SWITCH: All positions closed! Bot disabled.', 'success');
+                        peakPricesRef.current = {};
+                        partialTakenRef.current = {};
+                        scalingCountRef.current = {};
+                      } catch (err) {
+                        addNotification('Kill switch error: ' + err.message, 'error');
+                      }
+                      btn.textContent = '🛑 KILL SWITCH';
+                      btn.disabled = false;
+                      setTimeout(alpacaRefresh, 1500);
+                    }}
+                    className="px-4 py-2.5 rounded-xl font-bold text-sm bg-red-600/30 text-red-300 border border-red-600/40 hover:bg-red-600/50 transition-all"
                   >
-                    KILL SWITCH
+                    🛑 KILL SWITCH
                   </button>
                 )}
               </div>
@@ -33556,7 +33619,23 @@ INSTRUCTIONS:
                                 <div className="font-bold">{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}</div>
                                 <div className="text-xs">{pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%</div>
                               </div>
-                              <button onClick={async () => { await alpacaClosePosition(pos.symbol); setTimeout(alpacaRefresh, 1000); }}
+                              <button onClick={async (e) => {
+                                  const btn = e.currentTarget;
+                                  btn.textContent = '...';
+                                  btn.disabled = true;
+                                  try {
+                                    await alpacaClosePosition(pos.symbol);
+                                    addNotification('Closed ' + pos.symbol + ' position', 'info');
+                                    delete peakPricesRef.current[pos.symbol];
+                                    delete partialTakenRef.current[pos.symbol];
+                                    delete scalingCountRef.current[pos.symbol];
+                                  } catch (err) {
+                                    addNotification('Failed to close ' + pos.symbol + ': ' + err.message, 'error');
+                                  }
+                                  btn.textContent = 'Close';
+                                  btn.disabled = false;
+                                  setTimeout(alpacaRefresh, 1500);
+                                }}
                                 className="text-xs px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30">
                                 Close
                               </button>
