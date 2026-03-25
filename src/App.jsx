@@ -3680,7 +3680,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       // v2 upgrade: if user had old loose settings, tighten them
       if (saved && !saved._v2) {
         saved._v2 = true;
-        saved.minConfidence = Math.max(saved.minConfidence || 75, 80);
+        saved.minConfidence = Math.max(saved.minConfidence || 75, 78);
         saved.requireMinRR = Math.max(saved.requireMinRR || 1.5, 2.0);
         saved.maxPositions = Math.min(saved.maxPositions || 3, 5);
         saved.autoSchedule = saved.autoSchedule !== undefined ? saved.autoSchedule : true;
@@ -3693,7 +3693,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         localStorage.setItem('modus_bot_settings', JSON.stringify(saved));
       }
       return saved || {
-      minConfidence: 80,
+      minConfidence: 78,
       allowedSignals: ['STRONG_BUY', 'STRONG_SELL'],
       maxPositions: 3,
       maxDailyTrades: 8,
@@ -3712,7 +3712,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       volumeSurgeFilter: true,
       multiTimeframeCheck: true,
       momentumScaling: false,
-    }; } catch { return { minConfidence: 80, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 8, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
+    }; } catch { return { minConfidence: 78, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 8, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
   });
   const [alpacaAccount, setAlpacaAccount] = useState(null);
   const [alpacaPositions, setAlpacaPositions] = useState([]);
@@ -6847,12 +6847,13 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           const hasModerateSignal = confirmations >= 1 && netScore >= 15;
 
           let recommendation = 'HOLD';
-          if (hasStrongSignal && netScore >= 45 && confirmations >= 4) recommendation = direction === 'LONG' ? 'STRONG_BUY' : 'STRONG_SELL';
-          else if (hasStrongSignal && netScore >= 35 && confirmations >= 3) recommendation = direction === 'LONG' ? 'BUY' : 'SELL';
-          else if (hasModerateSignal && netScore >= 25) recommendation = direction === 'LONG' ? 'LEAN_BUY' : 'LEAN_SELL';
+          if (hasStrongSignal && netScore >= 40 && confirmations >= 3) recommendation = direction === 'LONG' ? 'STRONG_BUY' : 'STRONG_SELL';
+          else if (hasStrongSignal && netScore >= 30 && confirmations >= 2) recommendation = direction === 'LONG' ? 'BUY' : 'SELL';
+          else if (hasModerateSignal && netScore >= 20) recommendation = direction === 'LONG' ? 'LEAN_BUY' : 'LEAN_SELL';
 
-          // Confidence now scales more conservatively — starts at 30, needs high net score + confirmations to reach 80+
-          const confidence = Math.min(95, Math.round(30 + Math.min(25, confirmations * 7) + Math.min(30, netScore * 0.4) + (adx && adx > 25 ? 10 : 0)));
+          // Confidence: STRONG signals that pass scanner thresholds should reliably reach 80+
+          // 3 confirms + netScore 40 = 35 + 24 + 20 + ADX bonus = ~79-89
+          const confidence = Math.min(95, Math.round(35 + Math.min(28, confirmations * 8) + Math.min(22, netScore * 0.5) + (adx && adx > 25 ? 10 : 0)));
 
           // Calculate stop/target using ATR
           const stopDist = atr ? atr * 1.5 : currentPrice * 0.02;
