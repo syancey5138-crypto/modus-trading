@@ -6306,13 +6306,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           console.log('[AutoBot] Outside trading hours');
           return;
         }
-        // Avoid first 15 min (choppy open) and last 15 min (volatile close)
-        if (etTotalMin < 585) {
-          console.log('[AutoBot] Skipping first 15 min of market (choppy open)');
-          return;
-        }
-        if (etTotalMin > 945) {
-          console.log('[AutoBot] Skipping last 15 min of market (volatile close)');
+        // Skip first 5 min (genuinely chaotic open) — end-of-day handled by auto-schedule pre-close at 3:50 PM
+        if (etTotalMin < 575) {
+          console.log('[AutoBot] Skipping first 5 min of market (chaotic open)');
           return;
         }
       }
