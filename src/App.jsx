@@ -3718,7 +3718,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       volumeSurgeFilter: true,
       multiTimeframeCheck: true,
       momentumScaling: false,
-    }; } catch { return { minConfidence: 78, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 20, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false }; }
+      journalSync: true,
+      portfolioSync: true,
+    }; } catch { return { minConfidence: 78, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 20, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false, journalSync: true, portfolioSync: true }; }
   });
   const [alpacaAccount, setAlpacaAccount] = useState(null);
   const [alpacaPositions, setAlpacaPositions] = useState([]);
@@ -3732,6 +3734,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   const botProcessingRef = useRef(false);
   // Timestamp of last kill switch / reset — trades before this don't count toward daily limits
   const botResetTimestampRef = useRef(null);
+  const autoScheduleFiredRef = useRef(null); // Track which day auto-schedule already fired to prevent notification spam
 
   // ═══════════════════════════════════════════════════
   // AUTO-SCANNER STATE
@@ -6128,7 +6131,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // ═══════════════════════════════════════════════════
   useEffect(() => { try { localStorage.setItem('modus_alpaca_config', JSON.stringify(alpacaConfig)); } catch {} }, [alpacaConfig]);
   useEffect(() => { try { localStorage.setItem('modus_bot_enabled', String(botEnabled)); } catch {} }, [botEnabled]);
-  useEffect(() => { try { localStorage.setItem('modus_bot_settings', JSON.stringify(botSettings)); } catch {} }, [botSettings]);
+  // Bot settings localStorage save is handled in the cloud sync useEffect above
   useEffect(() => { try { localStorage.setItem('modus_bot_trade_log', JSON.stringify(botTradeLog.slice(-200))); } catch {} }, [botTradeLog]);
 
   // Scanner persistence
@@ -6556,6 +6559,77 @@ Be thorough, educational, and use real price levels based on the data. Every fie
 
       setBotTradeLog(prev => [logEntry, ...prev]);
       addNotification(`🤖 Auto Bot: ${side.toUpperCase()} ${shares} ${symbol} @ $${entryPrice.toFixed(2)} | Stop: $${stopPrice.toFixed(2)} | Target: $${targetPrice?.toFixed(2) || 'N/A'}`, 'success');
+
+      // ── AUTO-LOG TO JOURNAL ──
+      if (botSettings.journalSync !== false) {
+        try {
+          const journalEntry = {
+            id: Date.now() + 1,
+            symbol: symbol.toUpperCase(),
+            side: direction === 'LONG' ? 'long' : 'short',
+            entry: entryPrice.toFixed(2),
+            exit: '',
+            avgPrice: entryPrice.toFixed(2),
+            stopLoss: stopPrice.toFixed(2),
+            target: targetPrice ? targetPrice.toFixed(2) : '',
+            quantity: String(shares),
+            entryDate: new Date().toISOString().split('T')[0],
+            exitDate: '',
+            notes: `[Auto Bot] ${recommendation} signal | Confidence: ${confidence}% | R:R: ${riskReward?.toFixed(1) || 'N/A'} | Source: ${source}`,
+            linkedAnalysisId: null,
+            isPaperTrade: alpacaConfig.paperMode,
+            confidence: String(confidence),
+            tags: ['Auto Bot', recommendation?.replace(/_/g, ' ')],
+            pnl: null,
+            pnlPercent: null,
+            status: 'open',
+          };
+          setTrades(prev => [journalEntry, ...prev]);
+          console.log('[AutoBot] Logged to journal: ' + symbol);
+        } catch (journalErr) {
+          console.error('[AutoBot] Journal logging failed:', journalErr.message);
+        }
+      }
+
+      // ── AUTO-ADD TO PORTFOLIO ──
+      if (botSettings.portfolioSync !== false) {
+        try {
+          const existingPos = portfolio.find(p => p.symbol?.toUpperCase() === symbol.toUpperCase());
+          if (existingPos) {
+            // Update existing position (average in)
+            const newQty = (parseFloat(existingPos.quantity) || 0) + shares;
+            const oldCost = (parseFloat(existingPos.quantity) || 0) * (parseFloat(existingPos.avgPrice) || 0);
+            const newCost = shares * entryPrice;
+            const newAvg = (oldCost + newCost) / newQty;
+            setPortfolio(prev => prev.map(p => p.symbol?.toUpperCase() === symbol.toUpperCase() ? {
+              ...p, quantity: newQty, avgPrice: newAvg, currentPrice: entryPrice,
+              totalValue: newQty * entryPrice, totalCost: newQty * newAvg,
+              pnl: (newQty * entryPrice) - (newQty * newAvg),
+              pnlPercent: ((entryPrice - newAvg) / newAvg) * 100,
+            } : p));
+          } else {
+            // Add new position
+            const newPos = {
+              id: Date.now() + 2,
+              symbol: symbol.toUpperCase(),
+              quantity: shares,
+              avgPrice: entryPrice,
+              currentPrice: entryPrice,
+              totalValue: shares * entryPrice,
+              totalCost: shares * entryPrice,
+              pnl: 0,
+              pnlPercent: 0,
+              notes: `[Auto Bot] ${side.toUpperCase()} via ${recommendation}`,
+              addedAt: new Date().toISOString(),
+              source: 'auto-bot',
+            };
+            setPortfolio(prev => [...prev, newPos]);
+          }
+          console.log('[AutoBot] Updated portfolio: ' + symbol);
+        } catch (portfolioErr) {
+          console.error('[AutoBot] Portfolio update failed:', portfolioErr.message);
+        }
+      }
 
       // Refresh positions
       setTimeout(alpacaRefresh, 2000);
@@ -7407,8 +7481,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const isWeekday = etDay >= 1 && etDay <= 5;
       const isMarketHours = etMin >= 570 && etMin <= 960; // 9:30-16:00
 
-      if (isWeekday && isMarketHours && !botEnabled) {
-        // Auto-start at market open
+      const todayKey = etDate.toDateString();
+      if (isWeekday && isMarketHours && !botEnabled && autoScheduleFiredRef.current !== todayKey) {
+        // Auto-start at market open — only fire once per day
+        autoScheduleFiredRef.current = todayKey;
         console.log('[AutoSchedule] Market open — auto-enabling bot');
         setBotEnabled(true);
         setScannerEnabled(true);
@@ -7568,6 +7644,16 @@ Be thorough, educational, and use real price levels based on the data. Every fie
               setPortfolioSettings(cloudData.portfolioSettings);
               localStorage.setItem("modus_portfolio_settings", JSON.stringify(cloudData.portfolioSettings));
             }
+            // Load bot settings from cloud
+            if (cloudData.botSettings) {
+              setBotSettings(prev => ({ ...prev, ...cloudData.botSettings }));
+              localStorage.setItem("modus_bot_settings", JSON.stringify(cloudData.botSettings));
+            }
+            // Load bot trade log from cloud
+            if (cloudData.botTradeLog && cloudData.botTradeLog.length > 0) {
+              setBotTradeLog(cloudData.botTradeLog);
+              localStorage.setItem("modus_bot_trade_log", JSON.stringify(cloudData.botTradeLog));
+            }
             setLastSyncTime(new Date());
             setCloudSyncStatus('synced');
             console.log('All cloud data loaded successfully');
@@ -7589,6 +7675,11 @@ Be thorough, educational, and use real price levels based on the data. Every fie
             if (localTradePlans.length > 0) await syncData('tradePlans', localTradePlans);
             if (localHistory.length > 0) await syncData('analysisHistory', localHistory);
             if (localPortfolioSettings) await syncData('portfolioSettings', localPortfolioSettings);
+            // Upload bot data too
+            const localBotSettings = JSON.parse(localStorage.getItem("modus_bot_settings") || 'null');
+            const localBotTradeLog = JSON.parse(localStorage.getItem("modus_bot_trade_log") || '[]');
+            if (localBotSettings) await syncData('botSettings', localBotSettings);
+            if (localBotTradeLog.length > 0) await syncData('botTradeLog', localBotTradeLog);
 
             setLastSyncTime(new Date());
             setCloudSyncStatus('synced');
@@ -7706,6 +7797,38 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
     }
   }, [portfolio, currentUser, cloudSyncEnabled, isLoadingCloudData]);
+
+  // Save bot settings + CLOUD SYNC
+  useEffect(() => {
+    try { localStorage.setItem('modus_bot_settings', JSON.stringify(botSettings)); } catch {}
+    if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+      const syncTimeout = setTimeout(async () => {
+        try {
+          await syncData('botSettings', botSettings);
+        } catch (err) {
+          console.error('[CloudSync] Bot settings sync failed:', err);
+        }
+      }, 1500);
+      return () => clearTimeout(syncTimeout);
+    }
+  }, [botSettings, currentUser, cloudSyncEnabled, isLoadingCloudData]);
+
+  // Save bot trade log + CLOUD SYNC
+  useEffect(() => {
+    if (botTradeLog.length > 0) {
+      try { localStorage.setItem('modus_bot_trade_log', JSON.stringify(botTradeLog.slice(0, 100))); } catch {}
+      if (currentUser && cloudSyncEnabled && !isLoadingCloudData) {
+        const syncTimeout = setTimeout(async () => {
+          try {
+            await syncData('botTradeLog', botTradeLog.slice(0, 100));
+          } catch (err) {
+            console.error('[CloudSync] Bot trade log sync failed:', err);
+          }
+        }, 1500);
+        return () => clearTimeout(syncTimeout);
+      }
+    }
+  }, [botTradeLog, currentUser, cloudSyncEnabled, isLoadingCloudData]);
 
   // Save trade plans + CLOUD SYNC
   useEffect(() => {
@@ -34164,6 +34287,66 @@ INSTRUCTIONS:
                         Momentum scaling (add to winners)
                       </label>
                       <p className="text-xs text-slate-500 ml-6 -mt-1">Adds 50% more shares to winning positions on pullbacks. Higher risk/reward — off by default.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Integrations */}
+                <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5">
+                  <h3 className="font-semibold text-white mb-4">Integrations</h3>
+                  <div className="space-y-3">
+                    {/* Journal Sync */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">📓</span>
+                        <div>
+                          <div className="text-sm font-medium text-white">Trade Journal</div>
+                          <div className="text-xs text-slate-400">Auto-log all bot trades to your journal</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded ${botSettings.journalSync !== false ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                          {botSettings.journalSync !== false ? '● Connected' : '○ Off'}
+                        </span>
+                        <button onClick={() => setBotSettings(prev => ({ ...prev, journalSync: !(prev.journalSync !== false) }))}
+                          className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${botSettings.journalSync !== false ? 'text-red-400 border border-red-500/30 hover:bg-red-500/10' : 'text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10'}`}>
+                          {botSettings.journalSync !== false ? 'Disconnect' : 'Connect'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Portfolio Sync */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">📊</span>
+                        <div>
+                          <div className="text-sm font-medium text-white">Portfolio</div>
+                          <div className="text-xs text-slate-400">Auto-update portfolio with bot positions</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded ${botSettings.portfolioSync !== false ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                          {botSettings.portfolioSync !== false ? '● Connected' : '○ Off'}
+                        </span>
+                        <button onClick={() => setBotSettings(prev => ({ ...prev, portfolioSync: !(prev.portfolioSync !== false) }))}
+                          className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${botSettings.portfolioSync !== false ? 'text-red-400 border border-red-500/30 hover:bg-red-500/10' : 'text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10'}`}>
+                          {botSettings.portfolioSync !== false ? 'Disconnect' : 'Connect'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Cloud Sync Status */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">☁️</span>
+                        <div>
+                          <div className="text-sm font-medium text-white">Cloud Sync</div>
+                          <div className="text-xs text-slate-400">{currentUser ? 'Signed in as ' + (currentUser.displayName || currentUser.email) : 'Sign in with Google to sync across devices'}</div>
+                        </div>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded ${currentUser && cloudSyncEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                        {currentUser && cloudSyncEnabled ? '● Syncing' : '○ Not signed in'}
+                      </span>
                     </div>
                   </div>
                 </div>
