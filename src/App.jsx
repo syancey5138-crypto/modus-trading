@@ -6612,6 +6612,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     let signalsFound = 0;
     let tradesExecuted = 0;
     const scanErrors = [];
+    const qualifiedSignals = []; // Collect all qualifying signals, rank by quality, then execute best ones
 
     // Build stock list from PRIORITY_STOCKS (flat array of 500+ tickers)
     let stocksToScan = [...PRIORITY_STOCKS];
@@ -6908,37 +6909,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
           stocksScanned++;
           results.push(r);
 
-          // Check if this signal qualifies for a trade
-          const MAX_TRADES_PER_SCAN = 3; // Never place more than 3 trades per scan cycle
+          // Collect qualifying signals (don't execute yet — we'll rank them after all batches)
           if (r.netScore >= scannerSettings.minNetScore && r.confirmations >= scannerSettings.minConfirmations) {
             if (botSettings.allowedSignals.includes(r.recommendation) && r.confidence >= botSettings.minConfidence) {
               signalsFound++;
+              qualifiedSignals.push(r);
               console.log('[Scanner] SIGNAL: ' + r.symbol + ' — ' + r.recommendation + ' (conf: ' + r.confidence + '%, net: ' + r.netScore + ', confirms: ' + r.confirmations + ')');
-
-              // Hard cap: don't place more than 3 trades per scan
-              if (tradesExecuted >= MAX_TRADES_PER_SCAN) {
-                console.log('[Scanner] Per-scan trade limit (' + MAX_TRADES_PER_SCAN + ') reached — saving remaining signals for next scan');
-              } else if (alpacaPositions.length + tradesExecuted >= botSettings.maxPositions) {
-                console.log('[Scanner] Max positions reached (' + botSettings.maxPositions + '), skipping ' + r.symbol);
-              } else {
-                // Let executeBotTrade handle all other checks (daily limits, buying power, etc.)
-                try {
-                  const placed = await executeBotTrade({
-                    symbol: r.symbol,
-                    recommendation: r.recommendation,
-                    confidence: r.confidence,
-                    direction: r.direction,
-                    entry: r.entry,
-                    stop: r.stop,
-                    target: r.target,
-                    source: 'auto-scanner',
-                    riskReward: r.riskReward,
-                  });
-                  if (placed) tradesExecuted++;
-                } catch (tradeErr) {
-                  console.error('[Scanner] Trade execution failed for ' + r.symbol + ':', tradeErr.message);
-                }
-              }
             }
           }
         }
@@ -6950,8 +6926,45 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       }
     }
 
-    // Sort results by net score descending
+    // Sort ALL results by net score descending (for display)
     results.sort((a, b) => b.netScore - a.netScore);
+
+    // ── RANK QUALIFIED SIGNALS BY QUALITY, THEN EXECUTE BEST ONES ──
+    // Sort by: confidence desc, then netScore desc, then R:R desc
+    qualifiedSignals.sort((a, b) => {
+      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+      if (b.netScore !== a.netScore) return b.netScore - a.netScore;
+      return (b.riskReward || 0) - (a.riskReward || 0);
+    });
+
+    const MAX_TRADES_PER_SCAN = botSettings.maxPositions; // Fill all available slots
+    const availableSlots = botSettings.maxPositions - alpacaPositions.length;
+    const tradeLimit = Math.min(MAX_TRADES_PER_SCAN, availableSlots);
+
+    console.log('[Scanner] ' + qualifiedSignals.length + ' qualified signals ranked by quality. Attempting up to ' + tradeLimit + ' trades (' + availableSlots + ' slots available)');
+
+    for (const sig of qualifiedSignals) {
+      if (tradesExecuted >= tradeLimit) {
+        console.log('[Scanner] Trade limit reached (' + tradesExecuted + '/' + tradeLimit + ')');
+        break;
+      }
+      try {
+        const placed = await executeBotTrade({
+          symbol: sig.symbol,
+          recommendation: sig.recommendation,
+          confidence: sig.confidence,
+          direction: sig.direction,
+          entry: sig.entry,
+          stop: sig.stop,
+          target: sig.target,
+          source: 'auto-scanner',
+          riskReward: sig.riskReward,
+        });
+        if (placed) tradesExecuted++;
+      } catch (tradeErr) {
+        console.error('[Scanner] Trade execution failed for ' + sig.symbol + ':', tradeErr.message);
+      }
+    }
 
     console.log('[Scanner] ========== SCAN COMPLETE ==========');
     console.log('[Scanner] Scanned: ' + stocksScanned + ' | Signals: ' + signalsFound + ' | Trades: ' + tradesExecuted);
