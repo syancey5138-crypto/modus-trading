@@ -3720,7 +3720,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       momentumScaling: false,
       journalSync: true,
       portfolioSync: true,
-    }; } catch { return { minConfidence: 78, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 20, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false, journalSync: true, portfolioSync: true }; }
+      paperTradingSync: true,
+    }; } catch { return { minConfidence: 78, allowedSignals: ['STRONG_BUY', 'STRONG_SELL'], maxPositions: 3, maxDailyTrades: 20, maxDailyLoss: 500, riskPerTrade: 1, tradeSource: 'both', requireMinRR: 2.0, autoStopLoss: true, autoTakeProfit: true, tradingHoursOnly: true, profitTargetPct: 2.0, autoSchedule: true, autoRestart: true, autoRestartDelay: 10, partialTakeProfit: true, volumeSurgeFilter: true, multiTimeframeCheck: true, momentumScaling: false, journalSync: true, portfolioSync: true, paperTradingSync: true }; }
   });
   const [alpacaAccount, setAlpacaAccount] = useState(null);
   const [alpacaPositions, setAlpacaPositions] = useState([]);
@@ -6631,6 +6632,31 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         }
       }
 
+      // ── AUTO-LOG TO PAPER TRADING ──
+      if (botSettings.paperTradingSync !== false && alpacaConfig.paperMode) {
+        try {
+          const paperTrade = {
+            id: Date.now() + 3,
+            symbol: symbol.toUpperCase(),
+            side: side === 'buy' ? 'buy' : 'sell',
+            quantity: shares,
+            entryPrice,
+            currentPrice: entryPrice,
+            pnl: 0,
+            entryDate: new Date().toISOString(),
+            source: 'auto-bot',
+          };
+          setPaperTradingAccount(prev => ({
+            ...prev,
+            balance: prev.balance - (shares * entryPrice),
+            positions: [...(prev.positions || []), paperTrade],
+          }));
+          console.log('[AutoBot] Logged to paper trading: ' + symbol);
+        } catch (paperErr) {
+          console.error('[AutoBot] Paper trading log failed:', paperErr.message);
+        }
+      }
+
       // Refresh positions
       setTimeout(alpacaRefresh, 2000);
       return true; // Trade was actually placed
@@ -6643,6 +6669,122 @@ Be thorough, educational, and use real price levels based on the data. Every fie
     } finally {
       botProcessingRef.current = false;
     }
+  };
+
+  // ═══════════════════════════════════════════════════
+  // SYNC ALPACA POSITIONS → Journal + Portfolio + Paper Trading
+  // ═══════════════════════════════════════════════════
+  const syncAlpacaToAll = () => {
+    if (!alpacaConfig.connected || alpacaPositions.length === 0) {
+      addNotification('No Alpaca positions to sync', 'info');
+      return;
+    }
+
+    let journalAdded = 0, portfolioAdded = 0, paperAdded = 0;
+
+    for (const pos of alpacaPositions) {
+      const symbol = pos.symbol?.toUpperCase();
+      const qty = Math.abs(parseFloat(pos.qty) || 0);
+      const avgEntry = parseFloat(pos.avg_entry_price) || 0;
+      const currentPrice = parseFloat(pos.current_price) || avgEntry;
+      const side = parseFloat(pos.qty) >= 0 ? 'long' : 'short';
+      const pnl = parseFloat(pos.unrealized_pl) || 0;
+      const pnlPct = parseFloat(pos.unrealized_plpc) ? parseFloat(pos.unrealized_plpc) * 100 : 0;
+
+      // ── SYNC TO JOURNAL ──
+      if (botSettings.journalSync !== false) {
+        const alreadyInJournal = trades.find(t => t.symbol?.toUpperCase() === symbol && t.status === 'open' && t.source === 'auto-bot');
+        if (!alreadyInJournal) {
+          const journalEntry = {
+            id: Date.now() + Math.random(),
+            symbol,
+            side,
+            entry: avgEntry.toFixed(2),
+            exit: '',
+            avgPrice: avgEntry.toFixed(2),
+            stopLoss: '',
+            target: '',
+            quantity: String(qty),
+            entryDate: new Date().toISOString().split('T')[0],
+            exitDate: '',
+            notes: '[Auto Bot] Synced from Alpaca ' + (alpacaConfig.paperMode ? 'Paper' : 'Live'),
+            linkedAnalysisId: null,
+            isPaperTrade: alpacaConfig.paperMode,
+            confidence: '',
+            tags: ['Auto Bot', 'Synced'],
+            pnl: null,
+            pnlPercent: null,
+            status: 'open',
+            source: 'auto-bot',
+          };
+          setTrades(prev => [journalEntry, ...prev]);
+          journalAdded++;
+        }
+      }
+
+      // ── SYNC TO PORTFOLIO ──
+      if (botSettings.portfolioSync !== false) {
+        const alreadyInPortfolio = portfolio.find(p => p.symbol?.toUpperCase() === symbol);
+        if (!alreadyInPortfolio) {
+          const newPos = {
+            id: Date.now() + Math.random() + 1,
+            symbol,
+            quantity: qty,
+            avgPrice: avgEntry,
+            currentPrice,
+            totalValue: qty * currentPrice,
+            totalCost: qty * avgEntry,
+            pnl,
+            pnlPercent: pnlPct,
+            notes: '[Auto Bot] Synced from Alpaca',
+            addedAt: new Date().toISOString(),
+            source: 'auto-bot',
+          };
+          setPortfolio(prev => [...prev, newPos]);
+          portfolioAdded++;
+        } else {
+          // Update existing with latest data
+          setPortfolio(prev => prev.map(p => p.symbol?.toUpperCase() === symbol ? {
+            ...p, quantity: qty, avgPrice: avgEntry, currentPrice,
+            totalValue: qty * currentPrice, totalCost: qty * avgEntry,
+            pnl, pnlPercent: pnlPct,
+          } : p));
+        }
+      }
+
+      // ── SYNC TO PAPER TRADING ──
+      if (botSettings.paperTradingSync !== false && alpacaConfig.paperMode) {
+        const alreadyInPaper = paperTradingAccount.positions?.find(p => p.symbol?.toUpperCase() === symbol);
+        if (!alreadyInPaper) {
+          setPaperTradingAccount(prev => ({
+            ...prev,
+            positions: [...(prev.positions || []), {
+              id: Date.now() + Math.random() + 2,
+              symbol,
+              side: side === 'long' ? 'buy' : 'sell',
+              quantity: qty,
+              entryPrice: avgEntry,
+              currentPrice,
+              pnl,
+              entryDate: new Date().toISOString(),
+              source: 'auto-bot',
+            }],
+          }));
+          paperAdded++;
+        }
+      }
+    }
+
+    const parts = [];
+    if (journalAdded > 0) parts.push(journalAdded + ' to Journal');
+    if (portfolioAdded > 0) parts.push(portfolioAdded + ' to Portfolio');
+    if (paperAdded > 0) parts.push(paperAdded + ' to Paper Trading');
+    if (parts.length > 0) {
+      addNotification('Synced Alpaca positions: ' + parts.join(', '), 'success');
+    } else {
+      addNotification('All positions already synced', 'info');
+    }
+    console.log('[Sync] Alpaca → Journal: ' + journalAdded + ', Portfolio: ' + portfolioAdded + ', Paper: ' + paperAdded);
   };
 
   // ═══════════════════════════════════════════════════
@@ -34335,6 +34477,28 @@ INSTRUCTIONS:
                       </div>
                     </div>
 
+                    {/* Paper Trading Sync */}
+                    {alpacaConfig.paperMode && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">💵</span>
+                        <div>
+                          <div className="text-sm font-medium text-white">Paper Trading</div>
+                          <div className="text-xs text-slate-400">Sync bot trades to Paper Trading tab</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded ${botSettings.paperTradingSync !== false ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                          {botSettings.paperTradingSync !== false ? '● Connected' : '○ Off'}
+                        </span>
+                        <button onClick={() => setBotSettings(prev => ({ ...prev, paperTradingSync: !(prev.paperTradingSync !== false) }))}
+                          className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${botSettings.paperTradingSync !== false ? 'text-red-400 border border-red-500/30 hover:bg-red-500/10' : 'text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10'}`}>
+                          {botSettings.paperTradingSync !== false ? 'Disconnect' : 'Connect'}
+                        </button>
+                      </div>
+                    </div>
+                    )}
+
                     {/* Cloud Sync Status */}
                     <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
                       <div className="flex items-center gap-3">
@@ -34348,6 +34512,14 @@ INSTRUCTIONS:
                         {currentUser && cloudSyncEnabled ? '● Syncing' : '○ Not signed in'}
                       </span>
                     </div>
+
+                    {/* Sync Now Button */}
+                    {alpacaPositions.length > 0 && (
+                      <button onClick={syncAlpacaToAll}
+                        className="w-full mt-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-violet-600 to-indigo-600 rounded-lg hover:from-violet-500 hover:to-indigo-500 transition-all flex items-center justify-center gap-2">
+                        🔄 Sync {alpacaPositions.length} Alpaca Position{alpacaPositions.length !== 1 ? 's' : ''} Now
+                      </button>
+                    )}
                   </div>
                 </div>
 
