@@ -6674,118 +6674,153 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // ═══════════════════════════════════════════════════
   // SYNC ALPACA POSITIONS → Journal + Portfolio + Paper Trading
   // ═══════════════════════════════════════════════════
-  const syncAlpacaToAll = () => {
+  const syncAlpacaToAll = (silent = false) => {
     if (!alpacaConfig.connected || alpacaPositions.length === 0) {
-      addNotification('No Alpaca positions to sync', 'info');
+      if (!silent) addNotification('No Alpaca positions to sync', 'info');
       return;
     }
 
-    let journalAdded = 0, portfolioAdded = 0, paperAdded = 0;
+    // Build list of Alpaca position symbols for batch processing
+    const alpacaSymbols = alpacaPositions.map(pos => ({
+      symbol: pos.symbol?.toUpperCase(),
+      qty: Math.abs(parseFloat(pos.qty) || 0),
+      avgEntry: parseFloat(pos.avg_entry_price) || 0,
+      currentPrice: parseFloat(pos.current_price) || parseFloat(pos.avg_entry_price) || 0,
+      side: parseFloat(pos.qty) >= 0 ? 'long' : 'short',
+      pnl: parseFloat(pos.unrealized_pl) || 0,
+      pnlPct: parseFloat(pos.unrealized_plpc) ? parseFloat(pos.unrealized_plpc) * 100 : 0,
+    }));
 
-    for (const pos of alpacaPositions) {
-      const symbol = pos.symbol?.toUpperCase();
-      const qty = Math.abs(parseFloat(pos.qty) || 0);
-      const avgEntry = parseFloat(pos.avg_entry_price) || 0;
-      const currentPrice = parseFloat(pos.current_price) || avgEntry;
-      const side = parseFloat(pos.qty) >= 0 ? 'long' : 'short';
-      const pnl = parseFloat(pos.unrealized_pl) || 0;
-      const pnlPct = parseFloat(pos.unrealized_plpc) ? parseFloat(pos.unrealized_plpc) * 100 : 0;
-
-      // ── SYNC TO JOURNAL ──
-      if (botSettings.journalSync !== false) {
-        const alreadyInJournal = trades.find(t => t.symbol?.toUpperCase() === symbol && t.status === 'open' && t.source === 'auto-bot');
-        if (!alreadyInJournal) {
-          const journalEntry = {
-            id: Date.now() + Math.random(),
-            symbol,
-            side,
-            entry: avgEntry.toFixed(2),
-            exit: '',
-            avgPrice: avgEntry.toFixed(2),
-            stopLoss: '',
-            target: '',
-            quantity: String(qty),
-            entryDate: new Date().toISOString().split('T')[0],
-            exitDate: '',
-            notes: '[Auto Bot] Synced from Alpaca ' + (alpacaConfig.paperMode ? 'Paper' : 'Live'),
-            linkedAnalysisId: null,
-            isPaperTrade: alpacaConfig.paperMode,
-            confidence: '',
-            tags: ['Auto Bot', 'Synced'],
-            pnl: null,
-            pnlPercent: null,
-            status: 'open',
-            source: 'auto-bot',
-          };
-          setTrades(prev => [journalEntry, ...prev]);
-          journalAdded++;
+    // ── SYNC TO JOURNAL (using functional update to avoid stale state) ──
+    if (botSettings.journalSync !== false) {
+      setTrades(prevTrades => {
+        const newEntries = [];
+        for (const pos of alpacaSymbols) {
+          const exists = prevTrades.find(t => t.symbol?.toUpperCase() === pos.symbol && t.status === 'open' && t.source === 'auto-bot');
+          if (!exists) {
+            newEntries.push({
+              id: Date.now() + Math.random(),
+              symbol: pos.symbol,
+              side: pos.side,
+              entry: pos.avgEntry.toFixed(2),
+              exit: '',
+              avgPrice: pos.avgEntry.toFixed(2),
+              stopLoss: '',
+              target: '',
+              quantity: String(pos.qty),
+              entryDate: new Date().toISOString().split('T')[0],
+              exitDate: '',
+              notes: '[Auto Bot] Synced from Alpaca ' + (alpacaConfig.paperMode ? 'Paper' : 'Live'),
+              linkedAnalysisId: null,
+              isPaperTrade: alpacaConfig.paperMode,
+              confidence: '',
+              tags: ['Auto Bot', 'Synced'],
+              pnl: null,
+              pnlPercent: null,
+              status: 'open',
+              source: 'auto-bot',
+            });
+          }
         }
-      }
-
-      // ── SYNC TO PORTFOLIO ──
-      if (botSettings.portfolioSync !== false) {
-        const alreadyInPortfolio = portfolio.find(p => p.symbol?.toUpperCase() === symbol);
-        if (!alreadyInPortfolio) {
-          const newPos = {
-            id: Date.now() + Math.random() + 1,
-            symbol,
-            quantity: qty,
-            avgPrice: avgEntry,
-            currentPrice,
-            totalValue: qty * currentPrice,
-            totalCost: qty * avgEntry,
-            pnl,
-            pnlPercent: pnlPct,
-            notes: '[Auto Bot] Synced from Alpaca',
-            addedAt: new Date().toISOString(),
-            source: 'auto-bot',
-          };
-          setPortfolio(prev => [...prev, newPos]);
-          portfolioAdded++;
-        } else {
-          // Update existing with latest data
-          setPortfolio(prev => prev.map(p => p.symbol?.toUpperCase() === symbol ? {
-            ...p, quantity: qty, avgPrice: avgEntry, currentPrice,
-            totalValue: qty * currentPrice, totalCost: qty * avgEntry,
-            pnl, pnlPercent: pnlPct,
-          } : p));
+        if (newEntries.length > 0) {
+          console.log('[Sync] Adding ' + newEntries.length + ' trades to Journal');
+          return [...newEntries, ...prevTrades];
         }
-      }
+        return prevTrades;
+      });
+    }
 
-      // ── SYNC TO PAPER TRADING ──
-      if (botSettings.paperTradingSync !== false && alpacaConfig.paperMode) {
-        const alreadyInPaper = paperTradingAccount.positions?.find(p => p.symbol?.toUpperCase() === symbol);
-        if (!alreadyInPaper) {
-          setPaperTradingAccount(prev => ({
-            ...prev,
-            positions: [...(prev.positions || []), {
+    // ── SYNC TO PORTFOLIO (using functional update) ──
+    if (botSettings.portfolioSync !== false) {
+      setPortfolio(prevPortfolio => {
+        let updated = [...prevPortfolio];
+        let added = 0;
+        for (const pos of alpacaSymbols) {
+          const existingIdx = updated.findIndex(p => p.symbol?.toUpperCase() === pos.symbol);
+          if (existingIdx === -1) {
+            updated.push({
+              id: Date.now() + Math.random() + 1,
+              symbol: pos.symbol,
+              quantity: pos.qty,
+              avgPrice: pos.avgEntry,
+              currentPrice: pos.currentPrice,
+              totalValue: pos.qty * pos.currentPrice,
+              totalCost: pos.qty * pos.avgEntry,
+              pnl: pos.pnl,
+              pnlPercent: pos.pnlPct,
+              notes: '[Auto Bot] Synced from Alpaca',
+              addedAt: new Date().toISOString(),
+              source: 'auto-bot',
+            });
+            added++;
+          } else {
+            // Update existing with latest Alpaca data
+            updated[existingIdx] = {
+              ...updated[existingIdx],
+              quantity: pos.qty,
+              avgPrice: pos.avgEntry,
+              currentPrice: pos.currentPrice,
+              totalValue: pos.qty * pos.currentPrice,
+              totalCost: pos.qty * pos.avgEntry,
+              pnl: pos.pnl,
+              pnlPercent: pos.pnlPct,
+            };
+          }
+        }
+        if (added > 0) console.log('[Sync] Adding ' + added + ' positions to Portfolio');
+        return updated;
+      });
+    }
+
+    // ── SYNC TO PAPER TRADING (using functional update) ──
+    if (botSettings.paperTradingSync !== false && alpacaConfig.paperMode) {
+      setPaperTradingAccount(prev => {
+        const existingPositions = prev.positions || [];
+        const newPositions = [];
+        for (const pos of alpacaSymbols) {
+          const exists = existingPositions.find(p => p.symbol?.toUpperCase() === pos.symbol);
+          if (!exists) {
+            newPositions.push({
               id: Date.now() + Math.random() + 2,
-              symbol,
-              side: side === 'long' ? 'buy' : 'sell',
-              quantity: qty,
-              entryPrice: avgEntry,
-              currentPrice,
-              pnl,
+              symbol: pos.symbol,
+              side: pos.side === 'long' ? 'buy' : 'sell',
+              quantity: pos.qty,
+              entryPrice: pos.avgEntry,
+              currentPrice: pos.currentPrice,
+              pnl: pos.pnl,
               entryDate: new Date().toISOString(),
               source: 'auto-bot',
-            }],
-          }));
-          paperAdded++;
+            });
+          }
         }
-      }
+        if (newPositions.length > 0) {
+          console.log('[Sync] Adding ' + newPositions.length + ' positions to Paper Trading');
+          return { ...prev, positions: [...existingPositions, ...newPositions] };
+        }
+        return prev;
+      });
     }
 
-    const parts = [];
-    if (journalAdded > 0) parts.push(journalAdded + ' to Journal');
-    if (portfolioAdded > 0) parts.push(portfolioAdded + ' to Portfolio');
-    if (paperAdded > 0) parts.push(paperAdded + ' to Paper Trading');
-    if (parts.length > 0) {
-      addNotification('Synced Alpaca positions: ' + parts.join(', '), 'success');
-    } else {
-      addNotification('All positions already synced', 'info');
+    if (!silent) {
+      addNotification('Synced ' + alpacaPositions.length + ' Alpaca positions to all connected tabs', 'success');
     }
-    console.log('[Sync] Alpaca → Journal: ' + journalAdded + ', Portfolio: ' + portfolioAdded + ', Paper: ' + paperAdded);
+    console.log('[Sync] Alpaca → all tabs complete (' + alpacaPositions.length + ' positions)');
   };
+
+  // ── AUTO-SYNC: Whenever Alpaca positions change, sync to all tabs silently ──
+  const prevAlpacaPosCountRef = useRef(0);
+  useEffect(() => {
+    if (!alpacaConfig.connected || alpacaPositions.length === 0) return;
+    // Only auto-sync when position count changes (new trade placed or position closed)
+    if (alpacaPositions.length !== prevAlpacaPosCountRef.current) {
+      prevAlpacaPosCountRef.current = alpacaPositions.length;
+      // Small delay to let state settle
+      const syncTimer = setTimeout(() => {
+        syncAlpacaToAll(true); // silent sync
+      }, 3000);
+      return () => clearTimeout(syncTimer);
+    }
+  }, [alpacaPositions.length, alpacaConfig.connected]);
 
   // ═══════════════════════════════════════════════════
   // AUTO-SCANNER: Passive Stock Scanning Engine
