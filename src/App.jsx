@@ -3698,6 +3698,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         saved.maxDailyTrades = 20;
         localStorage.setItem('modus_bot_settings', JSON.stringify(saved));
       }
+      // v4: cap maxPositions at 5 to prevent over-diversification and ensure meaningful position sizes
+      if (saved && !saved._v4) {
+        saved._v4 = true;
+        saved.maxPositions = Math.min(saved.maxPositions || 5, 5);
+        localStorage.setItem('modus_bot_settings', JSON.stringify(saved));
+      }
       return saved || {
       minConfidence: 78,
       allowedSignals: ['STRONG_BUY', 'STRONG_SELL'],
@@ -3736,6 +3742,8 @@ Be thorough, educational, and use real price levels based on the data. Every fie
   // Timestamp of last kill switch / reset — trades before this don't count toward daily limits
   const botResetTimestampRef = useRef(null);
   const autoScheduleFiredRef = useRef(null); // Track which day auto-schedule already fired to prevent notification spam
+  const lastBotWarningRef = useRef(0); // Throttle bot warning notifications (timestamp)
+  const preCloseFiredRef = useRef(null); // Track pre-close notification per day
 
   // ═══════════════════════════════════════════════════
   // AUTO-SCANNER STATE
@@ -6312,7 +6320,12 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const minBuyingPower = 100; // Need at least $100 to place any trade
       if (buyingPower < minBuyingPower) {
         console.log('[AutoBot] Insufficient buying power: $' + buyingPower.toFixed(2) + ' (need $' + minBuyingPower + ')');
-        addNotification('Bot paused: Only $' + buyingPower.toFixed(2) + ' buying power left. Waiting for positions to close.', 'warning');
+        // Throttle this notification — only show once every 5 minutes
+        const now = Date.now();
+        if (now - lastBotWarningRef.current > 300000) {
+          lastBotWarningRef.current = now;
+          addNotification('Bot paused: Only $' + buyingPower.toFixed(2) + ' buying power left. Waiting for positions to close.', 'warning');
+        }
         return false;
       }
 
@@ -6342,7 +6355,10 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       const consecutiveLosses = recentTrades.findIndex(t => (t.pnl || 0) >= 0);
       if (consecutiveLosses >= 3 || (consecutiveLosses === -1 && recentTrades.length >= 3)) {
         console.log('[AutoBot] CIRCUIT BREAKER: 3+ consecutive losses, skipping trade');
-        addNotification('Circuit breaker: 3 consecutive losses detected — pausing entries. Review your settings.', 'error');
+        if (Date.now() - lastBotWarningRef.current > 300000) {
+          lastBotWarningRef.current = Date.now();
+          addNotification('Circuit breaker: 3 consecutive losses detected — pausing entries. Review your settings.', 'error');
+        }
         return false;
       }
 
@@ -7188,7 +7204,7 @@ Be thorough, educational, and use real price levels based on the data. Every fie
       return (b.riskReward || 0) - (a.riskReward || 0);
     });
 
-    const MAX_TRADES_PER_SCAN = botSettings.maxPositions; // Fill all available slots
+    const MAX_TRADES_PER_SCAN = 5; // Never open more than 5 positions in a single scan cycle
     const availableSlots = botSettings.maxPositions - alpacaPositions.length;
     const tradeLimit = Math.min(MAX_TRADES_PER_SCAN, availableSlots);
 
@@ -7693,7 +7709,9 @@ Be thorough, educational, and use real price levels based on the data. Every fie
         }
       }
       // ── PRE-CLOSE WARNING: 10 min before close, stop new entries ──
-      if (isWeekday && etMin >= 950 && etMin < 960 && botEnabled && scannerEnabled) {
+      const preCloseKey = etDate.toDateString() + '-preclose';
+      if (isWeekday && etMin >= 950 && etMin < 960 && botEnabled && scannerEnabled && preCloseFiredRef.current !== preCloseKey) {
+        preCloseFiredRef.current = preCloseKey;
         console.log('[AutoSchedule] 10 min to close — disabling scanner (no new entries)');
         setScannerEnabled(false);
         addNotification('10 min to close: Scanner paused — no new trades. Positions sell at 4:00 PM.', 'info');
